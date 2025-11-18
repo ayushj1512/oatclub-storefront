@@ -1,64 +1,122 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
 
 export default function HeroSection() {
+  const slides = [
+    "https://i.pinimg.com/736x/ea/69/53/ea69530394b639d0bf35168e444d6b6e.jpg",
+    "https://i.pinimg.com/736x/d6/20/cf/d620cf73dfc1456a52a9d55578e3da4c.jpg",
+    "https://i.pinimg.com/1200x/05/63/40/056340d333db2634bded08cc18b4666f.jpg",
+  ];
+
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const slideInterval = useRef(null);
+
+  // Touch vars
+  const startX = useRef(0);
+  const endX = useRef(0);
+
+  const startAutoplay = () => {
+    slideInterval.current = setInterval(() => {
+      nextSlide();
+    }, 5000);
+  };
+
+  const stopAutoplay = () => {
+    if (slideInterval.current) clearInterval(slideInterval.current);
+  };
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  const goToSlide = (index) => {
+    setCurrentSlide(index);
+  };
+
+  const handleTouchStart = (e) => {
+    stopAutoplay();
+    startX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    endX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    const diff = startX.current - endX.current;
+    const threshold = 50;
+
+    if (Math.abs(diff) > threshold) {
+      diff > 0 ? nextSlide() : prevSlide();
+    }
+    startAutoplay();
+  };
+
+  useEffect(() => {
+    startAutoplay();
+    return () => stopAutoplay();
+  }, []);
+
   return (
-    <section className="w-full h-[90vh] flex flex-col md:flex-row items-center justify-center bg-gradient-to-r from-white via-gray-50 to-white overflow-hidden">
-      {/* Left content */}
-      <div className="flex-1 flex flex-col justify-center px-8 md:px-16 gap-6">
-        <motion.h1
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          className="text-4xl md:text-6xl font-bold tracking-tight text-gray-900 leading-tight"
-        >
-          Discover Your <span className="text-pink-500">Style</span>
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.7 }}
-          className="text-gray-600 text-lg md:text-xl"
-        >
-          Explore the latest trends in fashion, curated exclusively for you by
-          Miray Fashions.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.7 }}
-          className="flex flex-row gap-4 mt-4"
-        >
-          <button className="bg-gray-900 text-white px-8 py-3 rounded-2xl hover:bg-gray-700 transition">
-            Shop Now
-          </button>
-          <button className="border border-gray-900 text-gray-900 px-8 py-3 rounded-2xl hover:bg-gray-100 transition">
-            Explore
-          </button>
-        </motion.div>
+    <section
+      className="relative w-full overflow-hidden touch-pan-y select-none"
+      style={{ paddingTop: "46.92%" }} // same aspect ratio as Vue
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Slider */}
+      <div
+        className="absolute top-0 left-0 w-full h-full flex transition-transform duration-700 ease-in-out"
+        style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+      >
+        {slides.map((src, index) => (
+          <div key={index} className="w-full h-full flex-shrink-0 relative">
+            <Image
+              src={src}
+              alt={`Slide ${index}`}
+              fill
+              className="object-cover object-center"
+              loading="lazy"
+            />
+          </div>
+        ))}
       </div>
 
-      {/* Right image */}
-      <motion.div
-        initial={{ opacity: 0, x: 60 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 1 }}
-        className="flex-1 flex items-center justify-center"
+      {/* Left Arrow */}
+      <button
+        onClick={prevSlide}
+        className="hidden sm:flex absolute top-1/2 left-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
       >
-        <div className="relative w-full h-[400px] md:h-[600px] flex items-center justify-center">
-          <Image
-            src="/hero-fashion.jpg" // place this in /public
-            alt="Miray Fashion Hero"
-            fill
-            className="object-cover object-center"
-            priority
-          />
-        </div>
-      </motion.div>
+        &#10094;
+      </button>
+
+      {/* Right Arrow */}
+      <button
+        onClick={nextSlide}
+        className="hidden sm:flex absolute top-1/2 right-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
+      >
+        &#10095;
+      </button>
+
+      {/* Dots */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-20">
+        {slides.map((_, index) => (
+          <span
+            key={index}
+            onClick={() => goToSlide(index)}
+            className={`w-3 h-3 rounded-full cursor-pointer ${
+              currentSlide === index ? "bg-white" : "bg-gray-400"
+            }`}
+          ></span>
+        ))}
+      </div>
     </section>
   );
 }

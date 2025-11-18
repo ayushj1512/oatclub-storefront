@@ -1,44 +1,58 @@
+"use client";
+
 import "./globals.css";
 import { Poppins } from "next/font/google";
-import Header from "@/components/layout/Header";
+import DesktopHeader from "@/components/layout/DesktopHeader";
+import MobileHeader from "@/components/layout/MobileHeader";
 import Footer from "@/components/layout/Footer";
 import ScrollToTop from "@/components/layout/ScrollToTop";
-import type { Metadata } from "next";
+import ClientProviders from "@/components/layout/ClientProviders";
+import { useEffect } from "react";
+import { useAuthStore } from "@/store/authStore";
 
-export const metadata: Metadata = {
-  title: "Miray Fashions | Luxury Made Accessible",
-  description:
-    "Explore Miray Fashions – luxury clothing made accessible. Discover timeless Indian designs crafted with love and sustainability.",
-};
-
-// ✅ Load Google Font (Poppins)
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-poppins",
 });
 
-interface RootLayoutProps {
-  children: React.ReactNode; // ✅ Explicitly typed children
+function AuthInit() {
+  const initialize = useAuthStore((state) => state.initialize);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  return null;
 }
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body
-        className={`${poppins.variable} font-sans antialiased bg-white text-gray-900`}
-      >
-        {/* Global Header */}
-        <Header />
+    <html lang="en" className={poppins.variable}>
+      <body className="font-sans antialiased bg-white text-gray-900">
 
-        {/* Main Page Content */}
-        <main className="flex flex-col min-h-screen">{children}</main>
+        {/* Desktop Header */}
+        <div className="hidden md:block">
+          <DesktopHeader />
+        </div>
 
-        {/* Global Footer */}
+        {/* Mobile Header */}
+        <div className="md:hidden">
+          <MobileHeader />
+        </div>
+
+        {/* ⭐ FIXED MAIN — allows sticky header ⭐ */}
+        <main className="bg-white">
+          {children}
+        </main>
+
         <Footer />
 
-        {/* Scroll to Top Button */}
-        <ScrollToTop />
+        <ClientProviders>
+          <AuthInit />
+          <ScrollToTop />
+        </ClientProviders>
+
       </body>
     </html>
   );

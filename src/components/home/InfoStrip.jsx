@@ -1,51 +1,71 @@
 "use client";
 
 import { Truck, Tag, Factory, Diamond } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function InfoStrip() {
   const infos = [
     {
       title: "SHIPPING WITHIN 48 HOURS",
       desc: "Your order will be shipped within 48 hours from the time it is placed!",
-      icon: <Truck className="w-7 h-7 text-pink-500" />,
+      icon: <Truck className="w-9 h-9 text-[#800020]" />,
     },
     {
       title: "5% OFF || FREE DELIVERY",
-      desc: "5% OFF on Pre-paid orders.",
-      icon: <Tag className="w-7 h-7 text-pink-500" />,
+      desc: "5% OFF on pre-paid orders.",
+      icon: <Tag className="w-9 h-9 text-[#800020]" />,
     },
     {
       title: "MADE IN INDIA",
-      desc: "Our products are 100% made in India — from raw fabric to the final product!",
-      icon: <Factory className="w-7 h-7 text-pink-500" />,
+      desc: "100% Indian made — from raw fabric to final stitching!",
+      icon: <Factory className="w-9 h-9 text-[#800020]" />,
     },
     {
       title: "LUXURY FASHION MADE ACCESSIBLE",
-      desc: "High-quality clothing at affordable prices.",
-      icon: <Diamond className="w-7 h-7 text-pink-500" />,
+      desc: "Premium craftsmanship at fair and honest pricing.",
+      icon: <Diamond className="w-9 h-9 text-[#800020]" />,
     },
   ];
 
   return (
-    <section className="w-full flex flex-col bg-white py-10 px-6">
-      <div className="flex flex-col md:flex-row flex-wrap justify-between items-stretch gap-8 md:gap-4">
+    <section className="w-full bg-white py-12 px-4 md:px-8">
+      <div className="flex md:grid md:grid-cols-4 gap-6 overflow-x-auto no-scrollbar md:overflow-visible">
+        
         {infos.map((item, index) => (
-          <div
+          <motion.div
             key={index}
-            className="flex flex-col md:flex-row flex-1 items-center text-center md:text-left bg-gray-50 hover:bg-gray-100 transition rounded-3xl p-6 shadow-sm hover:shadow-md duration-300"
+            whileHover={{ scale: 1.04, y: -4 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
+            className="
+              min-w-[75%] sm:min-w-[55%] md:min-w-0 
+              flex flex-col items-center justify-center
+              
+              bg-white 
+              rounded-2xl 
+              p-6 
+              border border-gray-200
+              shadow-[0_4px_20px_rgba(0,0,0,0.04)]
+              hover:shadow-[0_6px_26px_rgba(128,0,32,0.15)]
+              hover:border-[#80002020]
+
+              text-center transition-all duration-300 flex-1
+            "
           >
-            <div className="flex items-center justify-center mb-3 md:mb-0 md:mr-4">
+            {/* ICON */}
+            <div className="flex items-center justify-center mb-4">
               {item.icon}
             </div>
-            <div className="flex flex-col">
-              <h3 className="font-semibold text-gray-900 text-lg md:text-xl">
-                {item.title}
-              </h3>
-              <p className="text-gray-600 text-sm md:text-base mt-1">
-                {item.desc}
-              </p>
-            </div>
-          </div>
+
+            {/* TITLE */}
+            <h3 className="font-semibold text-black text-lg md:text-xl tracking-tight">
+              {item.title}
+            </h3>
+
+            {/* DESCRIPTION */}
+            <p className="text-gray-600 text-sm md:text-base mt-2 leading-relaxed">
+              {item.desc}
+            </p>
+          </motion.div>
         ))}
       </div>
     </section>

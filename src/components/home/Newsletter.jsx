@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Mail } from "lucide-react";
+import { Mail, ArrowRight, CheckCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function Newsletter() {
   const [email, setEmail] = useState("");
@@ -10,49 +11,89 @@ export default function Newsletter() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!email) return;
-    // TODO: Connect to backend newsletter API (e.g., Mailchimp / custom endpoint)
     setSubmitted(true);
     setEmail("");
   };
 
   return (
-    <section className="w-full bg-gray-50 flex flex-col items-center py-16 px-6 md:px-12 text-center">
-      <div className="max-w-3xl w-full flex flex-col items-center">
-        <Mail className="w-10 h-10 text-pink-500 mb-4" />
-        <h2 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-3">
-          Stay Updated with Miray Fashions
+    <section className="w-full bg-white py-14 px-6 md:px-10 flex justify-center">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        viewport={{ once: true }}
+        className="max-w-xl w-full text-center flex flex-col items-center"
+      >
+        {/* Clean Minimal Icon */}
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="mb-3"
+        >
+          <Mail className="w-10 h-10 text-[#800020]" />
+        </motion.div>
+
+        {/* Simple Heading */}
+        <h2 className="text-xl md:text-2xl font-semibold text-black mb-2 tracking-tight">
+          Stay Updated
         </h2>
-        <p className="text-gray-600 mb-8 text-sm md:text-base">
-          Be the first to know about our new collections, exclusive offers, and
-          style stories straight to your inbox.
+
+        {/* Subtle Subtitle */}
+        <p className="text-gray-600 text-sm leading-relaxed mb-6">
+          Get new arrivals and exclusive offers directly to your inbox.
         </p>
 
+        {/* Form / Success */}
         {!submitted ? (
-          <form
+          <motion.form
             onSubmit={handleSubmit}
-            className="w-full flex flex-col sm:flex-row items-center gap-3 sm:gap-0 bg-white shadow-md rounded-full overflow-hidden max-w-xl"
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="w-full flex bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden"
           >
+            {/* Input */}
             <input
               type="email"
-              placeholder="Enter your email address"
+              placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 px-5 py-3 text-sm text-gray-700 focus:outline-none"
+              className="flex-1 px-4 py-3 text-sm text-gray-800 outline-none placeholder-gray-400"
               required
             />
-            <button
+
+            {/* Button */}
+            <motion.button
               type="submit"
-              className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-3 text-sm font-medium transition rounded-full sm:rounded-none sm:rounded-r-full"
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-5 bg-[#800020] text-white flex items-center justify-center gap-2 text-sm font-medium hover:bg-[#990028] transition-colors"
             >
               Subscribe
-            </button>
-          </form>
+              <motion.div
+                initial={{ x: -4 }}
+                whileHover={{ x: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                <ArrowRight className="w-4 h-4" />
+              </motion.div>
+            </motion.button>
+          </motion.form>
         ) : (
-          <p className="text-green-600 font-medium mt-4">
-            🎉 Thank you for subscribing!
-          </p>
+          // SUCCESS STATE
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="flex items-center gap-2 mt-4 text-[#800020] bg-white border border-gray-200 px-4 py-3 rounded-xl shadow-sm"
+          >
+            <CheckCircle className="w-5 h-5" />
+            <span className="text-sm font-medium">You're subscribed!</span>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </section>
   );
 }

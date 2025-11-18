@@ -1,49 +1,138 @@
 "use client";
 
 import Link from "next/link";
-import { Facebook, Instagram, Twitter, Mail } from "lucide-react";
+import { useState } from "react";
+import {
+  Facebook,
+  Instagram,
+  Twitter,
+  Mail,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 export default function Footer() {
+  const [openSection, setOpenSection] = useState(null);
+
+  const toggleSection = (section) => {
+    setOpenSection(openSection === section ? null : section);
+  };
+
   return (
-    <footer className="w-full flex flex-col bg-gray-900 text-gray-200 py-10 px-8 mt-16">
-      {/* Top Section */}
-      <div className="flex flex-col md:flex-row justify-between gap-8">
+    <footer className="w-full bg-black text-gray-300 pt-10 px-6 md:px-12 mt-16">
+      {/* 🖥️ Desktop Layout */}
+      <div className="hidden md:grid grid-cols-4 gap-10 max-w-7xl mx-auto">
         {/* Logo + Info */}
         <div className="flex flex-col gap-4">
-          <h2 className="text-2xl font-bold tracking-tight">
-            MIRAY<span className="text-pink-500">.</span>
+          <h2 className="text-2xl font-bold tracking-tight text-white">
+            MIRAY<span className="text-[#800020]">.</span>
           </h2>
           <p className="text-gray-400 text-sm max-w-sm">
-            Redefining fashion with elegance and modern style. Discover curated collections that inspire confidence.
+            Redefining fashion with elegance and modern style. Discover curated
+            collections that inspire confidence.
           </p>
         </div>
 
         {/* Quick Links */}
         <div className="flex flex-col gap-2">
           <h3 className="text-lg font-semibold mb-2 text-white">Quick Links</h3>
-          <Link href="/" className="hover:text-pink-400">Home</Link>
-          <Link href="/categories" className="hover:text-pink-400">Shop</Link>
-          <Link href="/about" className="hover:text-pink-400">About Us</Link>
-          <Link href="/contact" className="hover:text-pink-400">Contact</Link>
+          <Link href="/" className="hover:text-[#800020]">Home</Link>
+          <Link href="/categories" className="hover:text-[#800020]">Shop</Link>
+          <Link href="/about" className="hover:text-[#800020]">About Us</Link>
+          <Link href="/contact" className="hover:text-[#800020]">Contact</Link>
         </div>
 
         {/* Support */}
         <div className="flex flex-col gap-2">
           <h3 className="text-lg font-semibold mb-2 text-white">Support</h3>
-          <Link href="/faq" className="hover:text-pink-400">FAQs</Link>
-          <Link href="/shipping" className="hover:text-pink-400">Shipping</Link>
-          <Link href="/returns" className="hover:text-pink-400">Returns</Link>
-          <Link href="/privacy" className="hover:text-pink-400">Privacy Policy</Link>
+          <Link href="/faq" className="hover:text-[#800020]">FAQs</Link>
+          <Link href="/shipping" className="hover:text-[#800020]">Shipping</Link>
+          <Link href="/returns" className="hover:text-[#800020]">Returns</Link>
+          <Link href="/privacy" className="hover:text-[#800020]">Privacy Policy</Link>
         </div>
 
         {/* Social */}
         <div className="flex flex-col gap-2">
           <h3 className="text-lg font-semibold mb-2 text-white">Follow Us</h3>
           <div className="flex flex-row gap-4">
-            <a href="#" className="hover:text-pink-400"><Instagram /></a>
-            <a href="#" className="hover:text-pink-400"><Facebook /></a>
-            <a href="#" className="hover:text-pink-400"><Twitter /></a>
-            <a href="mailto:info@mirayfashions.com" className="hover:text-pink-400"><Mail /></a>
+            <a href="#" className="hover:text-[#800020]"><Instagram /></a>
+            <a href="#" className="hover:text-[#800020]"><Facebook /></a>
+            <a href="#" className="hover:text-[#800020]"><Twitter /></a>
+            <a href="mailto:info@mirayfashions.com" className="hover:text-[#800020]"><Mail /></a>
+          </div>
+        </div>
+      </div>
+
+      {/* 📱 Mobile Layout */}
+      <div className="md:hidden flex flex-col gap-6 max-w-md mx-auto">
+        {/* Logo */}
+        <div className="flex flex-col items-center text-center gap-3">
+          <h2 className="text-2xl font-bold tracking-tight text-white">
+            MIRAY<span className="text-[#800020]">.</span>
+          </h2>
+          <p className="text-gray-400 text-sm max-w-xs">
+            Redefining fashion with elegance and modern style. Discover curated
+            collections that inspire confidence.
+          </p>
+        </div>
+
+        {/* Expandable Sections */}
+        <div className="divide-y divide-gray-800 border-t border-b border-gray-800">
+          {/* Quick Links */}
+          <div>
+            <button
+              onClick={() => toggleSection("quick")}
+              className="w-full flex justify-between items-center py-3 text-left text-white"
+            >
+              <span className="text-lg font-semibold">Quick Links</span>
+              {openSection === "quick" ? <ChevronUp /> : <ChevronDown />}
+            </button>
+            {openSection === "quick" && (
+              <div className="flex flex-col gap-2 pb-3 pl-2 text-gray-400">
+                <Link href="/" className="hover:text-[#800020]">Home</Link>
+                <Link href="/categories" className="hover:text-[#800020]">Shop</Link>
+                <Link href="/about" className="hover:text-[#800020]">About Us</Link>
+                <Link href="/contact" className="hover:text-[#800020]">Contact</Link>
+              </div>
+            )}
+          </div>
+
+          {/* Support */}
+          <div>
+            <button
+              onClick={() => toggleSection("support")}
+              className="w-full flex justify-between items-center py-3 text-left text-white"
+            >
+              <span className="text-lg font-semibold">Support</span>
+              {openSection === "support" ? <ChevronUp /> : <ChevronDown />}
+            </button>
+            {openSection === "support" && (
+              <div className="flex flex-col gap-2 pb-3 pl-2 text-gray-400">
+                <Link href="/faq" className="hover:text-[#800020]">FAQs</Link>
+                <Link href="/shipping" className="hover:text-[#800020]">Shipping</Link>
+                <Link href="/returns" className="hover:text-[#800020]">Returns</Link>
+                <Link href="/privacy" className="hover:text-[#800020]">Privacy Policy</Link>
+              </div>
+            )}
+          </div>
+
+          {/* Social */}
+          <div>
+            <button
+              onClick={() => toggleSection("social")}
+              className="w-full flex justify-between items-center py-3 text-left text-white"
+            >
+              <span className="text-lg font-semibold">Follow Us</span>
+              {openSection === "social" ? <ChevronUp /> : <ChevronDown />}
+            </button>
+            {openSection === "social" && (
+              <div className="flex flex-row justify-start gap-4 pb-4 pl-2 text-gray-200">
+                <a href="#" className="hover:text-[#800020]"><Instagram /></a>
+                <a href="#" className="hover:text-[#800020]"><Facebook /></a>
+                <a href="#" className="hover:text-[#800020]"><Twitter /></a>
+                <a href="mailto:info@mirayfashions.com" className="hover:text-[#800020]"><Mail /></a>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* ------------------------------ */
+/* Root Variables (Theme Tokens)  */
+/* ------------------------------ */
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -8,19 +11,61 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+
+  /* Uses Poppins from next/font */
+  --font-sans: var(--font-poppins);
   --font-mono: var(--font-geist-mono);
 }
 
+/* Auto Dark Mode */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground: #e4e4e4;
   }
 }
 
+/* Base */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+/* ------------------------------ */
+/* Global Scrollbar Removal       */
+/* ------------------------------ */
+
+/* Chrome / Safari / Edge */
+::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* Utility */
+.no-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+@keyframes dropdown-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-dropdown {
+  animation: dropdown-slide 0.2s ease-out;
 }
