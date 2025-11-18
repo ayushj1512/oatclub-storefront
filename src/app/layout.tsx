@@ -10,12 +10,16 @@ import ClientProviders from "@/components/layout/ClientProviders";
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
 
+// Load Google Font (Poppins)
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-poppins",
 });
 
+// ------------------------------
+// 🔥 INIT AUTH STORE COMPONENT
+// ------------------------------
 function AuthInit() {
   const initialize = useAuthStore((state) => state.initialize);
 
@@ -26,7 +30,14 @@ function AuthInit() {
   return null;
 }
 
-export default function RootLayout({ children }) {
+// ------------------------------
+// 📌 FIXED → types for children
+// ------------------------------
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" className={poppins.variable}>
       <body className="font-sans antialiased bg-white text-gray-900">
@@ -41,18 +52,19 @@ export default function RootLayout({ children }) {
           <MobileHeader />
         </div>
 
-        {/* ⭐ FIXED MAIN — allows sticky header ⭐ */}
-        <main className="bg-white">
+        {/* Main Content */}
+        <main className="flex flex-col min-h-screen bg-white">
           {children}
         </main>
 
+        {/* Footer */}
         <Footer />
 
+        {/* Scroll + Toast + Auth Providers */}
         <ClientProviders>
           <AuthInit />
           <ScrollToTop />
         </ClientProviders>
-
       </body>
     </html>
   );
