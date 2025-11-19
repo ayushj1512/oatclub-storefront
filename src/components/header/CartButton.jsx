@@ -15,26 +15,25 @@ export default function CartButton() {
   const dropdownRef = useRef(null);
   const router = useRouter();
 
-  // Trigger animation on cart updates
+  // Animation effect when cart updates
   useEffect(() => {
-    if (!items || cartCount === 0) return;
+    if (!cartCount) return;
     setAnimate(true);
-    const timer = setTimeout(() => setAnimate(false), 650);
+    const timer = setTimeout(() => setAnimate(false), 500);
     return () => clearTimeout(timer);
   }, [cartCount]);
 
-  // Close dropdown on outside click
+  // Click outside to close
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    const onClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  // Navigate to cart on click
   const goToCart = () => {
     setOpen(false);
     router.push("/cart");
@@ -42,40 +41,47 @@ export default function CartButton() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* ICON */}
+      {/* Icon Button */}
       <button
-        onMouseEnter={() => setOpen(true)}
         onClick={goToCart}
-        className="relative group"
+        onMouseEnter={() => setOpen(true)}
+        className="relative p-1"
       >
-        <div
-          className={`transition-all duration-300 ${
-            animate ? "scale-[1.25] text-[#800020]" : "text-gray-700"
-          } group-hover:text-[#800020]`}
-        >
-          <ShoppingBag
-            className={`w-5 h-5 transition-all duration-300 ${
-              cartCount > 0 ? "fill-[#800020] text-[#800020]" : ""
-            }`}
-          />
-          {animate && (
-            <span className="absolute inset-0 animate-cart-burst pointer-events-none"></span>
-          )}
-        </div>
+        <ShoppingBag
+          className={`
+            w-6 h-6 transition-all duration-300 
+            ${animate ? "scale-125 text-[#800020]" : "text-gray-700"}
+            hover:text-[#800020]
+          `}
+        />
 
-        {/* BADGE */}
+        {/* Badge */}
         {cartCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-[#800020] text-white text-xs rounded-full px-1.5 py-[1px] shadow-md">
+          <span
+            className="
+              absolute -top-1.5 -right-1.5 
+              bg-[#800020] text-white 
+              text-[10px] font-medium 
+              rounded-full min-w-[18px] h-[18px] 
+              flex items-center justify-center 
+              shadow-md
+            "
+          >
             {cartCount}
           </span>
         )}
       </button>
 
-      {/* DROPDOWN */}
+      {/* Dropdown */}
       {open && (
         <div
           onMouseLeave={() => setOpen(false)}
-          className="absolute right-0 mt-3 w-72 bg-white shadow-xl border border-gray-200 rounded-xl p-4 animate-dropdown z-50"
+          className="
+            absolute right-0 mt-3 w-72 
+            bg-white shadow-xl border border-gray-200 
+            rounded-xl p-4 z-50 
+            animate-[fadeIn_.25s_ease-out]
+          "
         >
           <h3 className="text-sm font-semibold text-gray-800 mb-3">
             Cart Items
@@ -93,10 +99,11 @@ export default function CartButton() {
                   <img
                     src={item.image}
                     alt={item.name}
-                    className="w-12 h-12 rounded object-cover"
+                    className="w-12 h-12 rounded-md object-cover"
                   />
+
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-800">
+                    <p className="text-sm font-medium text-gray-800 truncate">
                       {item.name}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -110,14 +117,17 @@ export default function CartButton() {
 
           <button
             onClick={goToCart}
-            className="w-full bg-[#800020] text-white py-2 mt-4 rounded-lg text-sm font-medium hover:opacity-90 transition"
+            className="
+              w-full bg-[#800020] text-white 
+              py-2 mt-4 rounded-lg text-sm 
+              font-medium hover:opacity-95 
+              active:scale-95 transition
+            "
           >
             Go to Cart
           </button>
         </div>
       )}
-
-   
     </div>
   );
 }

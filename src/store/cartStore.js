@@ -3,79 +3,95 @@
 import { create } from "zustand";
 import Cookies from "js-cookie";
 
-const COOKIE_KEY = "cart_products";
+const KEY = "cart_products";
 
 export const useCartStore = create((set, get) => ({
   items: [],
 
-  // ✅ Load cart from cookies
+  // INIT
   initialize: () => {
+    console.log("🟡 Cart Init");
     if (typeof window === "undefined") return;
-    const stored = Cookies.get(COOKIE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        set({ items: parsed });
-      } catch (err) {
-        console.error("Error parsing cart cookie:", err);
+
+    const stored = Cookies.get(KEY);
+    if (!stored) return console.log("ℹ️ No cart cookie found");
+
+    try {
+      const data = JSON.parse(stored);
+      if (Array.isArray(data)) {
+        console.log("🟢 Loaded cart from cookie:", data);
+        set({ items: data });
       }
+    } catch (e) {
+      console.error("❌ Cookie parse error:", e);
     }
   },
 
-  // ✅ Add product to cart
+  // ADD
   addToCart: (product, qty = 1) => {
-    if (!product || !product.id) return;
+    console.log("➕ Add to Cart:", product, "Qty:", qty);
+    if (!product?.id) return console.log("❌ No product ID");
 
-    const current = get().items;
-    const exists = current.find((p) => p.id === product.id);
+    const curr = get().items;
+    const exists = curr.find((p) => p.id === product.id);
 
-    let updated;
-
-    if (exists) {
-      updated = current.map((p) =>
-        p.id === product.id ? { ...p, qty: p.qty + qty } : p
-      );
-    } else {
-      updated = [{ ...product, qty }, ...current];
-    }
+    const updated = exists
+      ? curr.map((p) => (p.id === product.id ? { ...p, qty: p.qty + qty } : p))
+      : [{ ...product, qty }, ...curr];
 
     set({ items: updated });
-    Cookies.set(COOKIE_KEY, JSON.stringify(updated), { expires: 7 });
+    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+    console.log("🛒 Updated Cart:", updated);
   },
 
-  // ✅ Remove product from cart
+  // REMOVE
   removeFromCart: (id) => {
+    console.log("🗑 Remove Item:", id);
     const updated = get().items.filter((p) => p.id !== id);
     set({ items: updated });
-    Cookies.set(COOKIE_KEY, JSON.stringify(updated), { expires: 7 });
+    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+    console.log("🛒 After Remove:", updated);
   },
 
-  // ✅ Update quantity (min 1)
+  // UPDATE QTY
   updateQty: (id, qty) => {
+    console.log("🔄 Update Qty:", id, "→", qty);
     if (qty < 1) qty = 1;
+
     const updated = get().items.map((p) =>
       p.id === id ? { ...p, qty } : p
     );
+
     set({ items: updated });
-    Cookies.set(COOKIE_KEY, JSON.stringify(updated), { expires: 7 });
+    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+    console.log("🛒 After Qty Update:", updated);
   },
 
-  // ✅ Clear entire cart
+  // CLEAR
   clearCart: () => {
+    console.log("🧹 Clear Cart");
     set({ items: [] });
-    Cookies.remove(COOKIE_KEY);
+    Cookies.remove(KEY);
   },
 
-  // ✅ Compute total items count
   totalCount: () => {
-    return get().items.reduce((acc, item) => acc + item.qty, 0);
+    const count = get().items.reduce((s, i) => s + i.qty, 0);
+    console.log("📦 Total Count:", count);
+    return count;
   },
 
-  // ✅ Compute total price
   totalPrice: () => {
-    return get().items.reduce((acc, item) => {
-      const priceNum = parseFloat(item.price?.replace(/[₹,]/g, "")) || 0;
-      return acc + priceNum * item.qty;
+    const total = get().items.reduce((sum, item) => {
+      const price =
+        typeof item.price === "string"
+          ? parseFloat(item.price.replace(/[₹,]/g, "")) || 0
+          : parseFloat(item.price) || 0;
+
+      return sum + price * item.qty;
     }, 0);
+
+    console.log("💰 Total Price:", total);
+    return total;
   },
 }));

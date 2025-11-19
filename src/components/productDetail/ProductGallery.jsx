@@ -12,7 +12,7 @@ export default function ProductGallery({ images = [] }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Main Image */}
-      <div className="relative w-full aspect-square bg-gray-100 rounded-3xl overflow-hidden shadow-sm">
+      <div className="relative w-full aspect-square bg-gray-100 rounded-3xl overflow-hidden shadow-sm flex items-center justify-center">
         <AnimatePresence mode="wait">
           <motion.div
             key={selectedImage}
@@ -20,13 +20,13 @@ export default function ProductGallery({ images = [] }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="relative w-full h-full"
+            className="relative w-full h-full flex items-center justify-center"
           >
             <Image
               src={selectedImage}
               alt="Product Image"
               fill
-              className="object-cover object-center transition-transform duration-500 hover:scale-105"
+              className="object-contain object-center transition-transform duration-500 hover:scale-105"
             />
           </motion.div>
         </AnimatePresence>
@@ -38,7 +38,7 @@ export default function ProductGallery({ images = [] }) {
           <button
             key={index}
             onClick={() => setSelectedImage(img)}
-            className={`relative w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden border-2 transition ${
+            className={`relative w-20 h-20 md:w-24 md:h-24 bg-transparent rounded-xl overflow-hidden border-2 transition flex items-center justify-center ${
               selectedImage === img
                 ? "border-pink-500 shadow-md"
                 : "border-transparent hover:border-gray-300"
@@ -48,7 +48,7 @@ export default function ProductGallery({ images = [] }) {
               src={img}
               alt={`Thumbnail ${index + 1}`}
               fill
-              className="object-cover object-center"
+              className="object-contain object-center"
             />
           </button>
         ))}

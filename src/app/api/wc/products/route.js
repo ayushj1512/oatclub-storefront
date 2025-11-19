@@ -17,7 +17,7 @@ export async function GET() {
 
     // WooCommerce Basic Auth (recommended for server-side)
     const auth = Buffer.from(
-      `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
+      `${process.env.NEXT_PUBLIC_WC_KEY}:${process.env.NEXT_PUBLIC_WC_SECRET}`
     ).toString("base64");
 
     const res = await fetch(url, {
