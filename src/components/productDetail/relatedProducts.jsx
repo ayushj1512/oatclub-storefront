@@ -6,11 +6,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function RelatedProducts({ productId }) {
   const [related, setRelated] = useState([]);
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);
 
   useEffect(() => {
     async function fetchRelated() {
       try {
+        // STEP 1: Fetch the main product to get categories
         const resProduct = await fetch(
           `${process.env.NEXT_PUBLIC_WC_URL}/wp-json/wc/v3/products/${productId}?consumer_key=${process.env.NEXT_PUBLIC_WC_KEY}&consumer_secret=${process.env.NEXT_PUBLIC_WC_SECRET}`
         );
@@ -18,22 +20,43 @@ export default function RelatedProducts({ productId }) {
         const productData = await resProduct.json();
         const categoryIds = productData.categories?.map((c) => c.id) || [];
 
-        if (!categoryIds.length) return;
+        if (!categoryIds.length) {
+          setRelated([]);
+          return;
+        }
 
+        // STEP 2: Fetch related products from same category
         const resRelated = await fetch(
           `${process.env.NEXT_PUBLIC_WC_URL}/wp-json/wc/v3/products?category=${categoryIds[0]}&exclude=${productId}&per_page=20&consumer_key=${process.env.NEXT_PUBLIC_WC_KEY}&consumer_secret=${process.env.NEXT_PUBLIC_WC_SECRET}`
         );
 
         const products = await resRelated.json();
-        setRelated(products);
+
+        // Map to unify format for ProductCard
+        const mapped = products.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: Number(p.price || 0),
+          images: p.images || [],
+          on_sale: p.on_sale || false,
+          categories: p.categories || [],
+          tags: p.tags || [],
+          sale_price: p.sale_price || null,
+          regular_price: p.regular_price || null,
+        }));
+
+        setRelated(mapped);
       } catch (err) {
         console.error("Related product fetch error:", err);
+      } finally {
+        setLoading(false);
       }
     }
 
     fetchRelated();
   }, [productId]);
 
+  // Horizontal scroll
   const scroll = (direction) => {
     if (!scrollRef.current) return;
     const { scrollLeft, clientWidth } = scrollRef.current;
@@ -45,8 +68,39 @@ export default function RelatedProducts({ productId }) {
     });
   };
 
+  // =============================
+  //   LOADING STATE (SHIMMER)
+  // =============================
+  if (loading) {
+    return (
+      <section className="mt-20 px-4 md:px-6 w-full relative flex flex-col">
+        <div className="flex justify-between items-center mb-6 w-full">
+          <h2 className="text-2xl md:text-3xl font-semibold text-gray-900 tracking-tight">
+            Related Products
+          </h2>
+        </div>
+
+        {/* Shimmer Row */}
+        <div className="flex gap-6 overflow-x-auto scrollbar-hide pb-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={`shimmer-${i}`}
+              className="min-w-[200px] md:min-w-[240px] flex-shrink-0"
+            >
+              <ProductCard loading={true} />
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  // No related → don't show section
   if (!related.length) return null;
 
+  // =============================
+  //   RENDER RELATED PRODUCTS
+  // =============================
   return (
     <section className="mt-20 px-4 md:px-6 w-full relative flex flex-col">
       {/* Header */}
@@ -76,7 +130,7 @@ export default function RelatedProducts({ productId }) {
       <div className="pointer-events-none absolute top-0 left-0 h-full w-10 bg-gradient-to-r from-white to-transparent"></div>
       <div className="pointer-events-none absolute top-0 right-0 h-full w-10 bg-gradient-to-l from-white to-transparent"></div>
 
-      {/* FULL-WIDTH FLEX SCROLL ROW */}
+      {/* Scroll Row */}
       <div
         ref={scrollRef}
         className="flex gap-6 overflow-x-auto w-full scrollbar-hide snap-x snap-mandatory scroll-smooth pb-4"

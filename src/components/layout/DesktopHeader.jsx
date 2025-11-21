@@ -22,7 +22,7 @@ export default function DesktopHeader() {
   };
 
   return (
-    <header className="hidden md:flex bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
+    <header className="hidden md:flex bg-white shadow-sm fixed top-0 left-0 w-full z-50 border-b border-gray-100">
       <div className="w-full flex items-center justify-between px-10 py-4">
 
         {/* LEFT: HAMBURGER + LOGO */}
@@ -40,7 +40,7 @@ export default function DesktopHeader() {
 
             {/* CATEGORY DROPDOWN */}
             {showCategories && (
-              <div className="absolute top-12 bg-white shadow-xl border border-gray-100 rounded-xl w-64 z-50 animate-dropdown">
+              <div className="absolute top-12 bg-white shadow-xl border border-gray-100 rounded-xl w-64 z-50">
                 {["Sarees", "Lehengas", "Kurtis", "Accessories"].map((cat) => (
                   <Link
                     key={cat}
@@ -88,5 +88,3 @@ export default function DesktopHeader() {
     </header>
   );
 }
-
-

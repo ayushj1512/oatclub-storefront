@@ -1,5 +1,9 @@
 "use client";
 
+import Script from "next/script";
+import { generateSEO } from "@/utils/seoConfig";
+
+// ⭐ NORMAL IMPORTS (safe – no SSR issues)
 import HeroSection from "@/components/home/HeroSection";
 import CategoryRow from "@/components/home/CategoryRow";
 import StyleByOccasion from "@/components/home/StyleByOccasion";
@@ -10,10 +14,10 @@ import InfoStrip from "@/components/home/InfoStrip";
 import OurMission from "@/components/home/OurMission";
 import Newsletter from "@/components/home/Newsletter";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
-import { generateSEO } from "@/utils/seoConfig";
 import TrendingSection from "@/components/home/TrendingSection";
 
-import Script from "next/script";
+// ⭐ NEW ON-FIRE SECTION
+import OnFireSection from "@/components/home/OnFireSection";
 
 export default function HomeClient() {
   const { structuredData } = generateSEO({
@@ -39,18 +43,46 @@ export default function HomeClient() {
 
       <main className="flex flex-col w-full overflow-x-hidden bg-white text-gray-900">
 
-        <div className="pt-8">    <CategoryRow /></div>
+        {/* CATEGORY ROW */}
+        <div className="pt-8">
+          <CategoryRow />
+        </div>
+
+        {/* HERO */}
         <HeroSection />
 
+        {/* STYLE BY OCCASION */}
         <StyleByOccasion />
+
+        {/* BANNER */}
         <Banner />
+
+        {/* TRENDING SECTION */}
         <TrendingSection />
+
+        {/* 🔥🔥 ON FIRE SECTION ADDED HERE 🔥🔥 */}
+        <OnFireSection
+          title="🔥 On Fire Picks"
+          products={[]} // ⚠️ replace with your real product array later
+          loading={false}
+        />
+
+        {/* VIDEOS */}
         <VideoRow />
 
+        {/* BLOGS */}
         <BlogSection />
+
+        {/* RECENTLY VIEWED */}
         <RecentlyViewed />
+
+        {/* INFO STRIP */}
         <InfoStrip />
+
+        {/* OUR MISSION */}
         <OurMission />
+
+        {/* NEWSLETTER */}
         <Newsletter />
       </main>
     </>

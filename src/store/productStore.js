@@ -6,79 +6,138 @@ import { persist } from "zustand/middleware";
 export const useProductStore = create(
   persist(
     (set, get) => ({
-      products: [],
+      allProducts: [],
+      visibleProducts: [],
       filteredProducts: [],
+
       searchQuery: "",
       selectedCategory: "all",
       sortOption: "default",
+
+      visibleCount: 20,
+      LOAD_STEP: 20,
+
       isLoading: false,
       error: null,
 
-      // -------------------------------
-      // 🔹 Fetch products (from API)
-      // -------------------------------
-      fetchProducts: async () => {
-        try {
-          set({ isLoading: true, error: null });
-          const res = await fetch("/api/products");
-          const data = await res.json();
+      // =========================================================
+      // 🔥 FIXED — FETCH PRODUCTS FROM THE RIGHT ENDPOINT
+      // =========================================================
+    fetchProducts: async () => {
+  try {
+    set({ isLoading: true, error: null });
 
-          set({
-            products: data,
-            filteredProducts: data,
-            isLoading: false,
-          });
-        } catch (err) {
-          console.error("Error fetching products:", err);
-          set({ error: "Failed to load products", isLoading: false });
-        }
+    const res = await fetch("/api/wc/products", {
+      cache: "no-store",
+    });
+
+    let data = await res.json();
+
+    if (!Array.isArray(data)) {
+      console.error("Invalid WooCommerce response:", data);
+      data = [];
+    }
+
+    // ⭐ NORMALIZE ALL PRODUCTS FOR YOUR UI
+    const mapped = data.map((p) => ({
+      id: p.id,
+      name: p.name || "",
+      slug: p.slug || p.id,
+      price: Number(p.price || 0),
+      description: p.short_description?.replace(/<[^>]+>/g, "") || "",
+      category: p.categories?.[0]?.slug || "uncategorized",
+      image: p.images?.[0]?.src || "/placeholder.png",
+      images: p.images || [],
+      onSale: p.on_sale,
+      regularPrice: Number(p.regular_price || p.price),
+      dateCreated: p.date_created,
+    }));
+
+    const initialChunk = mapped.slice(0, get().LOAD_STEP);
+
+    set({
+      allProducts: mapped,
+      visibleProducts: initialChunk,
+      filteredProducts: initialChunk,
+      visibleCount: initialChunk.length,
+      isLoading: false,
+    });
+
+  } catch (err) {
+    console.error("❌ Error fetching products:", err);
+    set({ error: "Failed to load products", isLoading: false });
+  }
+},
+
+
+      // =========================================================
+      // LOAD MORE
+      // =========================================================
+      loadMore: () => {
+        const { visibleCount, LOAD_STEP, allProducts } = get();
+        const newCount = visibleCount + LOAD_STEP;
+        const newVisible = allProducts.slice(0, newCount);
+
+        set({
+          visibleCount: newCount,
+          visibleProducts: newVisible,
+        });
+
+        get().applyFilters();
       },
 
-      // -------------------------------
-      // 🔹 Search by text
-      // -------------------------------
+      hasMore: () => {
+        const { visibleCount, allProducts } = get();
+        return visibleCount < allProducts.length;
+      },
+
+      // =========================================================
+      // SEARCH / CATEGORY / SORT
+      // =========================================================
       setSearchQuery: (query) => {
         set({ searchQuery: query });
         get().applyFilters();
       },
 
-      // -------------------------------
-      // 🔹 Filter by category
-      // -------------------------------
       setCategory: (category) => {
         set({ selectedCategory: category });
         get().applyFilters();
       },
 
-      // -------------------------------
-      // 🔹 Sort products
-      // -------------------------------
       setSortOption: (option) => {
         set({ sortOption: option });
         get().applyFilters();
       },
 
-      // -------------------------------
-      // 🔹 Core Filtering Logic
-      // -------------------------------
+      // =========================================================
+      // FILTER + SORT (ALWAYS RUNS ON visibleProducts)
+      // =========================================================
       applyFilters: () => {
-        const { products, searchQuery, selectedCategory, sortOption } = get();
-        let filtered = [...products];
+        const {
+          visibleProducts,
+          searchQuery,
+          selectedCategory,
+          sortOption,
+        } = get();
 
-        // Text search
+        let filtered = [...visibleProducts];
+
+        // Search
         if (searchQuery) {
-          const query = searchQuery.toLowerCase();
+          const q = searchQuery.toLowerCase();
           filtered = filtered.filter(
             (p) =>
-              p.name.toLowerCase().includes(query) ||
-              p.description?.toLowerCase().includes(query)
+              p.name?.toLowerCase().includes(q) ||
+              p.description?.toLowerCase().includes(q)
           );
         }
 
-        // Category filter
+        // Category
         if (selectedCategory !== "all") {
           filtered = filtered.filter(
-            (p) => p.category?.toLowerCase() === selectedCategory.toLowerCase()
+            (p) =>
+              p.categories?.[0]?.slug?.toLowerCase() ===
+              selectedCategory.toLowerCase()
           );
         }
 
@@ -87,12 +146,17 @@ export const useProductStore = create(
           case "priceLowHigh":
             filtered.sort((a, b) => a.price - b.price);
             break;
+
           case "priceHighLow":
             filtered.sort((a, b) => b.price - a.price);
             break;
+
           case "newest":
-            filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            filtered.sort(
+              (a, b) => new Date(b.date_created) - new Date(a.date_created)
+            );
             break;
+
           default:
             break;
         }
@@ -100,38 +164,44 @@ export const useProductStore = create(
         set({ filteredProducts: filtered });
       },
 
-      // -------------------------------
-      // 🔹 Add or Update Product (Admin)
-      // -------------------------------
+      // UPSERT PRODUCT
       upsertProduct: (product) => {
-        const { products } = get();
-        const index = products.findIndex((p) => p.id === product.id);
+        const current = get().allProducts;
+        const index = current.findIndex((p) => p.id === product.id);
 
-        let updatedProducts;
+        let updated;
         if (index >= 0) {
-          updatedProducts = [...products];
-          updatedProducts[index] = product;
+          updated = [...current];
+          updated[index] = product;
         } else {
-          updatedProducts = [...products, product];
+          updated = [...current, product];
         }
 
-        set({ products: updatedProducts });
+        set({ allProducts: updated });
+
+        const newVisible = updated.slice(0, get().visibleCount);
+        set({ visibleProducts: newVisible });
+
         get().applyFilters();
       },
 
-      // -------------------------------
-      // 🔹 Remove Product
-      // -------------------------------
+      // REMOVE PRODUCT
       removeProduct: (id) => {
-        const updated = get().products.filter((p) => p.id !== id);
-        set({ products: updated });
+        const updated = get().allProducts.filter((p) => p.id !== id);
+
+        set({ allProducts: updated });
+
+        const newVisible = updated.slice(0, get().visibleCount);
+        set({ visibleProducts: newVisible });
+
         get().applyFilters();
       },
     }),
+
     {
       name: "product-store",
       partialize: (state) => ({
-        products: state.products,
+        allProducts: state.allProducts,
         selectedCategory: state.selectedCategory,
         sortOption: state.sortOption,
       }),

@@ -6,7 +6,7 @@ import { useWishlistStore } from "@/store/wishlistStore";
 import { useCartStore } from "@/store/cartStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 
-export default function ProductGrid({ products = [], title }) {
+export default function ProductGrid({ products = [], title, loading = false }) {
   const { initialize: initWishlist } = useWishlistStore();
   const { initialize: initCart } = useCartStore();
   const { initialize: initViewed } = useRecentlyViewedStore();
@@ -18,6 +18,9 @@ export default function ProductGrid({ products = [], title }) {
     initViewed();
   }, [initWishlist, initCart, initViewed]);
 
+  // Number of shimmer cards while loading
+  const shimmerCount = 12;
+
   return (
     <section className="w-full flex flex-col items-center py-4 px-3 md:px-6 bg-white">
       {/* Title */}
@@ -27,8 +30,36 @@ export default function ProductGrid({ products = [], title }) {
         </h2>
       )}
 
-      {/* FLEX Product Layout */}
-      {products.length > 0 ? (
+      {/* Loading State → Shimmer Cards */}
+      {loading && (
+        <div
+          className="
+            flex flex-wrap justify-center 
+            gap-3 sm:gap-4 md:gap-5 
+            w-full
+          "
+        >
+          {Array.from({ length: shimmerCount }).map((_, i) => (
+            <div
+              key={`shimmer-${i}`}
+              className="
+                w-[48%] 
+                sm:w-[31%] 
+                md:w-[22%] 
+                lg:w-[19%] 
+                xl:w-[17%]
+                2xl:w-[15%]
+                flex justify-center
+              "
+            >
+              <ProductCard loading={true} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Show Products */}
+      {!loading && products.length > 0 ? (
         <div
           className="
             flex flex-wrap justify-center 
@@ -49,11 +80,14 @@ export default function ProductGrid({ products = [], title }) {
                 flex justify-center
               "
             >
-              <ProductCard product={product} />
+              <ProductCard product={product} loading={false} />
             </div>
           ))}
         </div>
-      ) : (
+      ) : null}
+
+      {/* No products */}
+      {!loading && products.length === 0 && (
         <p className="text-gray-500 text-sm mt-4">No products found.</p>
       )}
     </section>

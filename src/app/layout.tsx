@@ -31,7 +31,7 @@ function AuthInit() {
 }
 
 // ------------------------------
-// 📌 FIXED → types for children
+// ROOT LAYOUT
 // ------------------------------
 export default function RootLayout({
   children,
@@ -52,19 +52,24 @@ export default function RootLayout({
           <MobileHeader />
         </div>
 
-        {/* Main Content */}
-        <main className="flex flex-col min-h-screen bg-white">
+        {/* 
+          MAIN CONTENT
+          - Add padding-top so sticky header doesn't overlap
+          - Different padding for mobile & desktop
+        */}
+        <main className="flex flex-col min-h-screen bg-white pt-[20px] md:pt-[50px]">
           {children}
         </main>
 
         {/* Footer */}
         <Footer />
 
-        {/* Scroll + Toast + Auth Providers */}
+        {/* Providers & Utilities */}
         <ClientProviders>
           <AuthInit />
           <ScrollToTop />
         </ClientProviders>
+
       </body>
     </html>
   );
