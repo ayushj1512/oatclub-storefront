@@ -3,6 +3,7 @@
 /* ------------------------------ */
 /* Root Variables (Theme Tokens)  */
 /* ------------------------------ */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -17,13 +18,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Auto Dark Mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #e4e4e4;
-  }
-}
+/* ------------------------------ */
+/* 🌞 FORCE LIGHT MODE */
+/* (Removed dark mode auto switch) */
+/* ------------------------------ */
 
 /* Base */
 body {
@@ -47,7 +45,6 @@ body {
   -ms-overflow-style: none !important;
 }
 
-/* Utility */
 .no-scrollbar {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
@@ -57,28 +54,22 @@ body {
   display: none !important;
 }
 
+/* ------------------------------ */
+/* Animations                     */
+/* ------------------------------ */
+
 @keyframes dropdown-slide {
   from {
     opacity: 0;
     transform: translateY(-6px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-
 .animate-dropdown {
   animation: dropdown-slide 0.2s ease-out;
-}
-
-.animate-slideUp {
-  animation: slideUp 0.25s ease-out;
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.2s ease-out;
 }
 
 @keyframes slideUp {
@@ -86,25 +77,27 @@ body {
     transform: translateY(20px);
     opacity: 0;
   }
-
   to {
     transform: translateY(0);
     opacity: 1;
   }
 }
+.animate-slideUp {
+  animation: slideUp 0.25s ease-out;
+}
 
 @keyframes fadeIn {
   from {
     opacity: 0;
+    transform: translateY(20px);
   }
-
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
-
-.animate-fadeSlide {
-  animation: fadeSlide 0.45s ease forwards;
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeSlide {
@@ -112,39 +105,31 @@ body {
     opacity: 0;
     transform: translateY(16px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-
-/* Left Direction */
-@keyframes marquee-left {
-  0% {
-    transform: translateX(0);
-  }
-
-  100% {
-    transform: translateX(-50%);
-  }
+.animate-fadeSlide {
+  animation: fadeSlide 0.45s ease forwards;
 }
 
+/* ------------------------------ */
+/* Marquee Animations             */
+/* ------------------------------ */
+
+@keyframes marquee-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
 .animate-marquee-left {
   animation: marquee-left linear infinite;
 }
 
-/* Right Direction */
 @keyframes marquee-right {
-  0% {
-    transform: translateX(-50%);
-  }
-
-  100% {
-    transform: translateX(0);
-  }
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
 }
-
 .animate-marquee-right {
   animation: marquee-right linear infinite;
 }

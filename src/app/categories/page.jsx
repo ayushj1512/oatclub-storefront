@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { wcGet } from "@/lib/woocommerce";
+import { motion } from "framer-motion";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
@@ -30,62 +31,82 @@ export default function CategoriesPage() {
   }, []);
 
   return (
-    <section className="w-full min-h-screen px-5 py-10 bg-white">
-      {/* Header */}
-      <h1 className="text-2xl md:text-3xl font-semibold text-center text-gray-900 mb-8">
+    <section className="w-full min-h-screen px-4 py-6 bg-white">
+      {/* HEADER */}
+      <h1 className="text-xl md:text-2xl font-semibold text-center text-black mb-6">
         Shop by Categories
       </h1>
 
-      {/* Loading Skeleton */}
+      {/* LOADING SKELETON */}
       {loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 animate-pulse">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 animate-pulse">
           {[...Array(8)].map((_, i) => (
-            <div
-              key={i}
-              className="h-[170px] bg-gray-200 rounded-2xl"
-            />
+            <div key={i} className="h-[150px] bg-gray-300" />
           ))}
         </div>
       )}
 
-      {/* Categories Grid */}
+      {/* GRID */}
       {!loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 md:gap-8">
+        <motion.div
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: {
+              transition: { staggerChildren: 0.05 },
+            },
+          }}
+        >
           {categories.map((cat) => (
-            <Link
+            <motion.div
               key={cat.id}
-              href={`/categories/${cat.slug}/${cat.id}`}
-              prefetch={true}
-              className="group bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition overflow-hidden"
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0 },
+              }}
             >
-              {/* Image */}
-              <div className="relative w-full h-[150px] md:h-[190px] flex items-center justify-center bg-gray-50 overflow-hidden">
-                <Image
-                  src={cat.image?.src || "/placeholder.png"}
-                  alt={cat.name}
-                  fill
-                  className="object-contain p-4 transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
+              <Link
+                href={`/categories/${cat.slug}/${cat.id}`}
+                prefetch={true}
+                className="group border border-gray-300 bg-white overflow-hidden block"
+              >
+                {/* IMAGE */}
+                <div className="relative w-full h-[130px] md:h-[160px] bg-gray-100 flex items-center justify-center overflow-hidden">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ duration: 0.25 }}
+                    className="w-full h-full relative"
+                  >
+                    <Image
+                      src={cat.image?.src || "/placeholder.png"}
+                      alt={cat.name}
+                      fill
+                      className="object-contain p-3"
+                    />
+                  </motion.div>
+                </div>
 
-              {/* Category Info */}
-              <div className="p-4 text-center">
-                <h3 className="text-sm md:text-base font-semibold text-gray-800">
-                  {cat.name}
-                </h3>
+                {/* TEXT */}
+                <div className="px-2 py-3 text-center">
+                  <h3 className="text-sm md:text-base text-black font-medium">
+                    {cat.name}
+                  </h3>
 
-                <p className="text-xs text-[#800020] mt-1 font-medium">
-                  {cat.count} Products
-                </p>
-              </div>
-            </Link>
+                  <p className="text-xs text-black/80 mt-0.5">
+                    {cat.count} Products
+                  </p>
+                </div>
+              </Link>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
-      {/* No Categories Found */}
+      {/* EMPTY STATE */}
       {!loading && categories.length === 0 && (
-        <p className="text-center mt-10 text-gray-500 text-sm">
+        <p className="text-center mt-10 text-gray-700 text-sm">
           No categories found.
         </p>
       )}

@@ -4,106 +4,103 @@ import { create } from "zustand";
 import Cookies from "js-cookie";
 
 const COOKIE_KEY = "recently_viewed_products";
+const MAX_ITEMS = 50; // 🔥 Increased limit
 
 export const useRecentlyViewedStore = create((set, get) => ({
 
   items: [],
 
-  /* ---------------------------------------------------
-     ✅ Initialize from cookies (client ONLY)
-  --------------------------------------------------- */
+  /* -----------------------------------------------
+     LOAD FROM COOKIE (Safe)
+  ------------------------------------------------ */
   initialize: () => {
     if (typeof window === "undefined") return;
 
     try {
       const stored = Cookies.get(COOKIE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
+      if (!stored) return;
 
-        // Filter out broken entries
-        const cleaned = parsed.filter((p) => {
-          const img =
-            p?.images?.[0]?.src ||
-            p?.image ||
-            "/placeholder.png";
-          return img && typeof img === "string" && img.length > 5;
-        });
+      const parsed = JSON.parse(stored);
 
-        set({ items: cleaned });
-      }
-    } catch (err) {
-      console.error("Error parsing recently viewed cookies", err);
+      // Validate images safely
+      const cleaned = parsed.filter((p) => {
+        const img =
+          p?.images?.[0]?.src ||
+          p?.image ||
+          "";
+        return typeof img === "string" && img.length > 5;
+      });
+
+      set({ items: cleaned });
+    } catch {
       set({ items: [] });
     }
   },
 
-  /* ---------------------------------------------------
-     ✅ Add a product safely
-     - Ensures valid image
-     - Ensures slug exists
-     - Ensures categories exist
-     - Prevent SSR hydration mismatches
-  --------------------------------------------------- */
+  /* -----------------------------------------------
+     ADD PRODUCT (Full Product Object Stored)
+     - Safe against infinite loops
+     - Merges missing data
+  ------------------------------------------------ */
   addProduct: (product) => {
-    if (!product || !product.id) return;
+    if (!product?.id) return;
 
-    // Ensure safe image
+    const items = get().items;
+
+    // Prevent re-run updating infinite loop
+    if (items[0]?.id === product.id) return;
+
     const img =
       product?.images?.[0]?.src ||
       product?.image ||
       "/placeholder.png";
 
+    // Ensure image is valid
     if (!img || typeof img !== "string" || img.length < 6) return;
 
+    // Store FULL object — but ensure required fields exist
     const safeProduct = {
+      ...product, // ← full product stored
       id: product.id,
       name: product.name || "Product",
       price: product.price || 0,
       slug:
         product.slug ||
         product.name?.toLowerCase().replace(/[^a-z0-9]/g, "-") ||
-        product.id,
+        String(product.id),
       categories: product.categories || [],
-      images: product.images || [{ src: img }],
-      image: img, // always store safe image
+      images: product.images?.length
+        ? product.images
+        : [{ src: img }],
+      image: img,
     };
 
-    const current = get().items;
-    const exists = current.find((p) => p.id === safeProduct.id);
+    // Remove duplicate entries
+    const filtered = items.filter((p) => p.id !== product.id);
 
-    let updated;
-
-    if (exists) {
-      // Move existing to front
-      updated = [
-        exists,
-        ...current.filter((p) => p.id !== safeProduct.id),
-      ];
-    } else {
-      // Add new at front
-      updated = [safeProduct, ...current];
-    }
-
-    // Keep only latest 10
-    updated = updated.slice(0, 10);
+    // Add product to top
+    const updated = [safeProduct, ...filtered].slice(0, MAX_ITEMS);
 
     set({ items: updated });
-    Cookies.set(COOKIE_KEY, JSON.stringify(updated), { expires: 7 });
+
+    Cookies.set(COOKIE_KEY, JSON.stringify(updated), {
+      expires: 7,
+      sameSite: "Lax",
+    });
   },
 
-  /* ---------------------------------------------------
-     ✅ Remove a product
-  --------------------------------------------------- */
+  /* -----------------------------------------------
+     REMOVE
+  ------------------------------------------------ */
   removeProduct: (id) => {
     const updated = get().items.filter((p) => p.id !== id);
-
     set({ items: updated });
     Cookies.set(COOKIE_KEY, JSON.stringify(updated), { expires: 7 });
   },
 
-  /* ---------------------------------------------------
-     ✅ Clear all Recently Viewed
-  --------------------------------------------------- */
+  /* -----------------------------------------------
+     CLEAR ALL
+  ------------------------------------------------ */
   clear: () => {
     set({ items: [] });
     Cookies.remove(COOKIE_KEY);

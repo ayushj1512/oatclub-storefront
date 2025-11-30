@@ -10,49 +10,52 @@ export default function ProductGallery({ images = [] }) {
   if (!images.length) return null;
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Main Image */}
-      <div className="relative w-full aspect-square bg-gray-100 rounded-3xl overflow-hidden shadow-sm flex items-center justify-center">
+    <div className="flex flex-col gap-3">
+
+      {/* MAIN IMAGE */}
+      <div className="relative w-full aspect-square bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center md:max-w-[420px] md:mx-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={selectedImage}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="relative w-full h-full flex items-center justify-center"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="relative w-full h-full"
           >
             <Image
               src={selectedImage}
               alt="Product Image"
               fill
-              className="object-contain object-center transition-transform duration-500 hover:scale-105"
+              className="object-contain transition-transform duration-300 hover:scale-105"
             />
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* Thumbnail Row */}
-      <div className="flex gap-3 justify-center md:justify-start overflow-x-auto scrollbar-hide">
-        {images.map((img, index) => (
-          <button
-            key={index}
-            onClick={() => setSelectedImage(img)}
-            className={`relative w-20 h-20 md:w-24 md:h-24 bg-transparent rounded-xl overflow-hidden border-2 transition flex items-center justify-center ${
-              selectedImage === img
-                ? "border-pink-500 shadow-md"
-                : "border-transparent hover:border-gray-300"
-            }`}
-          >
-            <Image
-              src={img}
-              alt={`Thumbnail ${index + 1}`}
-              fill
-              className="object-contain object-center"
-            />
-          </button>
-        ))}
+      {/* THUMBNAIL SCROLLER */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar px-1 py-1 md:max-w-[420px] md:mx-auto">
+        {images.map((img, index) => {
+          const active = selectedImage === img;
+
+          return (
+            <motion.button
+              key={index}
+              onClick={() => setSelectedImage(img)}
+              whileTap={{ scale: 0.92 }}
+              className={`relative flex-shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-md overflow-hidden bg-gray-100 ${active ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
+            >
+              <Image
+                src={img}
+                alt={`Thumbnail ${index + 1}`}
+                fill
+                className="object-contain p-1"
+              />
+            </motion.button>
+          );
+        })}
       </div>
+
     </div>
   );
 }

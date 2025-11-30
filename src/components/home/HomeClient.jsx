@@ -15,9 +15,10 @@ import OurMission from "@/components/home/OurMission";
 import Newsletter from "@/components/home/Newsletter";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
 import TrendingSection from "@/components/home/TrendingSection";
-
-// ⭐ NEW ON-FIRE SECTION
 import OnFireSection from "@/components/home/OnFireSection";
+
+// ⭐ IMPORT YOUR NEW HOT CATEGORIES SECTION
+import HotCategories from "@/components/home/HotCategories";
 
 export default function HomeClient() {
   const { structuredData } = generateSEO({
@@ -48,6 +49,9 @@ export default function HomeClient() {
           <CategoryRow />
         </div>
 
+        {/* ⭐ NEW HOT CATEGORIES SECTION */}
+        <HotCategories />
+
         {/* HERO */}
         <HeroSection />
 
@@ -60,10 +64,10 @@ export default function HomeClient() {
         {/* TRENDING SECTION */}
         <TrendingSection />
 
-        {/* 🔥🔥 ON FIRE SECTION ADDED HERE 🔥🔥 */}
+        {/* 🔥 ON FIRE SECTION */}
         <OnFireSection
           title="🔥 On Fire Picks"
-          products={[]} // ⚠️ replace with your real product array later
+          products={[]} // replace with real products
           loading={false}
         />
 
@@ -84,6 +88,7 @@ export default function HomeClient() {
 
         {/* NEWSLETTER */}
         <Newsletter />
+
       </main>
     </>
   );

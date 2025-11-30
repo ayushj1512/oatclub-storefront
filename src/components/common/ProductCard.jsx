@@ -2,34 +2,55 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, ShoppingCart } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { Heart } from "lucide-react";
+import { useEffect, useMemo } from "react";
 import { useWishlistStore } from "@/store/wishlistStore";
-import { useCartStore } from "@/store/cartStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { motion } from "framer-motion";
 
-/* ---------------------------------------------------
-   SHIMMER SKELETON (Hydration-Safe, No Mismatch)
----------------------------------------------------- */
-const ShimmerCard = () => {
-  return (
-    <div className="w-[160px] sm:w-[200px] md:w-[240px] bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden animate-pulse">
-      <div className="h-[220px] bg-gray-200" />
-      <div className="p-3 space-y-3">
-        <div className="h-4 bg-gray-200 rounded w-3/4" />
-        <div className="h-4 bg-gray-200 rounded w-1/2" />
-        <div className="h-10 bg-gray-200 rounded-lg mt-3" />
-      </div>
+/* ------------------------------------------------------------------
+   SHIMMER — unchanged (clean & minimal)
+------------------------------------------------------------------- */
+const ShimmerCard = () => (
+  <div className="w-full bg-white border border-gray-200 overflow-hidden animate-pulse">
+    <div className="aspect-[3/4] bg-gray-200" />
+    <div className="p-3 space-y-3">
+      <div className="h-4 bg-gray-200 w-3/4" />
+      <div className="h-4 bg-gray-200 w-1/2" />
     </div>
-  );
-};
+  </div>
+);
 
-/* ---------------------------------------------------
-                 PRODUCT CARD
----------------------------------------------------- */
-export default function ProductCard({ product, loading = false }) {
-  /** CLIENT-SAFE: Show shimmer on SSR */
+/* ------------------------------------------------------------------
+   SAFE IMAGE HELPER
+------------------------------------------------------------------- */
+function getSafeImage(product) {
+  try {
+    const img =
+      product?.images?.[0]?.src ||
+      product?.image ||
+      product?.featured_image ||
+      "";
+
+    if (typeof img !== "string") return "/placeholder.png";
+    if (img.trim().length < 5) return "/placeholder.png";
+    if (img.startsWith("data:")) return img;
+    if (img.startsWith("http") || img.startsWith("/")) return img;
+
+    return "/placeholder.png";
+  } catch {
+    return "/placeholder.png";
+  }
+}
+
+/* ------------------------------------------------------------------
+   MAIN COMPONENT
+------------------------------------------------------------------- */
+export default function ProductCard({
+  product,
+  loading = false,
+  disableRecentlyViewed = false,
+}) {
   if (loading || !product) return <ShimmerCard />;
 
   const {
@@ -39,29 +60,26 @@ export default function ProductCard({ product, loading = false }) {
     initialize: initWishlist,
   } = useWishlistStore();
 
-  const { addToCart } = useCartStore();
   const { addProduct } = useRecentlyViewedStore();
 
-  /* -----------------------------------
-      INIT WISHLIST (Safe, Non-SSR)
-  ----------------------------------- */
+  /* Initialize wishlist */
   useEffect(() => {
-    try {
-      initWishlist?.();
-    } catch (_) {}
-  }, []);
+    initWishlist?.();
+  }, [initWishlist]);
 
-  /* -----------------------------------
-      TRACK RECENTLY VIEWED
-  ----------------------------------- */
+  /* Add to Recently Viewed (Safely) */
   useEffect(() => {
-    if (product?.id) addProduct(product);
-  }, [product?.id]);
+    if (!product?.id) return;
+    if (disableRecentlyViewed) return;
 
-  /* -----------------------------------
-      BASIC PRODUCT VALUES
-  ----------------------------------- */
-  const image = product?.images?.[0]?.src || "/placeholder.png";
+    // Avoid infinite loops + invalid images
+    addProduct(product);
+  }, [product, disableRecentlyViewed, addProduct]);
+
+  /* 🛡 SAFE IMAGE */
+  const image = useMemo(() => getSafeImage(product), [product]);
+
+  /* PRICE FALLBACK */
   const price =
     product?.price ||
     product?.sale_price ||
@@ -70,65 +88,49 @@ export default function ProductCard({ product, loading = false }) {
 
   const isOnSale = Boolean(product?.on_sale);
 
-  /* SEO ROUTING */
+  /* CATEGORY FALLBACK */
   const category =
     product?.categories?.[0]?.slug ||
     product?.categories?.[0]?.name ||
     "products";
 
-  const formattedName = String(product?.name)
+  /* URL-SAFE NAME */
+  const formattedName = String(product?.name || "product")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
+  /* PRODUCT URL */
   const productLink = `/${category}/${formattedName}/${product.id}`;
 
-  /* Wishlist Logic */
   const wishlisted = isInWishlist(product.id);
 
   const toggleWishlist = (e) => {
     e.preventDefault();
-    if (wishlisted) {
-      removeFromWishlist(product.id);
-    } else {
-      addToWishlist({
-        ...product,
-        categories: product.categories || [],
-        tags: product.tags || [],
-        images: product.images || [],
-      });
-    }
+    wishlisted ? removeFromWishlist(product.id) : addToWishlist(product);
   };
 
-  /* Add To Cart */
-  const addCart = (e) => {
-    e.preventDefault();
-    addToCart(product);
-  };
-
+  /* ------------------------------------------------------------------
+     RENDER
+  ------------------------------------------------------------------- */
   return (
     <Link
       href={productLink}
-      className="
-        relative flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100
-        hover:shadow-lg transition-all overflow-hidden
-        w-[160px] sm:w-[200px] md:w-[240px]
-      "
+      className="group relative flex flex-col bg-white border border-gray-200 hover:border-gray-300 transition-all overflow-hidden w-full"
     >
       {/* IMAGE */}
-      <div className="relative w-full h-[220px] bg-gray-50 p-3 rounded-t-2xl overflow-hidden">
-
+      <div className="relative w-full aspect-[3/4] bg-gray-50 p-2 overflow-hidden">
         <Image
           src={image}
           alt={product?.name || "Product"}
           fill
           loading="lazy"
-          className="object-contain transition-transform duration-500 hover:scale-105"
+          sizes="(max-width: 600px) 50vw, 220px"
+          className="object-contain transition-transform duration-500 group-hover:scale-105"
         />
 
-        {/* SALE BADGE */}
         {isOnSale && (
-          <div className="absolute top-2 left-2 bg-[#800020] text-white text-xs font-semibold px-2 py-1 rounded shadow-sm">
+          <div className="absolute top-2 left-2 bg-[#800020] text-white text-xs tracking-wide px-2 py-1">
             SALE
           </div>
         )}
@@ -136,19 +138,17 @@ export default function ProductCard({ product, loading = false }) {
         {/* WISHLIST BUTTON */}
         <motion.button
           onClick={toggleWishlist}
-          whileTap={{ scale: 0.75 }}
+          whileTap={{ scale: 0.85 }}
           animate={
             wishlisted
-              ? { scale: [1, 1.25, 1], transition: { duration: 0.35 } }
+              ? { scale: [1, 1.2, 1], transition: { duration: 0.3 } }
               : {}
           }
-          className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow-md hover:bg-gray-100"
+          className="absolute top-2 right-2 p-1 rounded-full bg-white/40 backdrop-blur-sm hover:bg-white/60 transition-all"
         >
           <Heart
-            className={`w-5 h-5 transition ${
-              wishlisted
-                ? "text-[#800020] fill-[#800020]"
-                : "text-gray-600"
+            className={`w-6 h-6 ${
+              wishlisted ? "text-[#800020] fill-[#800020]" : "text-gray-700"
             }`}
           />
         </motion.button>
@@ -156,22 +156,11 @@ export default function ProductCard({ product, loading = false }) {
 
       {/* CONTENT */}
       <div className="p-3 flex flex-col gap-1">
-        <h3 className="text-sm font-medium text-gray-900 line-clamp-2">
+        <h3 className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis whitespace-nowrap">
           {product?.name}
         </h3>
 
         <p className="text-lg font-semibold text-gray-900">₹{price}</p>
-
-        <button
-          onClick={addCart}
-          className="
-            mt-3 flex items-center justify-center gap-2 text-sm
-            bg-[#800020] text-white py-2 rounded-lg
-            hover:bg-[#6a001a] transition-all shadow-sm active:scale-95
-          "
-        >
-          <ShoppingCart size={16} /> Add to Cart
-        </button>
       </div>
     </Link>
   );

@@ -2,191 +2,183 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+import { Search, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { wcGet } from "@/lib/woocommerce";
 
+import ProductGrid from "@/components/common/ProductGrid";
+
+const SORT_OPTIONS = [
+  { id: "newest", label: "Newest" },
+  { id: "low", label: "Price: Low → High" },
+  { id: "high", label: "Price: High → Low" },
+  { id: "az", label: "A → Z" },
+  { id: "za", label: "Z → A" },
+];
+
 export default function SearchPageClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const params = useSearchParams();
 
-  const query = searchParams.get("q") || "";
-
+  const query = params.get("q") || "";
   const [searchTerm, setSearchTerm] = useState(query);
+
   const [results, setResults] = useState([]);
-  const [sortedResults, setSortedResults] = useState([]);
+  const [sorted, setSorted] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [activeSort, setActiveSort] = useState("newest");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // 🔥 WooCommerce Search
+  /* ------------------------------------------
+     SEARCH REQUEST
+  ------------------------------------------- */
   useEffect(() => {
     if (!searchTerm) {
       setResults([]);
       return;
     }
 
-    const delay = setTimeout(async () => {
+    const timeout = setTimeout(async () => {
       setLoading(true);
 
       try {
         const products = await wcGet(
           `products?search=${encodeURIComponent(searchTerm)}`
         );
+
         setResults(products || []);
       } catch (err) {
-        console.error("❌ Search Error:", err);
+        console.error("Search error:", err);
         setResults([]);
       }
 
       setLoading(false);
       router.replace(`/search?q=${encodeURIComponent(searchTerm)}`);
-    }, 300);
+    }, 350);
 
-    return () => clearTimeout(delay);
-  }, [searchTerm, router]);
+    return () => clearTimeout(timeout);
+  }, [searchTerm]);
 
-  // 🔄 Sorting Handler
+  /* ------------------------------------------
+     SORT RESULTS
+  ------------------------------------------- */
   useEffect(() => {
-    let sorted = [...results];
+    let arr = [...results];
 
     switch (activeSort) {
       case "low":
-        sorted.sort((a, b) => Number(a.price) - Number(b.price));
+        arr.sort((a, b) => Number(a.price) - Number(b.price));
         break;
 
       case "high":
-        sorted.sort((a, b) => Number(b.price) - Number(a.price));
+        arr.sort((a, b) => Number(b.price) - Number(a.price));
         break;
 
       case "az":
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        arr.sort((a, b) => a.name.localeCompare(b.name));
         break;
 
       case "za":
-        sorted.sort((a, b) => b.name.localeCompare(a.name));
+        arr.sort((a, b) => b.name.localeCompare(a.name));
         break;
 
-      default:
       case "newest":
-        sorted.sort((a, b) => new Date(b.date_created) - new Date(a.date_created));
-        break;
+      default:
+        arr.sort(
+          (a, b) =>
+            new Date(b.date_created).getTime() -
+            new Date(a.date_created).getTime()
+        );
     }
 
-    setSortedResults(sorted);
+    setSorted(arr);
   }, [activeSort, results]);
 
-  const handleSubmit = (e) => e.preventDefault();
-
   return (
-    <section className="w-full flex flex-col px-6 py-10 bg-gray-50 min-h-[80vh]">
-
-      {/* 🔍 Search Bar */}
-      <form
-        onSubmit={handleSubmit}
-        className="flex items-center bg-white rounded-full shadow-md p-2.5 pl-5 w-full md:w-[65%] mx-auto mb-6 border border-gray-200"
-      >
-        <Search className="text-gray-500 w-5 h-5" />
-
+    <section className="w-full min-h-screen bg-white px-4 py-6">
+      {/* SEARCH BAR */}
+      <form className="flex items-center bg-gray-100 border border-gray-300 px-4 py-2 rounded-md shadow-sm mb-4">
+        <Search className="text-gray-700 w-5 h-5" />
         <input
-          type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search for products..."
-          className="flex-1 px-4 py-2 bg-transparent outline-none text-gray-800 text-sm md:text-base"
+          className="flex-1 px-3 bg-transparent outline-none text-sm text-black"
         />
-
-        <button
-          type="submit"
-          className="bg-[#800020] hover:bg-[#6a001a] text-white text-sm font-medium px-6 py-2 rounded-full transition"
-        >
-          Search
-        </button>
       </form>
 
-      {/* Sorting Tags */}
-      <div className="flex gap-3 flex-wrap mb-8 mx-auto w-full md:w-[70%] justify-center">
-        {[
-          { id: "newest", label: "Newest" },
-          { id: "low", label: "Price: Low → High" },
-          { id: "high", label: "Price: High → Low" },
-          { id: "az", label: "A → Z" },
-          { id: "za", label: "Z → A" },
-        ].map((sort) => (
+      {/* MOBILE SORT DROPDOWN */}
+      <div className="md:hidden mb-4 relative">
+        <button
+          onClick={() => setDropdownOpen(!dropdownOpen)}
+          className="flex justify-between items-center w-full px-4 py-2 border border-gray-300 bg-white text-sm shadow-sm"
+        >
+          <span>{SORT_OPTIONS.find((x) => x.id === activeSort)?.label}</span>
+          <ChevronDown size={18} className="text-black" />
+        </button>
+
+        <AnimatePresence>
+          {dropdownOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18 }}
+              className="absolute z-20 left-0 right-0 border border-gray-300 bg-white mt-1 shadow-sm"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    setActiveSort(opt.id);
+                    setDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-sm border-b border-gray-200 ${
+                    activeSort === opt.id
+                      ? "bg-[#800020]/10 text-[#800020] font-medium"
+                      : "text-black"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* DESKTOP SORT TAGS */}
+      <div className="hidden md:flex items-center gap-2 mb-6">
+        {SORT_OPTIONS.map((s) => (
           <button
-            key={sort.id}
-            onClick={() => setActiveSort(sort.id)}
-            className={`px-4 py-1.5 text-sm rounded-full border transition ${
-              activeSort === sort.id
-                ? "bg-[#800020] text-white border-[#800020]"
-                : "bg-white text-gray-700 border-gray-300 hover:border-[#800020]"
-            }`}
+            key={s.id}
+            onClick={() => setActiveSort(s.id)}
+            className={`px-3 py-1.5 text-sm border rounded-full transition 
+              ${
+                activeSort === s.id
+                  ? "bg-[#800020] text-white border-[#800020]"
+                  : "bg-white border-gray-300 text-black hover:border-[#800020]"
+              }`}
           >
-            {sort.label}
+            {s.label}
           </button>
         ))}
       </div>
 
-      {/* Products Header */}
-      <h2 className="text-lg font-semibold text-gray-800 mb-6 text-center">
+      {/* RESULTS HEADER */}
+      <h2 className="text-sm text-black mb-4 text-center">
         {loading
           ? "Searching..."
-          : sortedResults.length > 0
-          ? `Showing results for "${searchTerm}"`
+          : sorted.length
+          ? `Found ${sorted.length} results`
           : searchTerm
-          ? `No results found for "${searchTerm}"`
-          : "Search Products"}
+          ? `No results for "${searchTerm}"`
+          : "Search for products"}
       </h2>
 
-      {/* Products Grid with Animation */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 px-2 md:px-8">
-        <AnimatePresence>
-          {!loading &&
-            sortedResults.map((item) => (
-              <motion.div
-                key={item.id}
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
-              >
-                <Link
-                  href={`/${item.categories?.[0]?.slug || "product"}/${item.slug}/${item.id}`}
-                  className="flex flex-col bg-white rounded-2xl shadow-sm hover:shadow-md transition border border-gray-100"
-                >
-                  <div className="relative w-full h-[180px] md:h-[230px] rounded-t-2xl overflow-hidden bg-white flex items-center justify-center">
-                    <Image
-                      src={item.images?.[0]?.src || "/placeholder.png"}
-                      alt={item.name}
-                      fill
-                      className="object-contain p-2"
-                    />
-                  </div>
-
-                  <div className="flex flex-col p-3">
-                    <h3 className="text-sm md:text-base font-medium text-gray-800 leading-tight">
-                      {item.name}
-                    </h3>
-
-                    <p className="text-[#800020] font-semibold text-sm md:text-base mt-1">
-                      ₹{item.price}
-                    </p>
-                  </div>
-                </Link>
-              </motion.div>
-            ))}
-        </AnimatePresence>
-      </div>
-
-      {/* No Results */}
-      {!loading && searchTerm && sortedResults.length === 0 && (
-        <p className="text-center text-gray-500 mt-10 text-sm md:text-base">
-          No products found for “{searchTerm}”.
-        </p>
-      )}
+      {/* PRODUCT GRID COMPONENT */}
+      <ProductGrid products={sorted} loading={loading} />
     </section>
   );
 }

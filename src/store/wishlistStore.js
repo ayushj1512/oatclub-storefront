@@ -2,80 +2,152 @@
 
 import { create } from "zustand";
 import Cookies from "js-cookie";
+import { useAuthStore } from "./authStore";
 
-const COOKIE_KEY = "wishlist_products";
+const COOKIE_KEY = "wishlist_cache";
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export const useWishlistStore = create((set, get) => ({
-  items: [],            // every item now stores categories & tags too
-  initialized: false,   // load once only
+  items: [],
+  initialized: false,
+  loading: false,
 
-  // ✅ Initialize (load from cookies safely)
-  initialize: () => {
+  /* ----------------------------------------------------
+     ⭐ INIT — Load from backend or fallback to cookies
+  ---------------------------------------------------- */
+  initialize: async () => {
     if (typeof window === "undefined") return;
     if (get().initialized) return;
 
-    const stored = Cookies.get(COOKIE_KEY);
-
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-
-        // ensure each item has categories array
-        const sanitized = Array.isArray(parsed)
-          ? parsed.map((p) => ({
-              ...p,
-              categories: p.categories || [],
-              tags: p.tags || [],
-            }))
-          : [];
-
-        set({ items: sanitized });
-      } catch (error) {
-        console.error("❌ Wishlist cookie parse error:", error);
+    const { user } = useAuthStore.getState();
+    if (user?.uid) {
+      await get().fetchFromBackend(user.uid);
+    } else {
+      // fallback to cookie cache
+      const stored = Cookies.get(COOKIE_KEY);
+      if (stored) {
+        try {
+          set({ items: JSON.parse(stored) });
+        } catch (e) {
+          console.error("Wishlist cookie error:", e);
+        }
       }
     }
 
     set({ initialized: true });
   },
 
-  // ✅ Add item (store categories + tags explicitly)
-  addToWishlist: (product) => {
-    if (!product || !product.id) return;
+  /* ----------------------------------------------------
+     ⭐ FETCH FROM BACKEND
+     GET /api/wishlist/firebase/:uid
+  ---------------------------------------------------- */
+  fetchFromBackend: async (firebaseUID) => {
+    try {
+      set({ loading: true });
 
-    const { items } = get();
-    const exists = items.some((p) => p.id === product.id);
-    if (exists) return;
+      const res = await fetch(`${BACKEND}/api/wishlist/firebase/${firebaseUID}`);
+      const data = await res.json();
 
-    const newItem = {
-      ...product,
-      categories: product.categories || [],
-      tags: product.tags || [],
-    };
+      if (data.success && data.wishlist) {
+        const mapped = data.wishlist.productIds.map((p) => ({
+          id: p._id,
+          name: p.name,
+          price: p.price,
+          image: p.images?.[0]?.src || "",
+          categories: p.categories || [],
+          tags: p.tags || [],
+        }));
 
-    const updated = [newItem, ...items];
-    set({ items: updated });
+        set({ items: mapped });
+        Cookies.set(COOKIE_KEY, JSON.stringify(mapped), { expires: 7 });
+      }
 
-    Cookies.set(COOKIE_KEY, JSON.stringify(updated), { expires: 7 });
+      set({ loading: false });
+    } catch (error) {
+      console.error("Wishlist fetch error:", error);
+      set({ loading: false });
+    }
   },
 
-  // ✅ Remove
-  removeFromWishlist: (id) => {
-    const { items } = get();
-    const updated = items.filter((p) => p.id !== id);
+  /* ----------------------------------------------------
+     ⭐ ADD TO WISHLIST
+     POST /api/wishlist/firebase/:uid/add
+  ---------------------------------------------------- */
+  addToWishlist: async (product) => {
+    const { user } = useAuthStore.getState();
+    if (!user?.uid) return alert("Please login first");
 
-    set({ items: updated });
-    Cookies.set(COOKIE_KEY, JSON.stringify(updated), { expires: 7 });
+    try {
+      set({ loading: true });
+
+      await fetch(`${BACKEND}/api/wishlist/firebase/${user.uid}/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: product.id }),
+      });
+
+      // Refresh
+      await get().fetchFromBackend(user.uid);
+
+      set({ loading: false });
+    } catch (err) {
+      console.error("Add to wishlist error:", err);
+      set({ loading: false });
+    }
   },
 
-  // ✅ Clear
-  clearWishlist: () => {
-    set({ items: [] });
-    Cookies.remove(COOKIE_KEY);
+  /* ----------------------------------------------------
+     ⭐ REMOVE FROM WISHLIST
+     POST /api/wishlist/firebase/:uid/remove
+  ---------------------------------------------------- */
+  removeFromWishlist: async (productId) => {
+    const { user } = useAuthStore.getState();
+    if (!user?.uid) return alert("Please login first");
+
+    try {
+      set({ loading: true });
+
+      await fetch(`${BACKEND}/api/wishlist/firebase/${user.uid}/remove`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId }),
+      });
+
+      await get().fetchFromBackend(user.uid);
+
+      set({ loading: false });
+    } catch (err) {
+      console.error("Remove wishlist error:", err);
+      set({ loading: false });
+    }
   },
 
-  // ✅ Exists?
+  /* ----------------------------------------------------
+     ⭐ CLEAR WISHLIST
+  ---------------------------------------------------- */
+  clearWishlist: async () => {
+    const { user } = useAuthStore.getState();
+    if (!user?.uid) return;
+
+    try {
+      set({ loading: true });
+
+      await fetch(`${BACKEND}/api/wishlist/firebase/${user.uid}`, {
+        method: "DELETE",
+      });
+
+      set({ items: [], loading: false });
+      Cookies.remove(COOKIE_KEY);
+    } catch (err) {
+      console.error("Clear wishlist error:", err);
+      set({ loading: false });
+    }
+  },
+
+  /* ----------------------------------------------------
+     ⭐ CHECK IF PRODUCT IS IN WISHLIST
+  ---------------------------------------------------- */
   isInWishlist: (id) => {
-    const { items } = get();
-    return items.some((p) => p.id === id);
+    return get().items.some((item) => item.id === id);
   },
 }));

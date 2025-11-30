@@ -26,14 +26,8 @@ export default function ProductRow({ title, products }) {
 
       <div className="relative">
         {/* Left Button */}
-        <button
-          onClick={scrollLeft}
-          className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 
-          bg-white shadow-lg w-10 h-10 rounded-full items-center justify-center 
-          hover:bg-gray-100 transition"
-        >
-          <ChevronLeft />
-        </button>
+       <button onClick={scrollLeft} className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg w-10 h-10 rounded-full items-center justify-center hover:bg-gray-100 transition"><ChevronLeft /></button>
+
 
         {/* Products Row */}
         <div
@@ -51,14 +45,8 @@ export default function ProductRow({ title, products }) {
         </div>
 
         {/* Right Button */}
-        <button
-          onClick={scrollRight}
-          className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 
-          bg-white shadow-lg w-10 h-10 rounded-full items-center justify-center 
-          hover:bg-gray-100 transition"
-        >
-          <ChevronRight />
-        </button>
+      <button onClick={scrollRight} className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg w-10 h-10 rounded-full items-center justify-center hover:bg-gray-100 transition"><ChevronRight /></button>
+
       </div>
     </section>
   );

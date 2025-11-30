@@ -1,96 +1,118 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Mail, ArrowRight, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Newsletter() {
   const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [state, setState] = useState({ loading: false, success: false, error: "" });
+  const [suggestions, setSuggestions] = useState([]);
+  const [shake, setShake] = useState(false);
 
-  const handleSubmit = (e) => {
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL + "/api/newsletters";
+
+  // --------------------------------------------
+  // 📌 Debounced Email Suggestions
+  // --------------------------------------------
+  useEffect(() => {
+    if (!email.includes("@") || email.includes(".com")) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      const domain = email.split("@")[1] || "";
+      const list = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com"]
+        .filter((d) => d.startsWith(domain))
+        .map((d) => email.split("@")[0] + "@" + d);
+
+      setSuggestions(list);
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [email]);
+
+  // --------------------------------------------
+  // 📌 Form Submit + Invalid Email Shake
+  // --------------------------------------------
+  const isValidEmail = (e) => /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(e);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email) return;
-    setSubmitted(true);
-    setEmail("");
+
+    if (!isValidEmail(email)) {
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+      return setState({ loading: false, success: false, error: "Enter a valid email." });
+    }
+
+    setState({ loading: true, success: false, error: "" });
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setState({ loading: false, success: false, error: data.message || "Something went wrong." });
+        return;
+      }
+
+      setState({ loading: false, success: true, error: "" });
+      setEmail("");
+    } catch {
+      setState({ loading: false, success: false, error: "Network error." });
+    }
   };
 
   return (
-    <section className="w-full bg-white py-14 px-6 md:px-10 flex justify-center">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        viewport={{ once: true }}
-        className="max-w-xl w-full text-center flex flex-col items-center"
-      >
-        {/* Clean Minimal Icon */}
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="mb-3"
-        >
-          <Mail className="w-10 h-10 text-[#800020]" />
-        </motion.div>
+    <section className="w-full bg-white pt-10 px-5 flex justify-center">
+      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} viewport={{ once: true }} className="w-full max-w-md text-center">
 
-        {/* Simple Heading */}
-        <h2 className="text-xl md:text-2xl font-semibold text-black mb-2 tracking-tight">
-          Stay Updated
-        </h2>
+        <Mail className="w-8 h-8 text-[#800020] mx-auto mb-2" />
 
-        {/* Subtle Subtitle */}
-        <p className="text-gray-600 text-sm leading-relaxed mb-6">
-          Get new arrivals and exclusive offers directly to your inbox.
-        </p>
+        <h2 className="text-lg md:text-xl font-semibold text-black mb-1">Stay Updated</h2>
+        <p className="text-gray-600 text-xs md:text-sm mb-5">Get new arrivals and exclusive offers.</p>
 
-        {/* Form / Success */}
-        {!submitted ? (
-          <motion.form
-            onSubmit={handleSubmit}
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-            className="w-full flex bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden"
-          >
-            {/* Input */}
-            <input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 px-4 py-3 text-sm text-gray-800 outline-none placeholder-gray-400"
-              required
-            />
-
-            {/* Button */}
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-5 bg-[#800020] text-white flex items-center justify-center gap-2 text-sm font-medium hover:bg-[#990028] transition-colors"
+        {!state.success ? (
+          <>
+            {/* FORM */}
+            <motion.form
+              onSubmit={handleSubmit}
+              animate={shake ? { x: [-6, 6, -6, 6, 0] } : {}}
+              transition={{ duration: 0.35 }}
+              className="flex w-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm"
             >
-              Subscribe
-              <motion.div
-                initial={{ x: -4 }}
-                whileHover={{ x: 0 }}
-                transition={{ duration: 0.25 }}
-              >
-                <ArrowRight className="w-4 h-4" />
-              </motion.div>
-            </motion.button>
-          </motion.form>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" required className="flex-1 px-3 py-2 text-sm text-gray-800 outline-none placeholder-gray-400" />
+
+              <button type="submit" disabled={state.loading} className="px-4 bg-[#800020] text-white flex items-center gap-1 text-sm font-medium active:scale-95 transition disabled:opacity-60">
+                {state.loading ? "..." : "Go"}
+                {!state.loading && <ArrowRight className="w-4 h-4" />}
+              </button>
+            </motion.form>
+
+            {/* EMAIL SUGGESTIONS */}
+            {suggestions.length > 0 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl mt-2 p-2 shadow-sm text-left">
+                {suggestions.map((s, i) => (
+                  <button key={i} onClick={() => setEmail(s)} className="block w-full text-xs py-1 px-2 text-gray-700 hover:bg-gray-100 rounded-md text-left">
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* ERROR */}
+            {state.error && <p className="text-red-600 text-xs mt-2">{state.error}</p>}
+          </>
         ) : (
-          // SUCCESS STATE
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex items-center gap-2 mt-4 text-[#800020] bg-white border border-gray-200 px-4 py-3 rounded-xl shadow-sm"
-          >
-            <CheckCircle className="w-5 h-5" />
-            <span className="text-sm font-medium">You're subscribed!</span>
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center gap-2 bg-white border border-gray-200 px-4 py-3 rounded-xl shadow-sm text-[#800020] mt-2">
+            <CheckCircle className="w-5 h-5" /><span className="text-sm font-medium">Subscribed!</span>
           </motion.div>
         )}
       </motion.div>

@@ -13,8 +13,9 @@ const occasions = [
 export default function StyleByOccasion() {
   return (
     <section className="w-full flex flex-col bg-gray-50 py-10">
-      <h2 className="text-2xl font-semibold text-gray-900 px-6 mb-2">Style by Occasion</h2>
-      <p className="text-gray-600 text-sm px-6 mb-6">Curated looks for every moment</p>
+<h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-gray-900 text-center px-4 mb-3 tracking-wide">
+  STYLE BY OCCASION
+</h2>
 
       <div className="flex flex-row gap-4 px-6 overflow-x-auto no-scrollbar snap-x snap-mandatory">
         {occasions.map((item, i) => (
