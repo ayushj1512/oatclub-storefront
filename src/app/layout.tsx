@@ -37,10 +37,14 @@ function AuthInit() {
   return null;
 }
 
+type RootLayoutProps = Readonly<{
+  children: React.ReactNode;
+}>;
+
 // ------------------------------
 // 🌐 ROOT LAYOUT
 // ------------------------------
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className={poppins.variable}>
       {/* ✅ pb-20 on mobile so BNB doesn't overlap content */}
@@ -60,9 +64,7 @@ export default function RootLayout({ children }) {
 
         {/* ---------- MAIN CONTENT ---------- */}
         {/* TopbarHeadline height ~ 36px, so add extra padding */}
-        <main className="flex flex-col min-h-screen bg-white">
-          {children}
-        </main>
+        <main className="flex flex-col min-h-screen bg-white">{children}</main>
 
         {/* ---------- FOOTER ---------- */}
         <Footer />
