@@ -26,7 +26,7 @@ export default function RecentlyViewed() {
       </div>
 
       {/* Product Row (Horizontal Scroll) */}
-      <div className="flex gap-5 overflow-x-auto px-6 pb-4 no-scrollbar snap-x snap-mandatory">
+      <div className="flex gap-2 overflow-x-auto px-6 pb-4 no-scrollbar snap-x snap-mandatory">
         {items.map((product) => (
           <div
             key={product.id}

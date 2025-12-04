@@ -75,7 +75,7 @@ export default function TrendingSection() {
 </h2>
 
 
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2">
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2">
         {products.map((p) => (
           <div key={p.id} className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]">
             <ProductCard product={p} />

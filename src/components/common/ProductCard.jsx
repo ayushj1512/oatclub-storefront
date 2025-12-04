@@ -8,159 +8,123 @@ import { useWishlistStore } from "@/store/wishlistStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { motion } from "framer-motion";
 
-/* ------------------------------------------------------------------
-   SHIMMER — unchanged (clean & minimal)
-------------------------------------------------------------------- */
+/* ----------------------------- Shimmer ----------------------------- */
 const ShimmerCard = () => (
-  <div className="w-full bg-white border border-gray-200 overflow-hidden animate-pulse">
-    <div className="aspect-[3/4] bg-gray-200" />
-    <div className="p-3 space-y-3">
-      <div className="h-4 bg-gray-200 w-3/4" />
-      <div className="h-4 bg-gray-200 w-1/2" />
+  <div className="w-full bg-white overflow-hidden flex flex-col h-full">
+    <div className="aspect-[3/4] bg-black/5 animate-pulse" />
+    <div className="p-3 space-y-2 animate-pulse">
+      <div className="h-3.5 bg-black/5 w-4/5" />
+      <div className="h-4 bg-black/5 w-2/5" />
     </div>
   </div>
 );
 
-/* ------------------------------------------------------------------
-   SAFE IMAGE HELPER
-------------------------------------------------------------------- */
+/* -------------------------- Safe image helper -------------------------- */
 function getSafeImage(product) {
   try {
-    const img =
-      product?.images?.[0]?.src ||
-      product?.image ||
-      product?.featured_image ||
-      "";
-
+    const img = product?.images?.[0]?.src || product?.image || product?.featured_image || "";
     if (typeof img !== "string") return "/placeholder.png";
     if (img.trim().length < 5) return "/placeholder.png";
     if (img.startsWith("data:")) return img;
     if (img.startsWith("http") || img.startsWith("/")) return img;
-
     return "/placeholder.png";
   } catch {
     return "/placeholder.png";
   }
 }
 
-/* ------------------------------------------------------------------
-   MAIN COMPONENT
-------------------------------------------------------------------- */
-export default function ProductCard({
-  product,
-  loading = false,
-  disableRecentlyViewed = false,
-}) {
+function toNum(v) {
+  const n = Number(String(v ?? "").replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+export default function ProductCard({ product, loading = false, disableRecentlyViewed = false }) {
   if (loading || !product) return <ShimmerCard />;
 
-  const {
-    addToWishlist,
-    removeFromWishlist,
-    isInWishlist,
-    initialize: initWishlist,
-  } = useWishlistStore();
-
+  const { addToWishlist, removeFromWishlist, isInWishlist, initialize: initWishlist } =
+    useWishlistStore();
   const { addProduct } = useRecentlyViewedStore();
 
-  /* Initialize wishlist */
   useEffect(() => {
     initWishlist?.();
   }, [initWishlist]);
 
-  /* Add to Recently Viewed (Safely) */
   useEffect(() => {
     if (!product?.id) return;
     if (disableRecentlyViewed) return;
-
-    // Avoid infinite loops + invalid images
     addProduct(product);
   }, [product, disableRecentlyViewed, addProduct]);
 
-  /* 🛡 SAFE IMAGE */
   const image = useMemo(() => getSafeImage(product), [product]);
 
-  /* PRICE FALLBACK */
-  const price =
-    product?.price ||
-    product?.sale_price ||
-    product?.regular_price ||
-    "0";
+  const sale = toNum(product?.sale_price ?? product?.price);
 
-  const isOnSale = Boolean(product?.on_sale);
-
-  /* CATEGORY FALLBACK */
-  const category =
-    product?.categories?.[0]?.slug ||
-    product?.categories?.[0]?.name ||
-    "products";
-
-  /* URL-SAFE NAME */
+  const category = product?.categories?.[0]?.slug || product?.categories?.[0]?.name || "products";
   const formattedName = String(product?.name || "product")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-
-  /* PRODUCT URL */
   const productLink = `/${category}/${formattedName}/${product.id}`;
 
   const wishlisted = isInWishlist(product.id);
 
   const toggleWishlist = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     wishlisted ? removeFromWishlist(product.id) : addToWishlist(product);
   };
 
-  /* ------------------------------------------------------------------
-     RENDER
-  ------------------------------------------------------------------- */
   return (
     <Link
       href={productLink}
-      className="group relative flex flex-col bg-white border border-gray-200 hover:border-gray-300 transition-all overflow-hidden w-full"
+      className="group block w-full bg-white overflow-hidden h-full"
     >
-      {/* IMAGE */}
-      <div className="relative w-full aspect-[3/4] bg-gray-50 p-2 overflow-hidden">
-        <Image
-          src={image}
-          alt={product?.name || "Product"}
-          fill
-          loading="lazy"
-          sizes="(max-width: 600px) 50vw, 220px"
-          className="object-contain transition-transform duration-500 group-hover:scale-105"
-        />
-
-        {isOnSale && (
-          <div className="absolute top-2 left-2 bg-[#800020] text-white text-xs tracking-wide px-2 py-1">
-            SALE
-          </div>
-        )}
-
-        {/* WISHLIST BUTTON */}
-        <motion.button
-          onClick={toggleWishlist}
-          whileTap={{ scale: 0.85 }}
-          animate={
-            wishlisted
-              ? { scale: [1, 1.2, 1], transition: { duration: 0.3 } }
-              : {}
-          }
-          className="absolute top-2 right-2 p-1 rounded-full bg-white/40 backdrop-blur-sm hover:bg-white/60 transition-all"
-        >
-          <Heart
-            className={`w-6 h-6 ${
-              wishlisted ? "text-[#800020] fill-[#800020]" : "text-gray-700"
-            }`}
+      {/* Card wrapper: makes all cards equal height in a grid */}
+      <div className="flex flex-col h-full transition-transform duration-300 hover:-translate-y-1 active:translate-y-0">
+        {/* IMAGE (fixed ratio => consistent) */}
+        <div className="relative w-full aspect-[3/4] bg-white">
+          <Image
+            src={image}
+            alt={product?.name || "Product"}
+            fill
+            loading="lazy"
+            sizes="(max-width: 600px) 50vw, 220px"
+            className="object-cover"
           />
-        </motion.button>
-      </div>
 
-      {/* CONTENT */}
-      <div className="p-3 flex flex-col gap-1">
-        <h3 className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis whitespace-nowrap">
-          {product?.name}
-        </h3>
+          {/* Wishlist icon (top-right) */}
+          <motion.button
+            type="button"
+            onClick={toggleWishlist}
+            whileTap={{ scale: 0.9 }}
+            className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center bg-transparent"
+            aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          >
+            <Heart
+              className={
+                wishlisted
+                  ? "w-6 h-6 text-[#800020] fill-[#800020]"
+                  : "w-6 h-6 text-black/70"
+              }
+            />
+          </motion.button>
+        </div>
 
-        <p className="text-lg font-semibold text-gray-900">₹{price}</p>
+        {/* CONTENT (consistent lines => consistent height) */}
+        <div className="p-3 flex flex-col gap-2">
+          <h3 className="text-[15px] font-semibold text-black leading-snug line-clamp-2">
+            {product?.name}
+          </h3>
+
+          {/* Keep this row always present, so card heights match perfectly */}
+          <div className="flex items-baseline gap-2">
+            {sale != null ? (
+              <span className="text-[16px] font-semibold text-black">₹{sale}</span>
+            ) : (
+              <span className="text-[16px] font-semibold text-transparent select-none">₹</span>
+            )}
+          </div>
+        </div>
       </div>
     </Link>
   );

@@ -32,7 +32,7 @@ export default function ProductRow({ title, products }) {
         {/* Products Row */}
         <div
           ref={rowRef}
-          className="flex gap-5 overflow-x-auto scrollbar-hide scroll-smooth "
+        className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth "
         >
           {products.map((product) => (
             <div

@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL; // ← Your backend
+
 export const useProductStore = create(
   persist(
     (set, get) => ({
@@ -20,59 +22,81 @@ export const useProductStore = create(
       isLoading: false,
       error: null,
 
-      // =========================================================
-      // 🔥 FIXED — FETCH PRODUCTS FROM THE RIGHT ENDPOINT
-      // =========================================================
-    fetchProducts: async () => {
-  try {
-    set({ isLoading: true, error: null });
+      /* =====================================================
+         🔥 FETCH FROM BOTH BACKEND + WOOCOMMERCE
+      ===================================================== */
+      fetchProducts: async () => {
+        try {
+          set({ isLoading: true, error: null });
 
-    const res = await fetch("/api/wc/products", {
-      cache: "no-store",
-    });
+          /* ---------------- GET BACKEND PRODUCTS ---------------- */
+          const backendRes = await fetch(`${BACKEND}/api/products`, {
+            cache: "no-store",
+          });
+          const backendData = await backendRes.json();
 
-    let data = await res.json();
+          const backendMapped = backendData.products?.map((p) => ({
+            id: p._id,
+            name: p.title || "",
+            slug: p.slug,
+            price: Number(p.price || 0),
+            description: p.shortDescription || "",
+            category: p.category?.slug || "uncategorized",
+            image: p.thumbnail || "/placeholder.png",
+            images: p.images || [],
+            dateCreated: p.createdAt,
+            source: "backend",
+          })) || [];
 
-    if (!Array.isArray(data)) {
-      console.error("Invalid WooCommerce response:", data);
-      data = [];
-    }
+          /* ---------------- GET WOOCOMMERCE PRODUCTS ---------------- */
+          const wcRes = await fetch("/api/wc/products", {
+            cache: "no-store",
+          });
+          let wcRaw = await wcRes.json();
+          if (!Array.isArray(wcRaw)) wcRaw = [];
 
-    // ⭐ NORMALIZE ALL PRODUCTS FOR YOUR UI
-    const mapped = data.map((p) => ({
-      id: p.id,
-      name: p.name || "",
-      slug: p.slug || p.id,
-      price: Number(p.price || 0),
-      description: p.short_description?.replace(/<[^>]+>/g, "") || "",
-      category: p.categories?.[0]?.slug || "uncategorized",
-      image: p.images?.[0]?.src || "/placeholder.png",
-      images: p.images || [],
-      onSale: p.on_sale,
-      regularPrice: Number(p.regular_price || p.price),
-      dateCreated: p.date_created,
-    }));
+          const wcMapped = wcRaw.map((p) => ({
+            id: "wc-" + p.id,
+            name: p.name,
+            slug: p.slug,
+            price: Number(p.price || 0),
+            description: p.short_description?.replace(/<[^>]+>/g, "") || "",
+            category: p.categories?.[0]?.slug || "uncategorized",
+            image: p.images?.[0]?.src || "/placeholder.png",
+            images: p.images || [],
+            dateCreated: p.date_created,
+            source: "woocommerce",
+          }));
 
-    const initialChunk = mapped.slice(0, get().LOAD_STEP);
+          /* ---------------- MERGE BOTH LISTS ---------------- */
+          const merged = [...backendMapped, ...wcMapped];
 
-    set({
-      allProducts: mapped,
-      visibleProducts: initialChunk,
-      filteredProducts: initialChunk,
-      visibleCount: initialChunk.length,
-      isLoading: false,
-    });
+          /* ---------------- UNIQUE PRODUCTS BY SLUG ---------------- */
+          const unique = merged.reduce((acc, item) => {
+            if (!acc.find((i) => i.slug === item.slug)) acc.push(item);
+            return acc;
+          }, []);
 
-  } catch (err) {
-    console.error("❌ Error fetching products:", err);
-    set({ error: "Failed to load products", isLoading: false });
-  }
-},
+          /* ---------------- INITIAL VISIBLE SET ---------------- */
+          const initialChunk = unique.slice(0, get().LOAD_STEP);
 
+          set({
+            allProducts: unique,
+            visibleProducts: initialChunk,
+            filteredProducts: initialChunk,
+            visibleCount: initialChunk.length,
+            isLoading: false,
+          });
 
-      // =========================================================
-      // LOAD MORE
-      // =========================================================
+        } catch (err) {
+          console.error("❌ Error loading products:", err);
+          set({ error: "Failed to load products", isLoading: false });
+        }
+      },
+
+      /* =====================================================
+         LOAD MORE
+      ===================================================== */
       loadMore: () => {
         const { visibleCount, LOAD_STEP, allProducts } = get();
         const newCount = visibleCount + LOAD_STEP;
@@ -91,9 +115,9 @@ export const useProductStore = create(
         return visibleCount < allProducts.length;
       },
 
-      // =========================================================
-      // SEARCH / CATEGORY / SORT
-      // =========================================================
+      /* =====================================================
+         SEARCH / CATEGORY / SORT
+      ===================================================== */
       setSearchQuery: (query) => {
         set({ searchQuery: query });
         get().applyFilters();
@@ -109,9 +133,9 @@ export const useProductStore = create(
         get().applyFilters();
       },
 
-      // =========================================================
-      // FILTER + SORT (ALWAYS RUNS ON visibleProducts)
-      // =========================================================
+      /* =====================================================
+         FILTER + SORT (works from visible products)
+      ===================================================== */
       applyFilters: () => {
         const {
           visibleProducts,
@@ -122,7 +146,7 @@ export const useProductStore = create(
 
         let filtered = [...visibleProducts];
 
-        // Search
+        /* --- Search Query --- */
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
           filtered = filtered.filter(
@@ -132,16 +156,14 @@ export const useProductStore = create(
           );
         }
 
-        // Category
+        /* --- Category --- */
         if (selectedCategory !== "all") {
           filtered = filtered.filter(
-            (p) =>
-              p.categories?.[0]?.slug?.toLowerCase() ===
-              selectedCategory.toLowerCase()
+            (p) => p.category?.toLowerCase() === selectedCategory.toLowerCase()
           );
         }
 
-        // Sorting
+        /* --- Sorting --- */
         switch (sortOption) {
           case "priceLowHigh":
             filtered.sort((a, b) => a.price - b.price);
@@ -153,7 +175,7 @@ export const useProductStore = create(
 
           case "newest":
             filtered.sort(
-              (a, b) => new Date(b.date_created) - new Date(a.date_created)
+              (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
             );
             break;
 
@@ -164,7 +186,9 @@ export const useProductStore = create(
         set({ filteredProducts: filtered });
       },
 
-      // UPSERT PRODUCT
+      /* =====================================================
+         UPSERT PRODUCT
+      ===================================================== */
       upsertProduct: (product) => {
         const current = get().allProducts;
         const index = current.findIndex((p) => p.id === product.id);
@@ -185,7 +209,9 @@ export const useProductStore = create(
         get().applyFilters();
       },
 
-      // REMOVE PRODUCT
+      /* =====================================================
+         REMOVE PRODUCT
+      ===================================================== */
       removeProduct: (id) => {
         const updated = get().allProducts.filter((p) => p.id !== id);
 
@@ -198,6 +224,9 @@ export const useProductStore = create(
       },
     }),
 
+    /* =====================================================
+       PERSISTENCE
+    ===================================================== */
     {
       name: "product-store",
       partialize: (state) => ({

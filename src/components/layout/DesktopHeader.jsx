@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Search, Menu } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import ProfileMenu from "@/components/header/ProfileMenu";
@@ -12,8 +12,17 @@ import CartButton from "@/components/header/CartButton";
 export default function DesktopHeader() {
   const [searchText, setSearchText] = useState("");
   const [showCategories, setShowCategories] = useState(false);
+  const [isSticky, setIsSticky] = useState(false);
 
   const router = useRouter();
+
+  useEffect(() => {
+    const TOPBAR_HEIGHT = 36; // h-9 = 36px
+    const onScroll = () => setIsSticky(window.scrollY > TOPBAR_HEIGHT);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const handleSearchSubmit = (e) => {
     if (e.key === "Enter") {
@@ -22,13 +31,12 @@ export default function DesktopHeader() {
   };
 
   return (
-    <header className="hidden md:flex bg-white shadow-sm fixed top-0 left-0 w-full z-50 border-b border-gray-100">
+    <header className={`hidden md:flex bg-white border-b border-gray-100 w-full z-50 ${isSticky ? "fixed top-0 left-0 shadow-sm" : "relative shadow-none"}`}>
+
+
       <div className="w-full flex items-center justify-between px-10 py-4">
-
-        {/* LEFT: HAMBURGER + LOGO */}
+        {/* LEFT */}
         <div className="flex items-center gap-6">
-
-          {/* HAMBURGER */}
           <div
             className="relative"
             onMouseEnter={() => setShowCategories(true)}
@@ -38,7 +46,6 @@ export default function DesktopHeader() {
               <Menu size={26} />
             </button>
 
-            {/* CATEGORY DROPDOWN */}
             {showCategories && (
               <div className="absolute top-12 bg-white shadow-xl border border-gray-100 rounded-xl w-64 z-50">
                 {["Sarees", "Lehengas", "Kurtis", "Accessories"].map((cat) => (
@@ -54,7 +61,6 @@ export default function DesktopHeader() {
             )}
           </div>
 
-          {/* LOGO */}
           <Link
             href="/"
             className="text-3xl font-extrabold tracking-tight text-gray-900 hover:opacity-80 transition"
@@ -63,7 +69,7 @@ export default function DesktopHeader() {
           </Link>
         </div>
 
-        {/* CENTER: SEARCH BAR */}
+        {/* CENTER */}
         <div className="w-[42%]">
           <div className="flex items-center bg-gray-100 rounded-full px-4 py-2 border border-gray-200 focus-within:ring-2 focus-within:ring-[#800020] transition">
             <Search size={18} className="text-gray-600" />
@@ -78,7 +84,7 @@ export default function DesktopHeader() {
           </div>
         </div>
 
-        {/* RIGHT: ICONS */}
+        {/* RIGHT */}
         <div className="flex items-center gap-7 text-gray-700">
           <WishlistButton />
           <CartButton />

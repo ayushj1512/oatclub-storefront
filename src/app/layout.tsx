@@ -3,8 +3,10 @@
 import "./globals.css";
 import { Poppins } from "next/font/google";
 
+import TopbarHeadline from "@/components/layout/TopbarHeadline";
 import DesktopHeader from "@/components/layout/DesktopHeader";
 import MobileHeader from "@/components/layout/MobileHeader";
+import MobileBNB from "@/components/layout/MobileBNB";
 import Footer from "@/components/layout/Footer";
 import ScrollToTop from "@/components/layout/ScrollToTop";
 import ClientProviders from "@/components/layout/ClientProviders";
@@ -13,7 +15,7 @@ import { useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
 
 import SignupModal from "@/components/auth/SignupModal";
-import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal"; // ⭐ ADDED
+import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
 
 // Google Font
 const poppins = Poppins({
@@ -41,7 +43,10 @@ function AuthInit() {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={poppins.variable}>
-      <body className="font-sans antialiased bg-white text-gray-900">
+      {/* ✅ pb-20 on mobile so BNB doesn't overlap content */}
+      <body className="font-sans antialiased bg-white text-gray-900 pb-20 md:pb-0">
+        {/* ---------- TOP HEADLINE BAR ---------- */}
+        <TopbarHeadline />
 
         {/* ---------- DESKTOP HEADER ---------- */}
         <div className="hidden md:block">
@@ -54,12 +59,16 @@ export default function RootLayout({ children }) {
         </div>
 
         {/* ---------- MAIN CONTENT ---------- */}
-        <main className="flex flex-col min-h-screen bg-white pt-[40px] md:pt-[60px]">
+        {/* TopbarHeadline height ~ 36px, so add extra padding */}
+        <main className="flex flex-col min-h-screen bg-white">
           {children}
         </main>
 
         {/* ---------- FOOTER ---------- */}
         <Footer />
+
+        {/* ✅ MOBILE BOTTOM NAV (ONLY MOBILE) */}
+        <MobileBNB />
 
         {/* ---------- GLOBAL PROVIDERS ---------- */}
         <ClientProviders>
@@ -72,7 +81,6 @@ export default function RootLayout({ children }) {
 
         {/* ---------- LOGOUT CONFIRM MODAL (GLOBAL) ---------- */}
         <LogoutConfirmModal />
-
       </body>
     </html>
   );

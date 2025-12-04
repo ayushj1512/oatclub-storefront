@@ -15,25 +15,60 @@ import {
 const COOKIE_KEY = "user_auth";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 
+/* =====================================================================
+   ⚡ UNIFIED AUTH STORE – + REALTIME PROFILE UPDATE
+===================================================================== */
 export const useAuthStore = create((set, get) => ({
-  user: null,
-  customer: null,
+  user: null, // Firebase user
+  customer: null, // MongoDB customer
   token: null,
   loading: true,
   isAuthenticated: false,
 
-  /* -------------------------------------------------------------------
-     🌙 MODAL STATE (Fix for your modal not closing)
-  ------------------------------------------------------------------- */
   modalDismissed: false,
+  setModalDismissed: () => set({ modalDismissed: true }),
 
-  setModalDismissed: () => {
-    set({ modalDismissed: true });
+  /* ---------------------------------------------
+     SET CUSTOMER STATE
+  --------------------------------------------- */
+  setCustomerState: (customer) => {
+    set({ customer, isAuthenticated: true });
+
+    const { user, token } = get();
+    if (user && token) {
+      Cookies.set(
+        COOKIE_KEY,
+        JSON.stringify({ user, customer, token }),
+        { expires: 7 }
+      );
+    }
   },
 
-  /* -------------------------------------------------------------------
-     🔁 Sync Firebase User → Backend MongoDB Customer
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------
+     FETCH CUSTOMER BY FIREBASE UID
+  --------------------------------------------- */
+  fetchCustomerByUID: async (firebaseUID) => {
+    try {
+      const res = await fetch(`${BACKEND}/api/customers?search=${firebaseUID}`);
+      const data = await res.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
+        console.log("⚠️ No customer found for UID:", firebaseUID);
+        return null;
+      }
+
+      const customer = data[0];
+      get().setCustomerState(customer);
+      return customer;
+    } catch (err) {
+      console.error("❌ fetchCustomerByUID error:", err);
+      return null;
+    }
+  },
+
+  /* ---------------------------------------------
+     SYNC FIREBASE USER → BACKEND (UPSERT)
+  --------------------------------------------- */
   syncCustomer: async (firebaseUser) => {
     if (!firebaseUser) return null;
 
@@ -42,7 +77,7 @@ export const useAuthStore = create((set, get) => ({
     const payload = {
       firebaseUID: firebaseUser.uid,
       name: firebaseUser.displayName || "",
-      email: firebaseUser.email || "",
+      email: firebaseUser.email,
       phone: firebaseUser.phoneNumber || "",
       profileImage: firebaseUser.photoURL || "",
     };
@@ -57,9 +92,51 @@ export const useAuthStore = create((set, get) => ({
     return { customer: data.customer, token };
   },
 
-  /* -------------------------------------------------------------------
-     🔄 Firebase Auth Session Listener
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------
+     🔥 NEW: UPDATE CUSTOMER PROFILE (Realtime Sync)
+  --------------------------------------------- */
+  updateCustomerProfile: async (updates) => {
+    const customer = get().customer;
+    if (!customer?._id) {
+      console.error("❌ No customer loaded");
+      return null;
+    }
+
+    // send updates to backend
+    const res = await fetch(`${BACKEND}/api/customers/${customer._id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("❌ Update Customer Error:", data.message);
+      return null;
+    }
+
+    // update Zustand store
+    set({ customer: data.customer });
+
+    const { user, token } = get();
+
+    // update cookie
+    Cookies.set(
+      COOKIE_KEY,
+      JSON.stringify({
+        user,
+        customer: data.customer,
+        token,
+      }),
+      { expires: 7 }
+    );
+
+    return data.customer;
+  },
+
+  /* ---------------------------------------------
+     FIREBASE SESSION LISTENER
+  --------------------------------------------- */
   initialize: () => {
     if (typeof window === "undefined") return;
 
@@ -85,13 +162,7 @@ export const useAuthStore = create((set, get) => ({
         photoURL: firebaseUser.photoURL,
       };
 
-      set({
-        user: userData,
-        customer,
-        token,
-        isAuthenticated: true,
-        loading: false,
-      });
+      set({ user: userData, customer, token, isAuthenticated: true, loading: false });
 
       Cookies.set(
         COOKIE_KEY,
@@ -101,9 +172,9 @@ export const useAuthStore = create((set, get) => ({
     });
   },
 
-  /* -------------------------------------------------------------------
-     🔐 Google Login
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------
+     GOOGLE LOGIN
+  --------------------------------------------- */
   loginWithGoogle: async () => {
     const result = await signInWithPopup(auth, googleProvider);
     const firebaseUser = result.user;
@@ -128,9 +199,9 @@ export const useAuthStore = create((set, get) => ({
     return { user: userData, customer };
   },
 
-  /* -------------------------------------------------------------------
-     📧 Email Login
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------
+     EMAIL LOGIN
+  --------------------------------------------- */
   loginWithEmail: async (email, password) => {
     const result = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = result.user;
@@ -155,9 +226,9 @@ export const useAuthStore = create((set, get) => ({
     return { user: userData, customer };
   },
 
-  /* -------------------------------------------------------------------
-     🆕 Register via Email
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------
+     REGISTER WITH EMAIL
+  --------------------------------------------- */
   registerWithEmail: async (email, password, name) => {
     const result = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = result.user;
@@ -187,11 +258,10 @@ export const useAuthStore = create((set, get) => ({
     return { user: userData, customer };
   },
 
-  /* -------------------------------------------------------------------
-     🚪 Logout with Confirmation Modal
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------
+     LOGOUT FLOW
+  --------------------------------------------- */
   showLogoutConfirm: false,
-
   requestLogout: () => set({ showLogoutConfirm: true }),
   cancelLogout: () => set({ showLogoutConfirm: false }),
 

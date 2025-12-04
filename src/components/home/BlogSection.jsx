@@ -21,7 +21,7 @@ export default function BlogSection() {
           Western fashion insights · Gen-Z aesthetics · Trend stories
         </p>
 
-        <div className="h-[2px] w-16 bg-[#800020] mx-auto mt-2 rounded-full" />
+        <div className="h-[2px] w-50 bg-[#800020] mx-auto mt-2 rounded-full" />
       </div>
 
       {/* HORIZONTAL BLOG ROW */}
@@ -33,9 +33,8 @@ export default function BlogSection() {
               initial={false}
               whileHover={{ scale: 1.04 }}
               transition={{ type: "spring", stiffness: 240, damping: 18 }}
-              className="relative flex-shrink-0 w-[180px] sm:w-[220px] bg-white border border-gray-200 rounded-xl cursor-pointer
-                         hover:shadow-lg transition-shadow duration-300"
-            >
+             className="relative flex-shrink-0 w-[180px] sm:w-[220px] bg-white border border-gray-200 rounded-xl cursor-pointer hover:shadow-lg transition-shadow duration-300">
+
               {/* NEW TAG — FIXED POSITION + ABOVE CARD */}
               {index < 2 && (
                 <span className="absolute z-20 top-2 left-2 bg-[#800020] text-white text-[10px] px-2 py-0.5 rounded-full">
