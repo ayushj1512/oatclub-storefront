@@ -11,7 +11,7 @@ import Footer from "@/components/layout/Footer";
 import ScrollToTop from "@/components/layout/ScrollToTop";
 import ClientProviders from "@/components/layout/ClientProviders";
 
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useAuthStore } from "@/store/authStore";
 
 import SignupModal from "@/components/auth/SignupModal";
@@ -45,6 +45,10 @@ type RootLayoutProps = Readonly<{
 // 🌐 ROOT LAYOUT
 // ------------------------------
 export default function RootLayout({ children }: RootLayoutProps) {
+  // SignupModal expects `closeAll` prop (it calls closeAll?.()).
+  // We provide a safe no-op for now; wire this to a global modal closer if/when you add one.
+  const closeAll = useCallback(() => {}, []);
+
   return (
     <html lang="en" className={poppins.variable}>
       {/* ✅ pb-20 on mobile so BNB doesn't overlap content */}
@@ -63,7 +67,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
         </div>
 
         {/* ---------- MAIN CONTENT ---------- */}
-        {/* TopbarHeadline height ~ 36px, so add extra padding */}
         <main className="flex flex-col min-h-screen bg-white">{children}</main>
 
         {/* ---------- FOOTER ---------- */}
@@ -79,7 +82,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         </ClientProviders>
 
         {/* ---------- SIGNUP MODAL (GLOBAL) ---------- */}
-        <SignupModal />
+        <SignupModal closeAll={closeAll} />
 
         {/* ---------- LOGOUT CONFIRM MODAL (GLOBAL) ---------- */}
         <LogoutConfirmModal />
