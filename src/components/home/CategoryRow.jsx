@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 
-/* compact + scrollable categories row */
 const categories = [
   { name: "Jeans", image: "https://i.pinimg.com/736x/ac/a4/49/aca449ca9080137842c1c03cb94b0280.jpg" },
   { name: "Tops", image: "https://i.pinimg.com/736x/2c/63/cd/2c63cd73e582af47936a9f5fbca0bf4c.jpg" },
@@ -17,17 +16,27 @@ const categories = [
 export default function CategoryRow() {
   return (
     <section className="w-full bg-white py-3">
-      {/* scroll container */}
-      <div className="flex items-center gap-3 px-4 overflow-x-auto no-scrollbar snap-x snap-mandatory">
-        {categories.map((cat, index) => (
+      {/* inline global CSS (NOT styled-jsx) */}
+      <style
+        // avoids any hydration warning if dev tools inject anything odd
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{
+          __html: `
+            .no-scrollbar::-webkit-scrollbar{display:none}
+            .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+          `,
+        }}
+      />
+
+      <div className="no-scrollbar flex items-center gap-3 px-4 overflow-x-auto snap-x snap-mandatory">
+        {categories.map((cat) => (
           <button
-            key={index}
+            key={cat.name}
             type="button"
-            className="snap-start flex-shrink-0 flex flex-col items-center justify-center select-none active:scale-[0.98] transition"
+            className="snap-start shrink-0 flex flex-col items-center justify-center select-none active:scale-[0.98] transition"
             onClick={() => {}}
             aria-label={cat.name}
           >
-            {/* avatar */}
             <div className="w-[72px] h-[72px] md:w-[92px] md:h-[92px] rounded-full overflow-hidden bg-black/[0.04]">
               {cat.image ? (
                 <Image
@@ -49,19 +58,12 @@ export default function CategoryRow() {
               )}
             </div>
 
-            {/* label (compact) */}
             <p className="mt-1 text-[12px] md:text-[13px] font-semibold text-black/75 leading-tight">
               {cat.name}
             </p>
           </button>
         ))}
       </div>
-
-      {/* optional: keep scrollbar hidden if you don't already have it globally */}
-      <style jsx global>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </section>
   );
 }
