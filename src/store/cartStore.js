@@ -2,96 +2,255 @@
 
 import { create } from "zustand";
 import Cookies from "js-cookie";
+import { notify } from "@/lib/notify";
 
 const KEY = "cart_products";
+
+/* ---------------- helpers ---------------- */
+const str = (v) => (v == null ? "" : String(v));
+const toNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const extractSize = (variant) => {
+  const attrs = Array.isArray(variant?.attributes) ? variant.attributes : [];
+  const size = attrs.find((a) => str(a?.key).toLowerCase() === "size")?.value;
+  return size ? str(size) : "";
+};
+
+const cartKey = (item) => {
+  const pid = str(item?.productId || item?.id || item?._id);
+  const vid = str(item?.variantId || item?.variant?._id || "");
+  return `${pid}__${vid}`; // ✅ variants separate in cart automatically
+};
+
+const getDisplayName = (p) => p?.name || p?.title || "Item";
+
+/**
+ * ✅ Build a stable cart item from backend product + selected variantId/size
+ * Input `product` should be the normalized product from productStore.
+ */
+const buildCartItem = ({ product, qty = 1, variantId = null, selectedSize = null }) => {
+  if (!product) return null;
+
+  const productId = str(product.productId || product.id || product._id);
+  if (!productId) return null;
+
+  const productType = product.productType || (Array.isArray(product.variants) && product.variants.length ? "variable" : "simple");
+
+  // find variant (by id OR by selectedSize)
+  let variant = null;
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+
+  if (variantId) {
+    variant = variants.find((v) => str(v?._id) === str(variantId)) || null;
+  } else if (selectedSize) {
+    const s = str(selectedSize).toLowerCase();
+    variant = variants.find((v) => extractSize(v).toLowerCase() === s) || null;
+    variantId = variant?._id ? str(variant._id) : null;
+  }
+
+  // enforce: variable => must have variantId
+  if (productType === "variable" && !variantId) return { __error: "variant_required" };
+
+  const unitPrice = variant && toNum(variant.price) > 0 ? toNum(variant.price) : toNum(product.price);
+  const compareAtPrice =
+    variant?.compareAtPrice != null ? toNum(variant.compareAtPrice) : product.compareAtPrice != null ? toNum(product.compareAtPrice) : null;
+
+  const safeQty = Math.max(1, toNum(qty) || 1);
+
+  // ✅ snapshot fields to send in createOrder (optional but helpful)
+  const snapshot = {
+    productCode: str(product.productCode),
+    title: str(product.name || product.title),
+    slug: str(product.slug),
+    thumbnail: str(product.thumbnail || product.image || ""),
+    images: Array.isArray(product.images) ? product.images : [],
+    category: str(product.categoryId || ""),
+    subcategory: str(product.subcategoryId || ""),
+    productType,
+    sku: str(product.sku || ""),
+    tags: Array.isArray(product.tags) ? product.tags : [],
+    weight: toNum(product.weight),
+    currency: str(product.currency || "INR"),
+  };
+
+  const variantSnapshot = variantId
+    ? {
+        variantId: str(variantId),
+        sku: str(variant?.sku || ""),
+        attributes: Array.isArray(variant?.attributes)
+          ? variant.attributes
+              .filter((a) => a?.key != null && a?.value != null)
+              .map((a) => ({ key: str(a.key), value: str(a.value) }))
+          : [],
+        image: str(variant?.image || snapshot.thumbnail || ""),
+        weight: toNum(variant?.weight),
+      }
+    : null;
+
+  const item = {
+    // ✅ REQUIRED FOR BACKEND ORDER
+    productId,
+    variantId: variantSnapshot?.variantId || null,
+    quantity: safeQty,
+
+    // ✅ UI convenience
+    name: snapshot.title,
+    slug: snapshot.slug,
+    image: snapshot.thumbnail,
+    price: unitPrice,
+    compareAtPrice,
+
+    // ✅ selection info
+    selectedSize: selectedSize ? str(selectedSize) : variant ? extractSize(variant) : "",
+
+    // ✅ snapshots (optional but great)
+    productSnapshot: snapshot,
+    variant: variantSnapshot,
+
+    __key: "", // filled below
+  };
+
+  item.__key = cartKey(item);
+  return item;
+};
 
 export const useCartStore = create((set, get) => ({
   items: [],
 
-  // INIT
+  /* ---------------- INIT ---------------- */
   initialize: () => {
-    console.log("🟡 Cart Init");
     if (typeof window === "undefined") return;
 
     const stored = Cookies.get(KEY);
-    if (!stored) return console.log("ℹ️ No cart cookie found");
+    if (!stored) return;
 
     try {
       const data = JSON.parse(stored);
-      if (Array.isArray(data)) {
-        console.log("🟢 Loaded cart from cookie:", data);
-        set({ items: data });
-      }
+      if (!Array.isArray(data)) return;
+
+      const normalized = data
+        .map((it) => ({
+          ...it,
+          productId: str(it.productId || it.id || it._id),
+          variantId: it.variantId ? str(it.variantId) : null,
+          quantity: Math.max(1, toNum(it.quantity || it.qty || 1)),
+        }))
+        .map((it) => ({
+          ...it,
+          qty: undefined, // remove old field
+          __key: it.__key || cartKey(it),
+        }));
+
+      set({ items: normalized });
     } catch (e) {
-      console.error("❌ Cookie parse error:", e);
+      console.error("❌ Cart cookie parse error:", e);
     }
   },
 
-  // ADD
-  addToCart: (product, qty = 1) => {
-    console.log("➕ Add to Cart:", product, "Qty:", qty);
-    if (!product?.id) return console.log("❌ No product ID");
+  /* ---------------- ADD ----------------
+     Call like:
+     addToCart({ product, qty: 1, variantId, selectedSize })
+  */
+  addToCart: ({ product, qty = 1, variantId = null, selectedSize = null }) => {
+    const built = buildCartItem({ product, qty, variantId, selectedSize });
 
-    const curr = get().items;
-    const exists = curr.find((p) => p.id === product.id);
+    if (!built) return;
+    if (built.__error === "variant_required") {
+      notify?.error?.("Please select a size first");
+      return;
+    }
+
+    const key = built.__key;
+    const curr = get().items || [];
+
+    const exists = curr.find((p) => (p.__key || cartKey(p)) === key);
 
     const updated = exists
-      ? curr.map((p) => (p.id === product.id ? { ...p, qty: p.qty + qty } : p))
-      : [{ ...product, qty }, ...curr];
+      ? curr.map((p) => {
+          const pk = p.__key || cartKey(p);
+          if (pk !== key) return p;
+          const nextQty = Math.max(1, toNum(p.quantity || 1) + toNum(built.quantity || 1));
+          return { ...p, ...built, quantity: nextQty, __key: pk };
+        })
+      : [{ ...built }, ...curr];
 
     set({ items: updated });
     Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
 
-    console.log("🛒 Updated Cart:", updated);
+    const newQty = updated.find((p) => (p.__key || cartKey(p)) === key)?.quantity || built.quantity;
+
+    if (exists) notify.cartQtyUpdated?.(built, newQty);
+    else notify.cartAdded?.(built);
   },
 
-  // REMOVE
-  removeFromCart: (id) => {
-    console.log("🗑 Remove Item:", id);
-    const updated = get().items.filter((p) => p.id !== id);
-    set({ items: updated });
-    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-    console.log("🛒 After Remove:", updated);
-  },
+  /* ---------------- REMOVE ---------------- */
+  removeFromCart: (idOrKey, variantId = null) => {
+    const curr = get().items || [];
+    const key = str(idOrKey).includes("__") ? str(idOrKey) : `${str(idOrKey)}__${str(variantId || "")}`;
 
-  // UPDATE QTY
-  updateQty: (id, qty) => {
-    console.log("🔄 Update Qty:", id, "→", qty);
-    if (qty < 1) qty = 1;
-
-    const updated = get().items.map((p) =>
-      p.id === id ? { ...p, qty } : p
-    );
+    const removed = curr.find((p) => (p.__key || cartKey(p)) === key);
+    const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
 
     set({ items: updated });
     Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-    console.log("🛒 After Qty Update:", updated);
+
+    if (removed) notify.cartRemoved?.(removed);
+    else notify.info?.(`Removed: ${getDisplayName({ id: idOrKey })}`);
   },
 
-  // CLEAR
+  /* ---------------- UPDATE QTY ---------------- */
+  updateQty: (idOrKey, qty, variantId = null) => {
+    let nextQty = toNum(qty);
+    const curr = get().items || [];
+
+    const key = str(idOrKey).includes("__") ? str(idOrKey) : `${str(idOrKey)}__${str(variantId || "")}`;
+    const item = curr.find((p) => (p.__key || cartKey(p)) === key);
+    if (!item) return;
+
+    if (nextQty <= 0) {
+      const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
+      set({ items: updated });
+      Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+      notify.cartRemoved?.(item);
+      return;
+    }
+
+    if (nextQty < 1) nextQty = 1;
+
+    const updated = curr.map((p) => {
+      const pk = p.__key || cartKey(p);
+      return pk === key ? { ...p, quantity: nextQty, __key: pk } : p;
+    });
+
+    set({ items: updated });
+    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+    notify.cartQtyUpdated?.(item, nextQty);
+  },
+
+  /* ---------------- CLEAR ---------------- */
   clearCart: () => {
-    console.log("🧹 Clear Cart");
     set({ items: [] });
     Cookies.remove(KEY);
+    notify.cartCleared?.();
   },
 
-  totalCount: () => {
-    const count = get().items.reduce((s, i) => s + i.qty, 0);
-    console.log("📦 Total Count:", count);
-    return count;
-  },
+  /* ---------------- TOTALS ---------------- */
+  totalCount: () => (get().items || []).reduce((s, i) => s + toNum(i.quantity || 0), 0),
 
-  totalPrice: () => {
-    const total = get().items.reduce((sum, item) => {
-      const price =
-        typeof item.price === "string"
-          ? parseFloat(item.price.replace(/[₹,]/g, "")) || 0
-          : parseFloat(item.price) || 0;
+  totalPrice: () =>
+    (get().items || []).reduce((sum, it) => sum + toNum(it.price) * toNum(it.quantity || 0), 0),
 
-      return sum + price * item.qty;
-    }, 0);
-
-    console.log("💰 Total Price:", total);
-    return total;
-  },
+  /* ---------------- ORDER PAYLOAD ----------------
+     ✅ use this in checkout when hitting POST /api/orders
+  */
+  toOrderItems: () =>
+    (get().items || []).map((it) => ({
+      productId: it.productId,
+      quantity: toNum(it.quantity || 1),
+      ...(it.variantId ? { variantId: it.variantId } : {}),
+    })),
 }));

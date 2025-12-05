@@ -27,7 +27,11 @@ async function api(path, options = {}) {
 }
 
 /**
- * Order Store (Customer + Admin compatible)
+ * COD-first Order Store
+ * ✅ IMPORTANT: Your backend createOrder expects:
+ *    { customerId, shippingAddressSnapshot, billingAddressSnapshot, items: [{productId, quantity, variantId?}], ... }
+ * ❌ It does NOT accept frontend-calculated totals/items snapshot fields.
+ * So we only send the minimal compatible payload and let backend compute snapshot + totals.
  */
 export const useOrderStore = create((set, get) => ({
   // ----------------------------
@@ -43,60 +47,68 @@ export const useOrderStore = create((set, get) => ({
   analytics: null,
 
   // ----------------------------
-  // Actions: Customer
+  // Actions: Customer (COD)
   // ----------------------------
 
   /**
    * CREATE ORDER (Customer)
    * POST /api/orders
+   *
+   * Expected items input shapes supported:
+   * - [{ productId, quantity, variantId? }]
+   * - or cart-like: [{ id, qty, variantId? }]
    */
-  createOrder: async ({
+  createCodOrder: async ({
     customerId,
     shippingAddressSnapshot,
     billingAddressSnapshot,
     items,
-    subtotal,
     discount = 0,
     coupon = null,
     shippingFee = 0,
     tax = 0,
-    totalAmount,
-    finalPayable,
-    paymentMethod = "cod",
     source = "website",
     isGiftOrder = false,
-    customerMessage,
+    customerMessage = "",
+    currency = "INR",
   }) => {
     set({ placing: true, error: null });
 
     try {
-      // Minimal validation on frontend
       if (!customerId) throw new Error("customerId is required");
+      if (!shippingAddressSnapshot) throw new Error("shippingAddressSnapshot is required");
       if (!items?.length) throw new Error("Order items missing");
 
-      // Enforce server-compatible shape
+      // normalize items to what backend expects
+      const normalizedItems = items.map((it) => {
+        const productId = it?.productId || it?.id;
+        const quantity = Number(it?.quantity ?? it?.qty ?? 0);
+        const variantId = it?.variantId || null;
+
+        if (!productId) throw new Error("Each item must have productId (or id)");
+        if (!Number.isFinite(quantity) || quantity < 1) throw new Error("Invalid item quantity");
+
+        return {
+          productId,
+          quantity,
+          ...(variantId ? { variantId } : {}),
+        };
+      });
+
       const payload = {
         customerId,
         shippingAddressSnapshot,
-        billingAddressSnapshot,
-        items: items.map((it) => ({
-          productId: it.productId,
-          name: it.name,
-          categoryId: it.categoryId,
-          variant: it.variant,
-          quantity: it.quantity,
-          price: it.price,
-          subtotal: it.subtotal,
-          tags: it.tags || [],
-        })),
-        subtotal,
+        billingAddressSnapshot: billingAddressSnapshot || shippingAddressSnapshot, // if you don't collect separate billing
+        items: normalizedItems,
+
+        // optional pricing inputs (backend is source of truth, but your controller supports these fields)
         discount,
         coupon,
         shippingFee,
         tax,
-        totalAmount,
-        finalPayable,
-        paymentMethod,
+        currency,
+
+        paymentMethod: "cod",
         source,
         isGiftOrder,
         customerMessage,
@@ -123,6 +135,7 @@ export const useOrderStore = create((set, get) => ({
   fetchMyOrders: async (customerId) => {
     set({ loading: true, error: null });
     try {
+      if (!customerId) throw new Error("customerId is required");
       const data = await api(`/api/orders/customer/${customerId}`);
       set({ orders: data, loading: false });
       return data;
@@ -139,6 +152,7 @@ export const useOrderStore = create((set, get) => ({
   fetchOrderById: async (id) => {
     set({ loading: true, error: null });
     try {
+      if (!id) throw new Error("Order id is required");
       const data = await api(`/api/orders/${id}`);
       set({ order: data, loading: false });
       return data;
@@ -180,12 +194,12 @@ export const useOrderStore = create((set, get) => ({
   updateOrder: async (id, patch) => {
     set({ loading: true, error: null });
     try {
+      if (!id) throw new Error("Order id is required");
       const data = await api(`/api/orders/${id}`, {
         method: "PUT",
         body: JSON.stringify(patch),
       });
 
-      // backend returns: { message, order }
       const updated = data.order;
       set((state) => ({
         order: state.order?._id === updated._id ? updated : state.order,
@@ -207,6 +221,7 @@ export const useOrderStore = create((set, get) => ({
   updateOrderStatus: async (id, { fulfillmentStatus, paymentStatus }) => {
     set({ loading: true, error: null });
     try {
+      if (!id) throw new Error("Order id is required");
       const data = await api(`/api/orders/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ fulfillmentStatus, paymentStatus }),
@@ -233,6 +248,7 @@ export const useOrderStore = create((set, get) => ({
   updateTracking: async (id, trackingPatch) => {
     set({ loading: true, error: null });
     try {
+      if (!id) throw new Error("Order id is required");
       const data = await api(`/api/orders/${id}/tracking`, {
         method: "PATCH",
         body: JSON.stringify(trackingPatch),
@@ -259,6 +275,7 @@ export const useOrderStore = create((set, get) => ({
   deleteOrder: async (id) => {
     set({ loading: true, error: null });
     try {
+      if (!id) throw new Error("Order id is required");
       const data = await api(`/api/orders/${id}`, { method: "DELETE" });
 
       set((state) => ({
@@ -296,4 +313,5 @@ export const useOrderStore = create((set, get) => ({
   clearError: () => set({ error: null }),
   clearOrder: () => set({ order: null }),
   clearOrders: () => set({ orders: [] }),
+  clearLastCreatedOrder: () => set({ lastCreatedOrder: null }),
 }));

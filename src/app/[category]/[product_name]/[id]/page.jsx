@@ -1,4 +1,4 @@
-// src/app/[category]/[id]/page.jsx
+// src/app/[category]/[product_name]/[id]/page.jsx
 "use client";
 
 import { use, useEffect, useMemo, useState } from "react";
@@ -8,83 +8,59 @@ import { toast } from "sonner";
 import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
+import { useProductStore } from "@/store/productStore";
 
 import ProductGallery from "@/components/productDetail/ProductGallery";
 import RelatedProducts from "@/components/productDetail/relatedProducts";
-
 import WashcareSection from "@/components/productDetail/WashcareSection";
 import ProductDetailSection from "@/components/productDetail/ProductDetailSection";
 import ReviewSection from "../../../../components/productDetail/ReviewSection";
+import SupportSection from "@/components/productDetail/SupportSection";
 
-import SupportSection from "@/components/productDetail/SupportSection"; // ✅ USE COMPONENT HERE
+const BRAND = { burgundy: "#800020", black: "#111111" };
 
-const BRAND = {
-  burgundy: "#800020",
-  black: "#111111",
-};
-
-function money(n) {
+const money = (n) => {
   const num = Number(n);
   if (!Number.isFinite(num)) return "0";
   return num.toLocaleString("en-IN");
-}
+};
 
-/* ------------------------------ */
-/* Accordion UI (same as your sample) */
-/* ------------------------------ */
+/* -------- accordion ---------- */
 function Accordion({ title, children, defaultOpen = false, borderTop = true }) {
   const [open, setOpen] = useState(defaultOpen);
-
   return (
     <div className={`${borderTop ? "border-t border-gray-200" : ""} py-3`}>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen((v) => !v)}
         className="flex justify-between items-center w-full text-left"
+        aria-expanded={open}
       >
         <span className="text-base md:text-lg font-semibold text-black">{title}</span>
-
         {open ? <Minus className="h-5 w-5 text-black" /> : <Plus className="h-5 w-5 text-black" />}
       </button>
 
-      <div
-        className={`transition-all overflow-hidden duration-300 ${
-          open ? "max-h-[900px] mt-3" : "max-h-0"
-        }`}
-      >
+      <div className={`transition-all overflow-hidden duration-300 ${open ? "max-h-[900px] mt-3" : "max-h-0"}`}>
         {open ? children : null}
       </div>
     </div>
   );
 }
 
-/* ------------------------------ */
-/* Size Guide (exact UI like your sample) */
-/* ------------------------------ */
 function SizeGuideSection() {
   return (
     <Accordion title="Size Guide">
       <div className="text-gray-700 text-sm leading-relaxed space-y-4">
         <p className="font-medium text-black">How to Measure</p>
-
         <ul className="space-y-1">
-          <li>
-            • <strong>Bust:</strong> Measure around the fullest part of your chest.
-          </li>
-          <li>
-            • <strong>Waist:</strong> Measure around the narrowest part of your waist.
-          </li>
-          <li>
-            • <strong>Hips:</strong> Measure around the widest part of your hips.
-          </li>
-          <li>
-            • <strong>Length:</strong> Measure from shoulder to hem.
-          </li>
+          <li>• <strong>Bust:</strong> Measure around the fullest part of your chest.</li>
+          <li>• <strong>Waist:</strong> Measure around the narrowest part of your waist.</li>
+          <li>• <strong>Hips:</strong> Measure around the widest part of your hips.</li>
+          <li>• <strong>Length:</strong> Measure from shoulder to hem.</li>
         </ul>
 
         <div className="pt-3">
           <p className="font-medium text-black mb-2">Size Chart (General)</p>
-
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="border-b">
@@ -94,42 +70,12 @@ function SizeGuideSection() {
                 <th className="py-2">Hips</th>
               </tr>
             </thead>
-
             <tbody>
-              <tr className="border-b">
-                <td className="py-2">XS</td>
-                <td>30-32"</td>
-                <td>24-26"</td>
-                <td>32-34"</td>
-              </tr>
-
-              <tr className="border-b">
-                <td className="py-2">S</td>
-                <td>32-34"</td>
-                <td>26-28"</td>
-                <td>34-36"</td>
-              </tr>
-
-              <tr className="border-b">
-                <td className="py-2">M</td>
-                <td>34-36"</td>
-                <td>28-30"</td>
-                <td>36-38"</td>
-              </tr>
-
-              <tr className="border-b">
-                <td className="py-2">L</td>
-                <td>36-38"</td>
-                <td>30-32"</td>
-                <td>38-40"</td>
-              </tr>
-
-              <tr>
-                <td className="py-2">XL</td>
-                <td>38-40"</td>
-                <td>32-34"</td>
-                <td>40-42"</td>
-              </tr>
+              <tr className="border-b"><td className="py-2">XS</td><td>30-32"</td><td>24-26"</td><td>32-34"</td></tr>
+              <tr className="border-b"><td className="py-2">S</td><td>32-34"</td><td>26-28"</td><td>34-36"</td></tr>
+              <tr className="border-b"><td className="py-2">M</td><td>34-36"</td><td>28-30"</td><td>36-38"</td></tr>
+              <tr className="border-b"><td className="py-2">L</td><td>36-38"</td><td>30-32"</td><td>38-40"</td></tr>
+              <tr><td className="py-2">XL</td><td>38-40"</td><td>32-34"</td><td>40-42"</td></tr>
             </tbody>
           </table>
         </div>
@@ -138,136 +84,181 @@ function SizeGuideSection() {
   );
 }
 
-export default function ProductPage({ params }) {
-  const { category, id } = use(params);
+/* -------- variant helpers (new cart store needs variantId) ---------- */
+const str = (v) => (v == null ? "" : String(v));
 
-  const [product, setProduct] = useState(null);
-  const [selectedSize, setSelectedSize] = useState(null);
-  const [loading, setLoading] = useState(true);
+const getAttrValue = (attrs, key) => {
+  const k = str(key).toLowerCase();
+  const arr = Array.isArray(attrs) ? attrs : [];
+  return arr.find((a) => str(a?.key).toLowerCase() === k)?.value || "";
+};
+
+const deriveSizesFromBackend = (normalized) => {
+  if (!normalized) return [];
+
+  // ✅ Your normalizeBackendProduct keeps raw doc -> best source
+  const raw = normalized.raw || normalized;
+
+  // raw.attributes: [{ key:"Size", values:[...] }...] OR similar
+  const attrs = Array.isArray(raw?.attributes) ? raw.attributes : [];
+  const sizeAttr = attrs.find((a) => str(a?.key).toLowerCase() === "size" || str(a?.attribute?.slug).toLowerCase() === "size");
+  if (Array.isArray(sizeAttr?.values) && sizeAttr.values.length) {
+    return sizeAttr.values.map((s) => str(s).trim()).filter(Boolean);
+  }
+
+  // fallback: derive from variants attributes
+  const vars = Array.isArray(raw?.variants) ? raw.variants : Array.isArray(normalized?.variants) ? normalized.variants : [];
+  const fromVariants = vars.map((v) => getAttrValue(v?.attributes, "size")).filter(Boolean);
+  return Array.from(new Set(fromVariants));
+};
+
+const deriveImageList = (normalized) => {
+  const images = Array.isArray(normalized?.images) ? normalized.images : [];
+  const thumb = normalized?.thumbnail || normalized?.image || images?.[0] || "";
+  const merged = [thumb, ...images].filter(Boolean).map(String);
+  return Array.from(new Set(merged));
+};
+
+const findVariantIdBySize = (normalized, size) => {
+  const raw = normalized?.raw || normalized;
+  const vars = Array.isArray(raw?.variants) ? raw.variants : Array.isArray(normalized?.variants) ? normalized.variants : [];
+  const wanted = str(size).toLowerCase();
+  const v = vars.find((x) => getAttrValue(x?.attributes, "size").toLowerCase() === wanted);
+  return v?._id ? str(v._id) : null;
+};
+
+export default function ProductPage({ params }) {
+  // ✅ Next 16: params is Promise -> unwrap with React.use()
+  const unwrapped = use(params);
+  const category = unwrapped?.category;
+  const id = unwrapped?.id;
 
   const cartStore = useCartStore();
+  const addToCart = useCartStore((s) => s.addToCart);
+
   const wishlistStore = useWishlistStore();
+  const { addToWishlist, removeFromWishlist, isInWishlist, initialize: initWishlist } = wishlistStore;
+
   const recentlyViewedStore = useRecentlyViewedStore();
 
-  const { addToCart } = cartStore;
-  const { addToWishlist, removeFromWishlist, isInWishlist, initialize: initWishlist } = wishlistStore;
+  const fetchProductDetails = useProductStore((s) => s.fetchProductDetails);
+  const storeLoading = useProductStore((s) => s.isLoading);
+
+  const [normalized, setNormalized] = useState(null); // ✅ keep normalized product for cart
+  const [product, setProduct] = useState(null); // UI mapped
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     cartStore.initialize?.();
     initWishlist?.();
-    console.log("[ProductPage] init stores");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* FETCH PRODUCT */
   useEffect(() => {
     let mounted = true;
 
-    async function fetchProduct() {
+    async function load() {
+      if (!id) return;
       setLoading(true);
 
       try {
-        console.log("[ProductPage] fetching product", { category, id });
+        const p = await fetchProductDetails(id); // normalized from productStore
+        if (!mounted) return;
 
-        const base = process.env.NEXT_PUBLIC_WC_URL;
-        const key = process.env.NEXT_PUBLIC_WC_KEY;
-        const secret = process.env.NEXT_PUBLIC_WC_SECRET;
+        setNormalized(p);
 
-        if (!base || !key || !secret) {
-          console.error("[ProductPage] Missing WC env vars", {
-            NEXT_PUBLIC_WC_URL: !!base,
-            NEXT_PUBLIC_WC_KEY: !!key,
-            NEXT_PUBLIC_WC_SECRET: !!secret,
-          });
-          toast.error("Store config missing (WC env vars).");
-          return;
-        }
-
-        const url = `${base}/wp-json/wc/v3/products/${id}?consumer_key=${key}&consumer_secret=${secret}`;
-        console.log("[ProductPage] WC URL:", url);
-
-        const res = await fetch(url, { cache: "no-store" });
-        const data = await res.json();
-
-        if (!res.ok) {
-          console.error("[ProductPage] WC error", { status: res.status, data });
-          toast.error(data?.message || "Failed to load product");
-          return;
-        }
-
-        const sizeAttr =
-          data.attributes?.find((a) =>
-            ["size", "pa_size"].includes(String(a.name || "").toLowerCase())
-          )?.options ?? [];
+        const sizes = deriveSizesFromBackend(p);
+        const images = deriveImageList(p);
 
         const mapped = {
-          id: data.id,
-          name: data.name,
-          slug: data.slug,
-          price: Number(data.price) || 0,
-          regularPrice: Number(data.regular_price) || Number(data.price) || 0,
-          onSale: !!data.on_sale,
-          images: data.images?.map((i) => i.src) ?? [],
-          shortDescription: data.short_description || "",
-          description: data.description || "",
-          sizes: sizeAttr.map((s) => String(s).trim()).filter(Boolean),
-          categories: data.categories ?? [],
-          stockStatus: data.stock_status || "",
-          permalink: data.permalink || "",
+          id: p.productId,
+          productId: p.productId,
+          productCode: p.productCode,
+          name: p.name,
+          slug: p.slug,
+          price: Number(p.price || 0),
+          regularPrice: Number(p.compareAtPrice ?? p.price ?? 0),
+          onSale: Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
+          images,
+          description: p.raw?.description || p.description || "",
+          shortDescription: p.raw?.shortDescription || "",
+          sizes,
+          isInStock: Boolean(p.isInStock ?? true),
+          stock: Number(p.stock ?? 0),
+          productType: p.productType,
+          raw: p.raw || p,
         };
 
-        console.log("[ProductPage] mapped product:", mapped);
+        setProduct(mapped);
 
-        if (mounted) {
-          setProduct(mapped);
-          if (mapped.sizes.length === 1) setSelectedSize(mapped.sizes[0]);
+        // ✅ auto-select only size if single size
+        if (sizes.length === 1) {
+          const s0 = sizes[0];
+          setSelectedSize(s0);
+          setSelectedVariantId(findVariantIdBySize(p, s0));
+        } else {
+          setSelectedSize(null);
+          setSelectedVariantId(null);
         }
       } catch (e) {
-        console.error("[ProductPage] fetch failed", e);
-        toast.error("Something went wrong while loading product.");
+        console.error("[ProductPage] load failed", e);
+        toast.error(e?.message || "Failed to load product");
+        if (mounted) {
+          setProduct(null);
+          setNormalized(null);
+        }
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
-    fetchProduct();
-    return () => (mounted = false);
-  }, [id, category]);
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [id, fetchProductDetails]);
 
   useEffect(() => {
     if (!product) return;
     recentlyViewedStore.addProduct?.(product);
-    console.log("[ProductPage] recently viewed add", product.id);
   }, [product, recentlyViewedStore]);
 
-  const requireSize = product?.sizes?.length > 0;
+  const requireSize = (product?.sizes?.length || 0) > 0;
+  const wishlisted = isInWishlist?.(product?.productId || product?.id);
 
   const handleAddToCart = () => {
-    console.log("[ProductPage] addToCart click", { productId: product?.id, selectedSize });
-    if (!product) return;
-    if (requireSize && !selectedSize) return toast.error("Please select a size");
+    if (!normalized || !product) return;
 
-    addToCart({ ...product, selectedSize });
+    if (requireSize && !selectedSize) return toast.error("Please select a size");
+    if ((product.productType === "variable" || requireSize) && !selectedVariantId) {
+      return toast.error("Please select a size");
+    }
+
+    // ✅ New cart store API
+    addToCart({
+      product: normalized, // normalized product from productStore
+      qty: 1,
+      selectedSize,
+      variantId: selectedVariantId, // ✅ IMPORTANT (fixes "variantId missing")
+    });
+
     toast.success("Added to cart");
   };
 
   const handleBuyNow = () => {
-    console.log("[ProductPage] buyNow click", { productId: product?.id, selectedSize });
-    if (!product) return;
-    if (requireSize && !selectedSize) return toast.error("Please select a size");
-
-    addToCart({ ...product, selectedSize });
+    handleAddToCart();
     window.location.href = "/checkout";
   };
 
   const handleToggleWishlist = () => {
     if (!product) return;
-
-    const inWL = isInWishlist?.(product.id);
-    console.log("[ProductPage] wishlist toggle", { productId: product.id, inWL });
+    const pid = product.productId || product.id;
+    const inWL = isInWishlist?.(pid);
 
     if (inWL) {
-      removeFromWishlist(product.id);
+      removeFromWishlist(pid);
       toast("Removed from wishlist 💔");
     } else {
       addToWishlist(product);
@@ -277,15 +268,13 @@ export default function ProductPage({ params }) {
 
   const shareMessage = useMemo(() => {
     if (!product) return "";
-    const link = (typeof window !== "undefined" && window.location.href) || product.permalink || "";
+    const link = (typeof window !== "undefined" && window.location.href) || "";
     return `✨ ${product.name}\n₹${money(product.price)}${selectedSize ? ` • Size: ${selectedSize}` : ""}\n${link}`;
   }, [product, selectedSize]);
 
   const handleShare = async () => {
     if (!product) return;
-    const url = (typeof window !== "undefined" && window.location.href) || product.permalink || "";
-
-    console.log("[ProductPage] share click", { productId: product.id, url, selectedSize });
+    const url = (typeof window !== "undefined" && window.location.href) || "";
 
     try {
       if (navigator.share) {
@@ -295,55 +284,39 @@ export default function ProductPage({ params }) {
         await navigator.clipboard.writeText(shareMessage);
         toast.success("Share text copied ✅");
       }
-    } catch (e) {
-      console.log("[ProductPage] share cancelled/blocked", e);
-    }
+    } catch {}
   };
 
-  if (loading) return <div className="p-10 text-center text-gray-500 text-sm">Loading...</div>;
+  if (loading || storeLoading) return <div className="p-10 text-center text-gray-500 text-sm">Loading...</div>;
   if (!product) return <div className="p-10 text-center text-gray-500 text-sm">Product not found</div>;
-
-  const wishlisted = isInWishlist?.(product.id);
 
   return (
     <div className="w-full px-4 md:px-12 py-6 md:py-12">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {/* LEFT */}
         <div className="w-full md:max-w-[420px] mx-auto">
-          <ProductGallery images={product.images} />
+          <ProductGallery images={product.images || []} />
         </div>
 
         {/* RIGHT */}
         <aside className="space-y-4 w-full">
           {/* Breadcrumb */}
           <div className="text-xs md:text-sm text-gray-500">
-            <a href="/" className="hover:underline">
-              Home
-            </a>{" "}
-            /{" "}
-            <a href={`/${category}`} className="hover:underline capitalize">
-              {category}
-            </a>{" "}
-            / <span className="text-gray-900">{product.name}</span>
+            <a href="/" className="hover:underline">Home</a> /{" "}
+            <a href={`/${category}`} className="hover:underline capitalize">{category}</a> /{" "}
+            <span className="text-gray-900">{product.name}</span>
           </div>
 
           {/* Title */}
-          <h1 className="text-2xl md:text-3xl font-semibold text-black leading-tight">
-            {product.name}
-          </h1>
+          <h1 className="text-2xl md:text-3xl font-semibold text-black leading-tight">{product.name}</h1>
 
-          {/* PRICE + minimal icons */}
+          {/* PRICE + icons */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-2xl md:text-3xl font-semibold text-black">
-                ₹{money(product.price)}
-              </span>
-
-              {product.regularPrice > product.price && (
-                <span className="line-through text-base text-gray-500">
-                  ₹{money(product.regularPrice)}
-                </span>
-              )}
+              <span className="text-2xl md:text-3xl font-semibold text-black">₹{money(product.price)}</span>
+              {product.regularPrice > product.price ? (
+                <span className="line-through text-base text-gray-500">₹{money(product.regularPrice)}</span>
+              ) : null}
             </div>
 
             <div className="flex items-center gap-3">
@@ -353,10 +326,7 @@ export default function ProductPage({ params }) {
                 aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
                 title={wishlisted ? "Wishlisted" : "Add to wishlist"}
               >
-                <Heart
-                  size={20}
-                  className={wishlisted ? "fill-current text-[#800020]" : "text-gray-900"}
-                />
+                <Heart size={20} className={wishlisted ? "fill-current text-[#800020]" : "text-gray-900"} />
               </button>
 
               <button
@@ -391,8 +361,8 @@ export default function ProductPage({ params }) {
             </button>
           </div>
 
-          {/* SIZE SELECTOR */}
-          {product.sizes.length > 0 && (
+          {/* SIZE SELECTOR (sets variantId too) */}
+          {(product.sizes || []).length > 0 ? (
             <div className="space-y-1.5 pt-1">
               <h3 className="text-xs font-medium text-black">Select Size</h3>
 
@@ -403,32 +373,28 @@ export default function ProductPage({ params }) {
                     <button
                       key={s}
                       onClick={() => {
-                        console.log("[ProductPage] size select:", s);
                         setSelectedSize(s);
+                        const vid = normalized ? findVariantIdBySize(normalized, s) : null;
+                        setSelectedVariantId(vid);
                       }}
-                      className={`px-3 py-1.5 text-sm border transition ${
-                        active ? "text-white" : "text-black"
-                      }`}
+                      className={`px-3 py-1.5 text-sm border transition ${active ? "text-white" : "text-black"}`}
                       style={{
                         backgroundColor: active ? BRAND.burgundy : "#fff",
                         borderColor: active ? BRAND.burgundy : "#d1d5db",
                       }}
                     >
-                      {s.toUpperCase()}
+                      {str(s).toUpperCase()}
                     </button>
                   );
                 })}
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* DETAILS */}
           <ProductDetailSection title="Product Details" content={product.description} />
-
-          {/* Size guide */}
           <SizeGuideSection />
 
-          {/* WASHCARE */}
           <WashcareSection
             title="Washcare & Instructions"
             items={[
@@ -440,7 +406,6 @@ export default function ProductPage({ params }) {
             ]}
           />
 
-          {/* ✅ USE SUPPORT COMPONENT FROM src/components/productDetail/SupportSection.jsx */}
           <SupportSection
             product={product}
             selectedSize={selectedSize}
@@ -454,7 +419,7 @@ export default function ProductPage({ params }) {
 
       {/* RELATED PRODUCTS */}
       <div className="mt-10">
-        <RelatedProducts productId={product.id} />
+        <RelatedProducts productId={product.productId} />
       </div>
     </div>
   );

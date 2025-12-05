@@ -7,36 +7,28 @@ import ProductCard from "@/components/common/ProductCard";
 export default function RecentlyViewed() {
   const { items, initialize } = useRecentlyViewedStore();
 
-  /* Load user’s saved recently viewed items once */
   useEffect(() => {
-    initialize();
+    initialize?.();
   }, [initialize]);
 
-  if (!items || items.length === 0) return null;
+  if (!items?.length) return null;
 
   return (
-    <section className="w-full bg-gradient-to-b from-white to-[#faf7f8] py-14">
-
-      {/* Heading */}
-      <div className="px-6 mb-7">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight uppercase text-center">
-          Recently Viewed
-        </h2>
-        <div className="h-[2px] w-16 bg-[#800020] mt-2 rounded-full mx-auto"></div>
+    <section className="w-full py-6 md:py-8 bg-gradient-to-b from-white to-[#faf7f8]">
+      {/* compact header */}
+      <div className="px-4 md:px-6 mb-3 flex items-center justify-between">
+        <h2 className="text-sm md:text-base font-semibold tracking-wide text-gray-900 uppercase">Recently Viewed</h2>
+        <span className="h-px w-10 bg-[#800020]/70" />
       </div>
 
-      {/* Product Row (Horizontal Scroll) */}
-      <div className="flex gap-2 overflow-x-auto px-6 pb-4 no-scrollbar snap-x snap-mandatory">
-        {items.map((product) => (
-          <div
-            key={product.id}
-            className="snap-start flex-shrink-0 w-[160px] sm:w-[180px]"
-          >
+      {/* compact row */}
+      <div className="flex gap-2 overflow-x-auto px-4 md:px-6 pb-2 no-scrollbar snap-x snap-mandatory">
+        {items.slice(0, 10).map((product) => (
+          <div key={product.id} className="snap-start shrink-0 w-[132px] sm:w-[150px] md:w-[160px]">
             <ProductCard product={product} disableRecentlyViewed />
           </div>
         ))}
       </div>
-
     </section>
   );
 }

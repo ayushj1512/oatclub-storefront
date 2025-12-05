@@ -2,24 +2,40 @@
 
 import { ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+function getImageSrc(item) {
+  const candidates = [
+    item?.image,
+    item?.thumbnail,
+    item?.images?.[0]?.src, // if stored as [{src}]
+    item?.images?.[0], // if stored as ["url"]
+  ];
+
+  const src = candidates.find((v) => typeof v === "string" && v.trim().length > 0);
+  return src || null;
+}
+
 export default function CartButton() {
-  const { items } = useCartStore?.() || { items: [] };
-  const cartCount = items?.length || 0;
+  const router = useRouter();
+  const dropdownRef = useRef(null);
+
+  const items = useCartStore((s) => s.items) || [];
+
+  // ✅ total quantity (better than items.length)
+  const cartCount = useMemo(() => {
+    return Array.isArray(items) ? items.reduce((sum, i) => sum + (Number(i?.qty) || 0), 0) : 0;
+  }, [items]);
 
   const [open, setOpen] = useState(false);
   const [animate, setAnimate] = useState(false);
-
-  const dropdownRef = useRef(null);
-  const router = useRouter();
 
   // Animation effect when cart updates
   useEffect(() => {
     if (!cartCount) return;
     setAnimate(true);
-    const timer = setTimeout(() => setAnimate(false), 500);
+    const timer = setTimeout(() => setAnimate(false), 450);
     return () => clearTimeout(timer);
   }, [cartCount]);
 
@@ -43,9 +59,12 @@ export default function CartButton() {
     <div className="relative" ref={dropdownRef}>
       {/* Icon Button */}
       <button
+        type="button"
         onClick={goToCart}
         onMouseEnter={() => setOpen(true)}
         className="relative p-1"
+        aria-label="Cart"
+        title="Cart"
       >
         <ShoppingBag
           className={`
@@ -76,6 +95,7 @@ export default function CartButton() {
       {open && (
         <div
           onMouseLeave={() => setOpen(false)}
+          onMouseEnter={() => setOpen(true)}
           className="
             absolute right-0 mt-3 w-72 
             bg-white shadow-xl border border-gray-200 
@@ -83,39 +103,48 @@ export default function CartButton() {
             animate-[fadeIn_.25s_ease-out]
           "
         >
-          <h3 className="text-sm font-semibold text-gray-800 mb-3">
-            Cart Items
-          </h3>
+          <h3 className="text-sm font-semibold text-gray-800 mb-3">Cart Items</h3>
 
           {items.length === 0 ? (
             <p className="text-gray-500 text-sm py-2">Your cart is empty.</p>
           ) : (
             <div className="max-h-60 overflow-y-auto space-y-3">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-3 border-b pb-2"
-                >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-12 h-12 rounded-md object-cover"
-                  />
+              {items.map((item) => {
+                const src = getImageSrc(item);
 
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-800 truncate">
-                      {item.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Qty: {item.qty} × {item.price}
-                    </p>
+                return (
+                  <div key={item.id} className="flex items-center gap-3 border-b pb-2">
+                    {/* ✅ never render empty src */}
+                    {src ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={src}
+                        alt={item?.name || "Product"}
+                        className="w-12 h-12 rounded-md object-cover bg-gray-100"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[10px] text-gray-500">
+                        No image
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {item?.name || "Product"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Qty: {item?.qty ?? 1} × {item?.price ?? 0}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
           <button
+            type="button"
             onClick={goToCart}
             className="
               w-full bg-[#800020] text-white 

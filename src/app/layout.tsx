@@ -72,8 +72,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
         {/* ---------- FOOTER ---------- */}
         <Footer />
 
-        {/* ✅ MOBILE BOTTOM NAV (ONLY MOBILE) */}
-        <MobileBNB />
+        {/* ✅ MOBILE BOTTOM NAV (ONLY MOBILE)
+        <MobileBNB /> */}
 
         {/* ---------- GLOBAL PROVIDERS ---------- */}
         <ClientProviders>

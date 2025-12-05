@@ -3,7 +3,60 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL; // ← Your backend
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+/* ---------------- small helpers ---------------- */
+const normalizeBackendProduct = (p) => {
+  const mongoId = p?._id ? String(p._id) : "";
+  const images = Array.isArray(p?.images) ? p.images : [];
+  const thumb = p?.thumbnail || images?.[0] || "/placeholder.png";
+
+  return {
+    id: mongoId, // UI key (same as productId)
+    productId: mongoId, // ✅ MUST use in cart/order payloads
+    productCode: p?.productCode || "",
+    name: p?.title || "",
+    slug: p?.slug || "",
+    price: Number(p?.price || 0),
+    compareAtPrice: p?.compareAtPrice ?? null,
+    description: p?.shortDescription || p?.description || "",
+    category: p?.category?.slug || "uncategorized",
+    categoryId: p?.category?._id ? String(p.category._id) : null,
+    subcategoryId: p?.subcategory?._id ? String(p.subcategory._id) : null,
+    image: thumb,
+    thumbnail: thumb,
+    images,
+    variants: Array.isArray(p?.variants) ? p.variants : [],
+    productType: p?.productType || (Array.isArray(p?.variants) && p.variants.length ? "variable" : "simple"),
+    stock: Number(p?.stock ?? 0),
+    isInStock: Boolean(p?.isInStock ?? true),
+    tags: Array.isArray(p?.tags) ? p.tags : [],
+    currency: p?.currency || "INR",
+    dateCreated: p?.createdAt || null,
+    source: "backend",
+    raw: p, // optional: keep original doc if your UI needs it
+  };
+};
+
+const uniqBySlug = (arr) => {
+  const seen = new Set();
+  const out = [];
+  for (const x of arr || []) {
+    const k = String(x?.slug || "").trim().toLowerCase();
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
+};
+
+async function safeJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 export const useProductStore = create(
   persist(
@@ -23,74 +76,89 @@ export const useProductStore = create(
       error: null,
 
       /* =====================================================
-         🔥 FETCH FROM BOTH BACKEND + WOOCOMMERCE
+         ✅ ONLY MERN BACKEND
+         GET /api/products
       ===================================================== */
-      fetchProducts: async () => {
+      fetchProducts: async (params = {}) => {
         try {
+          if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+
           set({ isLoading: true, error: null });
 
-          /* ---------------- GET BACKEND PRODUCTS ---------------- */
-          const backendRes = await fetch(`${BACKEND}/api/products`, {
-            cache: "no-store",
-          });
-          const backendData = await backendRes.json();
+          const qs = new URLSearchParams();
+          if (params.page) qs.set("page", String(params.page));
+          if (params.limit) qs.set("limit", String(params.limit));
+          if (params.search) qs.set("search", String(params.search));
+          if (params.category && params.category !== "all") qs.set("category", String(params.category));
+          if (params.subcategory) qs.set("subcategory", String(params.subcategory));
+          if (params.collection) qs.set("collection", String(params.collection));
+          if (params.tags) qs.set("tags", String(params.tags));
+          if (params.minPrice) qs.set("minPrice", String(params.minPrice));
+          if (params.maxPrice) qs.set("maxPrice", String(params.maxPrice));
+          if (params.sort) qs.set("sort", String(params.sort));
+          if (params.isActive != null) qs.set("isActive", String(params.isActive));
 
-          const backendMapped = backendData.products?.map((p) => ({
-            id: p._id,
-            name: p.title || "",
-            slug: p.slug,
-            price: Number(p.price || 0),
-            description: p.shortDescription || "",
-            category: p.category?.slug || "uncategorized",
-            image: p.thumbnail || "/placeholder.png",
-            images: p.images || [],
-            dateCreated: p.createdAt,
-            source: "backend",
-          })) || [];
+          const url = `${BACKEND}/api/products${qs.toString() ? `?${qs.toString()}` : ""}`;
+          const res = await fetch(url, { cache: "no-store" });
+          const data = await safeJson(res);
 
-          /* ---------------- GET WOOCOMMERCE PRODUCTS ---------------- */
-          const wcRes = await fetch("/api/wc/products", {
-            cache: "no-store",
-          });
-          let wcRaw = await wcRes.json();
-          if (!Array.isArray(wcRaw)) wcRaw = [];
+          if (!res.ok) throw new Error(data?.message || "Failed to load products");
 
-          const wcMapped = wcRaw.map((p) => ({
-            id: "wc-" + p.id,
-            name: p.name,
-            slug: p.slug,
-            price: Number(p.price || 0),
-            description: p.short_description?.replace(/<[^>]+>/g, "") || "",
-            category: p.categories?.[0]?.slug || "uncategorized",
-            image: p.images?.[0]?.src || "/placeholder.png",
-            images: p.images || [],
-            dateCreated: p.date_created,
-            source: "woocommerce",
-          }));
+          const mapped = Array.isArray(data?.products) ? data.products.map(normalizeBackendProduct) : [];
+          const unique = uniqBySlug(mapped);
 
-          /* ---------------- MERGE BOTH LISTS ---------------- */
-          const merged = [...backendMapped, ...wcMapped];
-
-          /* ---------------- UNIQUE PRODUCTS BY SLUG ---------------- */
-          const unique = merged.reduce((acc, item) => {
-            if (!acc.find((i) => i.slug === item.slug)) acc.push(item);
-            return acc;
-          }, []);
-
-          /* ---------------- INITIAL VISIBLE SET ---------------- */
-          const initialChunk = unique.slice(0, get().LOAD_STEP);
+          const initial = unique.slice(0, get().LOAD_STEP);
 
           set({
             allProducts: unique,
-            visibleProducts: initialChunk,
-            filteredProducts: initialChunk,
-            visibleCount: initialChunk.length,
+            visibleProducts: initial,
+            filteredProducts: initial,
+            visibleCount: initial.length,
             isLoading: false,
           });
 
+          return unique;
         } catch (err) {
-          console.error("❌ Error loading products:", err);
-          set({ error: "Failed to load products", isLoading: false });
+          console.error("❌ Product fetch error:", err);
+          set({ error: err?.message || "Failed to load products", isLoading: false });
+          return [];
+        }
+      },
+
+      /* =====================================================
+         ✅ SINGLE PRODUCT
+         - GET /api/products/details/:idOrSlug
+         - GET /api/products/:idOrSlug (fallback)
+      ===================================================== */
+      fetchProductDetails: async (idOrSlug) => {
+        try {
+          if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+
+          set({ isLoading: true, error: null });
+
+          const param = encodeURIComponent(String(idOrSlug || ""));
+
+          const r1 = await fetch(`${BACKEND}/api/products/details/${param}`, { cache: "no-store" });
+          const j1 = await safeJson(r1);
+
+          let doc = null;
+
+          if (r1.ok) doc = j1;
+          else {
+            const r2 = await fetch(`${BACKEND}/api/products/${param}`, { cache: "no-store" });
+            const j2 = await safeJson(r2);
+            if (!r2.ok) throw new Error(j2?.message || j1?.message || "Failed to load product");
+            doc = j2;
+          }
+
+          const normalized = normalizeBackendProduct(doc);
+          get().upsertProduct(normalized);
+
+          set({ isLoading: false });
+          return normalized;
+        } catch (e) {
+          set({ error: e?.message || "Failed to load product", isLoading: false });
+          throw e;
         }
       },
 
@@ -100,19 +168,14 @@ export const useProductStore = create(
       loadMore: () => {
         const { visibleCount, LOAD_STEP, allProducts } = get();
         const newCount = visibleCount + LOAD_STEP;
-        const newVisible = allProducts.slice(0, newCount);
-
-        set({
-          visibleCount: newCount,
-          visibleProducts: newVisible,
-        });
-
+        const newVisible = (allProducts || []).slice(0, newCount);
+        set({ visibleCount: newCount, visibleProducts: newVisible });
         get().applyFilters();
       },
 
       hasMore: () => {
         const { visibleCount, allProducts } = get();
-        return visibleCount < allProducts.length;
+        return visibleCount < (allProducts || []).length;
       },
 
       /* =====================================================
@@ -134,73 +197,42 @@ export const useProductStore = create(
       },
 
       /* =====================================================
-         FILTER + SORT (works from visible products)
+         FILTER + SORT (runs on visibleProducts)
       ===================================================== */
       applyFilters: () => {
-        const {
-          visibleProducts,
-          searchQuery,
-          selectedCategory,
-          sortOption,
-        } = get();
+        const { visibleProducts, searchQuery, selectedCategory, sortOption } = get();
+        let filtered = [...(visibleProducts || [])];
 
-        let filtered = [...visibleProducts];
-
-        /* --- Search Query --- */
         if (searchQuery) {
-          const q = searchQuery.toLowerCase();
+          const q = String(searchQuery).toLowerCase();
           filtered = filtered.filter(
             (p) =>
-              p.name?.toLowerCase().includes(q) ||
-              p.description?.toLowerCase().includes(q)
+              String(p?.name || "").toLowerCase().includes(q) ||
+              String(p?.description || "").toLowerCase().includes(q)
           );
         }
 
-        /* --- Category --- */
         if (selectedCategory !== "all") {
-          filtered = filtered.filter(
-            (p) => p.category?.toLowerCase() === selectedCategory.toLowerCase()
-          );
+          const c = String(selectedCategory).toLowerCase();
+          filtered = filtered.filter((p) => String(p?.category || "").toLowerCase() === c);
         }
 
-        /* --- Sorting --- */
-        switch (sortOption) {
-          case "priceLowHigh":
-            filtered.sort((a, b) => a.price - b.price);
-            break;
-
-          case "priceHighLow":
-            filtered.sort((a, b) => b.price - a.price);
-            break;
-
-          case "newest":
-            filtered.sort(
-              (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
-            );
-            break;
-
-          default:
-            break;
-        }
+        if (sortOption === "priceLowHigh") filtered.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+        else if (sortOption === "priceHighLow") filtered.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+        else if (sortOption === "newest") filtered.sort((a, b) => new Date(b.dateCreated || 0) - new Date(a.dateCreated || 0));
 
         set({ filteredProducts: filtered });
       },
 
       /* =====================================================
-         UPSERT PRODUCT
+         UPSERT / REMOVE
       ===================================================== */
       upsertProduct: (product) => {
-        const current = get().allProducts;
-        const index = current.findIndex((p) => p.id === product.id);
+        const p = product?.source === "backend" ? product : normalizeBackendProduct(product);
+        const current = get().allProducts || [];
+        const idx = current.findIndex((x) => String(x?.id) === String(p?.id));
 
-        let updated;
-        if (index >= 0) {
-          updated = [...current];
-          updated[index] = product;
-        } else {
-          updated = [...current, product];
-        }
-
+        const updated = idx >= 0 ? [...current.slice(0, idx), p, ...current.slice(idx + 1)] : [...current, p];
         set({ allProducts: updated });
 
         const newVisible = updated.slice(0, get().visibleCount);
@@ -209,12 +241,8 @@ export const useProductStore = create(
         get().applyFilters();
       },
 
-      /* =====================================================
-         REMOVE PRODUCT
-      ===================================================== */
       removeProduct: (id) => {
-        const updated = get().allProducts.filter((p) => p.id !== id);
-
+        const updated = (get().allProducts || []).filter((p) => String(p?.id) !== String(id));
         set({ allProducts: updated });
 
         const newVisible = updated.slice(0, get().visibleCount);
@@ -222,17 +250,15 @@ export const useProductStore = create(
 
         get().applyFilters();
       },
-    }),
 
-    /* =====================================================
-       PERSISTENCE
-    ===================================================== */
+      clearError: () => set({ error: null }),
+    }),
     {
       name: "product-store",
-      partialize: (state) => ({
-        allProducts: state.allProducts,
-        selectedCategory: state.selectedCategory,
-        sortOption: state.sortOption,
+      partialize: (s) => ({
+        allProducts: s.allProducts,
+        selectedCategory: s.selectedCategory,
+        sortOption: s.sortOption,
       }),
     }
   )
