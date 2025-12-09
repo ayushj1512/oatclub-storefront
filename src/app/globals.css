@@ -63,11 +63,13 @@ body {
     opacity: 0;
     transform: translateY(-6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
 .animate-dropdown {
   animation: dropdown-slide 0.2s ease-out;
 }
@@ -77,11 +79,13 @@ body {
     transform: translateY(20px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
   }
 }
+
 .animate-slideUp {
   animation: slideUp 0.25s ease-out;
 }
@@ -91,11 +95,13 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
 }
@@ -105,11 +111,13 @@ body {
     opacity: 0;
     transform: translateY(16px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
 .animate-fadeSlide {
   animation: fadeSlide 0.45s ease forwards;
 }
@@ -119,36 +127,92 @@ body {
 /* ------------------------------ */
 
 @keyframes marquee-left {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
 }
+
 .animate-marquee-left {
   animation: marquee-left linear infinite;
 }
 
 @keyframes marquee-right {
-  0% { transform: translateX(-50%); }
-  100% { transform: translateX(0); }
+  0% {
+    transform: translateX(-50%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
 }
+
 .animate-marquee-right {
   animation: marquee-right linear infinite;
 }
 
 @keyframes fadeSlide {
-            from {
-              opacity: 0;
-              transform: translateY(10px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          .animate-fadeSlide {
-            animation: fadeSlide 0.28s ease-out both;
-          }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeSlide {
+  animation: fadeSlide 0.28s ease-out both;
+}
 
 
 /* not found */
 
+  {
+  /* ✅ tiny luxury animation only */
+}
 
+.os-fade {
+  animation: osFade 520ms ease-out both;
+}
+
+.os-pop {
+  animation: osPop 1.6s ease-in-out infinite;
+}
+
+@keyframes osFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes osPop {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .os-fade,
+  .os-pop {
+    animation: none !important;
+  }
+}
