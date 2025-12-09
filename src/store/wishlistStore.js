@@ -8,112 +8,177 @@ import { notify } from "@/lib/notify";
 const COOKIE_KEY = "wishlist_cache";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 
+// ✅ prevent request spam on route changes / multiple mounts
+const FETCH_TTL_MS = 15_000; // 15 seconds
+
 const normalizeId = (p) => p?.id ?? p?._id;
 const getDisplayName = (p) => p?.name || p?.title || "Item";
+
+const safeJson = async (r) => {
+  try {
+    return await r.json();
+  } catch {
+    return {};
+  }
+};
 
 export const useWishlistStore = create((set, get) => ({
   items: [],
   initialized: false,
+  initializing: false,
   loading: false,
 
+  // ✅ internal locks
+  _initPromise: null,
+  _fetchPromise: null,
+  _fetchAbort: null,
+  _lastFetchAt: 0,
+  _lastFetchUid: "",
+
   /* ----------------------------------------------------
-     ⭐ INIT — Load from backend or fallback to cookies
+     ⭐ INIT — safe (no multiple requests)
+     Call from ONE place only (layout/header), but this also dedupes.
   ---------------------------------------------------- */
   initialize: async () => {
     if (typeof window === "undefined") return;
     if (get().initialized) return;
 
-    const { user } = useAuthStore.getState();
+    // ✅ if init already running, return same promise
+    if (get()._initPromise) return get()._initPromise;
 
-    // If logged in -> backend is source of truth
-    if (user?.uid) {
-      await get().fetchFromBackend(user.uid);
-    } else {
-      // fallback to cookie cache
-      const stored = Cookies.get(COOKIE_KEY);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) set({ items: parsed });
-        } catch (e) {
-          console.error("Wishlist cookie error:", e);
+    // ✅ lock immediately so other callers don't start another init
+    set({ initializing: true });
+
+    const p = (async () => {
+      const { user } = useAuthStore.getState();
+
+      if (user?.uid) {
+        await get().fetchFromBackend(user.uid, { force: true }); // first time force
+      } else {
+        // guest -> cookie cache
+        const stored = Cookies.get(COOKIE_KEY);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) set({ items: parsed });
+          } catch (e) {
+            console.error("Wishlist cookie error:", e);
+          }
         }
       }
-    }
 
-    set({ initialized: true });
+      set({ initialized: true });
+    })()
+      .catch((e) => {
+        console.error("Wishlist init error:", e);
+      })
+      .finally(() => {
+        set({ initializing: false, _initPromise: null });
+      });
+
+    set({ _initPromise: p });
+    return p;
   },
 
   /* ----------------------------------------------------
-     ⭐ FETCH FROM BACKEND
+     ⭐ FETCH FROM BACKEND (deduped + TTL + abort)
      GET /api/wishlist/firebase/:uid
   ---------------------------------------------------- */
-  fetchFromBackend: async (firebaseUID) => {
+  fetchFromBackend: async (firebaseUID, opts = {}) => {
+    const { force = false } = opts;
+
     if (!BACKEND) {
       console.error("Missing NEXT_PUBLIC_BACKEND_URL");
       return;
     }
+    if (!firebaseUID) return;
 
-    try {
-      set({ loading: true });
+    const now = Date.now();
 
-      const res = await fetch(`${BACKEND}/api/wishlist/firebase/${firebaseUID}`, {
-        cache: "no-store",
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        console.error("Wishlist fetch failed:", data);
-        notify.error(data?.message || "Failed to load wishlist");
-        set({ loading: false });
-        return;
-      }
-
-      if (data?.success && data?.wishlist) {
-        // Your backend returns productIds populated with product objects
-        const mapped = (data.wishlist.productIds || []).map((p) => ({
-          id: p?._id,
-          name: p?.name || p?.title || "",
-          price: p?.price ?? 0,
-          image: p?.images?.[0]?.src || p?.thumbnail || "",
-          categories: p?.categories || [],
-          tags: p?.tags || [],
-        }));
-
-        set({ items: mapped });
-        Cookies.set(COOKIE_KEY, JSON.stringify(mapped), { expires: 7 });
-      }
-
-      set({ loading: false });
-    } catch (error) {
-      console.error("Wishlist fetch error:", error);
-      notify.error("Failed to load wishlist");
-      set({ loading: false });
+    // ✅ TTL: if fetched recently for same user, skip (prevents spam)
+    if (
+      !force &&
+      get()._lastFetchUid === firebaseUID &&
+      now - get()._lastFetchAt < FETCH_TTL_MS
+    ) {
+      return;
     }
+
+    // ✅ Dedup: if a fetch already running for same uid, reuse it
+    if (get()._fetchPromise && get()._lastFetchUid === firebaseUID) {
+      return get()._fetchPromise;
+    }
+
+    // ✅ Abort previous in-flight fetch (if switching uid quickly)
+    try {
+      get()._fetchAbort?.abort?.();
+    } catch {}
+    const controller = new AbortController();
+    set({ _fetchAbort: controller, _lastFetchUid: firebaseUID });
+
+    const p = (async () => {
+      try {
+        set({ loading: true });
+
+        const res = await fetch(`${BACKEND}/api/wishlist/firebase/${firebaseUID}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        const data = await safeJson(res);
+
+        if (!res.ok) {
+          console.error("Wishlist fetch failed:", data);
+          notify.error(data?.message || "Failed to load wishlist");
+          return;
+        }
+
+        if (data?.success && data?.wishlist) {
+          const mapped = (data.wishlist.productIds || []).map((p) => ({
+            id: p?._id,
+            name: p?.name || p?.title || "",
+            price: p?.price ?? 0,
+            image: p?.images?.[0]?.src || p?.thumbnail || "",
+            categories: p?.categories || [],
+            tags: p?.tags || [],
+          }));
+
+          set({ items: mapped, _lastFetchAt: Date.now() });
+          Cookies.set(COOKIE_KEY, JSON.stringify(mapped), { expires: 7 });
+        } else {
+          // fallback safety
+          set({ _lastFetchAt: Date.now() });
+        }
+      } catch (e) {
+        // ignore abort errors
+        if (e?.name !== "AbortError") {
+          console.error("Wishlist fetch error:", e);
+          notify.error("Failed to load wishlist");
+        }
+      } finally {
+        // ✅ clear locks
+        set({ loading: false, _fetchPromise: null, _fetchAbort: null });
+      }
+    })();
+
+    set({ _fetchPromise: p });
+    return p;
   },
 
   /* ----------------------------------------------------
-     ⭐ ADD TO WISHLIST
-     POST /api/wishlist/firebase/:uid/add
+     ⭐ ADD TO WISHLIST (single request; no extra GET)
   ---------------------------------------------------- */
   addToWishlist: async (product) => {
     const { user } = useAuthStore.getState();
-    if (!user?.uid) {
-      notify.info("Please login first");
-      return;
-    }
+    if (!user?.uid) return notify.info("Please login first");
 
     const pid = normalizeId(product);
     if (!pid) return;
 
-    // Prevent dup
     if (get().items.some((i) => String(i.id) === String(pid))) {
-      notify.info("Already in wishlist");
-      return;
+      return notify.info("Already in wishlist");
     }
 
-    // ✅ optimistic UI update
     const optimisticItem = {
       id: pid,
       name: product?.name || product?.title || "",
@@ -144,21 +209,19 @@ export const useWishlistStore = create((set, get) => ({
         body: JSON.stringify({ productId: pid }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await safeJson(res);
+
       if (!res.ok) {
         // rollback
         set({ items: prev, loading: false });
         Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
-        notify.error(data?.message || "Failed to add to wishlist");
-        return;
+        return notify.error(data?.message || "Failed to add to wishlist");
       }
 
-      // Refresh from backend for truth
-      await get().fetchFromBackend(user.uid);
-      set({ loading: false });
-    } catch (err) {
-      console.error("Add to wishlist error:", err);
-      // rollback
+      // ✅ mark local fetch time so TTL works
+      set({ loading: false, _lastFetchAt: Date.now(), _lastFetchUid: user.uid });
+    } catch (e) {
+      console.error("Add to wishlist error:", e);
       set({ items: prev, loading: false });
       Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
       notify.error("Failed to add to wishlist");
@@ -166,23 +229,19 @@ export const useWishlistStore = create((set, get) => ({
   },
 
   /* ----------------------------------------------------
-     ⭐ REMOVE FROM WISHLIST
-     POST /api/wishlist/firebase/:uid/remove
+     ⭐ REMOVE FROM WISHLIST (single request; no extra GET)
   ---------------------------------------------------- */
   removeFromWishlist: async (productId) => {
     const { user } = useAuthStore.getState();
-    if (!user?.uid) {
-      notify.info("Please login first");
-      return;
-    }
+    if (!user?.uid) return notify.info("Please login first");
 
     const prev = get().items;
     const removedItem = prev.find((i) => String(i.id) === String(productId));
     const next = prev.filter((i) => String(i.id) !== String(productId));
 
-    // ✅ optimistic remove
     set({ items: next, loading: true });
     Cookies.set(COOKIE_KEY, JSON.stringify(next), { expires: 7 });
+
     if (removedItem) notify.wishlistRemoved(removedItem);
     else notify.info(`Removed: ${getDisplayName({ id: productId })}`);
 
@@ -195,20 +254,18 @@ export const useWishlistStore = create((set, get) => ({
         body: JSON.stringify({ productId }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await safeJson(res);
+
       if (!res.ok) {
         // rollback
         set({ items: prev, loading: false });
         Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
-        notify.error(data?.message || "Failed to remove from wishlist");
-        return;
+        return notify.error(data?.message || "Failed to remove from wishlist");
       }
 
-      await get().fetchFromBackend(user.uid);
-      set({ loading: false });
-    } catch (err) {
-      console.error("Remove wishlist error:", err);
-      // rollback
+      set({ loading: false, _lastFetchAt: Date.now(), _lastFetchUid: user.uid });
+    } catch (e) {
+      console.error("Remove wishlist error:", e);
       set({ items: prev, loading: false });
       Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
       notify.error("Failed to remove from wishlist");
@@ -224,7 +281,6 @@ export const useWishlistStore = create((set, get) => ({
 
     const prev = get().items;
 
-    // ✅ optimistic clear
     set({ items: [], loading: true });
     Cookies.remove(COOKIE_KEY);
     notify.wishlistCleared();
@@ -236,19 +292,18 @@ export const useWishlistStore = create((set, get) => ({
         method: "DELETE",
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await safeJson(res);
+
       if (!res.ok) {
         // rollback
         set({ items: prev, loading: false });
         Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
-        notify.error(data?.message || "Failed to clear wishlist");
-        return;
+        return notify.error(data?.message || "Failed to clear wishlist");
       }
 
-      set({ loading: false });
-    } catch (err) {
-      console.error("Clear wishlist error:", err);
-      // rollback
+      set({ loading: false, _lastFetchAt: Date.now(), _lastFetchUid: user.uid });
+    } catch (e) {
+      console.error("Clear wishlist error:", e);
       set({ items: prev, loading: false });
       Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
       notify.error("Failed to clear wishlist");
@@ -256,9 +311,17 @@ export const useWishlistStore = create((set, get) => ({
   },
 
   /* ----------------------------------------------------
-     ⭐ CHECK IF PRODUCT IS IN WISHLIST
+     ⭐ OPTIONAL: manual sync button
   ---------------------------------------------------- */
-  isInWishlist: (id) => {
-    return (get().items || []).some((item) => String(item.id) === String(id));
+  syncWishlist: async (force = false) => {
+    const { user } = useAuthStore.getState();
+    if (!user?.uid) return;
+    return get().fetchFromBackend(user.uid, { force });
   },
+
+  /* ----------------------------------------------------
+     ⭐ CHECK
+  ---------------------------------------------------- */
+  isInWishlist: (id) =>
+    (get().items || []).some((item) => String(item.id) === String(id)),
 }));
