@@ -2,44 +2,59 @@
 
 import { ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 function getImageSrc(item) {
   const candidates = [
     item?.image,
     item?.thumbnail,
+    item?.productSnapshot?.thumbnail,
+    item?.variant?.image,
     item?.images?.[0]?.src, // if stored as [{src}]
     item?.images?.[0], // if stored as ["url"]
+    item?.productSnapshot?.images?.[0],
   ];
 
   const src = candidates.find((v) => typeof v === "string" && v.trim().length > 0);
   return src || null;
 }
 
+// ✅ stable key for React list rendering
+function cartItemKey(item, index) {
+  return (
+    item?.__key ||
+    `${String(item?.productId || item?.id || item?._id || "p")}__${String(item?.variantId || "")}` ||
+    `idx-${index}`
+  );
+}
+
 export default function CartButton() {
   const router = useRouter();
   const dropdownRef = useRef(null);
 
+  // ✅ read from store (your cart store uses `items` + `quantity`)
   const items = useCartStore((s) => s.items) || [];
+  const totalCount = useCartStore((s) => s.totalCount); // function
 
-  // ✅ total quantity (better than items.length)
+  // ✅ total quantity (use store fn if present, fallback to reduce)
   const cartCount = useMemo(() => {
-    return Array.isArray(items) ? items.reduce((sum, i) => sum + (Number(i?.qty) || 0), 0) : 0;
-  }, [items]);
+    if (typeof totalCount === "function") return totalCount();
+    return Array.isArray(items) ? items.reduce((sum, i) => sum + (Number(i?.quantity) || 0), 0) : 0;
+  }, [items, totalCount]);
 
   const [open, setOpen] = useState(false);
   const [animate, setAnimate] = useState(false);
 
-  // Animation effect when cart updates
+  // ✅ Animation effect when cart updates
   useEffect(() => {
     if (!cartCount) return;
     setAnimate(true);
-    const timer = setTimeout(() => setAnimate(false), 450);
-    return () => clearTimeout(timer);
+    const timer = window.setTimeout(() => setAnimate(false), 450);
+    return () => window.clearTimeout(timer);
   }, [cartCount]);
 
-  // Click outside to close
+  // ✅ Click outside to close
   useEffect(() => {
     const onClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -50,10 +65,16 @@ export default function CartButton() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const goToCart = () => {
+  // ✅ Prevent hover-open on touch devices (mobile)
+  const isCoarsePointer = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  }, []);
+
+  const goToCart = useCallback(() => {
     setOpen(false);
     router.push("/cart");
-  };
+  }, [router]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -61,7 +82,7 @@ export default function CartButton() {
       <button
         type="button"
         onClick={goToCart}
-        onMouseEnter={() => setOpen(true)}
+        onMouseEnter={!isCoarsePointer ? () => setOpen(true) : undefined}
         className="relative p-1"
         aria-label="Cart"
         title="Cart"
@@ -92,7 +113,7 @@ export default function CartButton() {
       </button>
 
       {/* Dropdown */}
-      {open && (
+      {open && !isCoarsePointer && (
         <div
           onMouseLeave={() => setOpen(false)}
           onMouseEnter={() => setOpen(true)}
@@ -109,11 +130,12 @@ export default function CartButton() {
             <p className="text-gray-500 text-sm py-2">Your cart is empty.</p>
           ) : (
             <div className="max-h-60 overflow-y-auto space-y-3">
-              {items.map((item) => {
+              {items.map((item, idx) => {
                 const src = getImageSrc(item);
+                const qty = item?.quantity ?? 1;
 
                 return (
-                  <div key={item.id} className="flex items-center gap-3 border-b pb-2">
+                  <div key={cartItemKey(item, idx)} className="flex items-center gap-3 border-b pb-2">
                     {/* ✅ never render empty src */}
                     {src ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -130,11 +152,9 @@ export default function CartButton() {
                     )}
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">
-                        {item?.name || "Product"}
-                      </p>
+                      <p className="text-sm font-medium text-gray-800 truncate">{item?.name || "Product"}</p>
                       <p className="text-xs text-gray-500">
-                        Qty: {item?.qty ?? 1} × {item?.price ?? 0}
+                        Qty: {qty} × ₹{item?.price ?? 0}
                       </p>
                     </div>
                   </div>

@@ -1,14 +1,15 @@
 // src/app/[category]/[product_name]/[id]/page.jsx
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState, useCallback } from "react";
 import { ShoppingCart, Heart, Zap, Share2, Plus, Minus } from "lucide-react";
-import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { useProductStore } from "@/store/productStore";
+import { notify } from "@/lib/notify";
 
 import ProductGallery from "@/components/productDetail/ProductGallery";
 import RelatedProducts from "@/components/productDetail/relatedProducts";
@@ -53,10 +54,18 @@ function SizeGuideSection() {
       <div className="text-gray-700 text-sm leading-relaxed space-y-4">
         <p className="font-medium text-black">How to Measure</p>
         <ul className="space-y-1">
-          <li>• <strong>Bust:</strong> Measure around the fullest part of your chest.</li>
-          <li>• <strong>Waist:</strong> Measure around the narrowest part of your waist.</li>
-          <li>• <strong>Hips:</strong> Measure around the widest part of your hips.</li>
-          <li>• <strong>Length:</strong> Measure from shoulder to hem.</li>
+          <li>
+            • <strong>Bust:</strong> Measure around the fullest part of your chest.
+          </li>
+          <li>
+            • <strong>Waist:</strong> Measure around the narrowest part of your waist.
+          </li>
+          <li>
+            • <strong>Hips:</strong> Measure around the widest part of your hips.
+          </li>
+          <li>
+            • <strong>Length:</strong> Measure from shoulder to hem.
+          </li>
         </ul>
 
         <div className="pt-3">
@@ -71,11 +80,36 @@ function SizeGuideSection() {
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b"><td className="py-2">XS</td><td>30-32"</td><td>24-26"</td><td>32-34"</td></tr>
-              <tr className="border-b"><td className="py-2">S</td><td>32-34"</td><td>26-28"</td><td>34-36"</td></tr>
-              <tr className="border-b"><td className="py-2">M</td><td>34-36"</td><td>28-30"</td><td>36-38"</td></tr>
-              <tr className="border-b"><td className="py-2">L</td><td>36-38"</td><td>30-32"</td><td>38-40"</td></tr>
-              <tr><td className="py-2">XL</td><td>38-40"</td><td>32-34"</td><td>40-42"</td></tr>
+              <tr className="border-b">
+                <td className="py-2">XS</td>
+                <td>30-32"</td>
+                <td>24-26"</td>
+                <td>32-34"</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2">S</td>
+                <td>32-34"</td>
+                <td>26-28"</td>
+                <td>34-36"</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2">M</td>
+                <td>34-36"</td>
+                <td>28-30"</td>
+                <td>36-38"</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2">L</td>
+                <td>36-38"</td>
+                <td>30-32"</td>
+                <td>38-40"</td>
+              </tr>
+              <tr>
+                <td className="py-2">XL</td>
+                <td>38-40"</td>
+                <td>32-34"</td>
+                <td>40-42"</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -84,7 +118,7 @@ function SizeGuideSection() {
   );
 }
 
-/* -------- variant helpers (new cart store needs variantId) ---------- */
+/* -------- variant helpers ---------- */
 const str = (v) => (v == null ? "" : String(v));
 
 const getAttrValue = (attrs, key) => {
@@ -96,18 +130,21 @@ const getAttrValue = (attrs, key) => {
 const deriveSizesFromBackend = (normalized) => {
   if (!normalized) return [];
 
-  // ✅ Your normalizeBackendProduct keeps raw doc -> best source
   const raw = normalized.raw || normalized;
 
-  // raw.attributes: [{ key:"Size", values:[...] }...] OR similar
   const attrs = Array.isArray(raw?.attributes) ? raw.attributes : [];
-  const sizeAttr = attrs.find((a) => str(a?.key).toLowerCase() === "size" || str(a?.attribute?.slug).toLowerCase() === "size");
+  const sizeAttr = attrs.find(
+    (a) => str(a?.key).toLowerCase() === "size" || str(a?.attribute?.slug).toLowerCase() === "size"
+  );
   if (Array.isArray(sizeAttr?.values) && sizeAttr.values.length) {
     return sizeAttr.values.map((s) => str(s).trim()).filter(Boolean);
   }
 
-  // fallback: derive from variants attributes
-  const vars = Array.isArray(raw?.variants) ? raw.variants : Array.isArray(normalized?.variants) ? normalized.variants : [];
+  const vars = Array.isArray(raw?.variants)
+    ? raw.variants
+    : Array.isArray(normalized?.variants)
+      ? normalized.variants
+      : [];
   const fromVariants = vars.map((v) => getAttrValue(v?.attributes, "size")).filter(Boolean);
   return Array.from(new Set(fromVariants));
 };
@@ -121,19 +158,29 @@ const deriveImageList = (normalized) => {
 
 const findVariantIdBySize = (normalized, size) => {
   const raw = normalized?.raw || normalized;
-  const vars = Array.isArray(raw?.variants) ? raw.variants : Array.isArray(normalized?.variants) ? normalized.variants : [];
+  const vars = Array.isArray(raw?.variants)
+    ? raw.variants
+    : Array.isArray(normalized?.variants)
+      ? normalized.variants
+      : [];
   const wanted = str(size).toLowerCase();
   const v = vars.find((x) => getAttrValue(x?.attributes, "size").toLowerCase() === wanted);
   return v?._id ? str(v._id) : null;
 };
 
+// ✅ cart key matches your cart store: `${pid}__${vid}`
+const cartKeyFor = (productId, variantId) => `${str(productId)}__${str(variantId || "")}`;
+
 export default function ProductPage({ params }) {
+  const router = useRouter();
+
   // ✅ Next 16: params is Promise -> unwrap with React.use()
   const unwrapped = use(params);
   const category = unwrapped?.category;
   const id = unwrapped?.id;
 
-  const cartStore = useCartStore();
+  const cartInitialize = useCartStore((s) => s.initialize);
+  const cartItems = useCartStore((s) => s.items);
   const addToCart = useCartStore((s) => s.addToCart);
 
   const wishlistStore = useWishlistStore();
@@ -144,14 +191,14 @@ export default function ProductPage({ params }) {
   const fetchProductDetails = useProductStore((s) => s.fetchProductDetails);
   const storeLoading = useProductStore((s) => s.isLoading);
 
-  const [normalized, setNormalized] = useState(null); // ✅ keep normalized product for cart
-  const [product, setProduct] = useState(null); // UI mapped
+  const [normalized, setNormalized] = useState(null);
+  const [product, setProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    cartStore.initialize?.();
+    cartInitialize?.();
     initWishlist?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -164,7 +211,7 @@ export default function ProductPage({ params }) {
       setLoading(true);
 
       try {
-        const p = await fetchProductDetails(id); // normalized from productStore
+        const p = await fetchProductDetails(id);
         if (!mounted) return;
 
         setNormalized(p);
@@ -193,7 +240,7 @@ export default function ProductPage({ params }) {
 
         setProduct(mapped);
 
-        // ✅ auto-select only size if single size
+        // auto-select only size if single size
         if (sizes.length === 1) {
           const s0 = sizes[0];
           setSelectedSize(s0);
@@ -204,7 +251,7 @@ export default function ProductPage({ params }) {
         }
       } catch (e) {
         console.error("[ProductPage] load failed", e);
-        toast.error(e?.message || "Failed to load product");
+        notify.error(e?.message || "Failed to load product");
         if (mounted) {
           setProduct(null);
           setNormalized(null);
@@ -228,28 +275,57 @@ export default function ProductPage({ params }) {
   const requireSize = (product?.sizes?.length || 0) > 0;
   const wishlisted = isInWishlist?.(product?.productId || product?.id);
 
-  const handleAddToCart = () => {
+  // ✅ Determine which cart entry corresponds to current selection
+  const selectedCartKey = useMemo(() => {
+    if (!product?.productId) return "";
+    const vid = product?.productType === "variable" || requireSize ? selectedVariantId : null;
+    return cartKeyFor(product.productId, vid);
+  }, [product?.productId, product?.productType, requireSize, selectedVariantId]);
+
+  // ✅ If it's already in cart => show "Added + View Cart" and KEEP it
+  const selectionInCart = useMemo(() => {
+    if (!selectedCartKey) return false;
+    const arr = Array.isArray(cartItems) ? cartItems : [];
+    return arr.some((it) => {
+      const k = it?.__key ? String(it.__key) : cartKeyFor(it?.productId, it?.variantId);
+      return k === selectedCartKey;
+    });
+  }, [cartItems, selectedCartKey]);
+
+  const handleAddToCart = useCallback(() => {
     if (!normalized || !product) return;
 
-    if (requireSize && !selectedSize) return toast.error("Please select a size");
+    if (requireSize && !selectedSize) return notify.error("Please select a size");
     if ((product.productType === "variable" || requireSize) && !selectedVariantId) {
-      return toast.error("Please select a size");
+      return notify.error("Please select a size");
     }
 
-    // ✅ New cart store API
     addToCart({
-      product: normalized, // normalized product from productStore
+      product: normalized,
       qty: 1,
       selectedSize,
-      variantId: selectedVariantId, // ✅ IMPORTANT (fixes "variantId missing")
+      variantId: product.productType === "variable" || requireSize ? selectedVariantId : null,
     });
 
-    toast.success("Added to cart");
-  };
+    // cartStore also calls notify.cartAdded, but this is OK to keep minimal feedback:
+    // If you see double toasts, remove this line.
+    // notify.cartAdded({ name: product.name, selectedSize });
 
-  const handleBuyNow = () => {
+    // no timer state: buttons stay because selectionInCart is derived from store
+  }, [addToCart, normalized, product, requireSize, selectedSize, selectedVariantId]);
+
+  const handleViewCart = () => router.push("/cart");
+
+  // ✅ Your request: Buy Now button should become "View Cart"
+  const handleBuyNowOrViewCart = () => {
+    if (selectionInCart) {
+      router.push("/cart");
+      return;
+    }
     handleAddToCart();
-    window.location.href = "/checkout";
+    window.setTimeout(() => {
+      window.location.href = "/checkout";
+    }, 50);
   };
 
   const handleToggleWishlist = () => {
@@ -259,10 +335,10 @@ export default function ProductPage({ params }) {
 
     if (inWL) {
       removeFromWishlist(pid);
-      toast("Removed from wishlist 💔");
+      notify.wishlistRemoved(product);
     } else {
       addToWishlist(product);
-      toast("Added to wishlist ❤️");
+      notify.wishlistAdded(product);
     }
   };
 
@@ -279,10 +355,10 @@ export default function ProductPage({ params }) {
     try {
       if (navigator.share) {
         await navigator.share({ title: product.name, text: shareMessage, url });
-        toast("Thanks for sharing!");
+        notify.info("Thanks for sharing!");
       } else {
         await navigator.clipboard.writeText(shareMessage);
-        toast.success("Share text copied ✅");
+        notify.copied("Share text copied ✅");
       }
     } catch {}
   };
@@ -302,12 +378,16 @@ export default function ProductPage({ params }) {
         <aside className="space-y-4 w-full">
           {/* Breadcrumb */}
           <div className="text-xs md:text-sm text-gray-500">
-            <a href="/" className="hover:underline">Home</a> /{" "}
-            <a href={`/${category}`} className="hover:underline capitalize">{category}</a> /{" "}
-            <span className="text-gray-900">{product.name}</span>
+            <a href="/" className="hover:underline">
+              Home
+            </a>{" "}
+            /{" "}
+            <a href={`/${category}`} className="hover:underline capitalize">
+              {category}
+            </a>{" "}
+            / <span className="text-gray-900">{product.name}</span>
           </div>
 
-          {/* Title */}
           <h1 className="text-2xl md:text-3xl font-semibold text-black leading-tight">{product.name}</h1>
 
           {/* PRICE + icons */}
@@ -340,28 +420,7 @@ export default function ProductPage({ params }) {
             </div>
           </div>
 
-          {/* CTA row */}
-          <div className="flex gap-2 flex-wrap pt-2">
-            <button
-              onClick={handleAddToCart}
-              className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
-              style={{ backgroundColor: BRAND.black }}
-            >
-              <ShoppingCart size={18} />
-              Add to Cart
-            </button>
-
-            <button
-              onClick={handleBuyNow}
-              className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
-              style={{ backgroundColor: BRAND.burgundy }}
-            >
-              <Zap size={18} />
-              Buy Now
-            </button>
-          </div>
-
-          {/* SIZE SELECTOR (sets variantId too) */}
+          {/* SIZE SELECTOR */}
           {(product.sizes || []).length > 0 ? (
             <div className="space-y-1.5 pt-1">
               <h3 className="text-xs font-medium text-black">Select Size</h3>
@@ -391,6 +450,51 @@ export default function ProductPage({ params }) {
             </div>
           ) : null}
 
+          {/* CTA row */}
+          <div className="flex gap-2 flex-wrap pt-2">
+            {!selectionInCart ? (
+              <button
+                onClick={handleAddToCart}
+                className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
+                style={{ backgroundColor: BRAND.black }}
+              >
+                <ShoppingCart size={18} />
+                Add to Cart
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white/95 bg-black/90 cursor-default"
+              >
+                <ShoppingCart size={18} />
+                Added to Cart
+              </button>
+            )}
+
+            {/* ✅ Buy Now becomes View Cart when already in cart */}
+            <button
+              onClick={handleBuyNowOrViewCart}
+              className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition active:scale-[0.99]"
+              style={{
+                backgroundColor: selectionInCart ? BRAND.burgundy : BRAND.burgundy, // light grey for View Cart
+                color: selectionInCart ? "#ffffff" : "#ffffff",
+              }}
+            >
+              {selectionInCart ? (
+                <>
+                  <ShoppingCart size={18} />
+                  View Cart
+                </>
+              ) : (
+                <>
+                  <Zap size={18} />
+                  Buy Now
+                </>
+              )}
+            </button>
+          </div>
+
           {/* DETAILS */}
           <ProductDetailSection title="Product Details" content={product.description} />
           <SizeGuideSection />
@@ -406,18 +510,12 @@ export default function ProductPage({ params }) {
             ]}
           />
 
-          <SupportSection
-            product={product}
-            selectedSize={selectedSize}
-            requireSize={requireSize}
-            brand={BRAND}
-          />
+          <SupportSection product={product} selectedSize={selectedSize} requireSize={requireSize} brand={BRAND} />
 
           <ReviewSection />
         </aside>
       </div>
 
-      {/* RELATED PRODUCTS */}
       <div className="mt-10">
         <RelatedProducts productId={product.productId} />
       </div>
