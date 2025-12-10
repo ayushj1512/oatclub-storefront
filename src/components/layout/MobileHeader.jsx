@@ -4,22 +4,39 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, ShoppingBag, User, Search, Home, LayoutGrid, Heart, Info, Mail } from "lucide-react";
+import {
+  Menu,
+  X,
+  ShoppingBag,
+  User,
+  Search,
+  Home,
+  LayoutGrid,
+  Heart,
+  Info,
+  Mail,
+} from "lucide-react";
 import Image from "next/image";
 
 import WishlistButton from "@/components/header/WishlistButton";
+import { useCartStore } from "@/store/cartStore";
 
 const LOGO_URL =
   "https://res.cloudinary.com/djtva6hec/image/upload/v1764916639/miray/media/k0yvgu5m0ij1husm3ugh.png";
 
-/**
- * ✅ FIXES:
- * - Drawer/backdrop never overlap sticky header (uses REAL header height + topbar height)
- * - No max-width; drawer uses flex width (but stays usable)
- * - Proper z-index layering
- * - Body scroll lock + iOS overscroll fixes
- * - Updates CSS var: --app-header-h (FULL header height including search bar)
- */
+const money = (value, currency = "INR") => {
+  const n = Number(value ?? 0);
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(n);
+  } catch {
+    return `₹${n}`;
+  }
+};
+
 export default function MobileHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -27,9 +44,36 @@ export default function MobileHeader() {
   const [isSticky, setIsSticky] = useState(false);
 
   const router = useRouter();
-
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const openMenu = useCallback(() => setMenuOpen(true), []);
+
+  // ✅ IMPORTANT: use separate selectors (stable) to avoid getSnapshot loop
+  const cartItems = useCartStore((s) => s.items);
+  const cartInitialize = useCartStore((s) => s.initialize);
+  const cartTotalCountFn = useCartStore((s) => s.totalCount);
+  const cartTotalPriceFn = useCartStore((s) => s.totalPrice);
+
+  // init cart once on mount (safe)
+  useEffect(() => {
+    cartInitialize?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const cartCount = useMemo(() => {
+    try {
+      return typeof cartTotalCountFn === "function" ? cartTotalCountFn() : 0;
+    } catch {
+      return 0;
+    }
+  }, [cartTotalCountFn, cartItems]);
+
+  const cartSubtotal = useMemo(() => {
+    try {
+      return typeof cartTotalPriceFn === "function" ? cartTotalPriceFn() : 0;
+    } catch {
+      return 0;
+    }
+  }, [cartTotalPriceFn, cartItems]);
 
   // ✅ measure actual topbar height (TopbarHeadline) and store it in CSS var
   const topbarHRef = useRef(0);
@@ -37,7 +81,6 @@ export default function MobileHeader() {
   // ✅ sticky logic (becomes fixed AFTER topbar)
   useEffect(() => {
     const measureTopbar = () => {
-      // try common ids/classes; fallback to 0 if not found
       const el =
         document.getElementById("topbar-headline") ||
         document.querySelector("[data-topbar]") ||
@@ -54,7 +97,6 @@ export default function MobileHeader() {
       setIsSticky(window.scrollY > topbarH);
     };
 
-    // initial
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll, { passive: true });
@@ -73,7 +115,7 @@ export default function MobileHeader() {
     const prevTouchAction = document.body.style.touchAction;
 
     document.body.style.overflow = "hidden";
-    document.body.style.touchAction = "none"; // helps iOS overscroll
+    document.body.style.touchAction = "none";
 
     const onKeyDown = (e) => {
       if (e.key === "Escape") closeMenu();
@@ -143,25 +185,14 @@ export default function MobileHeader() {
     []
   );
 
-  /**
-   * ✅ CRITICAL FIX:
-   * When header becomes fixed, it sits BELOW Topbar.
-   * So overlay must start BELOW the fixed header which is at `top: topbarH`.
-   * overlayTop = topbarH + headerH  (+ safe-area)
-   */
+  // ✅ Offsets
   const topbarH = `var(--app-topbar-h, 0px)`;
   const headerH = `var(--app-header-h, 64px)`;
   const safeTop = `env(safe-area-inset-top, 0px)`;
 
   const headerTop = isSticky ? `calc(${topbarH} + ${safeTop})` : "0px";
-
-  const overlayTop = isSticky
-    ? `calc(${topbarH} + ${headerH} + ${safeTop})`
-    : "0px";
-
-  const overlayHeight = isSticky
-    ? `calc(100dvh - ${topbarH} - ${headerH} - ${safeTop})`
-    : "100dvh";
+  const overlayTop = isSticky ? `calc(${topbarH} + ${headerH} + ${safeTop})` : "0px";
+  const overlayHeight = isSticky ? `calc(100dvh - ${topbarH} - ${headerH} - ${safeTop})` : "100dvh";
 
   return (
     <header
@@ -171,9 +202,7 @@ export default function MobileHeader() {
         "z-[9999]",
         isSticky ? "fixed left-0 right-0" : "relative",
       ].join(" ")}
-      style={{
-        top: headerTop, // ✅ sits below Topbar when sticky
-      }}
+      style={{ top: headerTop }}
     >
       {/* TOP ROW */}
       <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -185,7 +214,6 @@ export default function MobileHeader() {
           <Menu size={26} />
         </button>
 
-        {/* Logo (flex, no max width) */}
         <Link href="/" aria-label="Go to homepage" className="flex-1 flex items-center justify-center select-none">
           <div className="relative h-8 w-full">
             <Image
@@ -209,6 +237,21 @@ export default function MobileHeader() {
           </button>
 
           <WishlistButton size={22} />
+
+          {/* ✅ CART ICON + BADGE */}
+          <button
+            type="button"
+            aria-label="Cart"
+            onClick={() => router.push("/cart")}
+            className="relative text-black hover:text-[#800020] transition"
+          >
+            <ShoppingBag size={22} />
+            {cartCount > 0 ? (
+              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#800020] text-white text-[11px] font-semibold grid place-items-center">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            ) : null}
+          </button>
 
           <Link href="/profile" className="text-black hover:text-[#800020] transition" aria-label="Profile">
             <User size={22} />
@@ -243,7 +286,6 @@ export default function MobileHeader() {
       <AnimatePresence>
         {menuOpen && (
           <>
-            {/* Backdrop - starts below (Topbar + Header) */}
             <motion.div
               className="fixed left-0 right-0 bottom-0 bg-black/45 z-[60]"
               style={{ top: overlayTop }}
@@ -255,7 +297,6 @@ export default function MobileHeader() {
               aria-hidden="true"
             />
 
-            {/* Drawer - starts below (Topbar + Header) */}
             <motion.aside
               role="dialog"
               aria-modal="true"
@@ -296,6 +337,76 @@ export default function MobileHeader() {
                   );
                 })}
               </nav>
+
+              {/* CART PREVIEW */}
+              <div className="border-t border-gray-200 px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-black">Cart</div>
+                  <div className="text-xs text-gray-500">
+                    {cartCount} item{cartCount === 1 ? "" : "s"}
+                  </div>
+                </div>
+
+                {!cartItems || cartItems.length === 0 ? (
+                  <div className="mt-3 text-sm text-gray-600">Your cart is empty.</div>
+                ) : (
+                  <>
+                    <div className="mt-3 space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                      {cartItems.slice(0, 5).map((it) => (
+                        <div
+                          key={it.__key || `${it.productId}-${it.variantId || ""}`}
+                          className="flex items-center gap-3"
+                        >
+                          <div className="relative h-11 w-11 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                            {it?.image ? (
+                              <Image
+                                src={it.image}
+                                alt={it?.name || "Item"}
+                                fill
+                                className="object-cover"
+                                sizes="44px"
+                              />
+                            ) : null}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-black truncate">
+                              {it?.name || "Item"}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {it?.selectedSize ? `Size: ${it.selectedSize} • ` : ""}
+                              Qty: {it?.quantity || 1}
+                            </div>
+                          </div>
+
+                          <div className="text-sm font-semibold text-black">
+                            {money(
+                              (Number(it?.price || 0) * Number(it?.quantity || 1)) || 0,
+                              it?.productSnapshot?.currency || "INR"
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="text-sm font-semibold text-black">Subtotal</div>
+                      <div className="text-sm font-bold text-black">{money(cartSubtotal, "INR")}</div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenu();
+                        router.push("/cart");
+                      }}
+                      className="mt-3 w-full rounded-xl bg-[#800020] text-white font-semibold text-sm py-3 active:scale-[0.99] transition"
+                    >
+                      Go to Cart
+                    </button>
+                  </>
+                )}
+              </div>
 
               <div className="mt-auto border-t border-gray-300 px-5 py-5">
                 <Link
