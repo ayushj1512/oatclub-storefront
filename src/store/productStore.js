@@ -5,36 +5,53 @@ import { persist } from "zustand/middleware";
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-/* ---------------- small helpers ---------------- */
+/* ---------------- helpers ---------------- */
 const normalizeBackendProduct = (p) => {
   const mongoId = p?._id ? String(p._id) : "";
   const images = Array.isArray(p?.images) ? p.images : [];
   const thumb = p?.thumbnail || images?.[0] || "/placeholder.png";
 
+  const variants = Array.isArray(p?.variants) ? p.variants : [];
+
+  const stock = Number(p?.stock ?? 0);
+  const isInStock = Boolean(p?.isInStock ?? stock > 0);
+
   return {
-    id: mongoId, // UI key (same as productId)
-    productId: mongoId, // ✅ MUST use in cart/order payloads
+    id: mongoId,
+    productId: mongoId,
+
     productCode: p?.productCode || "",
+    productType:
+      p?.productType ||
+      (Array.isArray(p?.variants) && p.variants.length ? "variable" : "simple"),
+
     name: p?.title || "",
     slug: p?.slug || "",
+
     price: Number(p?.price || 0),
     compareAtPrice: p?.compareAtPrice ?? null,
+    currency: p?.currency || "INR",
+
     description: p?.shortDescription || p?.description || "",
+
     category: p?.category?.slug || "uncategorized",
     categoryId: p?.category?._id ? String(p.category._id) : null,
     subcategoryId: p?.subcategory?._id ? String(p.subcategory._id) : null,
+
     image: thumb,
     thumbnail: thumb,
     images,
-    variants: Array.isArray(p?.variants) ? p.variants : [],
-    productType: p?.productType || (Array.isArray(p?.variants) && p.variants.length ? "variable" : "simple"),
-    stock: Number(p?.stock ?? 0),
-    isInStock: Boolean(p?.isInStock ?? true),
+
+    variants,
+
+    stock,
+    isInStock,
+
     tags: Array.isArray(p?.tags) ? p.tags : [],
-    currency: p?.currency || "INR",
     dateCreated: p?.createdAt || null,
+
     source: "backend",
-    raw: p, // optional: keep original doc if your UI needs it
+    raw: p,
   };
 };
 
@@ -58,6 +75,79 @@ async function safeJson(res) {
   }
 }
 
+/** ✅ treat these as invalid category values */
+const isBadCategory = (v) => {
+  const s = String(v ?? "").trim().toLowerCase();
+  return (
+    !s ||
+    s === "all" ||
+    s === "__no_match__" ||
+    s === "undefined" ||
+    s === "null"
+  );
+};
+
+/** ✅ sanitize params BEFORE building query */
+const sanitizeParams = (params = {}) => {
+  const clean = { ...params };
+
+  // Never send these to backend
+  if (isBadCategory(clean.category)) delete clean.category;
+
+  // If your UI sometimes sets category to something like "__no_match__"
+  // this guarantees it cannot escape to API.
+  return clean;
+};
+
+const buildQS = (params = {}) => {
+  const qs = new URLSearchParams();
+
+  const setIf = (k, v) => {
+    if (v === undefined || v === null) return;
+    const s = String(v).trim();
+    if (!s) return;
+    qs.set(k, s);
+  };
+
+  setIf("page", params.page);
+  setIf("limit", params.limit);
+  setIf("search", params.search);
+
+  if (params.category && !isBadCategory(params.category)) setIf("category", params.category);
+  if (params.subcategory) setIf("subcategory", params.subcategory);
+
+  setIf("collection", params.collection);
+
+  if (Array.isArray(params.tags)) setIf("tags", params.tags.join(","));
+  else setIf("tags", params.tags);
+
+  setIf("minPrice", params.minPrice);
+  setIf("maxPrice", params.maxPrice);
+
+  // map UI sort -> backend sort keys (if you use this)
+  const sortMap = {
+    default: "",
+    priceLowHigh: "price_asc",
+    priceHighLow: "price_desc",
+    newest: "newest",
+    rating: "rating",
+    popularity: "popularity",
+  };
+
+  if (params.sort) setIf("sort", params.sort);
+  else if (params.sortOption && sortMap[params.sortOption]) setIf("sort", sortMap[params.sortOption]);
+
+  if (params.isActive != null) setIf("isActive", params.isActive);
+
+  if (params.sku) setIf("sku", params.sku);
+
+  return qs;
+};
+
+const looksLikeCastObjectIdError = (msg = "") =>
+  String(msg).includes("Cast to ObjectId failed") &&
+  String(msg).includes('path "category"');
+
 export const useProductStore = create(
   persist(
     (set, get) => ({
@@ -76,35 +166,35 @@ export const useProductStore = create(
       error: null,
 
       /* =====================================================
-         ✅ ONLY MERN BACKEND
-         GET /api/products
+         ✅ GET /api/products (bulletproof)
       ===================================================== */
       fetchProducts: async (params = {}) => {
-        try {
-          if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+        if (!BACKEND) {
+          const msg = "NEXT_PUBLIC_BACKEND_URL missing";
+          set({ error: msg, isLoading: false });
+          return [];
+        }
 
-          set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null });
 
-          const qs = new URLSearchParams();
-          if (params.page) qs.set("page", String(params.page));
-          if (params.limit) qs.set("limit", String(params.limit));
-          if (params.search) qs.set("search", String(params.search));
-          if (params.category && params.category !== "all") qs.set("category", String(params.category));
-          if (params.subcategory) qs.set("subcategory", String(params.subcategory));
-          if (params.collection) qs.set("collection", String(params.collection));
-          if (params.tags) qs.set("tags", String(params.tags));
-          if (params.minPrice) qs.set("minPrice", String(params.minPrice));
-          if (params.maxPrice) qs.set("maxPrice", String(params.maxPrice));
-          if (params.sort) qs.set("sort", String(params.sort));
-          if (params.isActive != null) qs.set("isActive", String(params.isActive));
+        // ✅ hard sanitize
+        const cleaned = sanitizeParams(params);
 
+        const run = async (p) => {
+          const qs = buildQS(p);
           const url = `${BACKEND}/api/products${qs.toString() ? `?${qs.toString()}` : ""}`;
           const res = await fetch(url, { cache: "no-store" });
           const data = await safeJson(res);
-
           if (!res.ok) throw new Error(data?.message || "Failed to load products");
+          return data;
+        };
 
-          const mapped = Array.isArray(data?.products) ? data.products.map(normalizeBackendProduct) : [];
+        try {
+          const data = await run(cleaned);
+
+          const mapped = Array.isArray(data?.products)
+            ? data.products.map(normalizeBackendProduct)
+            : [];
           const unique = uniqBySlug(mapped);
 
           const initial = unique.slice(0, get().LOAD_STEP);
@@ -119,16 +209,49 @@ export const useProductStore = create(
 
           return unique;
         } catch (err) {
+          // ✅ if backend still throws CastError, retry once WITHOUT category
+          const msg = err?.message || "Failed to load products";
+
+          if (looksLikeCastObjectIdError(msg) && cleaned?.category) {
+            try {
+              const retryParams = { ...cleaned };
+              delete retryParams.category;
+
+              const data = await run(retryParams);
+
+              const mapped = Array.isArray(data?.products)
+                ? data.products.map(normalizeBackendProduct)
+                : [];
+              const unique = uniqBySlug(mapped);
+
+              const initial = unique.slice(0, get().LOAD_STEP);
+
+              set({
+                allProducts: unique,
+                visibleProducts: initial,
+                filteredProducts: initial,
+                visibleCount: initial.length,
+                isLoading: false,
+                error: null,
+              });
+
+              return unique;
+            } catch (retryErr) {
+              const retryMsg = retryErr?.message || msg;
+              console.error("❌ Product fetch error (retry failed):", retryErr);
+              set({ error: retryMsg, isLoading: false });
+              return [];
+            }
+          }
+
           console.error("❌ Product fetch error:", err);
-          set({ error: err?.message || "Failed to load products", isLoading: false });
+          set({ error: msg, isLoading: false });
           return [];
         }
       },
 
       /* =====================================================
          ✅ SINGLE PRODUCT
-         - GET /api/products/details/:idOrSlug
-         - GET /api/products/:idOrSlug (fallback)
       ===================================================== */
       fetchProductDetails: async (idOrSlug) => {
         try {
@@ -163,6 +286,36 @@ export const useProductStore = create(
       },
 
       /* =====================================================
+         ✅ GET BY SKU
+      ===================================================== */
+      fetchProductBySKU: async (sku) => {
+        try {
+          if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+          if (!sku) throw new Error("SKU missing");
+
+          set({ isLoading: true, error: null });
+
+          const param = encodeURIComponent(String(sku));
+          const res = await fetch(`${BACKEND}/api/products/sku/${param}`, { cache: "no-store" });
+          const data = await safeJson(res);
+
+          if (!res.ok) throw new Error(data?.message || "Failed to load product by SKU");
+
+          const productDoc = data?.product || null;
+          const matchedVariant = data?.matchedVariant || null;
+
+          const normalized = productDoc ? normalizeBackendProduct(productDoc) : null;
+          if (normalized) get().upsertProduct(normalized);
+
+          set({ isLoading: false });
+          return { product: normalized, matchedVariant };
+        } catch (e) {
+          set({ error: e?.message || "Failed to load product by SKU", isLoading: false });
+          throw e;
+        }
+      },
+
+      /* =====================================================
          LOAD MORE
       ===================================================== */
       loadMore: () => {
@@ -179,7 +332,7 @@ export const useProductStore = create(
       },
 
       /* =====================================================
-         SEARCH / CATEGORY / SORT
+         SEARCH / CATEGORY / SORT (client-side)
       ===================================================== */
       setSearchQuery: (query) => {
         set({ searchQuery: query });
@@ -196,9 +349,6 @@ export const useProductStore = create(
         get().applyFilters();
       },
 
-      /* =====================================================
-         FILTER + SORT (runs on visibleProducts)
-      ===================================================== */
       applyFilters: () => {
         const { visibleProducts, searchQuery, selectedCategory, sortOption } = get();
         let filtered = [...(visibleProducts || [])];
@@ -208,7 +358,9 @@ export const useProductStore = create(
           filtered = filtered.filter(
             (p) =>
               String(p?.name || "").toLowerCase().includes(q) ||
-              String(p?.description || "").toLowerCase().includes(q)
+              String(p?.description || "").toLowerCase().includes(q) ||
+              String(p?.slug || "").toLowerCase().includes(q) ||
+              String(p?.productCode || "").toLowerCase().includes(q)
           );
         }
 
@@ -224,9 +376,6 @@ export const useProductStore = create(
         set({ filteredProducts: filtered });
       },
 
-      /* =====================================================
-         UPSERT / REMOVE
-      ===================================================== */
       upsertProduct: (product) => {
         const p = product?.source === "backend" ? product : normalizeBackendProduct(product);
         const current = get().allProducts || [];
@@ -248,6 +397,13 @@ export const useProductStore = create(
         const newVisible = updated.slice(0, get().visibleCount);
         set({ visibleProducts: newVisible });
 
+        get().applyFilters();
+      },
+
+      resetVisible: () => {
+        const all = get().allProducts || [];
+        const initial = all.slice(0, get().LOAD_STEP);
+        set({ visibleCount: initial.length, visibleProducts: initial });
         get().applyFilters();
       },
 

@@ -1,7 +1,8 @@
 /* ================================
    404 NOT FOUND (Ghost) Styles
-   Put in: /styles/not-found.css  (or any css file you import globally)
+   Put in: /src/app/style/not-found.css (or whatever you import)
    Theme: black + white + burgundy
+   ✅ Added countdown styles (nf-countdown, nf-countdownCancel)
 ================================ */
 
 /* Layout */
@@ -187,6 +188,50 @@
   max-width: 56ch;
 }
 
+/* ✅ Countdown */
+.nf-countdown{
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.85);
+  color: rgba(0,0,0,0.70);
+  font-size: 13px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+@media (min-width: 860px){
+  .nf-countdown{ justify-content: flex-start; }
+}
+
+.nf-countdown strong{
+  color: rgba(128,0,32,0.95);
+  font-weight: 800;
+}
+
+.nf-countdownCancel{
+  margin-left: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.55);
+  padding: 6px 8px;
+  border-radius: 999px;
+  transition: background .15s ease, color .15s ease;
+}
+
+.nf-countdownCancel:hover{
+  background: rgba(128,0,32,0.06);
+  color: rgba(128,0,32,0.95);
+}
+
+/* Actions */
 .nf-actions{
   display: grid;
   grid-template-columns: 1fr;

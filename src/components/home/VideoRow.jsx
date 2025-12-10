@@ -48,128 +48,60 @@ const reels = [
     product: { id: 107, name: "Aesthetic Streetwear Set", price: "1899", image: "/placeholder.png", slug: "aesthetic-streetwear-set" },
   },
 ];
-
 export default function VideoRow() {
-  const videoRefs = useRef([]);
   const scrollerRef = useRef(null);
-
+  const videoRefs = useRef([]);
+  const [mounted, setMounted] = useState(false);
   const [activeIndex, setActiveIndex] = useState(null);
   const [likes, setLikes] = useState({});
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    videoRefs.current.forEach((v) => v?.play?.().catch(() => {}));
+  }, [mounted]);
 
   const toggleLike = (i) => setLikes((p) => ({ ...p, [i]: !p[i] }));
 
   const shareReel = async (r) => {
     try {
-      if (navigator.share) {
-        await navigator.share({ title: "Check this out!", text: r.caption, url: r.src });
-      } else {
-        alert("Sharing not supported on this device.");
-      }
+      if (typeof navigator !== "undefined" && navigator.share) await navigator.share({ title: "Check this out!", text: r.caption, url: r.src });
     } catch {}
   };
-
-  useEffect(() => {
-    videoRefs.current.forEach((v) => v?.play().catch(() => {}));
-  }, []);
-
-  const openReel = (i) => setActiveIndex(i);
-  const closeReel = () => setActiveIndex(null);
 
   const scrollByCards = (dir) => {
     const el = scrollerRef.current;
     if (!el) return;
-
-    // scroll by ~2.5 cards (responsive-friendly)
-    const firstCard = el.querySelector("[data-reel-card='true']");
-    const cardW = firstCard?.getBoundingClientRect?.().width || 200;
-    const gap = 20;
-    const delta = dir === "left" ? -(cardW * 2.5 + gap * 2) : cardW * 2.5 + gap * 2;
-
-    el.scrollBy({ left: delta, behavior: "smooth" });
+    const first = el.querySelector("[data-reel-card='true']");
+    const w = first?.getBoundingClientRect?.().width || 200;
+    el.scrollBy({ left: (dir === "left" ? -1 : 1) * (w * 2.5 + 40), behavior: "smooth" });
   };
+
+  if (!mounted) return null;
 
   return (
     <>
       <section className="w-full flex flex-col bg-white py-10 md:py-14 overflow-hidden">
-        <h2 className="text-xl md:text-3xl font-extrabold text-center text-black border-b-4 border-[#800020] pb-1 w-fit mx-auto mb-6 tracking-wide uppercase">
-          Fashion In Motion
-        </h2>
+        <h2 className="text-xl md:text-3xl font-extrabold text-center text-black border-b-4 border-[#800020] pb-1 w-fit mx-auto mb-6 tracking-wide uppercase">Fashion In Motion</h2>
 
-        {/* HORIZONTAL SCROLL ROW (MOBILE + DESKTOP) */}
         <div className="relative px-6 md:px-10">
-          {/* desktop arrows */}
-          <button
-            type="button"
-            onClick={() => scrollByCards("left")}
-            aria-label="Scroll left"
-            className="hidden md:flex items-center justify-center absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 border border-gray-200 shadow-sm hover:shadow-md transition"
-          >
-            <ChevronLeft className="text-black" size={18} />
-          </button>
+          <button type="button" onClick={() => scrollByCards("left")} aria-label="Scroll left" className="hidden md:flex items-center justify-center absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 border border-gray-200 shadow-sm hover:shadow-md transition"><ChevronLeft className="text-black" size={18} /></button>
+          <button type="button" onClick={() => scrollByCards("right")} aria-label="Scroll right" className="hidden md:flex items-center justify-center absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 border border-gray-200 shadow-sm hover:shadow-md transition"><ChevronRight className="text-black" size={18} /></button>
 
-          <button
-            type="button"
-            onClick={() => scrollByCards("right")}
-            aria-label="Scroll right"
-            className="hidden md:flex items-center justify-center absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 border border-gray-200 shadow-sm hover:shadow-md transition"
-          >
-            <ChevronRight className="text-black" size={18} />
-          </button>
-
-          <div
-            ref={scrollerRef}
-            className="flex gap-4 md:gap-5 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2"
-          >
+          <div ref={scrollerRef} className="flex gap-4 md:gap-5 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2">
             {reels.map((reel, i) => (
-              <div
-                key={i}
-                data-reel-card="true"
-                onClick={() => openReel(i)}
-                className="snap-start bg-white border border-gray-200 flex flex-col cursor-pointer relative
-                           min-w-[160px] md:min-w-[220px] lg:min-w-[240px]
-                           hover:shadow-md transition"
-              >
+              <div key={reel.src || i} data-reel-card="true" onClick={() => setActiveIndex(i)} className="snap-start bg-white border border-gray-200 flex flex-col cursor-pointer relative min-w-[160px] md:min-w-[220px] lg:min-w-[240px] hover:shadow-md transition">
                 <div className="relative w-full aspect-[9/16] bg-black">
-                  <video
-                    ref={(el) => (videoRefs.current[i] = el)}
-                    src={reel.src}
-                    muted
-                    loop
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
+                  <video ref={(el) => (videoRefs.current[i] = el)} src={reel.src} muted loop autoPlay playsInline preload="metadata" className="w-full h-full object-cover" />
                   <div className="absolute bottom-2 md:bottom-3 right-2 md:right-3 flex flex-col gap-2">
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleLike(i);
-                      }}
-                      className="p-1.5 md:p-2 bg-black/40 backdrop-blur-sm rounded-full hover:scale-110 transition"
-                    >
-                      <Heart
-                        size={18}
-                        className={likes[i] ? "text-red-500 fill-red-500" : "text-white"}
-                      />
-                    </div>
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        shareReel(reel);
-                      }}
-                      className="p-1.5 md:p-2 bg-black/40 backdrop-blur-sm rounded-full hover:scale-110 transition"
-                    >
-                      <Share2 size={18} className="text-white" />
-                    </div>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); toggleLike(i); }} className="p-1.5 md:p-2 bg-black/40 backdrop-blur-sm rounded-full hover:scale-110 transition" aria-label="Like"><Heart size={18} className={likes[i] ? "text-red-500 fill-red-500" : "text-white"} /></button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); shareReel(reel); }} className="p-1.5 md:p-2 bg-black/40 backdrop-blur-sm rounded-full hover:scale-110 transition" aria-label="Share"><Share2 size={18} className="text-white" /></button>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3 p-2 md:p-3 border-t border-gray-200 bg-white">
-                  <img
-                    src={reel.product.image}
-                    alt={reel.product.name}
-                    className="w-12 h-14 md:w-14 md:h-16 object-contain bg-gray-100"
-                  />
+                  <img src={reel.product.image} alt={reel.product.name} className="w-12 h-14 md:w-14 md:h-16 object-contain bg-gray-100" />
                   <div className="flex flex-col flex-1 min-w-0">
                     <p className="text-[11px] md:text-sm font-medium line-clamp-1">{reel.product.name}</p>
                     <p className="text-[#800020] font-semibold text-xs md:text-sm">₹{reel.product.price}</p>
@@ -182,9 +114,7 @@ export default function VideoRow() {
         </div>
       </section>
 
-      {activeIndex !== null && (
-        <ReelViewer reels={reels} currentIndex={activeIndex} setCurrentIndex={setActiveIndex} onClose={closeReel} />
-      )}
+      {activeIndex !== null && <ReelViewer reels={reels} currentIndex={activeIndex} setCurrentIndex={setActiveIndex} onClose={() => setActiveIndex(null)} />}
     </>
   );
 }

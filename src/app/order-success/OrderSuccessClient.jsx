@@ -438,12 +438,7 @@ export default function OrderSuccessClient() {
                 />
                 Packed with care
               </div>
-              <div className="text-[11px]">
-                Uses: <span className="font-mono">/api/orders/:id</span> or{" "}
-                <span className="font-mono">
-                  /api/orders/by-number/:orderNumber
-                </span>
-              </div>
+              
             </div>
           </div>
         </div>

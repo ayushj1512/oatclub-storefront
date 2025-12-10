@@ -1,25 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Menu,
-  X,
-  ShoppingBag,
-  User,
-  Search,
-  Home,
-  LayoutGrid,
-  Heart,
-  Info,
-  Mail,
-} from "lucide-react";
+import { Menu, X, ShoppingBag, User, Search, Home, LayoutGrid, Heart, Info, Mail } from "lucide-react";
+import Image from "next/image";
 
-import { useCartStore } from "@/store/cartStore";
 import WishlistButton from "@/components/header/WishlistButton";
 
+const LOGO_URL =
+  "https://res.cloudinary.com/djtva6hec/image/upload/v1764916639/miray/media/k0yvgu5m0ij1husm3ugh.png";
+
+/**
+ * ✅ FIXES:
+ * - Drawer/backdrop never overlap sticky header (uses REAL header height + topbar height)
+ * - No max-width; drawer uses flex width (but stays usable)
+ * - Proper z-index layering
+ * - Body scroll lock + iOS overscroll fixes
+ * - Updates CSS var: --app-header-h (FULL header height including search bar)
+ */
 export default function MobileHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -27,34 +27,53 @@ export default function MobileHeader() {
   const [isSticky, setIsSticky] = useState(false);
 
   const router = useRouter();
-  const { cart } = useCartStore?.() || { cart: [] };
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const openMenu = useCallback(() => setMenuOpen(true), []);
 
-  // ✅ make header fixed only after scrolling past topbar
+  // ✅ measure actual topbar height (TopbarHeadline) and store it in CSS var
+  const topbarHRef = useRef(0);
+
+  // ✅ sticky logic (becomes fixed AFTER topbar)
   useEffect(() => {
-    const TOPBAR_HEIGHT = 36; // h-9 = 36px
-    const onScroll = () => setIsSticky(window.scrollY > TOPBAR_HEIGHT);
+    const measureTopbar = () => {
+      // try common ids/classes; fallback to 0 if not found
+      const el =
+        document.getElementById("topbar-headline") ||
+        document.querySelector("[data-topbar]") ||
+        document.querySelector(".topbar-headline");
+
+      const h = el ? Math.round(el.getBoundingClientRect().height) : 0;
+      topbarHRef.current = h;
+      document.documentElement.style.setProperty("--app-topbar-h", `${h}px`);
+      return h;
+    };
+
+    const onScroll = () => {
+      const topbarH = measureTopbar();
+      setIsSticky(window.scrollY > topbarH);
+    };
+
+    // initial
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
-  const handleSearchKey = (e) => {
-    if (e.key === "Enter" && searchText.trim() !== "") {
-      router.push(`/search?q=${encodeURIComponent(searchText)}`);
-      setShowSearch(false);
-      setSearchText("");
-    }
-  };
-
-  // Lock body scroll + ESC close when drawer is open
+  // ✅ Lock body scroll + ESC close when drawer is open
   useEffect(() => {
     if (!menuOpen) return;
 
     const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
+
     document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none"; // helps iOS overscroll
 
     const onKeyDown = (e) => {
       if (e.key === "Escape") closeMenu();
@@ -63,9 +82,42 @@ export default function MobileHeader() {
     window.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen, closeMenu]);
+
+  // ✅ Keep CSS var updated with FULL header height (including search bar)
+  useEffect(() => {
+    const setHeaderVar = () => {
+      const el = document.getElementById("mobile-header");
+      if (!el) return;
+      const h = Math.round(el.getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--app-header-h", `${h}px`);
+    };
+
+    setHeaderVar();
+
+    const el = document.getElementById("mobile-header");
+    if (!el) return;
+
+    const ro = new ResizeObserver(() => setHeaderVar());
+    ro.observe(el);
+
+    window.addEventListener("resize", setHeaderVar, { passive: true });
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", setHeaderVar);
+    };
+  }, [showSearch]);
+
+  const handleSearchKey = (e) => {
+    if (e.key === "Enter" && searchText.trim() !== "") {
+      router.push(`/search?q=${encodeURIComponent(searchText)}`);
+      setShowSearch(false);
+      setSearchText("");
+    }
+  };
 
   const drawerVariants = {
     hidden: { x: "-100%" },
@@ -79,47 +131,92 @@ export default function MobileHeader() {
     exit: { opacity: 0, transition: { duration: 0.18 } },
   };
 
-  const navItems = [
-    { name: "Home", href: "/", icon: Home },
-    { name: "Categories", href: "/categories", icon: LayoutGrid },
-    { name: "Wishlist", href: "/wishlist", icon: Heart },
-    { name: "Cart", href: "/cart", icon: ShoppingBag },
-    { name: "About", href: "/about", icon: Info },
-    { name: "Contact", href: "/contact", icon: Mail },
-  ];
+  const navItems = useMemo(
+    () => [
+      { name: "Home", href: "/", icon: Home },
+      { name: "Categories", href: "/categories", icon: LayoutGrid },
+      { name: "Wishlist", href: "/wishlist", icon: Heart },
+      { name: "Cart", href: "/cart", icon: ShoppingBag },
+      { name: "About", href: "/about", icon: Info },
+      { name: "Contact", href: "/contact", icon: Mail },
+    ],
+    []
+  );
+
+  /**
+   * ✅ CRITICAL FIX:
+   * When header becomes fixed, it sits BELOW Topbar.
+   * So overlay must start BELOW the fixed header which is at `top: topbarH`.
+   * overlayTop = topbarH + headerH  (+ safe-area)
+   */
+  const topbarH = `var(--app-topbar-h, 0px)`;
+  const headerH = `var(--app-header-h, 64px)`;
+  const safeTop = `env(safe-area-inset-top, 0px)`;
+
+  const headerTop = isSticky ? `calc(${topbarH} + ${safeTop})` : "0px";
+
+  const overlayTop = isSticky
+    ? `calc(${topbarH} + ${headerH} + ${safeTop})`
+    : "0px";
+
+  const overlayHeight = isSticky
+    ? `calc(100dvh - ${topbarH} - ${headerH} - ${safeTop})`
+    : "100dvh";
 
   return (
-    <header className={`md:hidden w-full bg-white shadow-md z-[9999] border-b border-gray-300 ${isSticky ? "fixed top-0 left-0" : "relative"}`}>
-      {/* ───────────────────────────── TOP BAR ───────────────────────────── */}
-      <div className="flex items-center justify-between px-4 py-3">
-        {/* Menu Icon */}
-        <button onClick={openMenu} aria-label="Open menu" className="text-black hover:text-[#800020] transition">
+    <header
+      id="mobile-header"
+      className={[
+        "md:hidden w-full bg-white shadow-md border-b border-gray-300",
+        "z-[9999]",
+        isSticky ? "fixed left-0 right-0" : "relative",
+      ].join(" ")}
+      style={{
+        top: headerTop, // ✅ sits below Topbar when sticky
+      }}
+    >
+      {/* TOP ROW */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <button
+          onClick={openMenu}
+          aria-label="Open menu"
+          className="shrink-0 text-black hover:text-[#800020] transition"
+        >
           <Menu size={26} />
         </button>
 
-        {/* Logo */}
-        <Link href="/" className="text-xl font-bold tracking-tight select-none text-[#800020]">
-          MIRAY<span className="text-black">.</span>
+        {/* Logo (flex, no max width) */}
+        <Link href="/" aria-label="Go to homepage" className="flex-1 flex items-center justify-center select-none">
+          <div className="relative h-8 w-full">
+            <Image
+              src={LOGO_URL}
+              alt="Miray"
+              fill
+              priority
+              className="object-contain"
+              sizes="(max-width: 768px) 60vw, 240px"
+            />
+          </div>
         </Link>
 
-        {/* Right Icons */}
-        <div className="flex items-center gap-4">
-          {/* Search */}
-          <button onClick={() => setShowSearch((s) => !s)} aria-label="Toggle search" className="text-black hover:text-[#800020] transition">
+        <div className="shrink-0 flex items-center gap-4">
+          <button
+            onClick={() => setShowSearch((s) => !s)}
+            aria-label="Toggle search"
+            className="text-black hover:text-[#800020] transition"
+          >
             <Search size={22} />
           </button>
 
-          {/* Wishlist */}
           <WishlistButton size={22} />
 
-          {/* Profile */}
           <Link href="/profile" className="text-black hover:text-[#800020] transition" aria-label="Profile">
             <User size={22} />
           </Link>
         </div>
       </div>
 
-      {/* ───────────────────────────── SEARCH BAR ───────────────────────────── */}
+      {/* SEARCH BAR */}
       <AnimatePresence>
         {showSearch && (
           <motion.div
@@ -142,13 +239,14 @@ export default function MobileHeader() {
         )}
       </AnimatePresence>
 
-      {/* ───────────────────────────── FULLSCREEN LEFT DRAWER ───────────────────────────── */}
+      {/* LEFT DRAWER */}
       <AnimatePresence>
         {menuOpen && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop - starts below (Topbar + Header) */}
             <motion.div
-              className="fixed inset-0 bg-black/45 z-[60]"
+              className="fixed left-0 right-0 bottom-0 bg-black/45 z-[60]"
+              style={{ top: overlayTop }}
               variants={backdropVariants}
               initial="hidden"
               animate="show"
@@ -157,27 +255,30 @@ export default function MobileHeader() {
               aria-hidden="true"
             />
 
-            {/* Drawer */}
+            {/* Drawer - starts below (Topbar + Header) */}
             <motion.aside
               role="dialog"
               aria-modal="true"
               aria-label="Mobile menu"
-              className="fixed inset-0 z-[70] bg-white flex flex-col"
+              className="fixed left-0 z-[70] bg-white flex flex-col w-[86vw] sm:w-[72vw]"
+              style={{ top: overlayTop, height: overlayHeight }}
               variants={drawerVariants}
               initial="hidden"
               animate="show"
               exit="exit"
             >
-              {/* Drawer Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-300">
                 <span className="inline-flex items-center gap-2 text-lg font-semibold text-black">Menu</span>
-                <button onClick={closeMenu} aria-label="Close menu" className="text-black hover:text-[#800020] transition">
+                <button
+                  onClick={closeMenu}
+                  aria-label="Close menu"
+                  className="text-black hover:text-[#800020] transition"
+                >
                   <X size={24} />
                 </button>
               </div>
 
-              {/* Navigation */}
-              <nav className="flex flex-col text-black font-medium">
+              <nav className="flex flex-col text-black font-medium overflow-y-auto">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -196,9 +297,12 @@ export default function MobileHeader() {
                 })}
               </nav>
 
-              {/* Bottom Section */}
               <div className="mt-auto border-t border-gray-300 px-5 py-5">
-                <Link href="/profile" onClick={closeMenu} className="flex items-center gap-3 text-black hover:text-[#800020] transition">
+                <Link
+                  href="/profile"
+                  onClick={closeMenu}
+                  className="flex items-center gap-3 text-black hover:text-[#800020] transition"
+                >
                   <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-[#800020]/10 text-[#800020]">
                     <User size={18} />
                   </span>
