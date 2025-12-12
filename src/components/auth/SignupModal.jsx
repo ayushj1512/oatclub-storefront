@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import GoogleSignInButton from "@/components/auth/GoogleSignIn";
 import { useAuthStore } from "@/store/authStore";
 
+const LOCK_ATTR = "data-miray-scroll-lock";
+
 export default function SignupModal({ closeAll }) {
   const router = useRouter();
   const { modalDismissed, setModalDismissed, isAuthenticated } = useAuthStore();
@@ -24,6 +26,32 @@ export default function SignupModal({ closeAll }) {
     width: "",
   });
 
+  // ✅ Force-unlock helper (fixes "scroll stuck until modal opens" on mobile)
+  const forceUnlockBodyScroll = useCallback(() => {
+    const body = document.body;
+
+    // Only act if body looks locked (or our lock attribute exists)
+    const isLocked =
+      body.getAttribute(LOCK_ATTR) === "signup" ||
+      body.style.position === "fixed" ||
+      body.style.overflow === "hidden";
+
+    if (!isLocked) return;
+
+    // Try to restore scroll from body.style.top if present
+    const top = body.style.top || "";
+    const y = top ? Math.abs(parseInt(top, 10)) || 0 : 0;
+
+    body.style.overflow = "";
+    body.style.position = "";
+    body.style.top = "";
+    body.style.width = "";
+    body.removeAttribute(LOCK_ATTR);
+
+    // Restore scroll position (best-effort)
+    if (y) window.scrollTo(0, y);
+  }, []);
+
   /* ------------------------------------
       AUTO OPEN AFTER 10 SECONDS
   ------------------------------------- */
@@ -35,12 +63,16 @@ export default function SignupModal({ closeAll }) {
   }, [isAuthenticated, modalDismissed]);
 
   /* ------------------------------------
-      BODY SCROLL LOCK (mobile/iOS safe)
-      - Do NOTHING before modal opens
-      - Lock only when open === true
+      BODY SCROLL LOCK (iOS-safe)
+      - Also ensures body is NOT stuck locked before modal opens
   ------------------------------------- */
   const lockBodyScroll = useCallback(() => {
     const body = document.body;
+
+    // If something else already locked scroll, don't fight it
+    if (body.getAttribute(LOCK_ATTR) && body.getAttribute(LOCK_ATTR) !== "signup") {
+      return;
+    }
 
     scrollYRef.current = window.scrollY || 0;
 
@@ -51,7 +83,8 @@ export default function SignupModal({ closeAll }) {
       width: body.style.width || "",
     };
 
-    // iOS-safe lock
+    body.setAttribute(LOCK_ATTR, "signup");
+
     body.style.overflow = "hidden";
     body.style.position = "fixed";
     body.style.top = `-${scrollYRef.current}px`;
@@ -60,6 +93,12 @@ export default function SignupModal({ closeAll }) {
 
   const unlockBodyScroll = useCallback(() => {
     const body = document.body;
+
+    // Only unlock if this modal locked it
+    if (body.getAttribute(LOCK_ATTR) && body.getAttribute(LOCK_ATTR) !== "signup") {
+      return;
+    }
+
     const { overflow, position, top, width } = prevStyleRef.current;
 
     body.style.overflow = overflow;
@@ -67,16 +106,31 @@ export default function SignupModal({ closeAll }) {
     body.style.top = top;
     body.style.width = width;
 
-    // restore scroll position
+    body.removeAttribute(LOCK_ATTR);
+
     window.scrollTo(0, scrollYRef.current);
   }, []);
 
+  // ✅ On mount: ensure body isn't stuck locked from earlier navigation/modal
   useEffect(() => {
-    if (!open) return; // ✅ important: don't modify scroll before modal opens
+    forceUnlockBodyScroll();
+    return () => {
+      // ✅ On unmount: cleanup just in case
+      forceUnlockBodyScroll();
+    };
+  }, [forceUnlockBodyScroll]);
+
+  // ✅ Main lock/unlock effect
+  useEffect(() => {
+    if (!open) {
+      // ✅ critical: if modal isn't open, make sure body isn't locked
+      forceUnlockBodyScroll();
+      return;
+    }
 
     lockBodyScroll();
     return () => unlockBodyScroll();
-  }, [open, lockBodyScroll, unlockBodyScroll]);
+  }, [open, lockBodyScroll, unlockBodyScroll, forceUnlockBodyScroll]);
 
   /* ------------------------------------
       CLOSE MODAL
@@ -155,17 +209,14 @@ export default function SignupModal({ closeAll }) {
               Choose a sign-in method.
             </p>
 
-            {/* GOOGLE LOGIN */}
             <GoogleSignInButton />
 
-            {/* Divider */}
             <div className="flex items-center gap-3 my-5">
               <span className="flex-1 h-[1px] bg-gray-300"></span>
               <span className="text-xs text-gray-500">OR</span>
               <span className="flex-1 h-[1px] bg-gray-300"></span>
             </div>
 
-            {/* EMAIL LOGIN */}
             <button
               onClick={() => {
                 closeModal();
