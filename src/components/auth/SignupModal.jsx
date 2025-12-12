@@ -14,7 +14,15 @@ export default function SignupModal({ closeAll }) {
   const [step, setStep] = useState(1);
 
   const modalRef = useRef(null);
-  const prevBodyOverflowRef = useRef("");
+
+  // Scroll-lock state (iOS-safe)
+  const scrollYRef = useRef(0);
+  const prevStyleRef = useRef({
+    overflow: "",
+    position: "",
+    top: "",
+    width: "",
+  });
 
   /* ------------------------------------
       AUTO OPEN AFTER 10 SECONDS
@@ -22,30 +30,53 @@ export default function SignupModal({ closeAll }) {
   useEffect(() => {
     if (isAuthenticated || modalDismissed) return;
 
-    const timer = setTimeout(() => setOpen(true), 10000); // ✅ 10s
+    const timer = setTimeout(() => setOpen(true), 10000);
     return () => clearTimeout(timer);
   }, [isAuthenticated, modalDismissed]);
 
   /* ------------------------------------
-      BODY SCROLL FIX
-      - Ensure page can scroll BEFORE modal opens
-      - Lock scroll ONLY when modal is open
+      BODY SCROLL LOCK (mobile/iOS safe)
+      - Do NOTHING before modal opens
+      - Lock only when open === true
   ------------------------------------- */
-  useEffect(() => {
-    // Always restore scroll when modal is not open
-    if (!open) {
-      document.body.style.overflow = prevBodyOverflowRef.current || "";
-      return;
-    }
+  const lockBodyScroll = useCallback(() => {
+    const body = document.body;
 
-    // Save current overflow then lock
-    prevBodyOverflowRef.current = document.body.style.overflow || "";
-    document.body.style.overflow = "hidden";
+    scrollYRef.current = window.scrollY || 0;
 
-    return () => {
-      document.body.style.overflow = prevBodyOverflowRef.current || "";
+    prevStyleRef.current = {
+      overflow: body.style.overflow || "",
+      position: body.style.position || "",
+      top: body.style.top || "",
+      width: body.style.width || "",
     };
-  }, [open]);
+
+    // iOS-safe lock
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollYRef.current}px`;
+    body.style.width = "100%";
+  }, []);
+
+  const unlockBodyScroll = useCallback(() => {
+    const body = document.body;
+    const { overflow, position, top, width } = prevStyleRef.current;
+
+    body.style.overflow = overflow;
+    body.style.position = position;
+    body.style.top = top;
+    body.style.width = width;
+
+    // restore scroll position
+    window.scrollTo(0, scrollYRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return; // ✅ important: don't modify scroll before modal opens
+
+    lockBodyScroll();
+    return () => unlockBodyScroll();
+  }, [open, lockBodyScroll, unlockBodyScroll]);
 
   /* ------------------------------------
       CLOSE MODAL
@@ -58,7 +89,6 @@ export default function SignupModal({ closeAll }) {
 
   /* ------------------------------------
       CLOSE WHEN CLICKING OUTSIDE
-      (pointerdown works for mouse + touch)
   ------------------------------------- */
   const handlePointerDown = useCallback(
     (e) => {
@@ -83,7 +113,7 @@ export default function SignupModal({ closeAll }) {
       {/* MODAL */}
       <div
         ref={modalRef}
-        className="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 animate-fadeIn relative"
+        className="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 animate-fadeIn relative max-h-[90vh] overflow-y-auto [-webkit-overflow-scrolling:touch]"
       >
         {/* CLOSE BUTTON */}
         <button
