@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import GoogleSignInButton from "@/components/auth/GoogleSignIn";
@@ -8,60 +8,78 @@ import { useAuthStore } from "@/store/authStore";
 
 export default function SignupModal({ closeAll }) {
   const router = useRouter();
-
   const { modalDismissed, setModalDismissed, isAuthenticated } = useAuthStore();
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
 
   const modalRef = useRef(null);
+  const prevBodyOverflowRef = useRef("");
 
   /* ------------------------------------
-      AUTO OPEN AFTER 12 SECONDS
+      AUTO OPEN AFTER 10 SECONDS
   ------------------------------------- */
   useEffect(() => {
     if (isAuthenticated || modalDismissed) return;
 
-    const timer = setTimeout(() => setOpen(true), 12000);
+    const timer = setTimeout(() => setOpen(true), 10000); // ✅ 10s
     return () => clearTimeout(timer);
   }, [isAuthenticated, modalDismissed]);
 
   /* ------------------------------------
-      CLOSE MODAL
+      BODY SCROLL FIX
+      - Ensure page can scroll BEFORE modal opens
+      - Lock scroll ONLY when modal is open
   ------------------------------------- */
-  const closeModal = () => {
-    setModalDismissed();
-    setOpen(false);
-    closeAll?.();
-  };
-
-  /* ------------------------------------
-      CLOSE WHEN CLICKING OUTSIDE
-  ------------------------------------- */
-  const handleClickOutside = (e) => {
-    if (modalRef.current && !modalRef.current.contains(e.target)) {
-      closeModal();
-    }
-  };
-
   useEffect(() => {
-    if (open) {
-      document.addEventListener("mousedown", handleClickOutside);
+    // Always restore scroll when modal is not open
+    if (!open) {
+      document.body.style.overflow = prevBodyOverflowRef.current || "";
+      return;
     }
+
+    // Save current overflow then lock
+    prevBodyOverflowRef.current = document.body.style.overflow || "";
+    document.body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.body.style.overflow = prevBodyOverflowRef.current || "";
     };
   }, [open]);
 
-  if (!open) return null;
+  /* ------------------------------------
+      CLOSE MODAL
+  ------------------------------------- */
+  const closeModal = useCallback(() => {
+    setModalDismissed();
+    setOpen(false);
+    closeAll?.();
+  }, [setModalDismissed, closeAll]);
 
   /* ------------------------------------
-      UI
+      CLOSE WHEN CLICKING OUTSIDE
+      (pointerdown works for mouse + touch)
   ------------------------------------- */
+  const handlePointerDown = useCallback(
+    (e) => {
+      if (modalRef.current && !modalRef.current.contains(e.target)) {
+        closeModal();
+      }
+    },
+    [closeModal]
+  );
+
+  useEffect(() => {
+    if (!open) return;
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open, handlePointerDown]);
+
+  if (!open) return null;
+
   return (
     <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-[99999] flex justify-center items-center px-4 animate-fadeIn">
-      
       {/* MODAL */}
       <div
         ref={modalRef}
@@ -71,6 +89,7 @@ export default function SignupModal({ closeAll }) {
         <button
           onClick={closeModal}
           className="absolute top-3 right-3 p-2 rounded-full bg-gray-100 hover:bg-gray-200"
+          aria-label="Close"
         >
           <X size={20} />
         </button>
