@@ -45,7 +45,7 @@ export default function HomeClient() {
         <StyleByOccasion />
 
         {/* BANNER */}
-        <Banner />
+        {/* <Banner /> */}
 
         {/* CATEGORY ROW */}
         <div className="pt-8"><CategoryRow /></div>
@@ -57,7 +57,7 @@ export default function HomeClient() {
         <div className=""><WinterFeatureSection /></div>
 
         {/* VIDEOS */}
-        <VideoRow />
+        {/* <VideoRow /> */}
 
         {/* BLOGS */}
         <BlogSection />
