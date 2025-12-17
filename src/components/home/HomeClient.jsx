@@ -36,7 +36,8 @@ export default function HomeClient() {
 
       <main className="flex flex-col w-full overflow-x-hidden bg-white text-gray-900">
         {/* ⭐ NEW HOT CATEGORIES SECTION */}
-        <div><HotCategories /></div>
+        {/* <div><HotCategories /></div> */}
+        <div className="pt-4"><CategoryRow /></div>
 
         {/* HERO */}
         <HeroSection />
@@ -48,7 +49,6 @@ export default function HomeClient() {
         {/* <Banner /> */}
 
         {/* CATEGORY ROW */}
-        <div className="pt-8"><CategoryRow /></div>
 
         {/* TRENDING SECTION */}
         <TrendingSection />

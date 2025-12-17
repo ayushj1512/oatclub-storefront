@@ -17,6 +17,7 @@ import WashcareSection from "@/components/productDetail/WashcareSection";
 import ProductDetailSection from "@/components/productDetail/ProductDetailSection";
 import ReviewSection from "../../../../components/productDetail/ReviewSection";
 import SupportSection from "@/components/productDetail/SupportSection";
+import RecentlyViewedProducts from "@/components/productDetail/RecentlyViewedProducts"
 
 const BRAND = { burgundy: "#800020", black: "#111111" };
 
@@ -516,9 +517,13 @@ export default function ProductPage({ params }) {
         </aside>
       </div>
 
-      <div className="mt-10">
+      <div className="mt-2">
         <RelatedProducts productId={product.productId} />
       </div>
+
+       <RecentlyViewedProducts />
+
+      
     </div>
   );
 }

@@ -9,7 +9,7 @@ export default function BlogSection() {
   const blogs = useBlogStore((s) => s.blogs);
 
   return (
-    <section className="w-full bg-gradient-to-b from-white to-[#faf7f8] py-12">
+    <section className="w-full bg-gradient-to-b from-white to-[#faf7f8] pb-12">
 
       {/* HEADING */}
       <div className="px-6 mb-8 text-center">

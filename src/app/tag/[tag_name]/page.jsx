@@ -38,8 +38,9 @@ const buildFacets = (products = []) => {
   };
 };
 
-export default function CategoryPage() {
-  const { category } = useParams() || {};
+export default function TagPage() {
+  const params = useParams();
+  const tagName = params?.tag_name ? String(params.tag_name) : "";
 
   const {
     allProducts,
@@ -47,8 +48,7 @@ export default function CategoryPage() {
     filteredProducts,
     isLoading,
     error,
-    fetchProducts,
-    setCategory,
+    fetchProductsByTag, // ✅ new store method
     setSortOption,
     loadMore,
     hasMore,
@@ -56,7 +56,7 @@ export default function CategoryPage() {
   } = useProductStore();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sort, setSort] = useState("newest"); // ✅ match API sort
+  const [sort, setSort] = useState("newest");
   const [onlyInStock, setOnlyInStock] = useState(true);
   const [selectedTags, setSelectedTags] = useState(() => new Set());
 
@@ -82,25 +82,24 @@ export default function CategoryPage() {
   }, [facets.priceMin, facets.priceMax]);
 
   useEffect(() => {
-    if (!category) return;
+    if (!tagName) return;
 
     clearError?.();
-    setCategory(category);
 
-    // reset UI filters for new category
+    // reset UI filters for new tag
     setDrawerOpen(false);
     setOnlyInStock(true);
     setSelectedTags(new Set());
     setSort("newest");
     setSortOption("newest");
 
-    const key = `cat=${category}|sort=newest|active=1|limit=5000`;
+    const key = `tag=${tagName}|sort=newest|active=1|limit=5000`;
     if (lastFetchRef.current === key) return;
     lastFetchRef.current = key;
 
-    fetchProducts({ category, isActive: true, page: 1, limit: 5000, sort: "newest" });
+    fetchProductsByTag({ tag: tagName, isActive: true, page: 1, limit: 5000, sort: "newest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category]);
+  }, [tagName]);
 
   useEffect(() => {
     setSortOption(sort);
@@ -196,11 +195,11 @@ export default function CategoryPage() {
   const showInitialLoading = isLoading && (allProducts?.length || 0) === 0;
 
   const retry = useCallback(() => {
-    if (!category) return;
+    if (!tagName) return;
     clearError?.();
     lastFetchRef.current = "";
-    fetchProducts({ category, isActive: true, page: 1, limit: 5000, sort: "newest" });
-  }, [category, clearError, fetchProducts]);
+    fetchProductsByTag({ tag: tagName, isActive: true, page: 1, limit: 5000, sort: "newest" });
+  }, [tagName, clearError, fetchProductsByTag]);
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -249,7 +248,12 @@ export default function CategoryPage() {
                 <div className="rounded-2xl border border-zinc-200 p-4">
                   <div className="text-sm font-semibold text-zinc-900">Availability</div>
                   <label className="mt-3 flex items-center gap-3 text-sm text-zinc-700">
-                    <input type="checkbox" className="h-4 w-4" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} />
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={onlyInStock}
+                      onChange={(e) => setOnlyInStock(e.target.checked)}
+                    />
                     Show only in-stock products
                   </label>
                 </div>
@@ -271,7 +275,9 @@ export default function CategoryPage() {
                         value={priceMin}
                         min={facets.priceMin}
                         max={facets.priceMax}
-                        onChange={(e) => setPriceMin(clamp(toNum(e.target.value, facets.priceMin), facets.priceMin, facets.priceMax))}
+                        onChange={(e) =>
+                          setPriceMin(clamp(toNum(e.target.value, facets.priceMin), facets.priceMin, facets.priceMax))
+                        }
                       />
                     </div>
 
@@ -283,7 +289,9 @@ export default function CategoryPage() {
                         value={priceMax}
                         min={facets.priceMin}
                         max={facets.priceMax}
-                        onChange={(e) => setPriceMax(clamp(toNum(e.target.value, facets.priceMax), facets.priceMin, facets.priceMax))}
+                        onChange={(e) =>
+                          setPriceMax(clamp(toNum(e.target.value, facets.priceMax), facets.priceMin, facets.priceMax))
+                        }
                       />
                     </div>
 
@@ -294,11 +302,13 @@ export default function CategoryPage() {
                 <div className="rounded-2xl border border-zinc-200 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-semibold text-zinc-900">Tags</div>
-                    <div className="text-xs text-zinc-500">{facets.tags.length ? `${facets.tags.length} total` : "None"}</div>
+                    <div className="text-xs text-zinc-500">
+                      {facets.tags.length ? `${facets.tags.length} total` : "None"}
+                    </div>
                   </div>
 
                   {!facets.tags.length ? (
-                    <div className="mt-3 text-sm text-zinc-600">No tags found for this category.</div>
+                    <div className="mt-3 text-sm text-zinc-600">No tags found.</div>
                   ) : (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {facets.tags.map((t) => {
@@ -309,7 +319,9 @@ export default function CategoryPage() {
                             onClick={() => toggleTag(t)}
                             className={[
                               "rounded-full px-3 py-1 text-xs font-semibold border transition",
-                              active ? "bg-zinc-900 text-white border-zinc-900" : "bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50",
+                              active
+                                ? "bg-zinc-900 text-white border-zinc-900"
+                                : "bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50",
                             ].join(" ")}
                           >
                             {t}
@@ -322,10 +334,16 @@ export default function CategoryPage() {
               </div>
 
               <div className="px-4 py-4 border-t border-zinc-200 flex items-center justify-between gap-3">
-                <button onClick={resetFilters} className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900">
+                <button
+                  onClick={resetFilters}
+                  className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900"
+                >
                   Reset
                 </button>
-                <button onClick={() => setDrawerOpen(false)} className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">
+                <button
+                  onClick={() => setDrawerOpen(false)}
+                  className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white"
+                >
                   Apply
                 </button>
               </div>
@@ -337,8 +355,12 @@ export default function CategoryPage() {
       <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900 capitalize">{category || "Category"}</h1>
-            <p className="text-sm text-zinc-600">{showInitialLoading ? "Loading..." : `${totalAvailable} available products`}</p>
+            <h1 className="text-2xl font-bold text-zinc-900">
+              Tag: <span className="capitalize">{tagName || "Tag"}</span>
+            </h1>
+            <p className="text-sm text-zinc-600">
+              {showInitialLoading ? "Loading..." : `${totalAvailable} available products`}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -367,7 +389,10 @@ export default function CategoryPage() {
           <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
             <div className="font-semibold">Error</div>
             <div className="text-sm mt-1">{error}</div>
-            <button onClick={retry} className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white">
+            <button
+              onClick={retry}
+              className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
+            >
               Retry
             </button>
           </div>
@@ -389,7 +414,8 @@ export default function CategoryPage() {
                   {isLoading ? "Loading..." : "Load more"}
                 </button>
                 <div className="text-xs text-zinc-500">
-                  Showing {list.length} items{visibleProducts?.length ? ` (loaded ${visibleProducts.length} of ${allProducts.length})` : ""}
+                  Showing {list.length} items
+                  {visibleProducts?.length ? ` (loaded ${visibleProducts.length} of ${allProducts.length})` : ""}
                 </div>
               </>
             ) : (
