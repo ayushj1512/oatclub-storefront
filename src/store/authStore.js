@@ -70,27 +70,58 @@ export const useAuthStore = create((set, get) => ({
      SYNC FIREBASE USER → BACKEND (UPSERT)
   --------------------------------------------- */
   syncCustomer: async (firebaseUser) => {
+  try {
     if (!firebaseUser) return null;
 
-    const token = await firebaseUser.getIdToken();
+    const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+    if (!BACKEND) {
+      console.error("❌ NEXT_PUBLIC_BACKEND_URL missing");
+      return null;
+    }
+
+    const token = await firebaseUser.getIdToken(true);
 
     const payload = {
       firebaseUID: firebaseUser.uid,
       name: firebaseUser.displayName || "",
-      email: firebaseUser.email,
+      email: firebaseUser.email || "",
       phone: firebaseUser.phoneNumber || "",
       profileImage: firebaseUser.photoURL || "",
     };
 
     const res = await fetch(`${BACKEND}/api/customers`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(payload),
     });
 
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("❌ Customer API error:", text);
+      return null;
+    }
+
     const data = await res.json();
-    return { customer: data.customer, token };
-  },
+
+    if (!data?.customer) {
+      console.error("❌ Invalid customer response:", data);
+      return null;
+    }
+
+    return {
+      customer: data.customer,
+      token,
+    };
+  } catch (error) {
+    console.error("❌ syncCustomer error:", error);
+    return null;
+  }
+},
+
 
   /* ---------------------------------------------
      🔥 NEW: UPDATE CUSTOMER PROFILE (Realtime Sync)
