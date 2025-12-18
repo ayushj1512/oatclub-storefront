@@ -61,8 +61,9 @@ export default function CategoryPage() {
   const [selectedTags, setSelectedTags] = useState(() => new Set());
 
   const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
-  const [priceMin, setPriceMin] = useState(0);
-  const [priceMax, setPriceMax] = useState(0);
+  const [priceMin, setPriceMin] = useState(null);
+const [priceMax, setPriceMax] = useState(null);
+
 
   // ✅ prevent duplicate fetch in dev StrictMode
   const lastFetchRef = useRef("");
@@ -108,12 +109,30 @@ export default function CategoryPage() {
   }, [sort]);
 
   const list = useMemo(() => {
-    let arr = Array.isArray(filteredProducts) ? filteredProducts : [];
+    let arr =
+  Array.isArray(filteredProducts) && filteredProducts.length
+    ? filteredProducts
+    : Array.isArray(allProducts)
+    ? allProducts
+    : [];
 
-    if (onlyInStock) arr = arr.filter((p) => p?.isInStock !== false && Number(p?.stock ?? 0) > 0);
 
-    const lo = toNum(priceMin, facets.priceMin);
-    const hi = toNum(priceMax, facets.priceMax);
+   if (onlyInStock) {
+  arr = arr.filter((p) => {
+    // support multiple backend formats
+    if (p?.stock_status) return p.stock_status === "instock";
+    if (typeof p?.in_stock === "boolean") return p.in_stock;
+    if (typeof p?.stock_quantity === "number") return p.stock_quantity > 0;
+
+    // fallback → assume in stock
+    return true;
+  });
+}
+
+
+const lo = priceMin ?? facets.priceMin;
+const hi = priceMax ?? facets.priceMax;
+
     const minV = Math.min(lo, hi);
     const maxV = Math.max(lo, hi);
 

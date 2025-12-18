@@ -71,7 +71,7 @@ export default function Newsletter() {
   };
 
   return (
-    <section className="w-full bg-white pt-10 px-5 flex justify-center">
+    <section className="w-full bg-white pt-4 px-5 flex justify-center">
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} viewport={{ once: true }} className="w-full max-w-md text-center">
 
         <Mail className="w-8 h-8 text-[#800020] mx-auto mb-2" />

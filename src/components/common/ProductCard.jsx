@@ -93,21 +93,22 @@ export default function ProductCard({ product, loading = false, disableRecentlyV
           />
 
           {/* Wishlist icon (top-right) */}
-          <motion.button
-            type="button"
-            onClick={toggleWishlist}
-            whileTap={{ scale: 0.9 }}
-            className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center bg-transparent"
-            aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-          >
-            <Heart
-              className={
-                wishlisted
-                  ? "w-6 h-6 text-[#800020] fill-[#800020]"
-                  : "w-6 h-6 text-black/70"
-              }
-            />
-          </motion.button>
+         <motion.button
+  type="button"
+  onClick={toggleWishlist}
+  whileTap={{ scale: 0.9 }}
+  className="absolute -top-1 -right-1 w-9 h-9 flex items-center justify-center bg-transparent"
+  aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+>
+  <Heart
+    className={
+      wishlisted
+        ? "w-6 h-6 text-[#800020] fill-[#800020]"
+        : "w-6 h-6 text-black/70"
+    }
+  />
+</motion.button>
+
         </div>
 
         {/* CONTENT (consistent lines => consistent height) */}

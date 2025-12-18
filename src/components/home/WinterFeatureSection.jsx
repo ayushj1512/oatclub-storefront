@@ -67,7 +67,7 @@ export default function WinterDropSection() {
                 fill 
                 priority 
                 sizes="(max-width: 768px) 100vw, 40vw" 
-                className="object-cover object-center transition-transform duration-700 hover:scale-105" 
+                className="object-cover object-center transition-transform duration-700 " 
               />
             </div>
           </Link>

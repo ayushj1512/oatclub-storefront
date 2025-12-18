@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import {
@@ -13,91 +14,83 @@ import {
   Heart,
   Info,
   Mail,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import { useCategoryStore } from "@/store/categoryStore";
 
 /* ----------------------------------------------------
-   FULLSCREEN MOBILE SIDEBAR DRAWER (PORTAL)
+   FULL-SCREEN MOBILE MENU (WITH LOGO)
 ---------------------------------------------------- */
 export default function MobileSidebarDrawer({ open, onClose }) {
-  /* ---------------- body scroll lock (iOS safe) ---------------- */
+  /* ---------------- body scroll lock ---------------- */
   const scrollYRef = useRef(0);
-  const prevBodyStyleRef = useRef({
-    overflow: "",
-    position: "",
-    top: "",
-    width: "",
-    touchAction: "",
-  });
+  const prevBodyStyleRef = useRef({});
 
   useEffect(() => {
     if (!open) return;
 
     const body = document.body;
-
     scrollYRef.current = window.scrollY || 0;
+
     prevBodyStyleRef.current = {
-      overflow: body.style.overflow || "",
-      position: body.style.position || "",
-      top: body.style.top || "",
-      width: body.style.width || "",
-      touchAction: body.style.touchAction || "",
+      overflow: body.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
     };
 
     body.style.overflow = "hidden";
     body.style.position = "fixed";
     body.style.top = `-${scrollYRef.current}px`;
     body.style.width = "100%";
-    body.style.touchAction = "none";
-
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
 
     return () => {
-      body.style.overflow = prevBodyStyleRef.current.overflow;
-      body.style.position = prevBodyStyleRef.current.position;
-      body.style.top = prevBodyStyleRef.current.top;
-      body.style.width = prevBodyStyleRef.current.width;
-      body.style.touchAction = prevBodyStyleRef.current.touchAction;
-
+      Object.assign(body.style, prevBodyStyleRef.current);
       window.scrollTo(0, scrollYRef.current);
-      window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
-  /* ---------------- animations ---------------- */
-  const drawerVariants = {
-    hidden: { x: "-100%" },
-    show: {
-      x: 0,
-      transition: { type: "spring", stiffness: 320, damping: 34 },
-    },
-    exit: {
-      x: "-100%",
-      transition: { type: "spring", stiffness: 320, damping: 38 },
-    },
-  };
+  /* ---------------- categories ---------------- */
+  const { categories, fetchCategories } = useCategoryStore();
+  const [catOpen, setCatOpen] = useState(false);
 
-  const backdropVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { duration: 0.18 } },
-    exit: { opacity: 0, transition: { duration: 0.18 } },
-  };
+  useEffect(() => {
+    if (open && !categories.length) {
+      fetchCategories({ active: true });
+    }
+  }, [open, categories.length, fetchCategories]);
+
+  const categoryTree = useMemo(() => {
+    const map = new Map();
+    const roots = [];
+
+    categories.forEach((c) => {
+      if (!c.isActive) return;
+      map.set(c._id, { ...c, children: [] });
+    });
+
+    map.forEach((c) => {
+      const parentId =
+        c.parent && typeof c.parent === "object"
+          ? c.parent._id
+          : c.parent;
+
+      if (!parentId) roots.push(c);
+      else map.get(parentId)?.children.push(c);
+    });
+
+    return roots.sort((a, b) => a.name.localeCompare(b.name));
+  }, [categories]);
 
   /* ---------------- nav items ---------------- */
-  const navItems = useMemo(
-    () => [
-      { name: "Home", href: "/", icon: Home },
-      { name: "Categories", href: "/categories", icon: LayoutGrid },
-      { name: "Wishlist", href: "/wishlist", icon: Heart },
-      { name: "Cart", href: "/cart", icon: ShoppingBag },
-      { name: "About", href: "/about", icon: Info },
-      { name: "Contact", href: "/contact", icon: Mail },
-    ],
-    []
-  );
+  const navItems = [
+    { name: "Home", href: "/", icon: Home },
+    { name: "Wishlist", href: "/wishlist", icon: Heart },
+    { name: "Cart", href: "/cart", icon: ShoppingBag },
+    { name: "About", href: "/about", icon: Info },
+    { name: "Contact", href: "/contact", icon: Mail },
+  ];
 
   if (typeof document === "undefined") return null;
 
@@ -107,78 +100,172 @@ export default function MobileSidebarDrawer({ open, onClose }) {
         <>
           {/* BACKDROP */}
           <motion.div
-            className="fixed inset-0 bg-black/45 z-[999998]"
-            variants={backdropVariants}
-            initial="hidden"
-            animate="show"
-            exit="exit"
+            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[999998]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={onClose}
-            aria-hidden="true"
           />
 
-          {/* DRAWER */}
+          {/* FULL SCREEN MENU */}
           <motion.aside
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mobile menu"
-            className="fixed inset-0 z-[999999] bg-white flex flex-col w-screen h-[100svh]"
-            variants={drawerVariants}
-            initial="hidden"
-            animate="show"
-            exit="exit"
-            style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+            className="fixed inset-0 z-[999999] bg-white flex flex-col"
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", stiffness: 260, damping: 30 }}
           >
-            {/* HEADER */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-300">
-              <span className="text-lg font-semibold text-black">Menu</span>
+            {/* HEADER WITH LOGO */}
+            <div className="px-7 py-6 flex items-center justify-between border-b border-zinc-100">
+              <Link
+                href="/"
+                onClick={onClose}
+                className="flex items-center"
+              >
+                <Image
+                  src="https://res.cloudinary.com/djtva6hec/image/upload/v1764916639/miray/media/k0yvgu5m0ij1husm3ugh.png"
+                  alt="Miray Fashion"
+                  width={120}
+                  height={40}
+                  priority
+                  className="object-contain"
+                />
+              </Link>
+
               <button
                 onClick={onClose}
+                className="p-2.5 rounded-full hover:bg-zinc-100 transition"
                 aria-label="Close menu"
-                className="text-black hover:text-[#800020] transition"
               >
                 <X size={24} />
               </button>
             </div>
 
             {/* NAV */}
-            <nav className="flex flex-col text-black font-medium overflow-y-auto">
-              {navItems.map((item) => {
+            <nav className="flex-1 overflow-y-auto">
+              {/* HOME */}
+              <Link
+                href="/"
+                onClick={onClose}
+                className="menu-item border-b border-zinc-100"
+              >
+                <Home size={20} />
+                Home
+              </Link>
+
+              {/* CATEGORIES */}
+              <button
+                onClick={() => setCatOpen((p) => !p)}
+                className="menu-item w-full justify-between border-b border-zinc-100"
+              >
+                <span className="flex items-center gap-4">
+                  <LayoutGrid size={20} />
+                  Categories
+                </span>
+                {catOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+
+              <AnimatePresence>
+                {catOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="pl-10 border-b border-zinc-100"
+                  >
+                    {categoryTree.map((cat) => (
+                      <div key={cat._id}>
+                        <Link
+                          href={`/category/${cat.slug}`}
+                          onClick={onClose}
+                          className="submenu-item"
+                        >
+                          {cat.name}
+                        </Link>
+
+                        {cat.children?.map((child) => (
+                          <Link
+                            key={child._id}
+                            href={`/category/${child.slug}`}
+                            onClick={onClose}
+                            className="submenu-item ml-4 text-zinc-500"
+                          >
+                            {child.name}
+                          </Link>
+                        ))}
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* OTHER LINKS */}
+              {navItems.slice(1).map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link
                     key={item.name}
                     href={item.href}
                     onClick={onClose}
-                    className="px-5 py-4 border-b border-gray-200 hover:bg-gray-50 active:bg-gray-100 transition flex items-center gap-3"
+                    className="menu-item border-b border-zinc-100"
                   >
-                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-black/5">
-                      <Icon size={18} />
-                    </span>
-                    <span className="text-[15px]">{item.name}</span>
+                    <Icon size={20} />
+                    {item.name}
                   </Link>
                 );
               })}
             </nav>
 
             {/* ACCOUNT */}
-            <div className="mt-auto border-t border-gray-300 px-5 py-5">
+            <div className="px-7 py-6 border-t border-zinc-100">
               <Link
                 href="/profile"
                 onClick={onClose}
-                className="flex items-center gap-3 text-black hover:text-[#800020] transition"
+                className="flex items-center gap-5 rounded-xl bg-zinc-50 px-5 py-5 hover:bg-zinc-100 transition"
               >
-                <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-[#800020]/10 text-[#800020]">
-                  <User size={18} />
+                <span className="w-11 h-11 rounded-xl bg-[#800020]/15 text-[#800020] flex items-center justify-center">
+                  <User size={20} />
                 </span>
-                <div className="flex flex-col leading-tight">
-                  <span className="text-sm font-semibold">My Account</span>
-                  <span className="text-xs text-gray-500">
+                <div>
+                  <div className="text-base font-semibold text-zinc-900">
+                    My Account
+                  </div>
+                  <div className="text-sm text-zinc-500">
                     Orders • Profile • Settings
-                  </span>
+                  </div>
                 </div>
               </Link>
             </div>
           </motion.aside>
+
+          {/* GLOBAL MENU STYLES */}
+          <style jsx global>{`
+            .menu-item {
+              display: flex;
+              align-items: center;
+              gap: 16px;
+              padding: 20px 18px;
+              font-size: 16px;
+              font-weight: 500;
+              color: #18181b;
+              background: transparent;
+              transition: background 0.2s ease;
+            }
+            .menu-item:hover {
+              background: #f9fafb;
+            }
+            .submenu-item {
+              display: block;
+              padding: 14px 18px;
+              font-size: 15px;
+              border-radius: 12px;
+              transition: background 0.2s ease;
+            }
+            .submenu-item:hover {
+              background: #f4f4f5;
+            }
+          `}</style>
         </>
       )}
     </AnimatePresence>,

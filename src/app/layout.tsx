@@ -2,6 +2,7 @@
 
 import "./globals.css";
 import { Poppins } from "next/font/google";
+import { Toaster } from "sonner";
 
 import TopbarHeadline from "@/components/layout/TopbarHeadline";
 import DesktopHeader from "@/components/layout/DesktopHeader";
@@ -42,16 +43,14 @@ type RootLayoutProps = Readonly<{
 }>;
 
 // ------------------------------
-// 🌐 ROOT LAYOUT
+// 🌐 ROOT LAYOUT (SONNER FIXED)
 // ------------------------------
 export default function RootLayout({ children }: RootLayoutProps) {
-  // SignupModal expects `closeAll` prop (it calls closeAll?.()).
-  // We provide a safe no-op for now; wire this to a global modal closer if/when you add one.
+  // SignupModal expects `closeAll` prop
   const closeAll = useCallback(() => {}, []);
 
   return (
     <html lang="en" className={poppins.variable}>
-      {/* ✅ pb-20 on mobile so BNB doesn't overlap content */}
       <body className="font-sans antialiased bg-white text-gray-900 pb-20 md:pb-0">
         {/* ---------- TOP HEADLINE BAR ---------- */}
         <TopbarHeadline />
@@ -67,13 +66,12 @@ export default function RootLayout({ children }: RootLayoutProps) {
         </div>
 
         {/* ---------- MAIN CONTENT ---------- */}
-        <main className="flex flex-col min-h-screen bg-white">{children}</main>
+        <main className="flex flex-col min-h-screen bg-white">
+          {children}
+        </main>
 
         {/* ---------- FOOTER ---------- */}
         <Footer />
-
-        {/* ✅ MOBILE BOTTOM NAV (ONLY MOBILE)
-        <MobileBNB /> */}
 
         {/* ---------- GLOBAL PROVIDERS ---------- */}
         <ClientProviders>
@@ -86,6 +84,15 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
         {/* ---------- LOGOUT CONFIRM MODAL (GLOBAL) ---------- */}
         <LogoutConfirmModal />
+
+        {/* ---------- 🔔 SONNER TOASTER (REQUIRED) ---------- */}
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          expand
+          duration={2000}
+        />
       </body>
     </html>
   );

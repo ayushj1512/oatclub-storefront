@@ -110,7 +110,7 @@ export default function DesktopHeader() {
                     {menuCats.map((c) => (
                       <Link
                         key={c.key}
-                        href={`/${c.slug}`}
+                        href={`/category/${c.slug}`}
                         onClick={() => setOpen(false)}
                         className="rounded-lg border border-gray-100 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#800020] transition text-center"
                       >

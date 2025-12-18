@@ -12,7 +12,7 @@ export default function InfoStrip() {
   ];
 
   return (
-    <section className="w-full bg-white px-4 py-8 md:px-8">
+    <section className="w-full bg-white px-4 pt-8 md:px-8">
       {/* Mobile: 2x2 grid | Desktop: 4 in a row */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
         {infos.map(({ title, desc, Icon }, index) => (
