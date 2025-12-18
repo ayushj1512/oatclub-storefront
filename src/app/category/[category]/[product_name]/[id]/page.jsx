@@ -15,7 +15,7 @@ import ProductGallery from "@/components/productDetail/ProductGallery";
 import RelatedProducts from "@/components/productDetail/relatedProducts";
 import WashcareSection from "@/components/productDetail/WashcareSection";
 import ProductDetailSection from "@/components/productDetail/ProductDetailSection";
-import ReviewSection from "../../../../components/productDetail/ReviewSection";
+import ReviewSection from "@/components/productDetail/ReviewSection";
 import SupportSection from "@/components/productDetail/SupportSection";
 import RecentlyViewedProducts from "@/components/productDetail/RecentlyViewedProducts"
 

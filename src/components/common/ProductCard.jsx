@@ -64,7 +64,7 @@ export default function ProductCard({ product, loading = false, disableRecentlyV
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  const productLink = `/${category}/${formattedName}/${product.id}`;
+  const productLink = `/category/${category}/${formattedName}/${product.id}`;
 
   const wishlisted = isInWishlist(product.id);
 
