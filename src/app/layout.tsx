@@ -3,11 +3,11 @@
 import "./globals.css";
 import { Poppins } from "next/font/google";
 import { Toaster } from "sonner";
+import { useEffect, useCallback } from "react";
 
 import TopbarHeadline from "@/components/layout/TopbarHeadline";
 import DesktopHeader from "@/components/layout/DesktopHeader";
 import MobileHeader from "@/components/layout/MobileHeader";
-import MobileBNB from "@/components/layout/MobileBNB";
 import Footer from "@/components/layout/Footer";
 import ScrollToTop from "@/components/layout/ScrollToTop";
 import ClientProviders from "@/components/layout/ClientProviders";
@@ -15,10 +15,9 @@ import ClientProviders from "@/components/layout/ClientProviders";
 import SignupModal from "@/components/auth/SignupModal";
 import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
 
-import { useEffect, useCallback } from "react";
 import { useAuthStore } from "@/store/authStore";
 
-// ✅ Tracking Composables
+// ✅ Tracking
 import GoogleTagManager from "@/components/tracking/GoogleTagManager";
 import MetaPixel from "@/components/tracking/MetaPixel";
 
@@ -43,16 +42,23 @@ function AuthInit() {
 }
 
 // ------------------------------
+// 🌐 ROOT LAYOUT TYPES
+// ------------------------------
+type RootLayoutProps = {
+  children: React.ReactNode;
+};
+
+// ------------------------------
 // 🌐 ROOT LAYOUT
 // ------------------------------
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: RootLayoutProps) {
   const closeAll = useCallback(() => {}, []);
 
   return (
     <html lang="en" className={poppins.variable}>
       <body className="font-sans antialiased bg-white text-gray-900 pb-20 md:pb-0">
 
-        {/* ================= TRACKING (GLOBAL) ================= */}
+        {/* ================= TRACKING ================= */}
         <GoogleTagManager gtmId="GTM-5CTM95TR" />
         <MetaPixel pixelId="1216855983666436" />
 
