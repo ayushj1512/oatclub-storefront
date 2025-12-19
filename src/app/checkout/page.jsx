@@ -26,6 +26,7 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
+import { useCouponStore } from "@/store/couponStore";
 
 const BRAND = "#800020";
 
@@ -169,6 +170,12 @@ export default function CheckoutPage() {
   const [selectedPayment, setSelectedPayment] = useState("cod");
 
   const subtotal = useMemo(() => (typeof totalPrice === "function" ? totalPrice() : 0), [items, totalPrice]);
+
+  const coupon = useCouponStore((s) => s.coupon);
+const discount = useCouponStore((s) => s.discount);
+const finalTotal = useCouponStore((s) => s.finalTotal);
+const payable = coupon ? finalTotal : subtotal;
+
 
   const selectedAddressObj = useMemo(() => {
     if (!selectedAddressId) return null;
@@ -318,17 +325,36 @@ export default function CheckoutPage() {
       const billSnap = shipSnap;
 
       const order = await createCodOrder({
-        customerId: customer._id,
-        shippingAddressSnapshot: shipSnap,
-        billingAddressSnapshot: billSnap,
-        items: items.map((it) => {
-          const productId = resolveMongoProductId(it);
-          const qty = Number(it?.qty ?? it?.quantity ?? 1);
-          const variantId = isObjectId(String(it?.variantId || "")) ? String(it.variantId) : null;
-          return { productId, quantity: qty, ...(variantId ? { variantId } : {}) };
-        }),
-        source: "website",
-      });
+  customerId: customer._id,
+  shippingAddressSnapshot: shipSnap,
+  billingAddressSnapshot: billSnap,
+
+  items: items.map((it) => {
+    const productId = resolveMongoProductId(it);
+    const qty = Number(it?.qty ?? it?.quantity ?? 1);
+    const variantId = isObjectId(String(it?.variantId || ""))
+      ? String(it.variantId)
+      : null;
+
+    return {
+      productId,
+      quantity: qty,
+      ...(variantId ? { variantId } : {}),
+    };
+  }),
+
+  source: "website",
+
+  // ✅ Coupon snapshot (safe & optional)
+  coupon: coupon
+    ? {
+        code: coupon.code,
+        discount,
+        finalTotal: payable,
+      }
+    : null,
+});
+
 
       clearCart?.();
       router.push(order?.orderNumber ? `/order-success?order=${order.orderNumber}` : "/order-success");
@@ -541,8 +567,17 @@ export default function CheckoutPage() {
           <GlassCard className="p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <div>
+
+                {coupon && discount > 0 && (
+  <div className="flex items-center justify-between text-sm text-green-700 mt-2">
+    <span>
+      Coupon <b>{coupon.code}</b>
+    </span>
+    <span>− ₹{money(discount)}</span>
+  </div>
+)}
                 <div className="text-sm text-gray-500">Total Payment</div>
-                <div className="text-2xl font-semibold text-gray-900 tabular-nums">₹{money(subtotal)}</div>
+                <div className="text-2xl font-semibold text-gray-900 tabular-nums"> ₹{money(payable)}</div>
                 <div className="text-xs text-gray-500 mt-1">
                   Shipping: <span className="text-green-700 font-semibold">Free</span>
                 </div>

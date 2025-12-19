@@ -7,6 +7,9 @@ import Link from "next/link";
 import { Trash2, Plus, Minus, ArrowRight, Sparkles } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useRouter } from "next/navigation";
+import ApplyCoupon from "@/components/cart/ApplyCoupon";
+import { useCouponStore } from "@/store/couponStore";
+import { useAuthStore } from "@/store/authStore";
 
 const BRAND = "#800020";
 
@@ -15,6 +18,9 @@ const money = (n) => {
   if (!Number.isFinite(num)) return "0";
   return num.toLocaleString("en-IN");
 };
+
+
+
 
 const getImageSrc = (item) => {
   const candidates = [
@@ -79,12 +85,26 @@ export default function CartPage() {
   const updateQtyFn = useCartStore((s) => s.updateQty);
   const removeFn = useCartStore((s) => s.removeFromCart);
 
+const user = useAuthStore((s) => s.user);
+const customer = useAuthStore((s) => s.customer);
+const initAuth = useAuthStore((s) => s.initialize);
+
+
+
   useEffect(() => {
     initialize?.();
+    initAuth?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const subtotal = useMemo(() => (typeof totalPriceFn === "function" ? totalPriceFn() : 0), [items, totalPriceFn]);
+
+    
+const coupon = useCouponStore((s) => s.coupon);
+const discount = useCouponStore((s) => s.discount);
+const finalTotal = useCouponStore((s) => s.finalTotal);
+// Final payable amount
+const payable = coupon ? finalTotal : subtotal;
 
   const itemCount = useMemo(
     () => (items || []).reduce((sum, it) => sum + Number(it?.qty || it?.quantity || 0), 0),
@@ -126,6 +146,8 @@ export default function CartPage() {
     return Number.isFinite(n) ? n : 0;
   };
 
+  const isLoggedIn = Boolean(user?.uid && customer?._id);
+
   const getItemName = (item) =>
     item?.name ||
     item?.productSnapshot?.title ||
@@ -165,7 +187,7 @@ export default function CartPage() {
 
               <button
                 type="button"
-                disabled={!items.length}
+              disabled={!items.length || !isLoggedIn}
                 onClick={goCheckout}
                 className="inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(128,0,32,0.28)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
                 style={{ backgroundColor: BRAND }}
@@ -321,12 +343,14 @@ export default function CartPage() {
 
           {/* Summary */}
           <div className="lg:col-span-4">
+          <ApplyCoupon cartTotal={subtotal} />
             <div className="lg:sticky lg:top-6">
               <GlassCard className="rounded-[22px] overflow-hidden">
                 <div className="p-4 sm:p-5 border-b border-black/5">
                   <h2 className="text-base font-semibold text-gray-900">Order Summary</h2>
                   <p className="text-xs text-gray-500 mt-1">Taxes calculated at checkout (if applicable).</p>
                 </div>
+
 
                 <div className="p-4 sm:p-5 space-y-3">
                   <div className="flex items-center justify-between text-sm">
@@ -348,9 +372,15 @@ export default function CartPage() {
                     </span>
                   </div>
 
+                  {!isLoggedIn && (
+  <div className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+    Please login to continue checkout
+  </div>
+)}
+
                   <button
                     type="button"
-                    disabled={items.length === 0}
+                      disabled={items.length === 0 || !isLoggedIn}
                     onClick={goCheckout}
                     className="mt-3 w-full rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white shadow-[0_14px_28px_rgba(128,0,32,0.28)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
                     style={{ backgroundColor: BRAND }}
@@ -360,11 +390,11 @@ export default function CartPage() {
 
                   <div className="text-[11px] text-gray-500 leading-relaxed">
                     By placing your order, you agree to our{" "}
-                    <Link href="/terms" className="text-gray-900 underline underline-offset-4">
+                    <Link href="/terms-and-conditions" className="text-gray-900 underline underline-offset-4">
                       Terms
                     </Link>{" "}
                     &{" "}
-                    <Link href="/privacy" className="text-gray-900 underline underline-offset-4">
+                    <Link href="/privacy-policy" className="text-gray-900 underline underline-offset-4">
                       Privacy Policy
                     </Link>
                     .

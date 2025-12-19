@@ -9,11 +9,14 @@ export const useCouponStore = create(
       // --------------------
       // STATE
       // --------------------
-      coupon: null,          // coupon object from backend
+      coupon: null, // { code, discount, finalTotal }
       discount: 0,
       finalTotal: null,
       isApplying: false,
       error: null,
+
+      // internal lock (prevents double apply)
+      _applyPromise: null,
 
       // --------------------
       // ACTIONS
@@ -23,51 +26,73 @@ export const useCouponStore = create(
        * Apply coupon
        */
       applyCoupon: async ({ code, customerId, cartTotal }) => {
+        if (!API_BASE) {
+          return set({ error: "Backend not configured" });
+        }
+
         if (!code || !customerId || cartTotal == null) {
           return set({ error: "Invalid coupon data" });
         }
 
-        try {
-          set({ isApplying: true, error: null });
-
-          const res = await fetch(`${API_BASE}/api/coupons/apply`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              code,
-              customerId,
-              cartTotal,
-            }),
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            throw new Error(data.message || "Failed to apply coupon");
-          }
-
-          set({
-            coupon: code.toUpperCase(),
-            discount: data.discount,
-            finalTotal: data.finalTotal,
-            isApplying: false,
-            error: null,
-          });
-
-          return data;
-        } catch (err) {
-          set({
-            error: err.message,
-            isApplying: false,
-            coupon: null,
-            discount: 0,
-            finalTotal: null,
-          });
-
-          throw err;
+        // ✅ prevent double apply spam
+        if (get().isApplying && get()._applyPromise) {
+          return get()._applyPromise;
         }
+
+        const couponCode = String(code).trim().toUpperCase();
+
+        const p = (async () => {
+          try {
+            set({ isApplying: true, error: null });
+
+            const res = await fetch(`${API_BASE}/api/coupons/apply`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                code: couponCode,
+                customerId,
+                cartTotal,
+              }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+              throw new Error(data.message || "Failed to apply coupon");
+            }
+
+            set({
+              coupon: {
+                code: couponCode,
+                discount: data.discount,
+                finalTotal: data.finalTotal,
+              },
+              discount: data.discount,
+              finalTotal: data.finalTotal,
+              isApplying: false,
+              error: null,
+            });
+
+            return data;
+          } catch (err) {
+            set({
+              coupon: null,
+              discount: 0,
+              finalTotal: null,
+              isApplying: false,
+              error: err.message || "Coupon failed",
+            });
+
+            throw err;
+          } finally {
+            set({ _applyPromise: null });
+          }
+        })();
+
+        set({ _applyPromise: p });
+        return p;
       },
 
       /**
@@ -83,7 +108,7 @@ export const useCouponStore = create(
       },
 
       /**
-       * Reset everything (on logout / order success)
+       * Reset everything (logout / order success)
        */
       resetCouponStore: () => {
         set({
@@ -92,11 +117,12 @@ export const useCouponStore = create(
           finalTotal: null,
           isApplying: false,
           error: null,
+          _applyPromise: null,
         });
       },
     }),
     {
-      name: "coupon-store", // localStorage key
+      name: "coupon-store",
       partialize: (state) => ({
         coupon: state.coupon,
         discount: state.discount,

@@ -11,7 +11,19 @@ const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 // ✅ prevent request spam on route changes / multiple mounts
 const FETCH_TTL_MS = 15_000; // 15 seconds
 
-const normalizeId = (p) => p?.id ?? p?._id;
+
+const normalizeId = (id) => String(id);
+
+const dedupeById = (items) => {
+  const map = new Map();
+  for (const item of items) {
+    if (!item?.id) continue; // ✅ guard
+    map.set(String(item.id), { ...item, id: String(item.id) });
+  }
+  return Array.from(map.values());
+};
+
+
 const getDisplayName = (p) => p?.name || p?.title || "Item";
 
 const safeJson = async (r) => {
@@ -60,7 +72,8 @@ export const useWishlistStore = create((set, get) => ({
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) set({ items: parsed });
+            if (Array.isArray(parsed)) set({ items: dedupeById(parsed) });
+
           } catch (e) {
             console.error("Wishlist cookie error:", e);
           }
@@ -85,148 +98,176 @@ export const useWishlistStore = create((set, get) => ({
      GET /api/wishlist/firebase/:uid
   ---------------------------------------------------- */
   fetchFromBackend: async (firebaseUID, opts = {}) => {
-    const { force = false } = opts;
+  const { force = false } = opts;
 
-    if (!BACKEND) {
-      console.error("Missing NEXT_PUBLIC_BACKEND_URL");
-      return;
-    }
-    if (!firebaseUID) return;
+  if (!BACKEND) {
+    console.error("Missing NEXT_PUBLIC_BACKEND_URL");
+    return;
+  }
+  if (!firebaseUID) return;
 
-    const now = Date.now();
+  const now = Date.now();
 
-    // ✅ TTL: if fetched recently for same user, skip (prevents spam)
-    if (
-      !force &&
-      get()._lastFetchUid === firebaseUID &&
-      now - get()._lastFetchAt < FETCH_TTL_MS
-    ) {
-      return;
-    }
+  // ✅ TTL: prevent refetch spam
+  if (
+    !force &&
+    get()._lastFetchUid === firebaseUID &&
+    now - get()._lastFetchAt < FETCH_TTL_MS
+  ) {
+    return;
+  }
 
-    // ✅ Dedup: if a fetch already running for same uid, reuse it
-    if (get()._fetchPromise && get()._lastFetchUid === firebaseUID) {
-      return get()._fetchPromise;
-    }
+  // ✅ Dedup concurrent fetches for same user
+  if (get()._fetchPromise && get()._lastFetchUid === firebaseUID) {
+    return get()._fetchPromise;
+  }
 
-    // ✅ Abort previous in-flight fetch (if switching uid quickly)
+  // ✅ Abort previous fetch if UID switches
+  try {
+    get()._fetchAbort?.abort?.();
+  } catch {}
+
+  const controller = new AbortController();
+  set({ _fetchAbort: controller, _lastFetchUid: firebaseUID });
+
+  const p = (async () => {
     try {
-      get()._fetchAbort?.abort?.();
-    } catch {}
-    const controller = new AbortController();
-    set({ _fetchAbort: controller, _lastFetchUid: firebaseUID });
+      set({ loading: true });
 
-    const p = (async () => {
-      try {
-        set({ loading: true });
-
-        const res = await fetch(`${BACKEND}/api/wishlist/firebase/${firebaseUID}`, {
+      const res = await fetch(
+        `${BACKEND}/api/wishlist/firebase/${firebaseUID}`,
+        {
           cache: "no-store",
           signal: controller.signal,
-        });
-
-        const data = await safeJson(res);
-
-        if (!res.ok) {
-          console.error("Wishlist fetch failed:", data);
-          notify.error(data?.message || "Failed to load wishlist");
-          return;
         }
-
-        if (data?.success && data?.wishlist) {
-          const mapped = (data.wishlist.productIds || []).map((p) => ({
-            id: p?._id,
-            name: p?.name || p?.title || "",
-            price: p?.price ?? 0,
-            image: p?.images?.[0]?.src || p?.thumbnail || "",
-            categories: p?.categories || [],
-            tags: p?.tags || [],
-          }));
-
-          set({ items: mapped, _lastFetchAt: Date.now() });
-          Cookies.set(COOKIE_KEY, JSON.stringify(mapped), { expires: 7 });
-        } else {
-          // fallback safety
-          set({ _lastFetchAt: Date.now() });
-        }
-      } catch (e) {
-        // ignore abort errors
-        if (e?.name !== "AbortError") {
-          console.error("Wishlist fetch error:", e);
-          notify.error("Failed to load wishlist");
-        }
-      } finally {
-        // ✅ clear locks
-        set({ loading: false, _fetchPromise: null, _fetchAbort: null });
-      }
-    })();
-
-    set({ _fetchPromise: p });
-    return p;
-  },
-
-  /* ----------------------------------------------------
-     ⭐ ADD TO WISHLIST (single request; no extra GET)
-  ---------------------------------------------------- */
-  addToWishlist: async (product) => {
-    const { user } = useAuthStore.getState();
-    if (!user?.uid) return notify.info("Please login first");
-
-    const pid = normalizeId(product);
-    if (!pid) return;
-
-    if (get().items.some((i) => String(i.id) === String(pid))) {
-      return notify.info("Already in wishlist");
-    }
-
-    const optimisticItem = {
-      id: pid,
-      name: product?.name || product?.title || "",
-      price: product?.price ?? 0,
-      image:
-        product?.image ||
-        product?.images?.[0]?.src ||
-        product?.images?.[0] ||
-        product?.thumbnail ||
-        "",
-      categories: product?.categories || [],
-      tags: product?.tags || [],
-    };
-
-    const prev = get().items;
-    const next = [optimisticItem, ...prev];
-
-    set({ items: next, loading: true });
-    Cookies.set(COOKIE_KEY, JSON.stringify(next), { expires: 7 });
-    notify.wishlistAdded(optimisticItem);
-
-    try {
-      if (!BACKEND) throw new Error("Missing NEXT_PUBLIC_BACKEND_URL");
-
-      const res = await fetch(`${BACKEND}/api/wishlist/firebase/${user.uid}/add`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: pid }),
-      });
+      );
 
       const data = await safeJson(res);
 
       if (!res.ok) {
-        // rollback
-        set({ items: prev, loading: false });
-        Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
-        return notify.error(data?.message || "Failed to add to wishlist");
+        console.error("Wishlist fetch failed:", data);
+        notify.error(data?.message || "Failed to load wishlist");
+        return;
       }
 
-      // ✅ mark local fetch time so TTL works
-      set({ loading: false, _lastFetchAt: Date.now(), _lastFetchUid: user.uid });
+      if (data?.success && data?.wishlist) {
+        const mapped = (data.wishlist.productIds || []).map((p) => ({
+          id: normalizeId(p?._id),
+          name: p?.name || p?.title || "",
+          price: p?.price ?? 0,
+          image: p?.images?.[0]?.src || p?.thumbnail || "",
+          categories: p?.categories || [],
+          tags: p?.tags || [],
+        }));
+
+        const deduped = dedupeById(mapped);
+
+        set({
+          items: deduped,
+          _lastFetchAt: Date.now(),
+          _lastFetchUid: firebaseUID,
+        });
+
+        Cookies.set(COOKIE_KEY, JSON.stringify(deduped), { expires: 7 });
+      } else {
+        set({ _lastFetchAt: Date.now(), _lastFetchUid: firebaseUID });
+      }
     } catch (e) {
-      console.error("Add to wishlist error:", e);
+      if (e?.name !== "AbortError") {
+        console.error("Wishlist fetch error:", e);
+        notify.error("Failed to load wishlist");
+      }
+    } finally {
+      set({
+        loading: false,
+        _fetchPromise: null,
+        _fetchAbort: null,
+      });
+    }
+  })();
+
+  set({ _fetchPromise: p });
+  return p;
+},
+
+
+  /* ----------------------------------------------------
+     ⭐ ADD TO WISHLIST (single request; no extra GET)
+  ---------------------------------------------------- */
+addToWishlist: async (product) => {
+  const { user } = useAuthStore.getState();
+  if (!user?.uid) return notify.info("Please login first");
+
+  // ✅ normalize ID once and forever
+  const pid = normalizeId(product?.id ?? product?._id);
+  if (!pid) return;
+
+  const prev = get().items || [];
+
+  // ✅ hard guard (prevents race duplicates)
+  if (prev.some((i) => String(i.id) === pid)) {
+    return notify.info("Already in wishlist");
+  }
+
+  const optimisticItem = {
+    id: pid,
+    name: product?.name || product?.title || "",
+    price: product?.price ?? 0,
+    image:
+      product?.image ||
+      product?.images?.[0]?.src ||
+      product?.images?.[0] ||
+      product?.thumbnail ||
+      "",
+    categories: product?.categories || [],
+    tags: product?.tags || [],
+  };
+
+  // ✅ optimistic update WITH dedupe
+  const next = dedupeById([optimisticItem, ...prev]);
+
+  set({ items: next, loading: true });
+  Cookies.set(COOKIE_KEY, JSON.stringify(next), { expires: 7 });
+
+  notify.wishlistAdded(optimisticItem);
+
+  try {
+    if (!BACKEND) throw new Error("Missing NEXT_PUBLIC_BACKEND_URL");
+
+    const res = await fetch(
+      `${BACKEND}/api/wishlist/firebase/${user.uid}/add`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: pid }),
+      }
+    );
+
+    const data = await safeJson(res);
+
+    if (!res.ok) {
+      // 🔁 rollback on failure
       set({ items: prev, loading: false });
       Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
-      notify.error("Failed to add to wishlist");
+      return notify.error(data?.message || "Failed to add to wishlist");
     }
-  },
+
+    // ✅ mark fetch state so TTL logic stays correct
+    set({
+      loading: false,
+      _lastFetchAt: Date.now(),
+      _lastFetchUid: user.uid,
+    });
+  } catch (e) {
+    console.error("Add to wishlist error:", e);
+
+    // 🔁 rollback on exception
+    set({ items: prev, loading: false });
+    Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
+    notify.error("Failed to add to wishlist");
+  }
+},
+
 
   /* ----------------------------------------------------
      ⭐ REMOVE FROM WISHLIST (single request; no extra GET)
