@@ -60,7 +60,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
         {/* ================= TRACKING ================= */}
         <GoogleTagManager gtmId="GTM-5CTM95TR" />
-        <MetaPixel pixelId="1216855983666436" />
+        {/* <MetaPixel pixelId="1216855983666436" /> */}
 
         {/* ================= TOP BAR ================= */}
         <TopbarHeadline />

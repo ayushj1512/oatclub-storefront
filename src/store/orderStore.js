@@ -58,75 +58,86 @@ export const useOrderStore = create((set, get) => ({
    * - [{ productId, quantity, variantId? }]
    * - or cart-like: [{ id, qty, variantId? }]
    */
-  createCodOrder: async ({
-    customerId,
-    shippingAddressSnapshot,
-    billingAddressSnapshot,
-    items,
-    discount = 0,
-    coupon = null,
-    shippingFee = 0,
-    tax = 0,
-    source = "website",
-    isGiftOrder = false,
-    customerMessage = "",
-    currency = "INR",
-  }) => {
-    set({ placing: true, error: null });
 
-    try {
-      if (!customerId) throw new Error("customerId is required");
-      if (!shippingAddressSnapshot) throw new Error("shippingAddressSnapshot is required");
-      if (!items?.length) throw new Error("Order items missing");
+  /**
+ * CREATE ORDER (COD / RAZORPAY)
+ * POST /api/orders
+ */
+createOrder: async ({
+  customerId,
+  shippingAddressSnapshot,
+  billingAddressSnapshot,
+  items,
+  discount = 0,
+  coupon = null,
+  shippingFee = 0,
+  tax = 0,
+  paymentMethod = "cod", // ✅ IMPORTANT
+  source = "website",
+  isGiftOrder = false,
+  customerMessage = "",
+  currency = "INR",
+}) => {
+  set({ placing: true, error: null });
 
-      // normalize items to what backend expects
-      const normalizedItems = items.map((it) => {
-        const productId = it?.productId || it?.id;
-        const quantity = Number(it?.quantity ?? it?.qty ?? 0);
-        const variantId = it?.variantId || null;
+  try {
+    if (!customerId) throw new Error("customerId is required");
+    if (!shippingAddressSnapshot) throw new Error("shippingAddressSnapshot is required");
+    if (!items?.length) throw new Error("Order items missing");
 
-        if (!productId) throw new Error("Each item must have productId (or id)");
-        if (!Number.isFinite(quantity) || quantity < 1) throw new Error("Invalid item quantity");
-
-        return {
-          productId,
-          quantity,
-          ...(variantId ? { variantId } : {}),
-        };
-      });
-
-      const payload = {
-        customerId,
-        shippingAddressSnapshot,
-        billingAddressSnapshot: billingAddressSnapshot || shippingAddressSnapshot, // if you don't collect separate billing
-        items: normalizedItems,
-
-        // optional pricing inputs (backend is source of truth, but your controller supports these fields)
-        discount,
-        coupon,
-        shippingFee,
-        tax,
-        currency,
-
-        paymentMethod: "cod",
-        source,
-        isGiftOrder,
-        customerMessage,
-      };
-
-      const data = await api("/api/orders", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-
-      // backend returns: { message, order }
-      set({ lastCreatedOrder: data.order, placing: false });
-      return data.order;
-    } catch (e) {
-      set({ error: e.message, placing: false });
-      throw e;
+    if (!["cod", "razorpay"].includes(paymentMethod)) {
+      throw new Error("Invalid payment method");
     }
-  },
+
+    // normalize items
+    const normalizedItems = items.map((it) => {
+      const productId = it?.productId || it?.id;
+      const quantity = Number(it?.quantity ?? it?.qty ?? 0);
+      const variantId = it?.variantId || null;
+
+      if (!productId) throw new Error("Each item must have productId");
+      if (!Number.isFinite(quantity) || quantity < 1) {
+        throw new Error("Invalid item quantity");
+      }
+
+      return {
+        productId,
+        quantity,
+        ...(variantId ? { variantId } : {}),
+      };
+    });
+
+    const payload = {
+      customerId,
+      shippingAddressSnapshot,
+      billingAddressSnapshot: billingAddressSnapshot || shippingAddressSnapshot,
+      items: normalizedItems,
+
+      discount,
+      coupon,
+      shippingFee,
+      tax,
+      currency,
+
+      paymentMethod, // 🔥 FIX HERE
+      source,
+      isGiftOrder,
+      customerMessage,
+    };
+
+    const data = await api("/api/orders", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    set({ lastCreatedOrder: data.order, placing: false });
+    return data.order;
+  } catch (e) {
+    set({ error: e.message, placing: false });
+    throw e;
+  }
+},
+
 
   /**
    * GET ORDERS BY CUSTOMER

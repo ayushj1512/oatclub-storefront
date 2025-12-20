@@ -8,8 +8,7 @@
   // request control (abort + stale ignore + dedupe)
   let ctrl = null;
   let reqId = 0;
-  let inFlightKey = "";
-  let inFlightPromise = null;
+ 
 
   /* ---------------- helpers ---------------- */
   const normalize = (p) => {
@@ -129,6 +128,8 @@
     return `${BACKEND}/api/products${q ? `?${q}` : ""}`;
   };
 
+  
+
   // ✅ NEW: build url for tag route
   const buildTagUrl = (p = {}) => {
     const qs = new URLSearchParams();
@@ -177,16 +178,11 @@
     persist(
       (set, get) => ({
         allProducts: [],
-        visibleProducts: [],
-        filteredProducts: [],
+       page: 1,
+limit: 20,
+hasMoreFlag: true,
 
-        searchQuery: "",
-        selectedCategory: "all",
-        sortOption: "default",
-
-        visibleCount: 20,
-        LOAD_STEP: 20,
-
+hasMore: () => get().hasMoreFlag,
         isLoading: false,
         error: null,
 
@@ -194,150 +190,90 @@
           ✅ MAIN FETCH (existing)
         ===================================================== */
         fetchProducts: async (params = {}) => {
-          if (!BACKEND) {
-            set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
-            return [];
-          }
+  if (!BACKEND) {
+    set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
+    return;
+  }
 
-          const cleaned = sanitize(params);
-          const url = buildUrl(cleaned);
-          const key = url;
+  const { page = 1, limit = get().limit } = params;
+  const cleaned = sanitize(params);
+  const url = buildUrl({ ...cleaned, page, limit });
 
-          if (inFlightPromise && inFlightKey === key) return inFlightPromise;
+  if (ctrl) ctrl.abort();
+  ctrl = new AbortController();
+  const myId = ++reqId;
 
-          if (ctrl) ctrl.abort();
-          ctrl = new AbortController();
-          const myId = ++reqId;
+  set({ isLoading: true, error: null });
 
-          set({ isLoading: true, error: null });
+  try {
+    const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+    const data = await safeJson(res);
+    if (!res.ok) throw new Error(data?.message || "Failed to load products");
+    if (myId !== reqId) return;
 
-          const run = async (u) => {
-            const res = await fetch(u, { cache: "no-store", signal: ctrl.signal });
-            const data = await safeJson(res);
-            if (!res.ok) throw new Error(data?.message || "Failed to load products");
-            return data;
-          };
+    const incoming = uniqBySlug((data?.products || []).map(normalize));
 
-          const promise = (async () => {
-            try {
-              const data = await run(url);
-              if (myId !== reqId) return [];
+    set((state) => {
+      const merged =
+        page === 1 ? incoming : [...state.allProducts, ...incoming];
 
-              const unique = uniqBySlug((data?.products || []).map(normalize));
-              const initial = unique.slice(0, get().LOAD_STEP);
+      return {
+        allProducts: merged,
+        page,
+       hasMoreFlag: incoming.length === limit,
+        isLoading: false,
+      };
+    });
+  } catch (e) {
+    if (e?.name !== "AbortError") {
+      set({ error: e.message || "Failed to load products" });
+    }
+    set({ isLoading: false });
+  }
+},
 
-              set({
-                allProducts: unique,
-                visibleProducts: initial,
-                filteredProducts: initial,
-                visibleCount: initial.length,
-                isLoading: false,
-              });
-              return unique;
-            } catch (e) {
-              if (e?.name === "AbortError" || myId !== reqId) return [];
-
-              const msg = e?.message || "Failed to load products";
-
-              // retry without category if CastError
-              if (isCastCategoryErr(msg) && cleaned.category) {
-                try {
-                  const retry = { ...cleaned };
-                  delete retry.category;
-                  const data2 = await run(buildUrl(retry));
-                  if (myId !== reqId) return [];
-
-                  const unique2 = uniqBySlug((data2?.products || []).map(normalize));
-                  const initial2 = unique2.slice(0, get().LOAD_STEP);
-
-                  set({
-                    allProducts: unique2,
-                    visibleProducts: initial2,
-                    filteredProducts: initial2,
-                    visibleCount: initial2.length,
-                    isLoading: false,
-                    error: null,
-                  });
-                  return unique2;
-                } catch (e2) {
-                  if (e2?.name === "AbortError" || myId !== reqId) return [];
-                  set({ error: e2?.message || msg, isLoading: false });
-                  return [];
-                }
-              }
-
-              set({ error: msg, isLoading: false });
-              return [];
-            } finally {
-              if (inFlightKey === key) {
-                inFlightKey = "";
-                inFlightPromise = null;
-              }
-            }
-          })();
-
-          inFlightKey = key;
-          inFlightPromise = promise;
-          return promise;
-        },
 
         /* =====================================================
           ✅ NEW: FETCH BY TAG ROUTE
           GET /api/products/by-tag?tag=... OR tags=a,b
         ===================================================== */
         fetchProductsByTag: async (params = {}) => {
-          if (!BACKEND) {
-            set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
-            return [];
-          }
+  if (!BACKEND) {
+    set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
+    return;
+  }
 
-          const url = buildTagUrl(params);
-          const key = url;
+  const { page = 1, limit = get().limit } = params;
+  const url = buildTagUrl({ ...params, page, limit });
 
-          if (inFlightPromise && inFlightKey === key) return inFlightPromise;
+  if (ctrl) ctrl.abort();
+  ctrl = new AbortController();
+  const myId = ++reqId;
 
-          if (ctrl) ctrl.abort();
-          ctrl = new AbortController();
-          const myId = ++reqId;
+  set({ isLoading: true, error: null });
 
-          set({ isLoading: true, error: null });
+  try {
+    const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+    const data = await safeJson(res);
+    if (!res.ok) throw new Error(data?.message || "Failed to load products");
+    if (myId !== reqId) return;
 
-          const promise = (async () => {
-            try {
-              const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
-              const data = await safeJson(res);
-              if (!res.ok) throw new Error(data?.message || "Failed to load products");
+    const incoming = uniqBySlug((data?.products || []).map(normalize));
 
-              if (myId !== reqId) return [];
+    set((state) => ({
+      allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
+      page,
+     hasMoreFlag: incoming.length === limit,
+      isLoading: false,
+    }));
+  } catch (e) {
+    if (e?.name !== "AbortError") {
+      set({ error: e.message || "Failed to load products" });
+    }
+    set({ isLoading: false });
+  }
+},
 
-              const unique = uniqBySlug((data?.products || []).map(normalize));
-              const initial = unique.slice(0, get().LOAD_STEP);
-
-              set({
-                allProducts: unique,
-                visibleProducts: initial,
-                filteredProducts: initial,
-                visibleCount: initial.length,
-                isLoading: false,
-              });
-
-              return unique;
-            } catch (e) {
-              if (e?.name === "AbortError" || myId !== reqId) return [];
-              set({ error: e?.message || "Failed to load products", isLoading: false });
-              return [];
-            } finally {
-              if (inFlightKey === key) {
-                inFlightKey = "";
-                inFlightPromise = null;
-              }
-            }
-          })();
-
-          inFlightKey = key;
-          inFlightPromise = promise;
-          return promise;
-        },
 
     fetchProductDetails: async (idOrSlug) => {
   if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
@@ -414,24 +350,17 @@
 
 
         // Add this inside your zustand create store:
-  fetchProductsByCategory: async (categorySlug, limit = 36) => {
-    set({ isLoading: true, error: null });
-    try {
-      // buildUrl already exists in your file and handles the 'category' param
-      const url = buildUrl({ category: categorySlug, limit, isActive: true });
-      const res = await fetch(url, { cache: "no-store" });
-      const data = await safeJson(res);
+ fetchProductsByCategory: async (categorySlug) => {
+  if (!categorySlug) return;
 
-      if (!res.ok) throw new Error(data?.message || "Failed to load category products");
+  // Reset pagination + fetch first page
+  return get().fetchProducts({
+    category: categorySlug,
+    page: 1,
+    isActive: true,
+  });
+},
 
-      const normalized = uniqBySlug((data?.products || []).map(normalize));
-      set({ isLoading: false });
-      return normalized;
-    } catch (e) {
-      set({ error: e.message, isLoading: false });
-      return [];
-    }
-  },
 
         fetchProductBySKU: async (sku) => {
           if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
@@ -466,88 +395,38 @@
           return { product, matchedVariant };
         },
 
-        loadMore: () => {
-          const { visibleCount, LOAD_STEP, allProducts } = get();
-          const nextCount = visibleCount + LOAD_STEP;
-          set({
-            visibleCount: nextCount,
-            visibleProducts: (allProducts || []).slice(0, nextCount),
-          });
-          get().applyFilters();
-        },
+     
 
-        hasMore: () => get().visibleCount < (get().allProducts || []).length,
 
-        setSearchQuery: (searchQuery) => (set({ searchQuery }), get().applyFilters()),
-        setCategory: (selectedCategory) => (set({ selectedCategory }), get().applyFilters()),
-        setSortOption: (sortOption) => (set({ sortOption }), get().applyFilters()),
 
-        applyFilters: () => {
-          const { visibleProducts, searchQuery, selectedCategory, sortOption } = get();
-          let out = [...(visibleProducts || [])];
+  
 
-          if (searchQuery) {
-            const q = String(searchQuery).toLowerCase();
-            out = out.filter(
-              (p) =>
-                String(p?.name || "").toLowerCase().includes(q) ||
-                String(p?.description || "").toLowerCase().includes(q) ||
-                String(p?.slug || "").toLowerCase().includes(q) ||
-                String(p?.productCode || "").toLowerCase().includes(q)
-            );
-          }
+       
 
-          if (selectedCategory !== "all") {
-            const c = String(selectedCategory).toLowerCase();
-            out = out.filter((p) => String(p?.category || "").toLowerCase() === c);
-          }
+       upsertProduct: (product) => {
+  const p = product?.source === "backend" ? product : normalize(product);
+  const all = get().allProducts || [];
+  const i = all.findIndex((x) => String(x?.id) === String(p?.id));
 
-          if (sortOption === "priceLowHigh") out.sort((a, b) => (a.price || 0) - (b.price || 0));
-          else if (sortOption === "priceHighLow") out.sort((a, b) => (b.price || 0) - (a.price || 0));
-          else if (sortOption === "newest")
-            out.sort((a, b) => new Date(b.dateCreated || 0) - new Date(a.dateCreated || 0));
+  const updated =
+    i >= 0 ? [...all.slice(0, i), p, ...all.slice(i + 1)] : [...all, p];
 
-          set({ filteredProducts: out });
-        },
+  set({ allProducts: updated });
+},
 
-        upsertProduct: (product) => {
-          const p = product?.source === "backend" ? product : normalize(product);
-          const all = get().allProducts || [];
-          const i = all.findIndex((x) => String(x?.id) === String(p?.id));
-          const updated = i >= 0 ? [...all.slice(0, i), p, ...all.slice(i + 1)] : [...all, p];
+loadMore: () => {
+  const { page, hasMore, isLoading } = get();
+  if (!hasMore || isLoading) return;
 
-          set({
-            allProducts: updated,
-            visibleProducts: updated.slice(0, get().visibleCount),
-          });
-          get().applyFilters();
-        },
+  get().fetchProducts({ page: page + 1 });
+},
 
-        removeProduct: (id) => {
-          const updated = (get().allProducts || []).filter((p) => String(p?.id) !== String(id));
-          set({
-            allProducts: updated,
-            visibleProducts: updated.slice(0, get().visibleCount),
-          });
-          get().applyFilters();
-        },
-
-        resetVisible: () => {
-          const all = get().allProducts || [];
-          const initial = all.slice(0, get().LOAD_STEP);
-          set({ visibleCount: initial.length, visibleProducts: initial });
-          get().applyFilters();
-        },
 
         clearError: () => set({ error: null }),
       }),
       {
         name: "product-store",
-        partialize: (s) => ({
-          allProducts: s.allProducts,
-          selectedCategory: s.selectedCategory,
-          sortOption: s.sortOption,
-        }),
+       partialize: () => ({}),
       }
     )
   );

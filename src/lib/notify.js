@@ -17,6 +17,7 @@ export const notify = {
   error: (msg) => toast.error(safeString(msg)),
   info: (msg) => toast(safeString(msg)),
 
+  // 🛒 CART
   cartAdded: (product) =>
     toast.success(`Added to cart: ${pretty(product)}`),
 
@@ -28,11 +29,19 @@ export const notify = {
 
   cartCleared: () => toast(`Cart cleared`),
 
+  // ❤️ WISHLIST
   wishlistAdded: (product) =>
     toast.success(`Wishlisted: ${pretty(product)}`),
 
   wishlistRemoved: (product) =>
     toast(`Removed from wishlist: ${pretty(product)}`),
 
+  // 📋 MISC
   copied: (msg = "Copied ✅") => toast.success(msg),
+
+  // 🔐 AUTH
+  loginRequired: () =>
+    toast.error("Please login first", {
+      id: "login-required", // prevents duplicate spam
+    }),
 };

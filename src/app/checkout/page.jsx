@@ -27,6 +27,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useCouponStore } from "@/store/couponStore";
+import { notify } from "@/lib/notify";
+import RazorpayCheckoutButton from "@/components/checkout/RazorpayCheckoutButton";
 
 const BRAND = "#800020";
 
@@ -147,9 +149,14 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((s) => s.clearCart);
 
   // auth (✅ required fields come from here)
-  const user = useAuthStore((s) => s.user);
-  const customer = useAuthStore((s) => s.customer);
-  const initializeAuth = useAuthStore((s) => s.initialize);
+const user = useAuthStore((s) => s.user);
+const customer = useAuthStore((s) => s.customer);
+const loading = useAuthStore((s) => s.loading);
+const initializeAuth = useAuthStore((s) => s.initialize);
+
+const [createdOrderId, setCreatedOrderId] = useState(null);
+
+
 
   // address store
   const addresses = useAddressStore((s) => s.addresses) || [];
@@ -159,7 +166,8 @@ export default function CheckoutPage() {
   const pinLoading = useAddressStore((s) => s.pinLoading);
 
   // orders
-  const createCodOrder = useOrderStore((s) => s.createCodOrder);
+const createOrder = useOrderStore((s) => s.createOrder);
+
   const placing = useOrderStore((s) => s.placing);
 
   // sections
@@ -213,6 +221,15 @@ const payable = coupon ? finalTotal : subtotal;
     initializeAuth?.();
   }, []); // run once
 
+  useEffect(() => {
+  if (loading) return; // ⏳ wait for Firebase auth
+
+  if (!user?.uid) {
+    notify.loginRequired();
+    router.replace("/login?redirect=/checkout");
+  }
+}, [loading, user?.uid, router]);
+
   // when auth ready: fetch addresses + prefill required fields
   useEffect(() => {
     if (!user?.uid) return;
@@ -233,6 +250,14 @@ const payable = coupon ? finalTotal : subtotal;
   useEffect(() => {
     if (!selectedAddressId && addresses?.length) setSelectedAddressId(addresses[0]?._id || null);
   }, [addresses, selectedAddressId]);
+
+//   useEffect(() => {
+//   if (selectedPayment !== "razorpay") return;
+//   if (createdOrderId) return; // idempotent
+//   if (!selectedAddressObj || !items.length) return;
+
+//   handleRazorpayCheckout();
+// }, [selectedPayment]);
 
   // input handler (pincode first)
   const updateAddressField = (e) => {
@@ -310,11 +335,47 @@ const payable = coupon ? finalTotal : subtotal;
     if (!user?.uid) return "Please login to continue.";
     if (!customer?._id) return "Customer profile not ready yet. Please try again.";
     if (!selectedAddressObj) return "Please select an address.";
-    if (selectedPayment !== "cod") return "Online payment will be enabled soon. Please select COD for now.";
+if (!["cod", "razorpay"].includes(selectedPayment)) {
+  return "Invalid payment method selected.";
+}
+
     const bad = items.find((it) => !resolveMongoProductId(it));
     if (bad) return `Cart item missing Mongo ObjectId. Found "${String(bad?.productId || bad?._id || "")}".`;
     return null;
   };
+
+  const handleRazorpayCheckout = async () => {
+  try {
+    const shipSnap = toAddressSnapshot(selectedAddressObj, user?.email || "");
+
+    const order = await createOrder({
+      customerId: customer._id,
+      shippingAddressSnapshot: shipSnap,
+      billingAddressSnapshot: shipSnap,
+
+     items: useCartStore.getState().toOrderItems(),
+
+
+      paymentMethod: "razorpay", // 🔥 IMPORTANT
+      source: "website",
+
+      coupon: coupon
+        ? { code: coupon.code, discount, finalTotal: payable }
+        : null,
+    });
+
+    setCreatedOrderId(order._id); // 🔑 THIS is passed to Razorpay
+  } catch (e) {
+    notify.error("Failed to create order");
+  }
+};
+
+const [paymentRecovery, setPaymentRecovery] = useState({
+  open: false,
+  orderId: null,
+  orderNumber: null,
+});
+
 
   const handlePlaceOrder = async () => {
     const err = validate();
@@ -324,11 +385,11 @@ const payable = coupon ? finalTotal : subtotal;
       const shipSnap = toAddressSnapshot(selectedAddressObj, user?.email || "");
       const billSnap = shipSnap;
 
-      const order = await createCodOrder({
+      const order = await createOrder({
   customerId: customer._id,
   shippingAddressSnapshot: shipSnap,
   billingAddressSnapshot: billSnap,
-
+paymentMethod: "cod", 
   items: items.map((it) => {
     const productId = resolveMongoProductId(it);
     const qty = Number(it?.qty ?? it?.quantity ?? 1);
@@ -551,16 +612,26 @@ const payable = coupon ? finalTotal : subtotal;
             {showPayment && (
               <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <PayCard label="Cash on Delivery" value="cod" icon={<Wallet />} sub="Pay on delivery" selected={selectedPayment} setSelected={setSelectedPayment} />
-                <PayCard label="UPI (Soon)" value="upi" icon={<IndianRupee />} sub="Online will be enabled later" selected={selectedPayment} setSelected={setSelectedPayment} />
-                <PayCard label="Card (Soon)" value="card" icon={<IndianRupee />} sub="Online will be enabled later" selected={selectedPayment} setSelected={setSelectedPayment} />
+              
+
+<PayCard
+  label="Online Payment"
+  value="razorpay"
+  icon={<IndianRupee />}
+  sub="UPI / Cards / Netbanking"
+  selected={selectedPayment}
+  setSelected={setSelectedPayment}
+/>
+
               </div>
             )}
 
-            {showPayment && selectedPayment !== "cod" ? (
-              <div className="mt-3 text-xs text-amber-700 bg-amber-50 rounded-2xl px-4 py-3">
-                Online payment will be enabled soon. Please select COD for now.
-              </div>
-            ) : null}
+           {showPayment && selectedPayment === "razorpay" && (
+  <div className="mt-3 text-xs text-green-700 bg-green-50 rounded-2xl px-4 py-3">
+    Secure online payment via UPI, Cards & Netbanking
+  </div>
+)}
+
           </GlassCard>
 
           {/* 4) Total + CTA */}
@@ -582,21 +653,76 @@ const payable = coupon ? finalTotal : subtotal;
                   Shipping: <span className="text-green-700 font-semibold">Free</span>
                 </div>
               </div>
-              <Chip>
-                <IndianRupee className="w-3.5 h-3.5" /> COD
-              </Chip>
+<Chip>
+  <IndianRupee className="w-3.5 h-3.5" />
+  {selectedPayment === "cod" ? "COD" : "Online"}
+</Chip>
             </div>
 
-            <button
-              type="button"
-              onClick={handlePlaceOrder}
-              disabled={!items?.length || placing || selectedPayment !== "cod"}
-              className="mt-4 w-full rounded-2xl py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(128,0,32,0.24)] active:scale-[0.99] transition disabled:opacity-60"
-              style={{ backgroundColor: BRAND }}
-            >
-              {placing ? "Placing order..." : "Place Order (COD)"}
-              <ArrowRight className="inline-block w-4 h-4 ml-2" />
-            </button>
+          {/* CTA */}
+{selectedPayment === "cod" ? (
+  /* ---------------- COD FLOW ---------------- */
+  <button
+    type="button"
+    onClick={handlePlaceOrder}
+    disabled={!items?.length || placing}
+    className="mt-4 w-full rounded-2xl py-3 text-base font-semibold text-white
+               shadow-[0_16px_34px_rgba(128,0,32,0.24)]
+               active:scale-[0.99] transition disabled:opacity-60"
+    style={{ backgroundColor: BRAND }}
+  >
+    {placing ? "Placing order..." : "Place Order (COD)"}
+    <ArrowRight className="inline-block w-4 h-4 ml-2" />
+  </button>
+) : (
+  /* ---------------- RAZORPAY FLOW ---------------- */
+  <>
+    {/* STEP 1: Create order marked as razorpay */}
+    {!createdOrderId && (
+      <button
+        type="button"
+        onClick={handleRazorpayCheckout}
+        disabled={!items?.length || placing}
+        className="mt-4 w-full rounded-2xl py-3 text-base font-semibold text-white
+                   shadow-[0_16px_34px_rgba(128,0,32,0.24)]
+                   active:scale-[0.99] transition disabled:opacity-60"
+        style={{ backgroundColor: BRAND }}
+      >
+        {placing ? "Preparing payment..." : "Pay Securely"}
+        <ArrowRight className="inline-block w-4 h-4 ml-2" />
+      </button>
+    )}
+
+    <RazorpayCheckoutButton
+  createOrder={async () => {
+    const shipSnap = toAddressSnapshot(
+      selectedAddressObj,
+      user?.email || ""
+    );
+
+    return await createOrder({
+      customerId: customer._id,
+      shippingAddressSnapshot: shipSnap,
+      billingAddressSnapshot: shipSnap,
+      items: useCartStore.getState().toOrderItems(),
+      paymentMethod: "razorpay", // 🔥 critical
+      source: "website",
+      coupon: coupon
+        ? {
+            code: coupon.code,
+            discount,
+            finalTotal: payable,
+          }
+        : null,
+    });
+  }}
+  disabled={!items?.length || placing}
+/>
+
+  </>
+)}
+
+
 
             <p className="mt-2 text-[11px] text-gray-500 leading-relaxed text-center">
               You’ll pay when the order is delivered.
@@ -604,6 +730,53 @@ const payable = coupon ? finalTotal : subtotal;
           </GlassCard>
         </div>
       </div>
+
+      {paymentRecovery.open && (
+  <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4 shadow">
+    <p className="text-sm font-semibold text-gray-900">
+      Payment not completed
+    </p>
+    <p className="text-xs text-gray-600 mt-1">
+      Choose how you want to continue
+    </p>
+
+    <div className="mt-4 flex flex-col sm:flex-row gap-3">
+      {/* 🔁 Retry Online */}
+      <button
+        onClick={() => {
+          setPaymentRecovery({ open: false });
+        }}
+        className="flex-1 rounded-xl py-3 text-sm font-semibold text-white bg-[#800020]"
+      >
+        Retry Online Payment
+      </button>
+
+      {/* 🚚 Convert to COD */}
+      <button
+        onClick={async () => {
+          try {
+            await updateOrderStatus(paymentRecovery.orderId, {
+              paymentMethod: "cod",
+            });
+
+            notify.success("Order converted to Cash on Delivery");
+
+            clearCart?.();
+            router.replace(
+              `/order-success?order=${paymentRecovery.orderNumber}`
+            );
+          } catch {
+            notify.error("Failed to switch to COD");
+          }
+        }}
+        className="flex-1 rounded-xl py-3 text-sm font-semibold border border-black/20"
+      >
+        Place Order as COD
+      </button>
+    </div>
+  </div>
+)}
+
     </section>
   );
 }

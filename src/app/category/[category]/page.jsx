@@ -6,6 +6,8 @@ import ProductGrid from "@/components/common/ProductGrid";
 import { useProductStore } from "@/store/productStore";
 import { AnimatePresence, motion } from "framer-motion";
 
+const PAGE_SIZE = 20;
+
 const SORT_OPTIONS = [
   { label: "Default", value: "default" },
   { label: "Newest", value: "newest" },
@@ -42,18 +44,15 @@ export default function CategoryPage() {
   const { category } = useParams() || {};
 
   const {
-    allProducts,
-    visibleProducts,
-    filteredProducts,
-    isLoading,
-    error,
-    fetchProducts,
-    setCategory,
-    setSortOption,
-    loadMore,
-    hasMore,
-    clearError,
-  } = useProductStore();
+  allProducts,
+  isLoading,
+  error,
+  fetchProducts,
+  loadMore,
+  hasMore,
+  clearError,
+} = useProductStore();
+
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest"); // ✅ match API sort
@@ -86,78 +85,88 @@ const [priceMax, setPriceMax] = useState(null);
     if (!category) return;
 
     clearError?.();
-    setCategory(category);
+  
 
     // reset UI filters for new category
     setDrawerOpen(false);
     setOnlyInStock(true);
     setSelectedTags(new Set());
     setSort("newest");
-    setSortOption("newest");
+   
 
-    const key = `cat=${category}|sort=newest|active=1|limit=5000`;
+    
+
+    const key = `cat=${category}|sort=newest|active=1|PAGE_SIZE`;
     if (lastFetchRef.current === key) return;
     lastFetchRef.current = key;
 
-    fetchProducts({ category, isActive: true, page: 1, limit: 5000, sort: "newest" });
+    fetchProducts({ category, isActive: true, page: 1, limit: PAGE_SIZE, sort: "newest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
   useEffect(() => {
-    setSortOption(sort);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort]);
+  if (!category) return;
 
-  const list = useMemo(() => {
-    let arr =
-  Array.isArray(filteredProducts) && filteredProducts.length
-    ? filteredProducts
-    : Array.isArray(allProducts)
-    ? allProducts
-    : [];
-
-
-   if (onlyInStock) {
-  arr = arr.filter((p) => {
-    // support multiple backend formats
-    if (p?.stock_status) return p.stock_status === "instock";
-    if (typeof p?.in_stock === "boolean") return p.in_stock;
-    if (typeof p?.stock_quantity === "number") return p.stock_quantity > 0;
-
-    // fallback → assume in stock
-    return true;
+  lastFetchRef.current = "";
+  fetchProducts({
+    category,
+    isActive: true,
+    page: 1,
+    limit: PAGE_SIZE,
+    sort,
   });
-}
+}, [sort, category]);
 
 
-const lo = priceMin ?? facets.priceMin;
-const hi = priceMax ?? facets.priceMax;
+const list = useMemo(() => {
+  let arr = Array.isArray(allProducts) ? [...allProducts] : [];
 
-    const minV = Math.min(lo, hi);
-    const maxV = Math.max(lo, hi);
-
+  if (onlyInStock) {
     arr = arr.filter((p) => {
-      const pr = Number(p?.price ?? 0);
-      return pr >= minV && pr <= maxV;
+      if (p?.stock_status) return p.stock_status === "instock";
+      if (typeof p?.in_stock === "boolean") return p.in_stock;
+      if (typeof p?.stock_quantity === "number") return p.stock_quantity > 0;
+      if (typeof p?.isInStock === "boolean") return p.isInStock;
+      return true;
     });
+  }
 
-    if (selectedTags.size) {
-      arr = arr.filter((p) => {
-        const tags = (Array.isArray(p?.tags) ? p.tags : [])
-          .map((t) => String(t || "").trim().toLowerCase())
-          .filter(Boolean);
-        for (const need of selectedTags) if (!tags.includes(need)) return false; // AND
-        return true;
-      });
-    }
+  const lo = priceMin ?? facets.priceMin;
+  const hi = priceMax ?? facets.priceMax;
+  const minV = Math.min(lo, hi);
+  const maxV = Math.max(lo, hi);
 
-    return arr;
-  }, [filteredProducts, onlyInStock, priceMin, priceMax, facets.priceMin, facets.priceMax, selectedTags]);
+  arr = arr.filter((p) => {
+    const pr = Number(p?.price);
+    return Number.isFinite(pr) && pr >= minV && pr <= maxV;
+  });
 
-  const totalAvailable = useMemo(
-    () => (Array.isArray(allProducts) ? allProducts : []).filter((p) => p?.isInStock !== false && Number(p?.stock ?? 0) > 0).length,
-    [allProducts]
-  );
+  if (selectedTags.size > 0) {
+    arr = arr.filter((p) => {
+      const tags = Array.isArray(p?.tags)
+        ? p.tags.map((t) => String(t).toLowerCase())
+        : [];
+      for (const need of selectedTags) {
+        if (!tags.includes(need)) return false;
+      }
+      return true;
+    });
+  }
+
+  return arr;
+}, [
+  allProducts,
+  onlyInStock,
+  priceMin,
+  priceMax,
+  facets.priceMin,
+  facets.priceMax,
+  selectedTags,
+]);
+
+
+
+  const totalAvailable = allProducts.length;
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
@@ -185,6 +194,8 @@ const hi = priceMax ?? facets.priceMax;
   };
 
   // infinite scroll
+  const loadingMoreRef = useRef(false);
+
   const sentinelRef = useRef(null);
   useEffect(() => {
     const node = sentinelRef.current;
@@ -193,9 +204,14 @@ const hi = priceMax ?? facets.priceMax;
     const io = new IntersectionObserver(
       ([entry]) => {
         if (!entry?.isIntersecting) return;
-        if (isLoading) return;
-        if (!hasMore()) return;
-        loadMore();
+if (isLoading) return;
+if (!hasMore()) return;
+
+loadMore();
+
+setTimeout(() => {
+  loadingMoreRef.current = false;
+}, 300);
       },
       { rootMargin: "900px 0px" }
     );
@@ -218,7 +234,7 @@ const hi = priceMax ?? facets.priceMax;
     if (!category) return;
     clearError?.();
     lastFetchRef.current = "";
-    fetchProducts({ category, isActive: true, page: 1, limit: 5000, sort: "newest" });
+    fetchProducts({ category, isActive: true, page: 1, limit: PAGE_SIZE, sort: "newest" });
   }, [category, clearError, fetchProducts]);
 
   return (
@@ -357,7 +373,11 @@ const hi = priceMax ?? facets.priceMax;
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 capitalize">{category || "Category"}</h1>
-            <p className="text-sm text-zinc-600">{showInitialLoading ? "Loading..." : `${totalAvailable} available products`}</p>
+         <p className="text-sm text-zinc-600">
+  {showInitialLoading
+    ? "Loading..."
+    : `${totalAvailable} products loaded`}
+</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -407,9 +427,11 @@ const hi = priceMax ?? facets.priceMax;
                 >
                   {isLoading ? "Loading..." : "Load more"}
                 </button>
-                <div className="text-xs text-zinc-500">
-                  Showing {list.length} items{visibleProducts?.length ? ` (loaded ${visibleProducts.length} of ${allProducts.length})` : ""}
-                </div>
+               <div className="text-xs text-zinc-500">
+  Showing {list.length} items
+  {hasMore() ? " — loading more as you scroll" : " — you’ve reached the end"}
+</div>
+
               </>
             ) : (
               <div className="text-sm text-zinc-600">You’ve reached the end.</div>

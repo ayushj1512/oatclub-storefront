@@ -383,16 +383,19 @@ export default function OrderSuccessClient() {
                         </span>
                       </div>
 
-                      <div className="mt-3 rounded-2xl border border-black/10 bg-black/[0.02] p-3 text-xs text-gray-700">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-gray-600">Payment</span>
-                          <span className="font-semibold text-gray-900">
-                            {String(order?.paymentMethod || "cod").toUpperCase()}{" "}
-                            •{" "}
-                            {String(order?.paymentStatus || "pending").toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
+                    <div className="mt-3 rounded-2xl border border-black/10 bg-black/[0.02] p-3 text-xs text-gray-700">
+  <div className="flex items-center justify-between gap-3">
+    <span className="text-gray-600">Payment</span>
+    <span className="font-semibold text-gray-900">
+      {order?.paymentMethod === "cod"
+        ? "COD • Pay at delivery"
+        : `${String(order?.paymentMethod).toUpperCase()} • ${String(
+            order?.paymentStatus
+          ).toUpperCase()}`}
+    </span>
+  </div>
+</div>
+
                     </div>
                   </Section>
 

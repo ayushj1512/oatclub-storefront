@@ -4,7 +4,16 @@ import { create } from "zustand";
 import axios from "axios";
 
 /* ----------------------------------------------------
-   Razorpay SDK Loader (OFFICIAL CHECKOUT SDK)
+   ENV
+---------------------------------------------------- */
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+if (!BACKEND) {
+  console.error("❌ NEXT_PUBLIC_BACKEND_URL is missing");
+}
+
+/* ----------------------------------------------------
+   Razorpay SDK Loader (OFFICIAL)
 ---------------------------------------------------- */
 const loadRazorpaySDK = () =>
   new Promise((resolve) => {
@@ -24,13 +33,13 @@ const loadRazorpaySDK = () =>
 /* ----------------------------------------------------
    Zustand Razorpay Store
 ---------------------------------------------------- */
-export const useRazorpayStore = create((set, get) => ({
+export const useRazorpayStore = create((set) => ({
   /* ---------- STATE ---------- */
   loading: false,
   error: null,
   paymentSuccess: false,
 
-  /* ---------- HELPERS ---------- */
+  /* ---------- RESET ---------- */
   reset: () =>
     set({
       loading: false,
@@ -39,7 +48,7 @@ export const useRazorpayStore = create((set, get) => ({
     }),
 
   /* ------------------------------------------------
-     MAIN PAYMENT FUNCTION (SDK BASED)
+     MAIN PAYMENT FLOW
   ------------------------------------------------ */
   payWithRazorpay: async ({
     mongoOrderId,
@@ -47,6 +56,10 @@ export const useRazorpayStore = create((set, get) => ({
     onFailure,
   }) => {
     try {
+      if (!mongoOrderId) {
+        throw new Error("mongoOrderId is required");
+      }
+
       set({ loading: true, error: null, paymentSuccess: false });
 
       /* 1️⃣ Load Razorpay SDK */
@@ -55,18 +68,19 @@ export const useRazorpayStore = create((set, get) => ({
         throw new Error("Razorpay SDK failed to load");
       }
 
-      /* 2️⃣ Create Order (Backend) */
-      const { data } = await axios.post("/api/razorpay/create-order", {
-        mongoOrderId,
-      });
+      /* 2️⃣ Create Razorpay Order (BACKEND) */
+      const { data } = await axios.post(
+        `${BACKEND}/api/razorpay/create-order`,
+        { mongoOrderId }
+      );
 
       if (!data?.success) {
-        throw new Error("Failed to create Razorpay order");
+        throw new Error(data?.message || "Failed to create Razorpay order");
       }
 
       /* 3️⃣ Configure Razorpay Checkout */
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID, // PUBLIC KEY ONLY
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, // ✅ PUBLIC KEY ONLY
         amount: data.amount,
         currency: data.currency,
         order_id: data.razorpayOrderId,
@@ -82,24 +96,32 @@ export const useRazorpayStore = create((set, get) => ({
 
         notes: {
           mongoOrderId: data.mongoOrderId,
+          orderNumber: data.orderNumber,
         },
 
         theme: {
           color: "#800020",
         },
 
-        /* 4️⃣ Payment Success Handler */
-        handler: async function (response) {
+        /* 4️⃣ Payment Success → VERIFY */
+        handler: async (response) => {
           try {
-            await axios.post("/api/razorpay/verify", {
-              mongoOrderId: data.mongoOrderId,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
+            await axios.post(
+              `${BACKEND}/api/razorpay/verify`,
+              {
+                mongoOrderId: data.mongoOrderId,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }
+            );
 
             set({ loading: false, paymentSuccess: true });
-            onSuccess?.(response);
+
+            onSuccess?.({
+              orderNumber: data.orderNumber,
+              mongoOrderId: data.mongoOrderId,
+            });
           } catch (err) {
             set({
               loading: false,
@@ -119,11 +141,22 @@ export const useRazorpayStore = create((set, get) => ({
         },
       };
 
-      /* 6️⃣ Open Razorpay Checkout */
+      /* 6️⃣ Open Razorpay */
       const rzp = new window.Razorpay(options);
+
+      rzp.on("payment.failed", (response) => {
+        set({ loading: false });
+        onFailure?.(
+          new Error(
+            response?.error?.description ||
+              "Payment failed. Please try again."
+          )
+        );
+      });
+
       rzp.open();
     } catch (err) {
-      console.error("Razorpay Error:", err);
+      console.error("❌ Razorpay Error:", err);
       set({
         loading: false,
         error: err?.response?.data?.message || err.message,

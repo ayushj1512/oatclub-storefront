@@ -90,28 +90,34 @@ const buildCartItem = ({ product, qty = 1, variantId = null, selectedSize = null
       }
     : null;
 
-  const item = {
-    // ✅ REQUIRED FOR BACKEND ORDER
-    productId,
-    variantId: variantSnapshot?.variantId || null,
-    quantity: safeQty,
+ const item = {
+  // ✅ REQUIRED FOR BACKEND ORDER
+  productId,
+  productType, // 🔥 IMPORTANT: used to validate variable products at checkout
+  variantId: variantSnapshot?.variantId || null,
+  quantity: safeQty,
 
-    // ✅ UI convenience
-    name: snapshot.title,
-    slug: snapshot.slug,
-    image: snapshot.thumbnail,
-    price: unitPrice,
-    compareAtPrice,
+  // ✅ UI convenience
+  name: snapshot.title,
+  slug: snapshot.slug,
+  image: snapshot.thumbnail,
+  price: unitPrice,
+  compareAtPrice,
 
-    // ✅ selection info
-    selectedSize: selectedSize ? str(selectedSize) : variant ? extractSize(variant) : "",
+  // ✅ selection info (used in UI + debug)
+  selectedSize: selectedSize
+    ? str(selectedSize)
+    : variant
+    ? extractSize(variant)
+    : "",
 
-    // ✅ snapshots (optional but great)
-    productSnapshot: snapshot,
-    variant: variantSnapshot,
+  // ✅ snapshots (used by backend Order schema)
+  productSnapshot: snapshot,
+  variant: variantSnapshot,
 
-    __key: "", // filled below
-  };
+  __key: "", // filled below
+};
+
 
   item.__key = cartKey(item);
   return item;
