@@ -1,41 +1,48 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import ProductCard from "@/components/common/ProductCard";
+import { useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
+import ProductCard from "@/components/common/ProductCard";
 import { useProductStore } from "@/store/productStore";
 
 export default function TrendingSection() {
-  const { filteredProducts, isLoading, fetchProducts, error } = useProductStore();
+  const { allProducts, isLoading, error, fetchProducts } = useProductStore();
+  const fetchedRef = useRef(false);
 
-  useEffect(() => { fetchProducts({ limit: 60, isActive: true, sort: "newest" }); }, [fetchProducts]);
+  useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    fetchProducts({ page: 1, limit: 60, isActive: true, sort: "newest" });
+  }, [fetchProducts]);
 
   const products = useMemo(
     () =>
-      (filteredProducts || [])
+      (allProducts || [])
         .filter((p) => p?.isInStock !== false)
         .slice(0, 12)
         .map((p) => ({
           id: p.id,
           productId: p.productId,
-          name: p.name || "",
+          name: p.name,
           price: Number(p.price || 0),
-          originalPrice: p.compareAtPrice != null ? Number(p.compareAtPrice) : null,
+          originalPrice: p.compareAtPrice ? Number(p.compareAtPrice) : null,
           image: p.image || "/placeholder.png",
           slug: p.slug || p.id,
-          on_sale: p.compareAtPrice != null && Number(p.compareAtPrice) > Number(p.price || 0),
+          on_sale: p.compareAtPrice && Number(p.compareAtPrice) > Number(p.price || 0),
           category: p.category,
           currency: p.currency,
         })),
-    [filteredProducts]
+    [allProducts]
   );
 
-  if (isLoading) {
+  if (isLoading && !products.length) {
     return (
       <section className="pt-10 px-4 bg-white">
-        <h2 className="text-xl md:text-2xl font-extrabold text-center text-black mb-6 tracking-wide uppercase border-b-4 border-[#800020] w-fit mx-auto pb-1">Trending Now</h2>
-        <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
-          {Array.from({ length: 10 }).map((_, i) => (
+        <h2 className="text-xl md:text-2xl font-extrabold text-center text-black mb-6 tracking-wide uppercase border-b-4 border-[#800020] w-fit mx-auto pb-1">
+          Trending Now
+        </h2>
+        <div className="flex gap-4 overflow-x-auto pb-2">
+          {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="min-w-[160px] sm:min-w-[200px] md:min-w-[240px]">
               <ProductCard loading />
             </div>
@@ -48,12 +55,14 @@ export default function TrendingSection() {
   if (!products.length) return null;
 
   return (
-    <motion.section className="pt-10 px-4 bg-white" initial={false} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      <h2 className="text-xl md:text-2xl font-extrabold text-center text-black mb-6 tracking-wide uppercase border-b-4 border-[#800020] w-fit mx-auto pb-1">Trending Now</h2>
+    <motion.section className="pt-10 px-4 bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <h2 className="text-xl md:text-2xl font-extrabold text-center text-black mb-6 tracking-wide uppercase border-b-4 border-[#800020] w-fit mx-auto pb-1">
+        Trending Now
+      </h2>
 
       {error && <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p>}
 
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2">
+      <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2">
         {products.map((p) => (
           <div key={p.id} className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]">
             <ProductCard product={p} />

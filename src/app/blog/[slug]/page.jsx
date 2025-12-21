@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -12,9 +12,12 @@ import {
   Tag,
   MessageCircle,
 } from "lucide-react";
-import { useBlogStore } from "@/store/blogStore";
 
-// Recommended Products (demo)
+import { useBlogStore } from "@/store/blogStore";
+import RecommendedProducts from "@/components/blog/RecommendedProducts";
+import RelatedBlogs from "@/components/blog/RelatedBlogs";
+
+/* Demo recommended products (static for now) */
 const recommendedProducts = [
   {
     id: 1,
@@ -45,13 +48,50 @@ const recommendedProducts = [
 export default function BlogDetailPage(props) {
   const { slug } = use(props.params);
 
-  const getBlogBySlug = useBlogStore((s) => s.getBlogBySlug);
-  const previewBlogs = useBlogStore((s) => s.getBlogs());
+  const {
+    currentBlog,
+    blogs,
+    loading,
+    error,
+    fetchSingleBlog,
+    fetchBlogs,
+    clearCurrentBlog,
+  } = useBlogStore();
 
-  const blog = getBlogBySlug(slug);
-  const relatedBlogs = previewBlogs.filter((b) => b.slug !== slug);
+  // 🔥 Fetch blog + ensure list exists (for related blogs)
+  useEffect(() => {
+    fetchSingleBlog(slug);
 
-  if (!blog) {
+    // 👇 IMPORTANT: fetch list only if missing
+    if (!blogs || blogs.length === 0) {
+      fetchBlogs({ page: 1, limit: 12 });
+    }
+
+    return () => {
+      clearCurrentBlog();
+    };
+  }, [slug, fetchSingleBlog, fetchBlogs, clearCurrentBlog]);
+
+  /* ---------------- LOADING ---------------- */
+  if (loading && !currentBlog) {
+    return (
+      <div className="py-32 text-center text-gray-600 text-lg">
+        Loading blog...
+      </div>
+    );
+  }
+
+  /* ---------------- ERROR ---------------- */
+  if (error && !currentBlog) {
+    return (
+      <div className="py-32 text-center text-red-600 text-lg">
+        Failed to load blog.
+      </div>
+    );
+  }
+
+  /* ---------------- NOT FOUND ---------------- */
+  if (!loading && !currentBlog) {
     return (
       <div className="py-32 text-center text-gray-700 text-xl">
         Blog not found.
@@ -59,9 +99,10 @@ export default function BlogDetailPage(props) {
     );
   }
 
+  const blog = currentBlog;
+
   return (
     <div className="w-full bg-white py-10 px-5 md:px-10 lg:px-24 max-w-[1100px] mx-auto">
-
       {/* HEADER */}
       <motion.div
         initial={{ opacity: 0, y: 40 }}
@@ -85,21 +126,29 @@ export default function BlogDetailPage(props) {
         </p>
 
         {/* HERO IMAGE */}
-        <div className="relative w-full max-w-[820px] mx-auto aspect-[16/9] rounded-2xl overflow-hidden shadow-lg">
-          <Image src={blog.image} alt={blog.title} fill className="object-cover" />
+        <div className="relative w-full max-w-[820px] mx-auto aspect-video rounded-2xl overflow-hidden shadow-lg">
+          <Image
+            src={blog.image}
+            alt={blog.title}
+            fill
+            className="object-cover"
+            priority
+          />
         </div>
 
         {/* TAGS */}
-        <div className="flex flex-wrap gap-2 mt-4">
-          {blog.tags?.map((tag, i) => (
-            <span
-              key={i}
-              className="text-xs bg-[#f7e9ec] text-[#800020] px-3 py-1 rounded-full flex items-center gap-1"
-            >
-              <Tag size={12} /> #{tag}
-            </span>
-          ))}
-        </div>
+        {blog.tags?.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {blog.tags.map((tag, i) => (
+              <span
+                key={i}
+                className="text-xs bg-[#f7e9ec] text-[#800020] px-3 py-1 rounded-full flex items-center gap-1"
+              >
+                <Tag size={12} /> #{tag}
+              </span>
+            ))}
+          </div>
+        )}
       </motion.div>
 
       {/* CONTENT */}
@@ -126,84 +175,11 @@ export default function BlogDetailPage(props) {
         </div>
       </div>
 
-      {/* RECOMMENDED PRODUCTS */}
-      <div className="mt-16 max-w-[900px] mx-auto">
-        <h2 className="text-2xl font-semibold text-[#2b0004]">Recommended Products</h2>
-        <div className="h-[2px] bg-[#800020] w-20 rounded-full mt-2"></div>
+      {/* 🛍 RECOMMENDED PRODUCTS */}
+      <RecommendedProducts products={recommendedProducts} />
 
-        <div className="flex gap-5 mt-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
-          {recommendedProducts.map((p) => (
-            <Link
-              key={p.id}
-              href={p.link}
-              className="snap-start flex-shrink-0 w-[160px] bg-white border rounded-xl shadow-sm hover:shadow-md transition-all p-3"
-            >
-              <div className="relative w-full aspect-[4/5] rounded-lg overflow-hidden">
-                <Image src={p.image} alt={p.title} fill className="object-cover" />
-              </div>
-
-              <p className="text-sm font-medium mt-2 text-gray-800 line-clamp-2">
-                {p.title}
-              </p>
-
-              <p className="text-[#800020] text-sm font-semibold">{p.price}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* RELATED BLOGS */}
-      <div className="mt-20 max-w-[900px] mx-auto">
-        <h2 className="text-2xl font-semibold text-[#2b0004]">Related Blogs</h2>
-        <div className="h-[2px] bg-[#800020] w-20 rounded-full mt-2"></div>
-
-        {/* MOBILE = HORIZONTAL SCROLL */}
-        <div className="flex md:hidden gap-5 mt-6 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4">
-          {relatedBlogs.map((b) => (
-            <Link
-              key={b.slug}
-              href={`/blog/${b.slug}`}
-              className="snap-start flex-shrink-0 w-[200px] bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all"
-            >
-              <div className="relative w-full h-[140px]">
-                <Image src={b.image} alt={b.title} fill className="object-cover" />
-              </div>
-
-              <div className="p-3">
-                <p className="text-sm font-semibold text-[#2b0004] line-clamp-2">
-                  {b.title}
-                </p>
-                <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                  {b.excerpt.slice(0, 80)}...
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        {/* DESKTOP GRID */}
-        <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-          {relatedBlogs.map((b) => (
-            <Link
-              key={b.slug}
-              href={`/blog/${b.slug}`}
-              className="bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition"
-            >
-              <div className="relative w-full h-[150px]">
-                <Image src={b.image} alt={b.title} fill className="object-cover" />
-              </div>
-
-              <div className="p-3">
-                <p className="text-sm font-semibold text-[#2b0004]">{b.title}</p>
-                <p className="text-xs text-gray-600 mt-1">
-                  {b.excerpt.slice(0, 65)}...
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-
+      {/* 📰 RELATED BLOGS — NOW WORKS */}
+      <RelatedBlogs blogs={blogs} currentSlug={slug} />
     </div>
   );
 }

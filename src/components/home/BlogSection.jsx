@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -7,10 +8,19 @@ import { useBlogStore } from "@/store/blogStore";
 
 export default function BlogSection() {
   const blogs = useBlogStore((s) => s.blogs);
+  const loading = useBlogStore((s) => s.loading);
+  const error = useBlogStore((s) => s.error);
+  const fetchBlogs = useBlogStore((s) => s.fetchBlogs);
+
+  // 🔥 Fetch blogs once (store-aligned)
+  useEffect(() => {
+    if (!blogs || blogs.length === 0) {
+      fetchBlogs({ page: 1, limit: 10 });
+    }
+  }, [blogs?.length, fetchBlogs]);
 
   return (
     <section className="w-full bg-gradient-to-b from-white to-[#faf7f8] pb-12">
-
       {/* HEADING */}
       <div className="px-6 mb-8 text-center">
         <h2 className="text-xl md:text-2xl font-semibold text-[#111] tracking-wide uppercase">
@@ -21,58 +31,88 @@ export default function BlogSection() {
           Western fashion insights · Gen-Z aesthetics · Trend stories
         </p>
 
-        <div className="h-[2px] w-50 bg-[#800020] mx-auto mt-2 rounded-full" />
+        <div className="h-[2px] w-14 bg-[#800020] mx-auto mt-2 rounded-full" />
       </div>
 
-      {/* HORIZONTAL BLOG ROW */}
-      <div className="flex gap-4 px-6 pb-3 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+      {/* ERROR STATE */}
+      {error && (
+        <p className="text-center text-sm text-red-600">
+          Failed to load blogs.
+        </p>
+      )}
 
-        {blogs.map((blog, index) => (
-          <Link key={blog.slug} href={`/blog/${blog.slug}`} className="snap-start">
-            <motion.div
-              initial={false}
-              whileHover={{ scale: 1.04 }}
-              transition={{ type: "spring", stiffness: 240, damping: 18 }}
-             className="relative flex-shrink-0 w-[180px] sm:w-[220px] bg-white border border-gray-200 rounded-xl cursor-pointer hover:shadow-lg transition-shadow duration-300">
+      {/* LOADING STATE (16:9 skeletons) */}
+      {loading && !error && (
+        <div className="flex gap-4 px-6 overflow-x-auto no-scrollbar">
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={i}
+              className="flex-shrink-0 w-[260px] sm:w-[320px] aspect-video bg-gray-100 rounded-xl animate-pulse"
+            />
+          ))}
+        </div>
+      )}
 
-              {/* NEW TAG — FIXED POSITION + ABOVE CARD */}
-              {index < 2 && (
-                <span className="absolute z-20 top-2 left-2 bg-[#800020] text-white text-[10px] px-2 py-0.5 rounded-full">
-                  NEW
-                </span>
-              )}
+      {/* EMPTY STATE */}
+      {!loading && !error && blogs.length === 0 && (
+        <p className="text-center text-sm text-gray-500">
+          No blog posts available right now.
+        </p>
+      )}
 
-              {/* IMAGE – FIXED ASPECT RATIO */}
-              <div className="relative w-full aspect-[3/4] bg-white rounded-t-xl overflow-hidden flex items-center justify-center">
-                <Image
-                  src={blog.image || "/placeholder.png"}
-                  alt={blog.title}
-                  fill
-                  loading="lazy"
-                  className="object-contain p-2"
-                />
-              </div>
+      {/* BLOG ROW */}
+      {!loading && !error && blogs.length > 0 && (
+        <div className="flex gap-4 px-6 pb-3 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+          {blogs.map((blog, index) => (
+            <Link
+              key={blog.slug}
+              href={`/blog/${blog.slug}`}
+              className="snap-start"
+            >
+              <motion.div
+                initial={false}
+                whileHover={{ scale: 1.04 }}
+                transition={{ type: "spring", stiffness: 240, damping: 18 }}
+                className="relative flex-shrink-0 w-[260px] sm:w-[320px] bg-white rounded-xl cursor-pointer hover:shadow-lg transition-shadow duration-300"
+              >
+                {/* NEW TAG (top items only) */}
+                {index < 2 && (
+                  <span className="absolute z-20 top-2 left-2 bg-[#800020] text-white text-[10px] px-2 py-0.5 rounded-full">
+                    NEW
+                  </span>
+                )}
 
-              {/* CONTENT */}
-              <div className="p-3 flex flex-col gap-1.5">
-                <h3 className="text-[13px] font-semibold text-gray-900 line-clamp-2 leading-tight">
-                  {blog.title}
-                </h3>
+                {/* IMAGE — 16:9, fully visible */}
+                <div className="relative w-full aspect-video bg-[#faf7f8] rounded-t-xl overflow-hidden flex items-center justify-center">
+                  <Image
+                    src={blog.image || "/placeholder.png"}
+                    alt={blog.title}
+                    fill
+                    sizes="(max-width: 640px) 260px, 320px"
+                    className="object-contain p-3"
+                    priority={index === 0}
+                  />
+                </div>
 
-                <p className="text-gray-600 text-[11px] leading-snug line-clamp-3">
-                  {blog.excerpt}
-                </p>
+                {/* CONTENT */}
+                <div className="p-3 flex flex-col gap-1.5">
+                  <h3 className="text-[13px] font-semibold text-gray-900 line-clamp-2 leading-tight">
+                    {blog.title}
+                  </h3>
 
-                <span className="text-[#800020] text-xs font-medium mt-1">
-                  Read More →
-                </span>
-              </div>
+                  <p className="text-gray-600 text-[11px] leading-snug line-clamp-3">
+                    {blog.excerpt}
+                  </p>
 
-            </motion.div>
-          </Link>
-        ))}
-
-      </div>
+                  <span className="text-[#800020] text-xs font-medium mt-1">
+                    Read More →
+                  </span>
+                </div>
+              </motion.div>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

@@ -5,9 +5,9 @@ import Image from "next/image";
 
 export default function HeroSection() {
   const slides = [
-    "https://i.pinimg.com/736x/ea/69/53/ea69530394b639d0bf35168e444d6b6e.jpg",
-    "https://i.pinimg.com/736x/d6/20/cf/d620cf73dfc1456a52a9d55578e3da4c.jpg",
-    "https://i.pinimg.com/1200x/05/63/40/056340d333db2634bded08cc18b4666f.jpg",
+    "https://res.cloudinary.com/djtva6hec/image/upload/v1766311125/miray/media/vleq2qgmftsgidh7pfwl.jpg",
+    "https://res.cloudinary.com/djtva6hec/image/upload/v1766311124/miray/media/mghrhltk92tavkrzkpo9.jpg",
+    "https://res.cloudinary.com/djtva6hec/image/upload/v1766311123/miray/media/u7bf5werxsmgfhdoucdg.jpg",
   ];
 
   const [currentSlide, setCurrentSlide] = useState(0);

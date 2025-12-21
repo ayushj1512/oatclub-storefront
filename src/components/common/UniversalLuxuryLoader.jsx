@@ -11,8 +11,6 @@ const TEXTS = [
 ];
 
 export default function UniversalLuxuryLoader({
-  size = 10,
-  gap = 12,
   interval = 2200,
 }) {
   const [index, setIndex] = useState(0);
@@ -25,9 +23,9 @@ export default function UniversalLuxuryLoader({
   }, [interval]);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
+    <div className="flex flex-col items-center justify-center gap-3 sm:gap-4 px-3 text-center">
       {/* Dots */}
-      <div className="flex items-center" style={{ gap }}>
+      <div className="flex items-center gap-[clamp(8px,2.5vw,14px)]">
         <span className="lux-dot lux-dot-1" />
         <span className="lux-dot lux-dot-2" />
         <span className="lux-dot lux-dot-3" />
@@ -36,7 +34,7 @@ export default function UniversalLuxuryLoader({
       {/* Text */}
       <p
         key={index}
-        className="text-[12px] font-bold tracking-[0.32em] uppercase text-black/70 transition-opacity duration-500"
+        className="lux-text font-bold uppercase text-black/70 transition-opacity duration-500"
       >
         {TEXTS[index]}
       </p>
@@ -44,12 +42,12 @@ export default function UniversalLuxuryLoader({
       {/* Styles */}
       <style>{`
         .lux-dot {
-          width: ${size}px;
-          height: ${size}px;
+          width: clamp(8px, 3vw, 12px);
+          height: clamp(8px, 3vw, 12px);
           border-radius: 9999px;
           background: radial-gradient(circle at 30% 30%, #a00030, #800020);
           animation: lux-breathe 1.9s ease-in-out infinite;
-          box-shadow: 0 0 14px rgba(128, 0, 32, 0.45);
+          box-shadow: 0 0 10px rgba(128, 0, 32, 0.4);
         }
 
         .lux-dot-2 {
@@ -62,18 +60,30 @@ export default function UniversalLuxuryLoader({
           opacity: 0.65;
         }
 
+        .lux-text {
+          font-size: clamp(10px, 3.2vw, 12px);
+          letter-spacing: clamp(0.18em, 1vw, 0.32em);
+          line-height: 1.3;
+        }
+
         @keyframes lux-breathe {
           0% {
-            transform: scale(0.85);
-            opacity: 0.45;
+            transform: scale(0.9);
+            opacity: 0.4;
           }
           50% {
-            transform: scale(1.3);
+            transform: scale(1.25);
             opacity: 1;
           }
           100% {
-            transform: scale(0.85);
-            opacity: 0.45;
+            transform: scale(0.9);
+            opacity: 0.4;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .lux-dot {
+            animation: none;
           }
         }
       `}</style>

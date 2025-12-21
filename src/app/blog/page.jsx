@@ -1,183 +1,172 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import {
-  Search,
-  ArrowDownWideNarrow,
-  ArrowUpWideNarrow,
-  SortAsc,
-  SortDesc,
-} from "lucide-react";
 import { useBlogStore } from "@/store/blogStore";
 
-const CATS = ["All", "Fashion", "Lifestyle", "Trends"];
+/* ----------------------------------------- */
+/* HELPERS                                   */
+/* ----------------------------------------- */
+const formatDate = (date) => {
+  if (!date) return "";
+  try {
+    return new Date(date).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "";
+  }
+};
 
 /* ----------------------------------------- */
-/* FEATURED BLOG COMPONENT (MOVED TO TOP)    */
+/* BLOG CARD                                 */
 /* ----------------------------------------- */
-const Featured = ({ blog }) => (
+const Card = ({ blog, delay }) => (
   <motion.div
-    initial={{ scale: 0.95, opacity: 0 }}
-    animate={{ scale: 1, opacity: 1 }}
-    transition={{ duration: 0.7 }}
-    className=" mx-auto mb-12"
+    initial={{ opacity: 0, y: 24 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.45, delay }}
+    viewport={{ once: true }}
+    className="w-full"
   >
     <Link
       href={`/blog/${blog.slug}`}
-      className="block rounded-2xl overflow-hidden relative group shadow-lg hover:shadow-2xl transition-all"
+      className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full"
     >
-      <div className="relative w-full h-[330px] md:h-[460px] rounded-2xl overflow-hidden">
+      {/* IMAGE */}
+      <div className="relative w-full aspect-video bg-[#faf7f8] overflow-hidden">
         <Image
           src={blog.image}
-          fill
           alt={blog.title}
-          className="object-contain group-hover:scale-105 transition duration-700"
-        />
-      </div>
-
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-7">
-        <h2 className="text-white text-2xl md:text-4xl font-semibold leading-tight group-hover:underline">
-          {blog.title}
-        </h2>
-      </div>
-    </Link>
-  </motion.div>
-);
-
-/* ----------------------------------------- */
-/* CARD COMPONENT                            */
-/* ----------------------------------------- */
-const Card = ({ b, delay }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 40 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.55, delay }}
-    viewport={{ once: true }}
-  >
-    <Link
-      href={`/blog/${b.slug}`}
-      className="block bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300"
-    >
-      <div className="relative w-full h-[220px] rounded-xl overflow-hidden">
-        <Image
-          src={b.image}
-          alt={b.title}
           fill
-          className="object-contain transition-transform duration-500 hover:scale-110"
+          sizes="(max-width: 640px) 100vw,
+                 (max-width: 1024px) 50vw,
+                 (max-width: 1536px) 33vw,
+                 25vw"
+          className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.03]"
         />
       </div>
 
-      <div className="p-4">
-        <h2 className="font-semibold text-[#2b0004] text-[15px] leading-snug group-hover:text-[#800020]">
-          {b.title}
-        </h2>
-        <p className="text-xs text-gray-500 mt-1">{b.date}</p>
+      {/* CONTENT */}
+      <div className="flex flex-col gap-2 p-5 flex-1">
+        <h3 className="font-semibold text-[#2b0004] text-[15px] md:text-[16px] leading-snug line-clamp-2 group-hover:text-[#800020]">
+          {blog.title}
+        </h3>
 
-        <div className="flex gap-1 mt-3 flex-wrap">
-          {b.tags?.map((t) => (
-            <span
-              key={t}
-              className="text-[10px] px-2 py-0.5 rounded-full bg-[#f7e9ec] text-[#800020]"
-            >
-              #{t}
-            </span>
-          ))}
-        </div>
+        {blog.date && (
+          <p className="text-xs text-gray-500">
+            {formatDate(blog.date)}
+          </p>
+        )}
+
+        <p className="text-xs md:text-sm text-gray-600 line-clamp-2">
+          {blog.excerpt}
+        </p>
+
+        {blog.tags?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-auto pt-3">
+            {blog.tags.slice(0, 3).map((t) => (
+              <span
+                key={t}
+                className="text-[10px] px-2 py-0.5 rounded-full bg-[#f7e9ec] text-[#800020]"
+              >
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </Link>
   </motion.div>
 );
 
 /* ----------------------------------------- */
-/* SORT BUTTON COMPONENT                     */
-/* ----------------------------------------- */
-const SortBtn = ({ txt, val, ico, sort, set }) => (
-  <motion.button
-    whileTap={{ scale: 0.88 }}
-    onClick={() => set(val)}
-    className={`px-3 py-1.5 text-xs rounded-full flex items-center gap-1 transition 
-      ${
-        sort === val
-          ? "bg-[#800020] text-white shadow"
-          : "bg-[#f6e8eb] text-[#800020] hover:bg-[#efd9dd]"
-      }`}
-
-  >
-    {ico} {txt}
-  </motion.button>
-);
-
-/* ----------------------------------------- */
-/* MAIN PAGE COMPONENT                        */
+/* MAIN BLOG PAGE                            */
 /* ----------------------------------------- */
 export default function BlogPage() {
-
-  /* ---- FIX: Use stable Zustand selector ---- */
   const blogs = useBlogStore((s) => s.blogs);
+  const loading = useBlogStore((s) => s.loading);
+  const error = useBlogStore((s) => s.error);
+  const fetchBlogs = useBlogStore((s) => s.fetchBlogs);
 
-  /* ---- Build preview data (stable, no hook shifts) ---- */
-  const preview = blogs.map((b) => ({
-    title: b.title,
-    excerpt: b.excerpt,
-    image: b.image,
-    slug: b.slug,
-    date: b.date,
-    tags: b.tags,
-    category: b.category,
-  }));
+  const [visible, setVisible] = useState(12);
 
-  const [search, setSearch] = useState("");
-  const [cat, setCat] = useState("All");
-  const [sort, setSort] = useState("newest");
-  const [tags, setTags] = useState([]);
-  const [visible, setVisible] = useState(6);
+  /* 🔥 Fetch blogs once */
+  useEffect(() => {
+    if (!blogs || blogs.length === 0) {
+      fetchBlogs({ page: 1, limit: 60 });
+    }
+  }, [blogs?.length, fetchBlogs]);
 
-  const allTags = [...new Set(preview.flatMap((b) => b.tags || []))];
-
-  const filtered = preview
-    .filter((b) => (cat === "All" ? true : b.category === cat))
-    .filter((b) => b.title.toLowerCase().includes(search.toLowerCase()))
-    .filter((b) => tags.every((t) => b.tags.includes(t)))
-    .sort((a, b) =>
-      sort === "newest"
-        ? new Date(b.date) - new Date(a.date)
-        : sort === "oldest"
-        ? new Date(a.date) - new Date(b.date)
-        : sort === "asc"
-        ? a.title.localeCompare(b.title)
-        : b.title.localeCompare(a.title)
-    )
-    .slice(0, visible);
+  /* ---- Sorted blogs (newest first) ---- */
+  const sortedBlogs = useMemo(() => {
+    return [...blogs]
+      .filter((b) => b.isPublished)
+      .sort((a, b) => {
+        const da = new Date(a.date || a.createdAt);
+        const db = new Date(b.date || b.createdAt);
+        return db - da;
+      });
+  }, [blogs]);
 
   /* ---- Infinite Scroll ---- */
   useEffect(() => {
     const onScroll = () => {
-      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200)
-        setVisible((v) => v + 4);
+      if (
+        window.innerHeight + window.scrollY >=
+        document.body.offsetHeight - 300
+      ) {
+        setVisible((v) => v + 8);
+      }
     };
+
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <section className="px-5 md:px-10 py-10 bg-white min-h-screen">
+    <section className="w-full px-4 sm:px-6 md:px-10 lg:px-14 xl:px-20 py-16 bg-white min-h-screen">
+      {/* PAGE HEADING */}
+      <div className="w-full text-center mb-16">
+        <h1 className="text-3xl md:text-5xl font-bold text-[#2b0004] tracking-tight">
+          The Miray Journal
+        </h1>
 
-      {/* Featured Blog */}
-      {preview.length > 0 && <Featured blog={preview[0]} />}
+        <p className="text-gray-600 mt-3 text-sm md:text-base max-w-[720px] mx-auto">
+          Western fashion, Gen-Z aesthetics & modern styling stories curated for you.
+        </p>
 
-      {/* GRID */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-7 mt-10  mx-auto">
-        {filtered.map((b, i) => (
-          <Card key={b.slug} b={b} delay={i * 0.07} />
+        <div className="h-[2px] w-20 bg-[#800020] mx-auto mt-6 rounded-full" />
+      </div>
+
+      {/* LOADING */}
+      {loading && blogs.length === 0 && (
+        <div className="text-center py-24 text-gray-500">
+          Loading blogs…
+        </div>
+      )}
+
+      {/* ERROR */}
+      {error && (
+        <div className="text-center py-24 text-red-600">
+          Failed to load blogs.
+        </div>
+      )}
+
+      {/* BLOG GRID — FULL WIDTH */}
+      <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8">
+        {sortedBlogs.slice(0, visible).map((blog, i) => (
+          <Card key={blog.slug} blog={blog} delay={i * 0.04} />
         ))}
       </div>
 
       {/* LOAD MORE */}
-      {visible < preview.length && (
-        <div className="text-center mt-10 text-gray-400 text-sm animate-pulse">
+      {visible < sortedBlogs.length && (
+        <div className="text-center mt-16 text-gray-400 text-sm animate-pulse">
           Loading more…
         </div>
       )}

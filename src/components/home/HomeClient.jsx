@@ -14,7 +14,7 @@ import InfoStrip from "@/components/home/InfoStrip";
 import Newsletter from "@/components/home/Newsletter";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
 import TrendingSection from "@/components/home/TrendingSection";
-
+import BestSellerSection from "@/components/home/BestSellerSection"
 // ⭐ IMPORT YOUR NEW HOT CATEGORIES SECTION
 import HotCategories from "@/components/home/HotCategories";
 
@@ -56,8 +56,10 @@ export default function HomeClient() {
            {/* ✅ WINTER FEATURE SECTION (banner left + 2-row horizontal products, mobile stacked) */}
         <div className=""><WinterFeatureSection /></div>
 
+        <BestSellerSection />
+
         {/* VIDEOS */}
-        {/* <VideoRow /> */}
+        <VideoRow />
 
         {/* BLOGS */}
         <BlogSection />

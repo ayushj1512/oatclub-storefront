@@ -81,33 +81,18 @@ const [priceMax, setPriceMax] = useState(null);
     setPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  useEffect(() => {
-    if (!category) return;
 
-    clearError?.();
-  
-
-    // reset UI filters for new category
-    setDrawerOpen(false);
-    setOnlyInStock(true);
-    setSelectedTags(new Set());
-    setSort("newest");
-   
-
-    
-
-    const key = `cat=${category}|sort=newest|active=1|PAGE_SIZE`;
-    if (lastFetchRef.current === key) return;
-    lastFetchRef.current = key;
-
-    fetchProducts({ category, isActive: true, page: 1, limit: PAGE_SIZE, sort: "newest" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category]);
 
   useEffect(() => {
   if (!category) return;
 
-  lastFetchRef.current = "";
+  clearError?.();
+
+  // reset UI filters on category change
+  setDrawerOpen(false);
+  setOnlyInStock(true);
+  setSelectedTags(new Set());
+
   fetchProducts({
     category,
     isActive: true,
@@ -115,7 +100,8 @@ const [priceMax, setPriceMax] = useState(null);
     limit: PAGE_SIZE,
     sort,
   });
-}, [sort, category]);
+}, [category, sort]);
+
 
 
 const list = useMemo(() => {

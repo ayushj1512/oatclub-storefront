@@ -268,7 +268,7 @@ export default function ReelViewer({
 
         {/* PRODUCT CARD */}
         <Link
-          href={`/products/${reel.product.slug}/${reel.product.id}`}
+          href={`/category/products/${reel.product.slug}/${reel.product.id}`}
           className="absolute bottom-4 left-4 right-4 bg-white rounded-xl shadow-lg p-3 flex flex-col gap-2 z-50"
         >
           <div className="flex items-center gap-3">
