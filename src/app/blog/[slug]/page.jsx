@@ -45,6 +45,39 @@ const recommendedProducts = [
   },
 ];
 
+/* -------------------------------------------------------
+   BLOG CONTENT SANITIZER
+------------------------------------------------------- */
+function extractCleanBlogContent(raw = "") {
+  if (!raw || typeof raw !== "string") return "";
+
+  // Prefer content after "Content (Markdown)"
+  const marker = "Content (Markdown)";
+  let content = raw.includes(marker)
+    ? raw.split(marker)[1]
+    : raw;
+
+  return content
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/* Optional: split into paragraphs */
+function splitParagraphs(content) {
+  return content
+    .split("\n\n")
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+const shareUrl =
+  typeof window !== "undefined"
+    ? window.location.href
+    : "";
+
+
+
 export default function BlogDetailPage(props) {
   const { slug } = use(props.params);
 
@@ -58,6 +91,7 @@ export default function BlogDetailPage(props) {
     clearCurrentBlog,
   } = useBlogStore();
 
+  
   // 🔥 Fetch blog + ensure list exists (for related blogs)
   useEffect(() => {
     fetchSingleBlog(slug);
@@ -71,6 +105,8 @@ export default function BlogDetailPage(props) {
       clearCurrentBlog();
     };
   }, [slug, fetchSingleBlog, fetchBlogs, clearCurrentBlog]);
+
+  
 
   /* ---------------- LOADING ---------------- */
   if (loading && !currentBlog) {
@@ -101,85 +137,162 @@ export default function BlogDetailPage(props) {
 
   const blog = currentBlog;
 
+  const cleanContent = extractCleanBlogContent(blog.content);
+const paragraphs = splitParagraphs(cleanContent);
+
+const shareText = blog?.title || "Check out this article";
+
+const handleNativeShare = async () => {
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: blog.title,
+        text: blog.excerpt,
+        url: shareUrl,
+      });
+    } catch (err) {
+      console.log("Share cancelled");
+    }
+  }
+};
+
+
   return (
-    <div className="w-full bg-white py-10 px-5 md:px-10 lg:px-24 max-w-[1100px] mx-auto">
-      {/* HEADER */}
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="flex flex-col gap-6"
+  <div className="w-full bg-white py-12 px-5 md:px-10 lg:px-24 max-w-[1100px] mx-auto">
+    {/* ================= HEADER ================= */}
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="flex flex-col gap-6"
+    >
+      {/* Back */}
+      <Link
+        href="/blog"
+        className="text-[#800020] text-sm font-medium hover:underline flex items-center gap-1 w-fit"
       >
-        <Link
-          href="/blog"
-          className="text-[#800020] text-sm font-medium hover:underline flex items-center gap-1"
-        >
-          <ArrowLeft size={14} /> Back to Blog
-        </Link>
+        <ArrowLeft size={14} /> Back to Blog
+      </Link>
 
-        <h1 className="text-3xl md:text-5xl font-bold text-[#2b0004] leading-tight">
-          {blog.title}
-        </h1>
+      {/* Title */}
+      <h1 className="text-3xl md:text-5xl font-bold text-[#2b0004] leading-[1.15] tracking-tight">
+        {blog.title}
+      </h1>
 
-        <p className="text-gray-600 text-base md:text-lg max-w-[700px]">
-          {blog.excerpt}
+      {/* Excerpt */}
+      <p className="text-gray-600 text-base md:text-lg max-w-[720px] leading-relaxed">
+        {blog.excerpt}
+      </p>
+
+      {/* Hero Image */}
+      <div className="relative w-full max-w-[860px] mx-auto aspect-video rounded-3xl overflow-hidden shadow-xl">
+        <Image
+          src={blog.image}
+          alt={blog.title}
+          fill
+          className="object-contain "
+          priority
+        />
+      </div>
+
+      {/* Tags */}
+      {blog.tags?.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {blog.tags.map((tag, i) => (
+            <span
+              key={i}
+              className="text-xs bg-[#f7e9ec] text-[#800020] px-3 py-1 rounded-full flex items-center gap-1 border border-[#f1d5db]"
+            >
+              <Tag size={12} /> {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </motion.div>
+
+    {/* ================= CONTENT ================= */}
+    <div className="mt-14 max-w-[820px] mx-auto space-y-7 text-[#3d0f16] leading-[1.85] text-[16px] md:text-[17px]">
+      {paragraphs.length > 0 ? (
+        paragraphs.map((p, i) => (
+          <p key={i}>{p}</p>
+        ))
+      ) : (
+        <p className="italic text-gray-500">
+          Full content coming soon…
         </p>
+      )}
+    </div>
 
-        {/* HERO IMAGE */}
-        <div className="relative w-full max-w-[820px] mx-auto aspect-video rounded-2xl overflow-hidden shadow-lg">
-          <Image
-            src={blog.image}
-            alt={blog.title}
-            fill
-            className="object-cover"
-            priority
-          />
-        </div>
+    {/* ================= SHARE ================= */}
+<div className="mt-14 max-w-[820px] mx-auto pt-8 border-t border-black/5">
+  <h3 className="text-sm text-gray-600 mb-4 flex items-center gap-2">
+    <Share2 size={16} /> Share this article
+  </h3>
 
-        {/* TAGS */}
-        {blog.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            {blog.tags.map((tag, i) => (
-              <span
-                key={i}
-                className="text-xs bg-[#f7e9ec] text-[#800020] px-3 py-1 rounded-full flex items-center gap-1"
-              >
-                <Tag size={12} /> #{tag}
-              </span>
-            ))}
-          </div>
-        )}
-      </motion.div>
+  <div className="flex gap-4 flex-wrap">
+    {/* WhatsApp */}
+    <a
+      href={`https://wa.me/?text=${encodeURIComponent(
+        `${shareText} — ${shareUrl}`
+      )}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600 hover:scale-110 transition"
+      aria-label="Share on WhatsApp"
+    >
+      <MessageCircle size={18} />
+    </a>
 
-      {/* CONTENT */}
-      <div className="mt-10 text-[#3d0f16] leading-relaxed whitespace-pre-line text-[16px] md:text-[17px] max-w-[820px] mx-auto">
-        {blog.content || "Full content coming soon..."}
-      </div>
+    {/* Facebook */}
+    <a
+      href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+        shareUrl
+      )}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#3b5998] hover:scale-110 transition"
+      aria-label="Share on Facebook"
+    >
+      <Facebook size={18} />
+    </a>
 
-      {/* SHARE */}
-      <div className="mt-10 max-w-[820px] mx-auto">
-        <h3 className="text-sm text-gray-600 mb-2 flex items-center gap-2">
-          <Share2 size={16} /> Share this article
-        </h3>
+    {/* Twitter / X */}
+    <a
+      href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+        shareText
+      )}&url=${encodeURIComponent(shareUrl)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="w-10 h-10 rounded-full bg-sky-50 flex items-center justify-center text-[#1DA1F2] hover:scale-110 transition"
+      aria-label="Share on Twitter"
+    >
+      <Twitter size={18} />
+    </a>
 
-        <div className="flex gap-4">
-          <Link href="#" className="text-[#3b5998] hover:scale-110 transition">
-            <Facebook size={22} />
-          </Link>
-          <Link href="#" className="text-[#1DA1F2] hover:scale-110 transition">
-            <Twitter size={22} />
-          </Link>
-          <Link href="#" className="text-green-600 hover:scale-110 transition">
-            <MessageCircle size={22} />
-          </Link>
-        </div>
-      </div>
+    {/* Native Share (Mobile) */}
+    {"navigator" in globalThis && (
+      <button
+        onClick={handleNativeShare}
+        className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 hover:scale-110 transition"
+        aria-label="More share options"
+      >
+        <Share2 size={18} />
+      </button>
+    )}
+  </div>
+</div>
 
-      {/* 🛍 RECOMMENDED PRODUCTS */}
+
+    {/* ================= RECOMMENDED PRODUCTS ================= */}
+    <div className="mt-20">
       <RecommendedProducts products={recommendedProducts} />
+    </div>
 
-      {/* 📰 RELATED BLOGS — NOW WORKS */}
+    {/* ================= RELATED BLOGS ================= */}
+    <div className="mt-20">
       <RelatedBlogs blogs={blogs} currentSlug={slug} />
     </div>
-  );
+  </div>
+);
+
 }

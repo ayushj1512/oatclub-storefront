@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useAnalyticsStore } from "@/store/analyticsStore";
 
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -72,7 +73,7 @@ createOrder: async ({
   coupon = null,
   shippingFee = 0,
   tax = 0,
-  paymentMethod = "cod", // ✅ IMPORTANT
+  paymentMethod = "cod",
   source = "website",
   isGiftOrder = false,
   customerMessage = "",
@@ -82,14 +83,17 @@ createOrder: async ({
 
   try {
     if (!customerId) throw new Error("customerId is required");
-    if (!shippingAddressSnapshot) throw new Error("shippingAddressSnapshot is required");
+    if (!shippingAddressSnapshot)
+      throw new Error("shippingAddressSnapshot is required");
     if (!items?.length) throw new Error("Order items missing");
 
     if (!["cod", "razorpay"].includes(paymentMethod)) {
       throw new Error("Invalid payment method");
     }
 
-    // normalize items
+    /* -------------------------------
+       Normalize items
+    -------------------------------- */
     const normalizedItems = items.map((it) => {
       const productId = it?.productId || it?.id;
       const quantity = Number(it?.quantity ?? it?.qty ?? 0);
@@ -110,7 +114,8 @@ createOrder: async ({
     const payload = {
       customerId,
       shippingAddressSnapshot,
-      billingAddressSnapshot: billingAddressSnapshot || shippingAddressSnapshot,
+      billingAddressSnapshot:
+        billingAddressSnapshot || shippingAddressSnapshot,
       items: normalizedItems,
 
       discount,
@@ -119,16 +124,32 @@ createOrder: async ({
       tax,
       currency,
 
-      paymentMethod, // 🔥 FIX HERE
+      paymentMethod,
       source,
       isGiftOrder,
       customerMessage,
     };
 
+    /* -------------------------------
+       Create order (SERVER)
+    -------------------------------- */
     const data = await api("/api/orders", {
       method: "POST",
       body: JSON.stringify(payload),
     });
+
+    /* -------------------------------
+       📊 ANALYTICS: PURCHASE (SUCCESS)
+    -------------------------------- */
+    try {
+      const analytics = useAnalyticsStore.getState();
+
+      normalizedItems.forEach((item) => {
+        analytics.trackPurchase(item.productId);
+      });
+    } catch (e) {
+      console.warn("📊 Analytics purchase tracking failed", e);
+    }
 
     set({ lastCreatedOrder: data.order, placing: false });
     return data.order;
@@ -137,6 +158,7 @@ createOrder: async ({
     throw e;
   }
 },
+
 
 
   /**

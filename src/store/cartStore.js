@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import Cookies from "js-cookie";
 import { notify } from "@/lib/notify";
+import { useAnalyticsStore } from "@/store/analyticsStore";
 
 const KEY = "cart_products";
 
@@ -161,36 +162,56 @@ export const useCartStore = create((set, get) => ({
      addToCart({ product, qty: 1, variantId, selectedSize })
   */
   addToCart: ({ product, qty = 1, variantId = null, selectedSize = null }) => {
-    const built = buildCartItem({ product, qty, variantId, selectedSize });
+  const built = buildCartItem({ product, qty, variantId, selectedSize });
 
-    if (!built) return;
-    if (built.__error === "variant_required") {
-      notify?.error?.("Please select a size first");
-      return;
+  if (!built) return;
+  if (built.__error === "variant_required") {
+    notify?.error?.("Please select a size first");
+    return;
+  }
+
+  const key = built.__key;
+  const curr = get().items || [];
+
+  const exists = curr.find((p) => (p.__key || cartKey(p)) === key);
+
+  const updated = exists
+    ? curr.map((p) => {
+        const pk = p.__key || cartKey(p);
+        if (pk !== key) return p;
+        const nextQty = Math.max(
+          1,
+          toNum(p.quantity || 1) + toNum(built.quantity || 1)
+        );
+        return { ...p, ...built, quantity: nextQty, __key: pk };
+      })
+    : [{ ...built }, ...curr];
+
+  set({ items: updated });
+  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+  const newQty =
+    updated.find((p) => (p.__key || cartKey(p)) === key)?.quantity ||
+    built.quantity;
+
+  if (exists) {
+    notify.cartQtyUpdated?.(built, newQty);
+  } else {
+    notify.cartAdded?.(built);
+
+    /* ---------------------------------------
+       📊 ANALYTICS: CART ADD (ONLY ON NEW ADD)
+    ---------------------------------------- */
+    try {
+      useAnalyticsStore
+        .getState()
+        .trackAddToCart(product?._id);
+    } catch (e) {
+      console.warn("📊 Analytics cart_add failed", e);
     }
+  }
+},
 
-    const key = built.__key;
-    const curr = get().items || [];
-
-    const exists = curr.find((p) => (p.__key || cartKey(p)) === key);
-
-    const updated = exists
-      ? curr.map((p) => {
-          const pk = p.__key || cartKey(p);
-          if (pk !== key) return p;
-          const nextQty = Math.max(1, toNum(p.quantity || 1) + toNum(built.quantity || 1));
-          return { ...p, ...built, quantity: nextQty, __key: pk };
-        })
-      : [{ ...built }, ...curr];
-
-    set({ items: updated });
-    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-
-    const newQty = updated.find((p) => (p.__key || cartKey(p)) === key)?.quantity || built.quantity;
-
-    if (exists) notify.cartQtyUpdated?.(built, newQty);
-    else notify.cartAdded?.(built);
-  },
 
   /* ---------------- REMOVE ---------------- */
   removeFromCart: (idOrKey, variantId = null) => {

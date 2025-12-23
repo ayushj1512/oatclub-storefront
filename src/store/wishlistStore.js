@@ -4,6 +4,7 @@ import { create } from "zustand";
 import Cookies from "js-cookie";
 import { useAuthStore } from "./authStore";
 import { notify } from "@/lib/notify";
+import { useAnalyticsStore } from "@/store/analyticsStore";
 
 const COOKIE_KEY = "wishlist_cache";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -231,6 +232,17 @@ addToWishlist: async (product) => {
 
   notify.wishlistAdded(optimisticItem);
 
+  /* ---------------------------------------
+     📊 ANALYTICS: WISHLIST ADD (ONCE)
+  ---------------------------------------- */
+  try {
+    useAnalyticsStore
+      .getState()
+      .trackWishlistAdd(pid);
+  } catch (e) {
+    console.warn("📊 Analytics wishlist_add failed", e);
+  }
+
   try {
     if (!BACKEND) throw new Error("Missing NEXT_PUBLIC_BACKEND_URL");
 
@@ -267,6 +279,7 @@ addToWishlist: async (product) => {
     notify.error("Failed to add to wishlist");
   }
 },
+
 
 
   /* ----------------------------------------------------
