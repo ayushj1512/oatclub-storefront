@@ -5,12 +5,12 @@ import { generateSEO } from "@/utils/seoConfig";
 
 import LazySection from "@/components/common/LazySection";
 
-// ⭐ SAFE ABOVE-THE-FOLD IMPORTS
+// ⭐ ABOVE THE FOLD (DO NOT LAZY)
 import HeroSection from "@/components/home/HeroSection";
 import CategoryRow from "@/components/home/CategoryRow";
 import StyleByOccasion from "@/components/home/StyleByOccasion";
 
-// ⭐ HEAVY / BELOW-THE-FOLD
+// ⭐ BELOW THE FOLD (LAZY LOAD)
 import TrendingSection from "@/components/home/TrendingSection";
 import WinterFeatureSection from "@/components/home/WinterFeatureSection";
 import BestSellerSection from "@/components/home/BestSellerSection";
@@ -41,7 +41,7 @@ export default function HomeClient() {
       )}
 
       <main className="flex flex-col w-full overflow-x-hidden bg-white text-gray-900">
-        {/* ABOVE THE FOLD — LOAD IMMEDIATELY */}
+        {/* 🔥 ABOVE THE FOLD — LOAD IMMEDIATELY */}
         <div className="pt-4">
           <CategoryRow />
         </div>
@@ -49,36 +49,37 @@ export default function HomeClient() {
         <HeroSection />
         <StyleByOccasion />
 
-        {/* BELOW THE FOLD — LAZY LOAD */}
-        <LazySection>
+        {/* ⬇️ BELOW THE FOLD — MOBILE SAFE LAZY LOAD */}
+
+        <LazySection minHeight={600}>
           <TrendingSection />
         </LazySection>
 
-        <LazySection>
+        <LazySection minHeight={550}>
           <WinterFeatureSection />
         </LazySection>
 
-        <LazySection>
+        <LazySection minHeight={700}>
           <BestSellerSection />
         </LazySection>
 
-        <LazySection>
+        <LazySection minHeight={500}>
           <VideoRow />
         </LazySection>
 
-        <LazySection>
+        <LazySection minHeight={600}>
           <BlogSection />
         </LazySection>
 
-        <LazySection>
+        <LazySection minHeight={350}>
           <RecentlyViewed />
         </LazySection>
 
-        <LazySection>
+        <LazySection minHeight={220}>
           <InfoStrip />
         </LazySection>
 
-        <LazySection>
+        <LazySection minHeight={320}>
           <Newsletter />
         </LazySection>
       </main>
