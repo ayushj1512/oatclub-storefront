@@ -16,7 +16,7 @@ import {
   Mail,
 } from "lucide-react";
 
-const BRAND = "#800020";
+const BRAND = "#16a34a"; // emerald green (success)
 const API =
   process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
 

@@ -1,105 +1,90 @@
-"use client";
+// src/app/layout.tsx
+import type { Metadata } from "next";
+import { Poppins, Bebas_Neue } from "next/font/google";
+import LayoutClient from "./layout.client";
 
-import "./globals.css";
-import { Poppins } from "next/font/google";
-import { Toaster } from "sonner";
-import { useEffect, useCallback } from "react";
+/* ------------------------------
+   Fonts (Self-hosted, premium)
+------------------------------ */
 
-import TopbarHeadline from "@/components/layout/TopbarHeadline";
-import DesktopHeader from "@/components/layout/DesktopHeader";
-import MobileHeader from "@/components/layout/MobileHeader";
-import Footer from "@/components/layout/Footer";
-import ScrollToTop from "@/components/layout/ScrollToTop";
-import ClientProviders from "@/components/layout/ClientProviders";
-
-import SignupModal from "@/components/auth/SignupModal";
-import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
-
-import { useAuthStore } from "@/store/authStore";
-
-// ✅ Tracking
-import GoogleTagManager from "@/components/tracking/GoogleTagManager";
-import MetaPixel from "@/components/tracking/MetaPixel";
-
-// Google Font
 const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-poppins",
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-sans",
+  display: "swap",
 });
 
-// ------------------------------
-// 🔥 Initialize Auth Store
-// ------------------------------
-function AuthInit() {
-  const initialize = useAuthStore((state) => state.initialize);
+const bebas = Bebas_Neue({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-bebas",
+  display: "swap",
+});
 
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
+/* ------------------------------
+   SEO Metadata
+------------------------------ */
 
-  return null;
-}
+export const metadata: Metadata = {
+  metadataBase: new URL("https://mirayfashions.com"),
 
-// ------------------------------
-// 🌐 ROOT LAYOUT TYPES
-// ------------------------------
-type RootLayoutProps = {
-  children: React.ReactNode;
+  title: {
+    default: "Miray Fashions | Premium Women’s Fashion Online",
+    template: "%s | Miray Fashions",
+  },
+
+  description:
+    "Shop premium women’s fashion at Miray Fashions. Discover kurtis, western wear, trendy outfits, and Gen-Z styles with fast delivery across India.",
+
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+
+  openGraph: {
+    type: "website",
+    siteName: "Miray Fashions",
+    locale: "en_IN",
+    url: "https://mirayfashions.com",
+    images: [
+      {
+        url: "https://mirayfashions.com/og-default.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Miray Fashions – Premium Women’s Fashion",
+      },
+    ],
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "Miray Fashions | Premium Women’s Fashion Online",
+    description:
+      "Discover premium women’s fashion and Gen-Z styles at Miray Fashions.",
+    images: ["https://mirayfashions.com/og-default.jpg"],
+  },
 };
 
-// ------------------------------
-// 🌐 ROOT LAYOUT
-// ------------------------------
-export default function RootLayout({ children }: RootLayoutProps) {
-  const closeAll = useCallback(() => {}, []);
+/* ------------------------------
+   Root Layout
+------------------------------ */
 
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" className={poppins.variable}>
-      <body className="font-sans antialiased bg-white text-gray-900 pb-20 md:pb-0">
-
-        {/* ================= TRACKING ================= */}
-        <GoogleTagManager gtmId="GTM-5CTM95TR" />
-        {/* <MetaPixel pixelId="1216855983666436" /> */}
-
-        {/* ================= TOP BAR ================= */}
-        <TopbarHeadline />
-
-        {/* ================= HEADER ================= */}
-        <div className="hidden md:block">
-          <DesktopHeader />
-        </div>
-
-        <div className="md:hidden">
-          <MobileHeader />
-        </div>
-
-        {/* ================= MAIN ================= */}
-        <main className="flex flex-col min-h-screen bg-white">
-          {children}
-        </main>
-
-        {/* ================= FOOTER ================= */}
-        <Footer />
-
-        {/* ================= PROVIDERS ================= */}
-        <ClientProviders>
-          <AuthInit />
-          <ScrollToTop />
-        </ClientProviders>
-
-        {/* ================= MODALS ================= */}
-        <SignupModal closeAll={closeAll} />
-        <LogoutConfirmModal />
-
-        {/* ================= TOASTER ================= */}
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-          expand
-          duration={2000}
-        />
+    <html
+      lang="en"
+      className={`${poppins.variable} ${bebas.variable}`}
+    >
+      <body>
+        <LayoutClient>{children}</LayoutClient>
       </body>
     </html>
   );

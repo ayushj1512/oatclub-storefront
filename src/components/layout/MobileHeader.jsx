@@ -101,100 +101,108 @@ export default function MobileHeader() {
   const headerTop = isSticky ? `calc(${topbarH} + ${safeTop})` : "0px";
 
   return (
-    <>
-      {/* ================= MOBILE HEADER ================= */}
-      <header
-        id="mobile-header"
-        className={[
-          "md:hidden w-full bg-white shadow-md border-b border-gray-300",
-          "z-[9999]",
-          isSticky ? "fixed left-0 right-0" : "relative",
-        ].join(" ")}
-        style={{ top: headerTop }}
-      >
-        {/* TOP ROW */}
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
+  <>
+    {/* ================= MOBILE HEADER ================= */}
+    <header
+      id="mobile-header"
+      className={[
+        "md:hidden w-full bg-white",
+        "border-b border-black/10",
+        "z-[9999]",
+        isSticky ? "fixed left-0 right-0" : "relative",
+      ].join(" ")}
+      style={{ top: headerTop }}
+    >
+      {/* ================= TOP ROW ================= */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+
+        {/* Menu */}
+        <button
+          onClick={openMenu}
+          aria-label="Open menu"
+          className="shrink-0 text-black transition hover:opacity-70"
+        >
+          <Menu size={26} />
+        </button>
+
+        {/* Logo */}
+        <Link
+          href="/"
+          aria-label="Go to homepage"
+          className="flex-1 flex items-center justify-center select-none"
+        >
+          <div className="relative h-8 w-full max-w-[160px]">
+            <Image
+              src={LOGO_URL}
+              alt="Miray"
+              fill
+              priority
+              className="object-contain"
+              sizes="(max-width: 768px) 60vw, 240px"
+            />
+          </div>
+        </Link>
+
+        {/* Actions */}
+        <div className="shrink-0 flex items-center gap-4">
           <button
-            onClick={openMenu}
-            aria-label="Open menu"
-            className="shrink-0 text-black hover:text-[#800020] transition"
+            onClick={() => setShowSearch((s) => !s)}
+            aria-label="Search"
+            className="text-black transition hover:opacity-70"
           >
-            <Menu size={26} />
+            <Search size={22} />
+          </button>
+
+          <WishlistButton size={22} />
+
+          <button
+            type="button"
+            aria-label="Cart"
+            onClick={() => router.push("/cart")}
+            className="text-black transition hover:opacity-70"
+          >
+            <ShoppingBag size={22} />
           </button>
 
           <Link
-            href="/"
-            aria-label="Go to homepage"
-            className="flex-1 flex items-center justify-center select-none"
+            href="/profile"
+            aria-label="Profile"
+            className="text-black transition hover:opacity-70"
           >
-            <div className="relative h-8 w-full">
-              <Image
-                src={LOGO_URL}
-                alt="Miray"
-                fill
-                priority
-                className="object-contain"
-                sizes="(max-width: 768px) 60vw, 240px"
-              />
-            </div>
+            <User size={22} />
           </Link>
-
-          <div className="shrink-0 flex items-center gap-4">
-            <button
-              onClick={() => setShowSearch((s) => !s)}
-              aria-label="Toggle search"
-              className="text-black hover:text-[#800020] transition"
-            >
-              <Search size={22} />
-            </button>
-
-            <WishlistButton size={22} />
-
-            <button
-              type="button"
-              aria-label="Cart"
-              onClick={() => router.push("/cart")}
-              className="text-black hover:text-[#800020] transition"
-            >
-              <ShoppingBag size={22} />
-            </button>
-
-            <Link
-              href="/profile"
-              aria-label="Profile"
-              className="text-black hover:text-[#800020] transition"
-            >
-              <User size={22} />
-            </Link>
-          </div>
         </div>
+      </div>
 
-        {/* SEARCH BAR */}
-        <AnimatePresence>
-          {showSearch && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white border-t border-gray-300 px-4 py-2 shadow-inner"
-            >
-              <input
-                type="text"
-                autoFocus
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                onKeyDown={handleSearchKey}
-                placeholder="Search products..."
-                className="w-full border border-gray-300 rounded-full px-4 py-2 text-sm placeholder-gray-500 text-black focus:outline-none focus:ring-2 focus:ring-[#800020]"
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </header>
+      {/* ================= SEARCH BAR ================= */}
+      <AnimatePresence>
+        {showSearch && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="border-t border-black/10 bg-white px-4 py-2"
+          >
+            <input
+              type="text"
+              autoFocus
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onKeyDown={handleSearchKey}
+              placeholder="Search products"
+              className="w-full rounded-full border border-black/15 px-4 py-2 text-sm
+                         text-black placeholder-black/40
+                         outline-none focus:border-black"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
 
-      {/* ================= SIDEBAR DRAWER ================= */}
-      <MobileSidebarDrawer open={menuOpen} onClose={closeMenu} />
-    </>
-  );
+    {/* ================= SIDEBAR DRAWER ================= */}
+    <MobileSidebarDrawer open={menuOpen} onClose={closeMenu} />
+  </>
+);
+
 }

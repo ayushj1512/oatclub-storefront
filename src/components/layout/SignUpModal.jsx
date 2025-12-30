@@ -127,150 +127,160 @@ export default function SignupModal({ closeAll }) {
     "color:#1e88e5; font-weight:bold"
   );
 
-  return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[99999] flex justify-center items-center px-4 animate-fadeIn">
-      <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 relative animate-fadeIn border border-[#800020]/10">
+ return (
+  <div className="fixed inset-0 z-[99999] flex items-center justify-center px-4
+                  bg-black/50 backdrop-blur-sm animate-fadeIn">
 
-        {/* CLOSE BUTTON */}
-        <button
-          onClick={closeModal}
-          className="absolute top-3 right-3 p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition"
-        >
-          <X size={20} />
-        </button>
+    <div className="relative w-full max-w-sm rounded-2xl bg-white
+                    border border-black/10 p-6 shadow-xl animate-slideUp">
 
-        {/* =================== STEP 1 =================== */}
-        {step === 1 && (
-          <>
-            <h2 className="text-2xl font-extrabold text-center mb-2 text-[#800020]">
-              Welcome to Miray Fashions ✨
-            </h2>
+      {/* ================= CLOSE ================= */}
+      <button
+        onClick={closeModal}
+        className="absolute right-3 top-3 rounded-full p-2
+                   text-black/60 hover:bg-black/5 transition"
+        aria-label="Close"
+      >
+        <X size={18} />
+      </button>
 
-            <p className="text-sm text-gray-600 text-center mb-6 leading-relaxed">
-              We're delighted to have you here ❤️  
-              Your personalised fashion journey starts now.
-            </p>
+      {/* ================= STEP 1 ================= */}
+      {step === 1 && (
+        <>
+          <h2 className="mb-3 text-center text-2xl font-extrabold tracking-tight">
+            Welcome to Miray
+          </h2>
 
-            <button
-              onClick={() => {
-                console.log("[SignupModal] Step 1 → Step 2");
-                setStep(2);
-              }}
-              className="w-full bg-[#800020] text-white py-3 rounded-lg font-semibold hover:bg-[#6a001b] transition"
-            >
-              Login / Sign Up
-            </button>
+          <p className="mb-6 text-center text-sm leading-relaxed text-black/70">
+            Discover curated styles and a smoother shopping experience.
+          </p>
 
-            <p className="text-center text-xs text-gray-500 mt-4">
-              Join the Miray family and enjoy special offers 💕
-            </p>
-          </>
-        )}
+          <button
+            onClick={() => setStep(2)}
+            className="w-full rounded-lg bg-black py-3
+                       text-sm font-semibold text-white
+                       transition hover:opacity-90 active:scale-[0.98]"
+          >
+            Login or Sign Up
+          </button>
 
-        {/* =================== STEP 2 =================== */}
-        {step === 2 && (
-          <>
-            <h2 className="text-xl font-bold text-center mb-2 text-[#800020]">
-              Continue Your Journey 💫
-            </h2>
+          <p className="mt-4 text-center text-xs text-black/50">
+            Join to unlock exclusive updates and offers.
+          </p>
+        </>
+      )}
 
-            <p className="text-xs text-gray-500 text-center mb-6">
-              Choose the way you’d like to come on board.
-            </p>
+      {/* ================= STEP 2 ================= */}
+      {step === 2 && (
+        <>
+          <h2 className="mb-2 text-center text-xl font-extrabold">
+            Continue
+          </h2>
 
-            <GoogleSignInButton />
+          <p className="mb-6 text-center text-xs text-black/50">
+            Choose how you’d like to proceed
+          </p>
 
-            <div className="flex items-center gap-3 my-4">
-              <span className="flex-1 h-[1px] bg-gray-300"></span>
-              <span className="text-xs text-gray-500">OR</span>
-              <span className="flex-1 h-[1px] bg-gray-300"></span>
-            </div>
+          {/* Google */}
+          <GoogleSignInButton />
 
-            <button
-              onClick={() => {
-                console.log("[SignupModal] Step 2 → Step 3");
-                setStep(3);
-              }}
-              className="w-full bg-gray-100 text-gray-800 border border-gray-300 py-3 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
-            >
-              Continue with Email
-            </button>
-          </>
-        )}
+          {/* Divider */}
+          <div className="my-5 flex items-center gap-3">
+            <span className="h-px flex-1 bg-black/10" />
+            <span className="text-[11px] uppercase tracking-widest text-black/40">
+              or
+            </span>
+            <span className="h-px flex-1 bg-black/10" />
+          </div>
 
-        {/* =================== STEP 3 =================== */}
-        {step === 3 && (
-          <>
-            <h2 className="text-xl font-bold text-center mb-2 text-[#800020]">
-              Create Your Account 🌸
-            </h2>
+          {/* Email */}
+          <button
+            onClick={() => setStep(3)}
+            className="w-full rounded-lg border border-black/10 py-3
+                       text-sm font-semibold text-black
+                       hover:bg-black/5 transition"
+          >
+            Continue with Email
+          </button>
+        </>
+      )}
 
-            <p className="text-sm text-gray-600 text-center mb-5 leading-relaxed">
-              Just a few quick details and you're all set.
-            </p>
+      {/* ================= STEP 3 ================= */}
+      {step === 3 && (
+        <>
+          <h2 className="mb-2 text-center text-xl font-extrabold">
+            Create your account
+          </h2>
 
-            {/* EMAIL */}
-            <input
-              type="email"
-              placeholder="Email Address"
-              className="w-full border rounded-lg p-3 mb-3"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+          <p className="mb-5 text-center text-sm text-black/60">
+            Just a few details to get started
+          </p>
 
-            {/* NAME */}
-            <input
-              type="text"
-              placeholder="Full Name"
-              className="w-full border rounded-lg p-3 mb-3"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+          {/* Email */}
+          <input
+            type="email"
+            placeholder="Email address"
+            className="mb-3 w-full rounded-lg border border-black/10 p-3
+                       text-sm outline-none focus:border-black"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
-            {/* PASSWORD */}
-            <input
-              type="password"
-              placeholder="Create Password"
-              className="w-full border rounded-lg p-3 mb-4"
-              value={pass}
-              onChange={(e) => setPass(e.target.value)}
-            />
+          {/* Name */}
+          <input
+            type="text"
+            placeholder="Full name"
+            className="mb-3 w-full rounded-lg border border-black/10 p-3
+                       text-sm outline-none focus:border-black"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
 
-            {/* CREATE ACCOUNT */}
-            <button
-              onClick={async () => {
-                console.log("[SignupModal] Creating account:", {
-                  email,
-                  name,
-                });
-                await registerWithEmail(email, pass, name);
-                setModalDismissed();
-                closeAll();
-              }}
-              className="w-full bg-[#800020] text-white py-3 rounded-lg font-semibold hover:bg-[#6a001b] transition"
-            >
-              Create Account
-            </button>
+          {/* Password */}
+          <input
+            type="password"
+            placeholder="Create password"
+            className="mb-4 w-full rounded-lg border border-black/10 p-3
+                       text-sm outline-none focus:border-black"
+            value={pass}
+            onChange={(e) => setPass(e.target.value)}
+          />
 
-            {/* LOGIN */}
-            <button
-              onClick={async () => {
-                console.log("[SignupModal] Logging in:", { email });
-                await loginWithEmail(email, pass);
-                setModalDismissed();
-                closeAll();
-              }}
-              className="w-full bg-gray-100 text-gray-800 py-3 rounded-lg border mt-3 hover:bg-gray-200 transition"
-            >
-              Already Have an Account? Login
-            </button>
+          {/* Create */}
+          <button
+            onClick={async () => {
+              await registerWithEmail(email, pass, name);
+              setModalDismissed();
+              closeAll();
+            }}
+            className="w-full rounded-lg bg-black py-3
+                       text-sm font-semibold text-white
+                       hover:opacity-90 transition"
+          >
+            Create Account
+          </button>
 
-            <p className="text-center text-xs text-gray-500 mt-4">
-              Your privacy & security are our priority 💝
-            </p>
-          </>
-        )}
-      </div>
+          {/* Login */}
+          <button
+            onClick={async () => {
+              await loginWithEmail(email, pass);
+              setModalDismissed();
+              closeAll();
+            }}
+            className="mt-3 w-full rounded-lg border border-black/10 py-3
+                       text-sm font-semibold text-black
+                       hover:bg-black/5 transition"
+          >
+            Already have an account? Login
+          </button>
+
+          <p className="mt-4 text-center text-xs text-black/50">
+            Your information is kept secure and private.
+          </p>
+        </>
+      )}
     </div>
-  );
+  </div>
+);
+
 }

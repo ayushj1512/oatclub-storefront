@@ -16,8 +16,7 @@ export default function WishlistButton() {
     if (!items || items.length === 0) return;
 
     setAnimate(true);
-
-    const timer = setTimeout(() => setAnimate(false), 800);
+    const timer = setTimeout(() => setAnimate(false), 500);
     return () => clearTimeout(timer);
   }, [items?.length]);
 
@@ -25,34 +24,25 @@ export default function WishlistButton() {
     <Link href="/wishlist" className="relative group">
       <div
         className={`
-          relative transition-all duration-300 
-          ${animate ? "scale-[1.25] text-[#800020]" : "text-gray-700"}
-          group-hover:text-[#800020]
+          relative transition-all duration-300
+          ${animate ? "scale-[1.15] text-black" : "text-gray-700"}
+          group-hover:text-black
         `}
       >
         {/* HEART ICON */}
         <Heart
           className={`w-6 h-6 transition-all duration-300 ${
-            items.length > 0 ? "fill-[#800020] text-[#800020]" : ""
+            items.length > 0
+              ? "fill-black text-black"
+              : "text-gray-700"
           }`}
         />
 
-        {/* BURST SPARKLE RING */}
+        {/* subtle pulse ring */}
         {animate && (
-          <span className="absolute inset-0 animate-burst pointer-events-none"></span>
-        )}
-
-        {/* Multiple Golden Sparkles */}
-        {animate && (
-          <>
-            <span className="sparkle-gold top-0 left-1/2"></span>
-            <span className="sparkle-gold top-3 right-0"></span>
-            <span className="sparkle-gold bottom-1 left-2"></span>
-            <span className="sparkle-gold bottom-2 right-1"></span>
-          </>
+          <span className="absolute inset-0 rounded-full ring-1 ring-black/30 animate-ping pointer-events-none"></span>
         )}
       </div>
-
     </Link>
   );
 }

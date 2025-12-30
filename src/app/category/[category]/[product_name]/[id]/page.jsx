@@ -19,7 +19,7 @@ import ReviewSection from "@/components/productDetail/ReviewSection";
 import SupportSection from "@/components/productDetail/SupportSection";
 import RecentlyViewedProducts from "@/components/productDetail/RecentlyViewedProducts"
 
-const BRAND = { burgundy: "#800020", black: "#111111" };
+const BRAND = {  black: "#111111" };
 
 const money = (n) => {
   const num = Number(n);
@@ -80,38 +80,39 @@ function SizeGuideSection() {
                 <th className="py-2">Hips</th>
               </tr>
             </thead>
-            <tbody>
-              <tr className="border-b">
-                <td className="py-2">XS</td>
-                <td>30-32"</td>
-                <td>24-26"</td>
-                <td>32-34"</td>
-              </tr>
-              <tr className="border-b">
-                <td className="py-2">S</td>
-                <td>32-34"</td>
-                <td>26-28"</td>
-                <td>34-36"</td>
-              </tr>
-              <tr className="border-b">
-                <td className="py-2">M</td>
-                <td>34-36"</td>
-                <td>28-30"</td>
-                <td>36-38"</td>
-              </tr>
-              <tr className="border-b">
-                <td className="py-2">L</td>
-                <td>36-38"</td>
-                <td>30-32"</td>
-                <td>38-40"</td>
-              </tr>
-              <tr>
-                <td className="py-2">XL</td>
-                <td>38-40"</td>
-                <td>32-34"</td>
-                <td>40-42"</td>
-              </tr>
-            </tbody>
+           <tbody>
+  <tr className="border-b">
+    <td className="py-2">XS</td>
+    <td>30-32&quot;</td>
+    <td>24-26&quot;</td>
+    <td>32-34&quot;</td>
+  </tr>
+  <tr className="border-b">
+    <td className="py-2">S</td>
+    <td>32-34&quot;</td>
+    <td>26-28&quot;</td>
+    <td>34-36&quot;</td>
+  </tr>
+  <tr className="border-b">
+    <td className="py-2">M</td>
+    <td>34-36&quot;</td>
+    <td>28-30&quot;</td>
+    <td>36-38&quot;</td>
+  </tr>
+  <tr className="border-b">
+    <td className="py-2">L</td>
+    <td>36-38&quot;</td>
+    <td>30-32&quot;</td>
+    <td>38-40&quot;</td>
+  </tr>
+  <tr>
+    <td className="py-2">XL</td>
+    <td>38-40&quot;</td>
+    <td>32-34&quot;</td>
+    <td>40-42&quot;</td>
+  </tr>
+</tbody>
+
           </table>
         </div>
       </div>
@@ -407,7 +408,7 @@ export default function ProductPage({ params }) {
                 aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
                 title={wishlisted ? "Wishlisted" : "Add to wishlist"}
               >
-                <Heart size={20} className={wishlisted ? "fill-current text-[#800020]" : "text-gray-900"} />
+<Heart size={20} className={wishlisted ? "fill-current text-black" : "text-black/70"} />
               </button>
 
               <button
@@ -422,34 +423,36 @@ export default function ProductPage({ params }) {
           </div>
 
           {/* SIZE SELECTOR */}
-          {(product.sizes || []).length > 0 ? (
-            <div className="space-y-1.5 pt-1">
-              <h3 className="text-xs font-medium text-black">Select Size</h3>
+        {(product.sizes || []).length > 0 && (
+  <div className="space-y-1.5 pt-1">
+    <h3 className="text-xs font-medium text-black">Select Size</h3>
 
-              <div className="flex gap-2 flex-wrap">
-                {product.sizes.map((s) => {
-                  const active = selectedSize === s;
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => {
-                        setSelectedSize(s);
-                        const vid = normalized ? findVariantIdBySize(normalized, s) : null;
-                        setSelectedVariantId(vid);
-                      }}
-                      className={`px-3 py-1.5 text-sm border transition ${active ? "text-white" : "text-black"}`}
-                      style={{
-                        backgroundColor: active ? BRAND.burgundy : "#fff",
-                        borderColor: active ? BRAND.burgundy : "#d1d5db",
-                      }}
-                    >
-                      {str(s).toUpperCase()}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
+    <div className="flex flex-wrap gap-2">
+      {product.sizes.map((s) => {
+        const active = selectedSize === s;
+
+        return (
+          <button
+            key={s}
+            onClick={() => {
+              setSelectedSize(s);
+              const vid = normalized ? findVariantIdBySize(normalized, s) : null;
+              setSelectedVariantId(vid);
+            }}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md border transition ${
+              active
+                ? "bg-black text-white border-black"
+                : "bg-white text-black border-black/20 hover:bg-black/5"
+            }`}
+          >
+            {str(s).toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+)}
+
 
           {/* CTA row */}
           <div className="flex gap-2 flex-wrap pt-2">
@@ -474,26 +477,23 @@ export default function ProductPage({ params }) {
             )}
 
             {/* ✅ Buy Now becomes View Cart when already in cart */}
-            <button
-              onClick={handleBuyNowOrViewCart}
-              className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition active:scale-[0.99]"
-              style={{
-                backgroundColor: selectionInCart ? BRAND.burgundy : BRAND.burgundy, // light grey for View Cart
-                color: selectionInCart ? "#ffffff" : "#ffffff",
-              }}
-            >
-              {selectionInCart ? (
-                <>
-                  <ShoppingCart size={18} />
-                  View Cart
-                </>
-              ) : (
-                <>
-                  <Zap size={18} />
-                  Buy Now
-                </>
-              )}
-            </button>
+         <button
+  onClick={handleBuyNowOrViewCart}
+  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99]"
+>
+  {selectionInCart ? (
+    <>
+      <ShoppingCart size={18} />
+      View Cart
+    </>
+  ) : (
+    <>
+      <Zap size={18} />
+      Buy Now
+    </>
+  )}
+</button>
+
           </div>
 
           {/* DETAILS */}

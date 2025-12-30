@@ -98,61 +98,64 @@ export default function ProductCard({
     trackProductView(product.id);
   };
 
-  return (
-    <Link
-      href={productLink}
-      onClick={handleProductClick}
-      className="group block w-full bg-white overflow-hidden h-full"
-    >
-      <div className="flex flex-col h-full transition-transform duration-300 hover:-translate-y-1">
-        {/* IMAGE */}
-        <div className="relative w-full aspect-[3/4] bg-white">
-          <Image
-            src={image}
-            alt={product?.name || "Product"}
-            fill
-            loading="lazy"
-            sizes="(max-width: 600px) 50vw, 220px"
-            className="object-cover"
+return (
+  <Link
+    href={productLink}
+    onClick={handleProductClick}
+    className="group block w-full bg-white overflow-hidden h-full"
+  >
+    <div className="flex flex-col h-full transition-transform duration-300 hover:-translate-y-1">
+      {/* IMAGE */}
+      <div className="relative w-full aspect-[3/4] bg-white">
+        <Image
+          src={image}
+          alt={product?.name || "Product"}
+          fill
+          loading="lazy"
+          sizes="(max-width: 600px) 50vw, 220px"
+          className="object-cover"
+        />
+
+        {/* Wishlist */}
+        <motion.button
+          type="button"
+          onClick={toggleWishlist}
+          whileTap={{ scale: 0.9 }}
+          className="absolute -top-1 -right-1 w-9 h-9 flex items-center justify-center bg-transparent"
+          aria-label={
+            wishlisted ? "Remove from wishlist" : "Add to wishlist"
+          }
+        >
+          <Heart
+            className={
+              wishlisted
+                ? "w-6 h-6 text-black fill-black"
+                : "w-6 h-6 text-black/60"
+            }
           />
+        </motion.button>
+      </div>
 
-          {/* Wishlist */}
-          <motion.button
-            type="button"
-            onClick={toggleWishlist}
-            whileTap={{ scale: 0.9 }}
-            className="absolute -top-1 -right-1 w-9 h-9 flex items-center justify-center bg-transparent"
-            aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-          >
-            <Heart
-              className={
-                wishlisted
-                  ? "w-6 h-6 text-[#800020] fill-[#800020]"
-                  : "w-6 h-6 text-black/70"
-              }
-            />
-          </motion.button>
-        </div>
+      {/* CONTENT */}
+      <div className="p-3 flex flex-col gap-2">
+        <h3 className="text-[15px] font-semibold text-black leading-snug line-clamp-2">
+          {product?.name}
+        </h3>
 
-        {/* CONTENT */}
-        <div className="p-3 flex flex-col gap-2">
-          <h3 className="text-[15px] font-semibold text-black leading-snug line-clamp-2">
-            {product?.name}
-          </h3>
-
-          <div className="flex items-baseline gap-2">
-            {sale != null ? (
-              <span className="text-[16px] font-semibold text-black">
-                ₹{sale}
-              </span>
-            ) : (
-              <span className="text-[16px] font-semibold text-transparent">
-                ₹
-              </span>
-            )}
-          </div>
+        <div className="flex items-baseline gap-2">
+          {sale != null ? (
+            <span className="text-[16px] font-semibold text-black">
+              ₹{sale}
+            </span>
+          ) : (
+            <span className="text-[16px] font-semibold text-transparent">
+              ₹
+            </span>
+          )}
         </div>
       </div>
-    </Link>
-  );
+    </div>
+  </Link>
+);
+
 }

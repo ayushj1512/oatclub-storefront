@@ -4,6 +4,8 @@ import { create } from "zustand";
 import Cookies from "js-cookie";
 import { notify } from "@/lib/notify";
 import { useAnalyticsStore } from "@/store/analyticsStore";
+import { useAbandonedCartStore } from "@/store/abandonedCartStore";
+import { useAuthStore } from "@/store/authStore";
 
 const KEY = "cart_products";
 
@@ -27,6 +29,13 @@ const cartKey = (item) => {
 };
 
 const getDisplayName = (p) => p?.name || p?.title || "Item";
+
+const toAbandonedItems = (items = []) =>
+  items.map((it) => ({
+    productId: it.productId,
+    variantId: it.variantId || null,
+    qty: it.quantity,
+  }));
 
 /**
  * ✅ Build a stable cart item from backend product + selected variantId/size
@@ -187,6 +196,7 @@ export const useCartStore = create((set, get) => ({
       })
     : [{ ...built }, ...curr];
 
+  /* ---------------- SAVE CART ---------------- */
   set({ items: updated });
   Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
 
@@ -194,69 +204,165 @@ export const useCartStore = create((set, get) => ({
     updated.find((p) => (p.__key || cartKey(p)) === key)?.quantity ||
     built.quantity;
 
+  /* ---------------- UI FEEDBACK ---------------- */
   if (exists) {
     notify.cartQtyUpdated?.(built, newQty);
   } else {
     notify.cartAdded?.(built);
 
-    /* ---------------------------------------
-       📊 ANALYTICS: CART ADD (ONLY ON NEW ADD)
-    ---------------------------------------- */
+    /* ---------------- ANALYTICS ---------------- */
     try {
-      useAnalyticsStore
-        .getState()
-        .trackAddToCart(product?._id);
+      useAnalyticsStore.getState().trackAddToCart(product?._id);
     } catch (e) {
       console.warn("📊 Analytics cart_add failed", e);
     }
   }
+
+  /* ------------------------------------------------
+     🛒 ABANDONED CART SNAPSHOT (🔥 IMPORTANT)
+  ------------------------------------------------- */
+  try {
+    const abandoned = useAbandonedCartStore.getState();
+    const auth = useAuthStore.getState();
+
+    abandoned.upsertCart({
+      cartId: auth.activeCartId || "", // optional but helps linking
+      items: updated.map((it) => ({
+        productId: it.productId,
+        variantId: it.variantId || null,
+        qty: it.quantity,
+      })),
+      context: {
+        lastPageUrl: window.location.href,
+        device: window.innerWidth < 768 ? "mobile" : "desktop",
+      },
+    });
+  } catch (e) {
+    console.warn("🛒 Abandoned cart snapshot failed (addToCart)", e);
+  }
 },
+
 
 
   /* ---------------- REMOVE ---------------- */
   removeFromCart: (idOrKey, variantId = null) => {
-    const curr = get().items || [];
-    const key = str(idOrKey).includes("__") ? str(idOrKey) : `${str(idOrKey)}__${str(variantId || "")}`;
+  const curr = get().items || [];
+  const key = str(idOrKey).includes("__")
+    ? str(idOrKey)
+    : `${str(idOrKey)}__${str(variantId || "")}`;
 
-    const removed = curr.find((p) => (p.__key || cartKey(p)) === key);
+  const removed = curr.find((p) => (p.__key || cartKey(p)) === key);
+  const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
+
+  set({ items: updated });
+  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+  if (removed) notify.cartRemoved?.(removed);
+  else notify.info?.(`Removed: ${getDisplayName({ id: idOrKey })}`);
+
+  /* 🔥 Abandoned cart snapshot */
+  try {
+    const abandoned = useAbandonedCartStore.getState();
+    const auth = useAuthStore.getState();
+
+    abandoned.upsertCart({
+      cartId: auth.activeCartId || "",
+      items: updated.map((it) => ({
+        productId: it.productId,
+        variantId: it.variantId || null,
+        qty: it.quantity,
+      })),
+      context: {
+        lastPageUrl: window.location.href,
+        device: window.innerWidth < 768 ? "mobile" : "desktop",
+      },
+    });
+  } catch (e) {
+    console.warn("🛒 Abandoned snapshot failed (removeFromCart)", e);
+  }
+},
+
+
+  /* ---------------- UPDATE QTY ---------------- */
+  updateQty: (idOrKey, qty, variantId = null) => {
+  let nextQty = toNum(qty);
+  const curr = get().items || [];
+
+  const key = str(idOrKey).includes("__")
+    ? str(idOrKey)
+    : `${str(idOrKey)}__${str(variantId || "")}`;
+
+  const item = curr.find((p) => (p.__key || cartKey(p)) === key);
+  if (!item) return;
+
+  /* ---------------- REMOVE IF ZERO ---------------- */
+  if (nextQty <= 0) {
     const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
 
     set({ items: updated });
     Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
 
-    if (removed) notify.cartRemoved?.(removed);
-    else notify.info?.(`Removed: ${getDisplayName({ id: idOrKey })}`);
-  },
+    notify.cartRemoved?.(item);
 
-  /* ---------------- UPDATE QTY ---------------- */
-  updateQty: (idOrKey, qty, variantId = null) => {
-    let nextQty = toNum(qty);
-    const curr = get().items || [];
+    /* 🔥 Abandoned cart snapshot */
+    try {
+      const abandoned = useAbandonedCartStore.getState();
+      const auth = useAuthStore.getState();
 
-    const key = str(idOrKey).includes("__") ? str(idOrKey) : `${str(idOrKey)}__${str(variantId || "")}`;
-    const item = curr.find((p) => (p.__key || cartKey(p)) === key);
-    if (!item) return;
-
-    if (nextQty <= 0) {
-      const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
-      set({ items: updated });
-      Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-      notify.cartRemoved?.(item);
-      return;
+      abandoned.upsertCart({
+        cartId: auth.activeCartId || "",
+        items: updated.map((it) => ({
+          productId: it.productId,
+          variantId: it.variantId || null,
+          qty: it.quantity,
+        })),
+        context: {
+          lastPageUrl: window.location.href,
+          device: window.innerWidth < 768 ? "mobile" : "desktop",
+        },
+      });
+    } catch (e) {
+      console.warn("🛒 Abandoned snapshot failed (qty->remove)", e);
     }
 
-    if (nextQty < 1) nextQty = 1;
+    return;
+  }
 
-    const updated = curr.map((p) => {
-      const pk = p.__key || cartKey(p);
-      return pk === key ? { ...p, quantity: nextQty, __key: pk } : p;
+  if (nextQty < 1) nextQty = 1;
+
+  /* ---------------- UPDATE QTY ---------------- */
+  const updated = curr.map((p) => {
+    const pk = p.__key || cartKey(p);
+    return pk === key ? { ...p, quantity: nextQty, __key: pk } : p;
+  });
+
+  set({ items: updated });
+  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+  notify.cartQtyUpdated?.(item, nextQty);
+
+  /* 🔥 Abandoned cart snapshot */
+  try {
+    const abandoned = useAbandonedCartStore.getState();
+    const auth = useAuthStore.getState();
+
+    abandoned.upsertCart({
+      cartId: auth.activeCartId || "",
+      items: updated.map((it) => ({
+        productId: it.productId,
+        variantId: it.variantId || null,
+        qty: it.quantity,
+      })),
+      context: {
+        lastPageUrl: window.location.href,
+        device: window.innerWidth < 768 ? "mobile" : "desktop",
+      },
     });
+  } catch (e) {
+    console.warn("🛒 Abandoned snapshot failed (updateQty)", e);
+  }
+},
 
-    set({ items: updated });
-    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-
-    notify.cartQtyUpdated?.(item, nextQty);
-  },
 
   /* ---------------- CLEAR ---------------- */
   clearCart: () => {

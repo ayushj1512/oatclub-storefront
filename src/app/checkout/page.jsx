@@ -7,7 +7,7 @@
  * - Uses authStore.user + authStore.customer to fill required fields
  * - Pincode first, silent if not found
  */
-
+import CodConfirmCaptcha from "@/components/checkout/CodConfirmCaptcha";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -30,7 +30,7 @@ import { useCouponStore } from "@/store/couponStore";
 import { notify } from "@/lib/notify";
 import RazorpayCheckoutButton from "@/components/checkout/RazorpayCheckoutButton";
 
-const BRAND = "#800020";
+
 
 /* ---------- utils ---------- */
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0");
@@ -155,7 +155,7 @@ const loading = useAuthStore((s) => s.loading);
 const initializeAuth = useAuthStore((s) => s.initialize);
 
 const [createdOrderId, setCreatedOrderId] = useState(null);
-
+const [showCodCaptcha, setShowCodCaptcha] = useState(false);
 
 
   // address store
@@ -378,51 +378,76 @@ const [paymentRecovery, setPaymentRecovery] = useState({
 
 
   const handlePlaceOrder = async () => {
-    const err = validate();
-    if (err) return alert(err);
+  const err = validate();
+  if (err) return alert(err);
 
+  try {
+    const shipSnap = toAddressSnapshot(
+      selectedAddressObj,
+      user?.email || ""
+    );
+    const billSnap = shipSnap;
+
+    /* ---------------- CREATE ORDER ---------------- */
+    const order = await createOrder({
+      customerId: customer._id,
+      shippingAddressSnapshot: shipSnap,
+      billingAddressSnapshot: billSnap,
+
+      paymentMethod: "cod",
+
+      items: items.map((it) => {
+        const productId = resolveMongoProductId(it);
+        const qty = Number(it?.qty ?? it?.quantity ?? 1);
+        const variantId = isObjectId(String(it?.variantId || ""))
+          ? String(it.variantId)
+          : null;
+
+        return {
+          productId,
+          quantity: qty,
+          ...(variantId ? { variantId } : {}),
+        };
+      }),
+
+      source: "website",
+
+      coupon: coupon
+        ? {
+            code: coupon.code,
+            discount,
+            finalTotal: payable,
+          }
+        : null,
+    });
+
+    /* ------------------------------------------------
+       🔥 ABANDONED CART → RECOVERED
+    ------------------------------------------------- */
     try {
-      const shipSnap = toAddressSnapshot(selectedAddressObj, user?.email || "");
-      const billSnap = shipSnap;
+      const abandoned = useAbandonedCartStore.getState();
+      const cart = abandoned.cart;
 
-      const order = await createOrder({
-  customerId: customer._id,
-  shippingAddressSnapshot: shipSnap,
-  billingAddressSnapshot: billSnap,
-paymentMethod: "cod", 
-  items: items.map((it) => {
-    const productId = resolveMongoProductId(it);
-    const qty = Number(it?.qty ?? it?.quantity ?? 1);
-    const variantId = isObjectId(String(it?.variantId || ""))
-      ? String(it.variantId)
-      : null;
-
-    return {
-      productId,
-      quantity: qty,
-      ...(variantId ? { variantId } : {}),
-    };
-  }),
-
-  source: "website",
-
-  // ✅ Coupon snapshot (safe & optional)
-  coupon: coupon
-    ? {
-        code: coupon.code,
-        discount,
-        finalTotal: payable,
+      if (cart?._id) {
+        await abandoned.markRecovered(cart._id, order._id);
       }
-    : null,
-});
-
-
-      clearCart?.();
-      router.push(order?.orderNumber ? `/order-success?order=${order.orderNumber}` : "/order-success");
     } catch (e) {
-      alert(e?.message || "Failed to place order.");
+      console.warn("⚠️ Failed to mark abandoned cart recovered", e);
     }
-  };
+
+    /* ---------------- CLEANUP + REDIRECT ---------------- */
+    clearCart?.();
+
+    router.push(
+      order?.orderNumber
+        ? `/order-success?order=${order.orderNumber}`
+        : "/order-success"
+    );
+  } catch (e) {
+    alert(e?.message || "Failed to place order.");
+  }
+};
+
 
   return (
     <section className="w-full min-h-screen bg-[#F6F6F8]">
@@ -449,37 +474,57 @@ paymentMethod: "cod",
               {showSummary ? <ChevronUp /> : <ChevronDown />}
             </button>
 
-            {showSummary && (
-              <div className="mt-4 space-y-3">
-                {items.length ? (
-                  items.map((item) => {
-                    const src = getImageSrc(item);
-                    const qty = Number(item?.qty ?? 1);
-                    const price = Number(item?.price ?? 0);
-                    const key = `${String(item?.productId || item?._id || item?.id || "")}__${String(item?.variantId || "")}`;
+         {showSummary && (
+  <div className="mt-4 space-y-3">
+    {items.length ? (
+      items.map((item) => {
+        const src = getImageSrc(item);
+        const qty = Number(item?.qty ?? 1);
+        const price = Number(item?.price ?? 0);
+        const key = `${String(item?.productId || item?._id || item?.id || "")}__${String(item?.variantId || "")}`;
 
-                    return (
-                      <div key={key} className="flex items-center justify-between gap-3 rounded-2xl bg-white/60 px-3 py-2 shadow-[0_10px_25px_rgba(0,0,0,0.06)]">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="relative w-[56px] h-[64px] rounded-xl bg-black/[0.04] overflow-hidden shrink-0">
-                            {src ? <Image src={src} alt={item?.name || "Product"} fill className="object-cover" sizes="56px" /> : <div className="w-full h-full grid place-items-center text-[10px] text-gray-500">No image</div>}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{item?.name || "Product"}</p>
-                            <p className="text-xs text-gray-600">Qty: {qty}</p>
-                          </div>
-                        </div>
-                        <p className="text-sm font-semibold tabular-nums shrink-0" style={{ color: BRAND }}>
-                          ₹{money(price * qty)}
-                        </p>
-                      </div>
-                    );
-                  })
+        return (
+          <div
+            key={key}
+            className="flex items-center justify-between gap-3 rounded-2xl bg-white/60 px-3 py-2 shadow-[0_10px_25px_rgba(0,0,0,0.06)]"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="relative h-[64px] w-[56px] shrink-0 overflow-hidden rounded-xl bg-black/[0.04]">
+                {src ? (
+                  <Image
+                    src={src}
+                    alt={item?.name || "Product"}
+                    fill
+                    className="object-cover"
+                    sizes="56px"
+                  />
                 ) : (
-                  <p className="text-sm text-gray-600">Your cart is empty.</p>
+                  <div className="grid h-full w-full place-items-center text-[10px] text-black/50">
+                    No image
+                  </div>
                 )}
               </div>
-            )}
+
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-black">
+                  {item?.name || "Product"}
+                </p>
+                <p className="text-xs text-black/60">Qty: {qty}</p>
+              </div>
+            </div>
+
+            <p className="shrink-0 tabular-nums text-sm font-semibold text-black">
+              ₹{money(price * qty)}
+            </p>
+          </div>
+        );
+      })
+    ) : (
+      <p className="text-sm text-black/60">Your cart is empty.</p>
+    )}
+  </div>
+)}
+
           </GlassCard>
 
           {/* 2) Address */}
@@ -537,62 +582,86 @@ paymentMethod: "cod",
                   <div className="rounded-2xl bg-white/70 p-4 sm:p-5 shadow-[0_18px_45px_rgba(0,0,0,0.08)]">
                     <h3 className="font-semibold text-gray-900 mb-3">New Address</h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* ✅ PINCODE FIRST */}
-                      <FormField
-                        label="PIN Code (enter first)"
-                        name="postalCode"
-                        value={addressForm.postalCode}
-                        onChange={updateAddressField}
-                        inputMode="numeric"
-                        placeholder="6-digit pincode"
-                        rightNode={
-                          addressForm.postalCode?.length === 6 ? (
-                            pinLoading ? (
-                              <PremiumPinLoader />
-                            ) : addressForm.city || addressForm.state ? (
-                              <CheckCircle2 className="w-4 h-4" style={{ color: BRAND }} />
-                            ) : null
-                          ) : null
-                        }
-                      />
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  {/* ✅ PINCODE FIRST */}
+  <FormField
+    label="PIN Code (enter first)"
+    name="postalCode"
+    value={addressForm.postalCode}
+    onChange={updateAddressField}
+    inputMode="numeric"
+    placeholder="6-digit pincode"
+    rightNode={
+      addressForm.postalCode?.length === 6 ? (
+        pinLoading ? (
+          <PremiumPinLoader />
+        ) : addressForm.city || addressForm.state ? (
+          <CheckCircle2 className="w-4 h-4 text-black" />
+        ) : null
+      ) : null
+    }
+  />
 
-                      <FormField label="Full Name" name="fullName" value={addressForm.fullName} onChange={updateAddressField} />
-                      <FormField label="Phone" name="phone" value={addressForm.phone} onChange={updateAddressField} />
+  <FormField
+    label="Full Name"
+    name="fullName"
+    value={addressForm.fullName}
+    onChange={updateAddressField}
+  />
 
-                      <FormField
-                        label="City"
-                        name="city"
-                        value={addressForm.city}
-                        onChange={updateAddressField}
-                        placeholder={pinLoading ? "Auto-filling…" : "City"}
-                      />
-                      <FormField
-                        label="State"
-                        name="state"
-                        value={addressForm.state}
-                        onChange={updateAddressField}
-                        placeholder={pinLoading ? "Auto-filling…" : "State"}
-                      />
+  <FormField
+    label="Phone"
+    name="phone"
+    value={addressForm.phone}
+    onChange={updateAddressField}
+  />
 
-                      <FormField label="Address Line 1" name="addressLine1" value={addressForm.addressLine1} onChange={updateAddressField} />
-                      <FormField label="Address Line 2" name="addressLine2" value={addressForm.addressLine2} onChange={updateAddressField} />
+  <FormField
+    label="City"
+    name="city"
+    value={addressForm.city}
+    onChange={updateAddressField}
+    placeholder={pinLoading ? "Auto-filling…" : "City"}
+  />
 
-                      {/* NOTE: required fields are hidden & set from auth store */}
-                      <input type="hidden" name="firebaseUID" value={addressForm.firebaseUID} readOnly />
-                      <input type="hidden" name="email" value={addressForm.email} readOnly />
-                      <input type="hidden" name="customerId" value={addressForm.customerId} readOnly />
-                    </div>
+  <FormField
+    label="State"
+    name="state"
+    value={addressForm.state}
+    onChange={updateAddressField}
+    placeholder={pinLoading ? "Auto-filling…" : "State"}
+  />
 
-                    <button
-                      type="button"
-                      onClick={saveNewAddress}
-                      disabled={savingAddress}
-                      className="mt-4 w-full rounded-2xl text-white py-3 text-sm font-semibold shadow-[0_14px_28px_rgba(128,0,32,0.22)] disabled:opacity-60 active:scale-[0.99] transition"
-                      style={{ backgroundColor: BRAND }}
-                    >
-                      {savingAddress ? "Saving..." : "Save Address"}
-                    </button>
+  <FormField
+    label="Address Line 1"
+    name="addressLine1"
+    value={addressForm.addressLine1}
+    onChange={updateAddressField}
+  />
+
+  <FormField
+    label="Address Line 2"
+    name="addressLine2"
+    value={addressForm.addressLine2}
+    onChange={updateAddressField}
+  />
+
+  {/* required fields (hidden) */}
+  <input type="hidden" name="firebaseUID" value={addressForm.firebaseUID} readOnly />
+  <input type="hidden" name="email" value={addressForm.email} readOnly />
+  <input type="hidden" name="customerId" value={addressForm.customerId} readOnly />
+</div>
+
+
+             <button
+  type="button"
+  onClick={saveNewAddress}
+  disabled={savingAddress}
+  className="mt-4 w-full rounded-2xl bg-black py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(0,0,0,0.22)] transition hover:opacity-90 disabled:bg-black/20 disabled:text-black/40 active:scale-[0.99]"
+>
+  {savingAddress ? "Saving..." : "Save Address"}
+</button>
+
                   </div>
                 )}
               </div>
@@ -662,38 +731,24 @@ paymentMethod: "cod",
           {/* CTA */}
 {selectedPayment === "cod" ? (
   /* ---------------- COD FLOW ---------------- */
-  <button
-    type="button"
-    onClick={handlePlaceOrder}
-    disabled={!items?.length || placing}
-    className="mt-4 w-full rounded-2xl py-3 text-base font-semibold text-white
-               shadow-[0_16px_34px_rgba(128,0,32,0.24)]
-               active:scale-[0.99] transition disabled:opacity-60"
-    style={{ backgroundColor: BRAND }}
-  >
+ <button
+  type="button"
+  onClick={() => setShowCodCaptcha(true)}
+  disabled={!items?.length || placing}
+  className="mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white
+             shadow-[0_16px_34px_rgba(0,0,0,0.24)]
+             transition hover:opacity-90 active:scale-[0.99]
+             disabled:bg-black/20 disabled:text-black/40"
+>
+
     {placing ? "Placing order..." : "Place Order (COD)"}
     <ArrowRight className="inline-block w-4 h-4 ml-2" />
   </button>
 ) : (
   /* ---------------- RAZORPAY FLOW ---------------- */
   <>
-    {/* STEP 1: Create order marked as razorpay */}
-    {!createdOrderId && (
-      <button
-        type="button"
-        onClick={handleRazorpayCheckout}
-        disabled={!items?.length || placing}
-        className="mt-4 w-full rounded-2xl py-3 text-base font-semibold text-white
-                   shadow-[0_16px_34px_rgba(128,0,32,0.24)]
-                   active:scale-[0.99] transition disabled:opacity-60"
-        style={{ backgroundColor: BRAND }}
-      >
-        {placing ? "Preparing payment..." : "Pay Securely"}
-        <ArrowRight className="inline-block w-4 h-4 ml-2" />
-      </button>
-    )}
-
-    <RazorpayCheckoutButton
+<RazorpayCheckoutButton
+  disabled={!items?.length || placing}
   createOrder={async () => {
     const shipSnap = toAddressSnapshot(
       selectedAddressObj,
@@ -705,7 +760,7 @@ paymentMethod: "cod",
       shippingAddressSnapshot: shipSnap,
       billingAddressSnapshot: shipSnap,
       items: useCartStore.getState().toOrderItems(),
-      paymentMethod: "razorpay", // 🔥 critical
+      paymentMethod: "razorpay",
       source: "website",
       coupon: coupon
         ? {
@@ -716,8 +771,9 @@ paymentMethod: "cod",
         : null,
     });
   }}
-  disabled={!items?.length || placing}
 />
+
+
 
   </>
 )}
@@ -740,43 +796,51 @@ paymentMethod: "cod",
       Choose how you want to continue
     </p>
 
-    <div className="mt-4 flex flex-col sm:flex-row gap-3">
-      {/* 🔁 Retry Online */}
-      <button
-        onClick={() => {
-          setPaymentRecovery({ open: false });
-        }}
-        className="flex-1 rounded-xl py-3 text-sm font-semibold text-white bg-[#800020]"
-      >
-        Retry Online Payment
-      </button>
+    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+  {/* 🔁 Retry Online */}
+  <button
+    onClick={() => {
+      setPaymentRecovery({ open: false });
+    }}
+    className="flex-1 rounded-xl bg-black py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99]"
+  >
+    Retry Online Payment
+  </button>
 
-      {/* 🚚 Convert to COD */}
-      <button
-        onClick={async () => {
-          try {
-            await updateOrderStatus(paymentRecovery.orderId, {
-              paymentMethod: "cod",
-            });
+  {/* 🚚 Convert to COD */}
+  <button
+    onClick={async () => {
+      try {
+        await updateOrderStatus(paymentRecovery.orderId, {
+          paymentMethod: "cod",
+        });
 
-            notify.success("Order converted to Cash on Delivery");
+        notify.success("Order converted to Cash on Delivery");
 
-            clearCart?.();
-            router.replace(
-              `/order-success?order=${paymentRecovery.orderNumber}`
-            );
-          } catch {
-            notify.error("Failed to switch to COD");
-          }
-        }}
-        className="flex-1 rounded-xl py-3 text-sm font-semibold border border-black/20"
-      >
-        Place Order as COD
-      </button>
-    </div>
+        clearCart?.();
+        router.replace(
+          `/order-success?order=${paymentRecovery.orderNumber}`
+        );
+      } catch {
+        notify.error("Failed to switch to COD");
+      }
+    }}
+    className="flex-1 rounded-xl border border-black/20 py-3 text-sm font-semibold text-black transition hover:bg-black/5 active:scale-[0.99]"
+  >
+    Place Order as COD
+  </button>
+</div>
+
   </div>
 )}
+<CodConfirmCaptcha
+  open={showCodCaptcha}
+  onClose={() => setShowCodCaptcha(false)}
+  onVerified={handlePlaceOrder}
+/>
+
 
     </section>
+    
   );
 }

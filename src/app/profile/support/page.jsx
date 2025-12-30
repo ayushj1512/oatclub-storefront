@@ -38,13 +38,17 @@ function qs(params) {
 
 function pillClass(status) {
   const s = upper(status);
-  const base = "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset";
-  if (s === "OPEN") return `${base} bg-[#800020]/10 text-[#800020] ring-[#800020]/20`;
-  if (s === "IN_PROGRESS") return `${base} bg-black/5 text-black ring-black/10`;
-  if (s === "RESOLVED") return `${base} bg-emerald-50 text-emerald-700 ring-emerald-200`;
-  if (s === "CLOSED") return `${base} bg-black/5 text-black/70 ring-black/10`;
-  return `${base} bg-black/5 text-black/70 ring-black/10`;
+  const base =
+    "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset";
+
+  return {
+    OPEN:        `${base} bg-black/5  text-black       ring-black/15`,
+    IN_PROGRESS:`${base} bg-black    text-white       ring-black`,
+    RESOLVED:   `${base} bg-white    text-black       ring-black`,
+    CLOSED:     `${base} bg-black/10 text-black/70    ring-black/10`,
+  }[s] || `${base} bg-black/5 text-black/70 ring-black/10`;
 }
+
 
 function matchText(t, q) {
   const needle = safe(q).toLowerCase();
@@ -169,220 +173,258 @@ export default function ProfileSupportPage() {
   }
 
   return (
-    <main className="min-h-screen w-full bg-white px-4 py-8">
-      <div className="w-full max-w-5xl mx-auto space-y-5">
-        {/* Header */}
-        <div className="bg-white border border-black/10 shadow-lg rounded-2xl p-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0">
-              <div className="text-[11px] font-semibold tracking-widest uppercase text-[#800020]">Profile • Support</div>
-              <h1 className="mt-1 text-2xl font-extrabold text-black flex items-center gap-2">
-                <LifeBuoy className="h-5 w-5 text-[#800020]" /> Support Tickets
-              </h1>
-              <p className="mt-2 text-sm text-black/70">
-                Showing tickets for <span className="font-semibold text-black">{safe(user?.email)}</span>
-              </p>
-            </div>
+  <main className="min-h-screen bg-white px-4 py-8">
+  <div className="mx-auto max-w-5xl space-y-5">
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href="/profile"
-                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold border border-black/15 bg-white hover:bg-black/5 transition rounded-xl"
-              >
-                <ArrowLeft className="h-4 w-4" /> Back
-              </Link>
+    {/* Header */}
+    <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between">
 
-              <button
-                type="button"
-                onClick={() => fetchTickets({ silent: true })}
-                disabled={!canLoad}
-                className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl transition ${
-                  canLoad ? "bg-black text-white hover:opacity-90" : "bg-black/10 text-black/40 cursor-not-allowed"
-                }`}
-              >
-                {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                Refresh
-              </button>
-
-              {/* keep your existing new-ticket link if that’s correct in your app */}
-              <Link
-                href="/support"
-                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold border border-[#800020]/30 bg-white hover:bg-[#800020]/5 transition rounded-xl text-[#800020]"
-              >
-                New Ticket <ExternalLink className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Search + Sort */}
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
-            <div>
-              <label className="text-[11px] font-semibold text-black/70">Search</label>
-              <div className="mt-1 flex items-center gap-2 rounded-xl border border-black/15 bg-white px-3 py-2">
-                <Search className="h-4 w-4 text-black/40" />
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search by ticket ID, subject, orderId, message…"
-                  className="w-full bg-transparent text-sm outline-none text-black placeholder:text-black/35"
-                />
-              </div>
-              <p className="mt-1 text-[11px] text-black/50">
-                Partial search works (ex: <span className="font-semibold">MF-</span>,{" "}
-                <span className="font-semibold">refund</span>).
-              </p>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-semibold text-black/70">Sort by date</label>
-              <div className="mt-1 flex items-center gap-2 rounded-xl border border-black/15 bg-white px-3 py-2">
-                <ChevronDown className="h-4 w-4 text-black/40" />
-                <select value={sort} onChange={(e) => setSort(e.target.value)} className="w-full bg-transparent text-sm outline-none text-black">
-                  <option value="newest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
-                </select>
-              </div>
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQ("");
-                    setSort("newest");
-                  }}
-                  className="text-[11px] font-semibold text-[#800020] hover:underline"
-                >
-                  Clear
-                </button>
-                <span className="text-[11px] text-black/50">•</span>
-                <span className="text-[11px] text-black/60">
-                  {filteredSorted.length} result{filteredSorted.length === 1 ? "" : "s"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {error ? (
-            <div className="mt-4 p-3 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5" />
-              {error}
-            </div>
-          ) : null}
+        <div>
+          <p className="text-[11px] font-medium tracking-widest uppercase text-gray-500">
+            Profile • Support
+          </p>
+          <h1 className="mt-1 flex items-center gap-2 text-2xl font-extrabold">
+            <LifeBuoy className="h-5 w-5" /> Support Tickets
+          </h1>
+          <p className="mt-2 text-sm text-black/70">
+            Showing tickets for{" "}
+            <span className="font-semibold text-black">
+              {safe(user?.email)}
+            </span>
+          </p>
         </div>
 
-        {/* List */}
-        <div className="bg-white border border-black/10 shadow-lg rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-black/10 flex items-center justify-between">
-            <p className="font-semibold text-black flex items-center gap-2">
-              <Ticket className="h-4 w-4 text-[#800020]" /> Tickets
-            </p>
-            <p className="text-xs text-black/60">
-              Page <span className="font-semibold text-black">{page}</span> /{" "}
-              <span className="font-semibold text-black">{pages}</span>
-            </p>
-          </div>
-
-          {serverLoading ? (
-            <div className="p-6 text-sm text-black/70 flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-            </div>
-          ) : pageItems.length === 0 ? (
-            <div className="p-6 text-sm text-black/70">{q ? "No tickets match your search." : "No tickets yet."}</div>
-          ) : (
-            <div className="divide-y divide-black/5">
-              {pageItems.map((t) => {
-                const id = safe(t.ticketId);
-                const atCount = Array.isArray(t.attachments) ? t.attachments.length : 0;
-
-                return (
-                  <button
-                    key={id || `${safe(t.createdAt)}-${safe(t.subject)}`}
-                    type="button"
-                    onClick={() => goToTicket(id)}
-                    className="w-full text-left px-5 py-4 hover:bg-black/[0.03] transition focus:outline-none"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-[#800020]">{id || "—"}</p>
-                        <p className="mt-1 text-sm font-bold text-black line-clamp-1">{safe(t.subject) || "(No subject)"}</p>
-                        <p className="mt-1 text-xs text-black/65 line-clamp-1">{safe(t.issueType) || "-"}</p>
-
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-black/60">
-                          <span className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-2.5 py-1">
-                            <Clock className="h-3.5 w-3.5" /> {fmtDate(t.createdAt)}
-                          </span>
-
-                          {safe(t.orderId) ? (
-                            <span className="inline-flex items-center rounded-full border border-black/10 bg-white px-2.5 py-1">
-                              Order: <span className="ml-1 font-semibold text-black">{safe(t.orderId)}</span>
-                            </span>
-                          ) : null}
-
-                          {atCount ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-2.5 py-1">
-                              <ImageIcon className="h-3.5 w-3.5" /> {atCount}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className={pillClass(t.status)}>{upper(t.status).replaceAll("_", " ")}</span>
-
-                        {/* Secondary action: track page (optional) */}
-                        <Link
-                          href={id ? `/support/track/${encodeURIComponent(id)}` : "#"}
-                          onClick={(e) => e.stopPropagation()} // ✅ don't hijack the row navigation
-                          className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl transition ${
-                            id ? "bg-white border border-black/15 hover:bg-black/5 text-black" : "bg-black/10 text-black/40 pointer-events-none"
-                          }`}
-                        >
-                          Track <ExternalLink className="h-4 w-4" />
-                        </Link>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Pagination */}
-          <div className="px-5 py-4 border-t border-black/10 bg-white flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
-                page <= 1
-                  ? "bg-black/5 text-black/30 cursor-not-allowed"
-                  : "bg-white border border-black/15 hover:bg-black/5 text-black"
-              }`}
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(pages, p + 1))}
-              disabled={page >= pages}
-              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
-                page >= pages
-                  ? "bg-black/5 text-black/30 cursor-not-allowed"
-                  : "bg-white border border-black/15 hover:bg-black/5 text-black"
-              }`}
-            >
-              Next
-            </button>
-          </div>
-        </div>
-
-        <p className="text-[11px] text-black/50 px-1">
-          Tip: You can also track tickets from{" "}
-          <Link href="/support/track" className="underline text-[#800020]">
-            Support Tracking
+        <div className="flex flex-wrap gap-2">
+          <Link href="/profile" className="btn-outline">
+            <ArrowLeft className="h-4 w-4" /> Back
           </Link>
-          .
+
+          <button
+            onClick={() => fetchTickets({ silent: true })}
+            disabled={!canLoad}
+            className={`btn-primary ${
+              !canLoad && "opacity-40 cursor-not-allowed"
+            }`}
+          >
+            {refreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCcw className="h-4 w-4" />
+            )}
+            Refresh
+          </button>
+
+          <Link href="/support" className="btn-outline">
+            New Ticket <ExternalLink className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Search & Sort */}
+      <div className="mt-4 grid gap-3 md:grid-cols-[1fr_220px]">
+        <div>
+          <label className="text-[11px] font-semibold text-black/70">
+            Search
+          </label>
+          <div className="mt-1 flex items-center gap-2 rounded-xl border border-black/15 px-3 py-2">
+            <Search className="h-4 w-4 text-black/40" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search tickets…"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-black/35"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-[11px] font-semibold text-black/70">
+            Sort
+          </label>
+          <div className="mt-1 flex items-center gap-2 rounded-xl border border-black/15 px-3 py-2">
+            <ChevronDown className="h-4 w-4 text-black/40" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="w-full bg-transparent text-sm outline-none"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
+
+          <div className="mt-2 flex items-center gap-2 text-[11px]">
+            <button
+              onClick={() => {
+                setQ("");
+                setSort("newest");
+              }}
+              className="font-semibold underline"
+            >
+              Clear
+            </button>
+            <span className="text-black/50">•</span>
+            <span className="text-black/60">
+              {filteredSorted.length} result
+              {filteredSorted.length === 1 ? "" : "s"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mt-4 flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          {error}
+        </div>
+      )}
+    </section>
+
+    {/* List */}
+    <section className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
+        <p className="flex items-center gap-2 font-semibold">
+          <Ticket className="h-4 w-4" /> Tickets
+        </p>
+        <p className="text-xs text-black/60">
+          Page <strong>{page}</strong> / <strong>{pages}</strong>
         </p>
       </div>
-    </main>
+
+      {serverLoading ? (
+        <div className="p-6 flex items-center gap-2 text-sm text-black/70">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+        </div>
+      ) : pageItems.length === 0 ? (
+        <div className="p-6 text-sm text-black/70">
+          {q ? "No tickets match your search." : "No tickets yet."}
+        </div>
+      ) : (
+        <div className="divide-y divide-black/5">
+          {pageItems.map((t) => {
+            const id = safe(t.ticketId);
+            const atCount = t.attachments?.length || 0;
+
+            return (
+              <button
+                key={id}
+                onClick={() => goToTicket(id)}
+                className="w-full px-5 py-4 text-left hover:bg-black/[0.03]"
+              >
+                <div className="flex justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold">{id}</p>
+                    <p className="mt-1 text-sm font-bold line-clamp-1">
+                      {safe(t.subject) || "(No subject)"}
+                    </p>
+                    <p className="mt-1 text-xs text-black/65">
+                      {safe(t.issueType)}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-black/60">
+                      <span className="badge">
+                        <Clock className="h-3.5 w-3.5" />{" "}
+                        {fmtDate(t.createdAt)}
+                      </span>
+
+                      {t.orderId && (
+                        <span className="badge">
+                          Order: <strong>{t.orderId}</strong>
+                        </span>
+                      )}
+
+                      {!!atCount && (
+                        <span className="badge">
+                          <ImageIcon className="h-3.5 w-3.5" /> {atCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={pillClass(t.status)}>
+                      {upper(t.status).replaceAll("_", " ")}
+                    </span>
+
+                    <Link
+                      href={`/support/track/${encodeURIComponent(id)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="btn-outline"
+                    >
+                      Track <ExternalLink className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      <div className="flex justify-between border-t border-black/10 px-5 py-4">
+        <button
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={page <= 1}
+          className="btn-outline disabled:opacity-30"
+        >
+          Prev
+        </button>
+        <button
+          onClick={() => setPage((p) => Math.min(pages, p + 1))}
+          disabled={page >= pages}
+          className="btn-outline disabled:opacity-30"
+        >
+          Next
+        </button>
+      </div>
+    </section>
+
+    <p className="px-1 text-[11px] text-black/50">
+      Tip: You can also track tickets from{" "}
+      <Link href="/support/track" className="underline">
+        Support Tracking
+      </Link>
+      .
+    </p>
+  </div>
+
+  {/* shared utility styles */}
+  <style jsx>{`
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      background: #000;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .btn-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      background: #fff;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #fff;
+    }
+  `}</style>
+</main>
+
   );
 }

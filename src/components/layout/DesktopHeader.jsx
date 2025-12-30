@@ -80,85 +80,118 @@ export default function DesktopHeader() {
       .filter((c) => c.slug);
   }, [categories]);
 
-  return (
-    <header
-      className={`hidden md:flex bg-white border-b border-gray-100 w-full z-50 ${
-        isSticky ? "fixed top-0 left-0 shadow-sm" : "relative shadow-none"
-      }`}
-    >
-      <div className="w-full flex items-center justify-between px-10 py-4">
-        <div className="flex items-center gap-6">
-          <div className="relative" ref={dropdownRef}>
-            <button
-              type="button"
-              aria-label="Open categories"
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-              className="p-2 rounded-full hover:bg-gray-100 transition text-gray-800 hover:text-[#800020]"
-            >
-              <Menu size={26} />
-            </button>
+ return (
+  <header
+    className={[
+      "hidden md:flex w-full bg-white z-50",
+      "border-b border-black/10",
+      isSticky ? "fixed top-0 left-0" : "relative",
+    ].join(" ")}
+  >
+    <div className="w-full flex items-center justify-between px-10 py-4">
 
-            {open ? (
-              <div className="absolute top-12 left-0 z-50 bg-white shadow-xl border border-gray-100 rounded-xl p-3 w-[520px] max-w-[70vw]">
-                {loading ? (
-                  <div className="px-3 py-2 text-sm text-gray-600">Loading categories…</div>
-                ) : error ? (
-                  <div className="px-3 py-2 text-sm text-red-600">{error}</div>
-                ) : menuCats.length ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {menuCats.map((c) => (
-                      <Link
-                        key={c.key}
-                        href={`/category/${c.slug}`}
-                        onClick={() => setOpen(false)}
-                        className="rounded-lg border border-gray-100 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#800020] transition text-center"
-                      >
-                        {c.label}
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-3 py-2 text-sm text-gray-600">No categories found.</div>
-                )}
-              </div>
-            ) : null}
-          </div>
+      {/* ================= LEFT ================= */}
+      <div className="flex items-center gap-6">
 
-          <Link href="/" aria-label="Go to homepage" className="flex items-center">
-            <div className="relative h-10 w-32">
-              <Image
-                src={LOGO_URL}
-                alt="Miray"
-                fill
-                priority
-                className="object-contain"
-                sizes="(min-width: 768px) 128px, 96px"
-              />
+        {/* Categories */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            aria-label="Open categories"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex items-center justify-center rounded-full p-2
+                       text-black transition hover:bg-black/5"
+          >
+            <Menu size={24} />
+          </button>
+
+          {open && (
+            <div className="absolute left-0 top-12 z-50 w-[520px] max-w-[70vw]
+                            rounded-2xl border border-black/10 bg-white p-4 shadow-xl">
+
+              {loading && (
+                <p className="px-2 py-1 text-sm text-black/60">
+                  Loading categories…
+                </p>
+              )}
+
+              {error && (
+                <p className="px-2 py-1 text-sm text-black/60">
+                  {error}
+                </p>
+              )}
+
+              {!loading && !error && menuCats.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {menuCats.map((c) => (
+                    <Link
+                      key={c.key}
+                      href={`/category/${c.slug}`}
+                      onClick={() => setOpen(false)}
+                      className="rounded-lg border border-black/10 px-3 py-2
+                                 text-sm text-black/70 text-center
+                                 hover:bg-black/5 hover:text-black transition"
+                    >
+                      {c.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {!loading && !error && !menuCats.length && (
+                <p className="px-2 py-1 text-sm text-black/60">
+                  No categories found.
+                </p>
+              )}
             </div>
-          </Link>
+          )}
         </div>
 
-        <div className="w-[42%]">
-          <div className="flex items-center bg-gray-100 rounded-full px-4 py-2 border border-gray-200 focus-within:ring-2 focus-within:ring-[#800020] transition">
-            <Search size={18} className="text-gray-600" />
-            <input
-              type="text"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={handleSearchSubmit}
-              placeholder="Search for anything..."
-              className="w-full bg-transparent outline-none px-3 text-sm text-gray-800"
+        {/* Logo */}
+        <Link href="/" aria-label="Go to homepage" className="flex items-center">
+          <div className="relative h-10 w-32">
+            <Image
+              src={LOGO_URL}
+              alt="Miray"
+              fill
+              priority
+              className="object-contain"
+              sizes="(min-width: 768px) 128px, 96px"
             />
           </div>
-        </div>
+        </Link>
+      </div>
 
-        <div className="flex items-center gap-7 text-gray-700">
-          <WishlistButton />
-          <CartButton />
-          <ProfileMenu />
+      {/* ================= SEARCH ================= */}
+      <div className="w-[42%]">
+        <div
+          className="flex items-center rounded-full border border-black/15
+                     bg-white px-4 py-2 transition
+                     focus-within:border-black"
+        >
+          <Search size={18} className="text-black/50" />
+          <input
+            type="text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onKeyDown={handleSearchSubmit}
+            placeholder="Search products"
+            className="w-full bg-transparent px-3 text-sm
+                       text-black placeholder-black/40
+                       outline-none"
+          />
         </div>
       </div>
-    </header>
-  );
+
+      {/* ================= ACTIONS ================= */}
+      <div className="flex items-center gap-7 text-black">
+        <WishlistButton />
+        <CartButton />
+        <ProfileMenu />
+      </div>
+    </div>
+  </header>
+);
+
 }

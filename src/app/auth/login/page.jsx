@@ -53,70 +53,101 @@ export default function LoginPage() {
   };
 
   return (
-    <section className="flex flex-col items-center justify-center min-h-screen px-6 py-10 bg-white">
-      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
+  <section className="flex min-h-screen items-center justify-center bg-[#f5f5f5] px-6 py-12">
+  <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
 
-        <h1 className="text-3xl font-semibold text-center mb-2 text-gray-800">Welcome to Miray Fashions</h1>
-        <p className="text-center text-gray-500 mb-6 text-sm">Please sign in to continue to your account.</p>
+    {/* ================= HEADER ================= */}
+    <div className="mb-8 text-center">
+      <p className="text-[11px] font-semibold tracking-[0.3em] uppercase text-gray-500">
+        Miray Fashions
+      </p>
+      <h1 className="mt-3 text-3xl font-extrabold tracking-tight">
+        Welcome Back
+      </h1>
+      <p className="mt-2 text-sm text-gray-600">
+        Sign in to continue to your account
+      </p>
+    </div>
 
-        {/* EMAIL LOGIN */}
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
-          <div className="relative">
-            <Mail className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
-            <input
-              type="email"
-              required
-              placeholder="Enter your email"
-              className="border rounded-xl px-10 py-3 w-full bg-gray-50 text-gray-800 outline-none transition focus:ring-2 focus:ring-[#800020] focus:border-[#800020]"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </div>
+    {/* ================= FORM ================= */}
+    <form onSubmit={handleLogin} className="flex flex-col gap-4">
 
-          <div className="relative">
-            <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
-            <input
-              type="password"
-              required
-              placeholder="Enter your password"
-              className="border rounded-xl px-10 py-3 w-full bg-gray-50 text-gray-800 outline-none transition focus:ring-2 focus:ring-[#800020] focus:border-[#800020]"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-            />
-          </div>
-
-          {error && <p className="text-red-600 text-sm text-center mt-1">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center justify-center gap-2 text-white py-3 rounded-xl hover:opacity-90 active:scale-[0.98] transition shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ backgroundColor: "#800020" }}
-          >
-            {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (<><LogIn className="w-5 h-5" />Sign In</>)}
-          </button>
-        </form>
-
-        {/* DIVIDER */}
-        <div className="flex items-center my-6">
-          <span className="flex-1 h-px bg-gray-300"></span>
-          <span className="px-3 text-gray-500 text-sm">or</span>
-          <span className="flex-1 h-px bg-gray-300"></span>
-        </div>
-
-        {/* GOOGLE LOGIN */}
-        <div className="flex flex-col gap-3">
-          <GoogleSignIn />
-        </div>
-
-        <p className="text-sm text-center mt-6 text-gray-600">
-          Don’t have an account?{" "}
-          <a href="/auth/register" className="font-medium hover:underline" style={{ color: "#800020" }}>
-            Create an account
-          </a>
-        </p>
-
+      {/* EMAIL */}
+      <div className="relative">
+        <Mail className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+        <input
+          type="email"
+          required
+          placeholder="Email address"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          className="w-full rounded-xl border border-gray-300 bg-white px-11 py-3 text-sm outline-none transition
+          focus:border-black focus:ring-2 focus:ring-black/10"
+        />
       </div>
-    </section>
+
+      {/* PASSWORD */}
+      <div className="relative">
+        <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+        <input
+          type="password"
+          required
+          placeholder="Password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          className="w-full rounded-xl border border-gray-300 bg-white px-11 py-3 text-sm outline-none transition
+          focus:border-black focus:ring-2 focus:ring-black/10"
+        />
+      </div>
+
+      {error && (
+        <p className="text-center text-sm text-red-600">{error}</p>
+      )}
+
+      {/* SUBMIT */}
+      <button
+        type="submit"
+        disabled={loading}
+        className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-semibold text-white
+        transition hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {loading ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : (
+          <>
+            <LogIn className="h-5 w-5" />
+            Sign In
+          </>
+        )}
+      </button>
+    </form>
+
+    {/* ================= DIVIDER ================= */}
+    <div className="my-7 flex items-center gap-3">
+      <span className="h-px flex-1 bg-gray-200" />
+      <span className="text-xs uppercase tracking-widest text-gray-400">
+        or
+      </span>
+      <span className="h-px flex-1 bg-gray-200" />
+    </div>
+
+    {/* ================= GOOGLE ================= */}
+    <div className="flex flex-col gap-3">
+      <GoogleSignIn />
+    </div>
+
+    {/* ================= FOOTER ================= */}
+    <p className="mt-7 text-center text-sm text-gray-600">
+      Don’t have an account?{" "}
+      <a
+        href="/auth/register"
+        className="font-semibold text-black hover:underline"
+      >
+        Create one
+      </a>
+    </p>
+  </div>
+</section>
+
   );
 }

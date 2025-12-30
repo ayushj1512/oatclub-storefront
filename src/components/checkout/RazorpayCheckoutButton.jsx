@@ -84,26 +84,26 @@ export default function RazorpayCheckoutButton({
 
   const isLocked = disabled || loading || preparing;
 
-  return (
-    <button
-      type="button"
-      onClick={handlePay}
-      disabled={isLocked}
-      aria-busy={isLocked}
-      className="w-full flex items-center justify-center gap-2 rounded-2xl py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(128,0,32,0.24)] active:scale-[0.99] transition disabled:opacity-60 disabled:pointer-events-none"
-      style={{ backgroundColor: "#800020" }}
-    >
-      {isLocked ? (
-        <>
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Processing payment…
-        </>
-      ) : (
-        <>
-          <IndianRupee className="w-4 h-4" />
-          Pay Securely
-        </>
-      )}
-    </button>
-  );
+ return (
+  <button
+    type="button"
+    onClick={handlePay}
+    disabled={isLocked}
+    aria-busy={isLocked}
+    className="w-full flex items-center justify-center gap-2 rounded-2xl py-3 text-base font-semibold text-white bg-black shadow-[0_16px_34px_rgba(0,0,0,0.28)] hover:bg-black/90 active:scale-[0.99] transition disabled:opacity-60 disabled:pointer-events-none"
+  >
+    {isLocked ? (
+      <>
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Processing payment…
+      </>
+    ) : (
+      <>
+        <IndianRupee className="w-4 h-4" />
+        Pay Securely
+      </>
+    )}
+  </button>
+);
+
 }

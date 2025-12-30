@@ -53,12 +53,12 @@ export default function BestSellerSection() {
       <section className="pt-10 px-4 bg-white">
         {/* Centered Heading */}
         <div className="w-full text-center mb-6">
-          <h2 className="inline-block border-b-4 border-[#800020] pb-1 text-xl md:text-2xl font-extrabold uppercase tracking-wide text-black">
+          <h2 className="inline-block border-b border-black pb-2 text-xl md:text-2xl font-extrabold uppercase tracking-[0.25em] text-black">
             Best Sellers
           </h2>
         </div>
 
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
@@ -83,7 +83,7 @@ export default function BestSellerSection() {
     >
       {/* Centered Heading */}
       <div className="w-full text-center mb-6">
-        <h2 className="inline-block border-b-4 border-[#800020] pb-1 text-xl md:text-2xl font-extrabold uppercase tracking-wide text-black">
+        <h2 className="inline-block border-b border-black pb-2 text-xl md:text-2xl font-extrabold uppercase tracking-[0.25em] text-black">
           Best Sellers
         </h2>
       </div>
@@ -95,7 +95,7 @@ export default function BestSellerSection() {
       )}
 
       {/* Products */}
-      <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2">
+      <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 no-scrollbar">
         {products.map((p) => (
           <div
             key={p.id}

@@ -10,8 +10,11 @@ import { useRouter } from "next/navigation";
 import ApplyCoupon from "@/components/cart/ApplyCoupon";
 import { useCouponStore } from "@/store/couponStore";
 import { useAuthStore } from "@/store/authStore";
+import { useAbandonedCartStore } from "@/store/abandonedCartStore";
+import { usePathname } from "next/navigation";
+import { useRef } from "react";
 
-const BRAND = "#800020";
+const BRAND = "#111111";
 
 const money = (n) => {
   const num = Number(n);
@@ -78,6 +81,7 @@ function QtyStepper({ value, onDec, onInc }) {
 
 export default function CartPage() {
   const router = useRouter();
+const pathname = usePathname();
 
   const items = useCartStore((s) => s.items) || [];
   const initialize = useCartStore((s) => s.initialize);
@@ -89,13 +93,48 @@ const user = useAuthStore((s) => s.user);
 const customer = useAuthStore((s) => s.customer);
 const initAuth = useAuthStore((s) => s.initialize);
 
-
+const skipAbandonRef = useRef(false);
 
   useEffect(() => {
     initialize?.();
     initAuth?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+  const handleLeave = () => {
+    const abandoned = useAbandonedCartStore.getState();
+    const cart = abandoned.cart;
+
+    // 🛑 mark abandoned only if cart exists & has items
+    if (!skipAbandonRef.current && cart?._id && cart?.items?.length) {
+  abandoned.markAbandoned(cart._id);
+}
+
+  };
+
+  
+
+  window.addEventListener("beforeunload", handleLeave);
+
+  return () => {
+    window.removeEventListener("beforeunload", handleLeave);
+  };
+}, []);
+
+useEffect(() => {
+  return () => {
+    if (skipAbandonRef.current) return;
+
+    const abandoned = useAbandonedCartStore.getState();
+    const cart = abandoned.cart;
+
+    if (cart?._id && cart?.items?.length) {
+      abandoned.markAbandoned(cart._id);
+    }
+  };
+}, [pathname]);
+
 
   const subtotal = useMemo(() => (typeof totalPriceFn === "function" ? totalPriceFn() : 0), [items, totalPriceFn]);
 
@@ -112,9 +151,11 @@ const payable = coupon ? finalTotal : subtotal;
   );
 
   const goCheckout = () => {
-    if (!items.length) return;
-    router.push("/checkout");
-  };
+  if (!items.length) return;
+  skipAbandonRef.current = true;
+  router.push("/checkout");
+};
+
 
   // ✅ New cart store uses stable unique __key; fallback to old key style
   const itemKey = (item) =>

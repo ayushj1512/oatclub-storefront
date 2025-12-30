@@ -1,3 +1,5 @@
+/* MUST BE FIRST */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 /* ------------------------------ */
@@ -7,51 +9,44 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --font-sans: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-bebas: "Bebas Neue", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-
-  /* Uses Poppins from next/font */
-  --font-sans: var(--font-poppins);
-  --font-mono: var(--font-geist-mono);
-}
-
-/* ------------------------------ */
-/* 🌞 FORCE LIGHT MODE */
-/* (Removed dark mode auto switch) */
-/* ------------------------------ */
 
 /* Base */
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--background);
+  color: var(--foreground);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-bebas {
+  font-family: var(--font-bebas);
+}
+
+
+/* Utility font */
+.font-bebas {
+  font-family: var(--font-bebas);
 }
 
 /* ------------------------------ */
-/* Global Scrollbar Removal       */
+/* Scrollbar Removal              */
 /* ------------------------------ */
 
-/* Chrome / Safari / Edge */
 ::-webkit-scrollbar {
-  display: none !important;
+  display: none;
 }
 
-/* Firefox */
 * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-.no-scrollbar {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .no-scrollbar::-webkit-scrollbar {
-  display: none !important;
+  display: none;
 }
 
 /* ------------------------------ */
@@ -63,7 +58,6 @@ body {
     opacity: 0;
     transform: translateY(-6px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -79,7 +73,6 @@ body {
     transform: translateY(20px);
     opacity: 0;
   }
-
   to {
     transform: translateY(0);
     opacity: 1;
@@ -95,7 +88,6 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -106,32 +98,15 @@ body {
   animation: fadeIn 0.3s ease-out;
 }
 
-@keyframes fadeSlide {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fadeSlide {
-  animation: fadeSlide 0.45s ease forwards;
-}
-
 /* ------------------------------ */
 /* Marquee Animations             */
 /* ------------------------------ */
 
 @keyframes marquee-left {
-  0% {
+  from {
     transform: translateX(0);
   }
-
-  100% {
+  to {
     transform: translateX(-50%);
   }
 }
@@ -141,11 +116,10 @@ body {
 }
 
 @keyframes marquee-right {
-  0% {
+  from {
     transform: translateX(-50%);
   }
-
-  100% {
+  to {
     transform: translateX(0);
   }
 }
@@ -154,63 +128,43 @@ body {
   animation: marquee-right linear infinite;
 }
 
-@keyframes fadeSlide {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fadeSlide {
-  animation: fadeSlide 0.28s ease-out both;
-}
-
-
-/* not found */
-
-  {
-  /* ✅ tiny luxury animation only */
-}
-
-.os-fade {
-  animation: osFade 520ms ease-out both;
-}
-
-.os-pop {
-  animation: osPop 1.6s ease-in-out infinite;
-}
+/* ------------------------------ */
+/* Micro Luxury Animations        */
+/* ------------------------------ */
 
 @keyframes osFade {
   from {
     opacity: 0;
     transform: translateY(10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-@keyframes osPop {
+.os-fade {
+  animation: osFade 520ms ease-out both;
+}
 
-  0%,
-  100% {
+@keyframes osPop {
+  0%, 100% {
     transform: translateY(0);
   }
-
   50% {
     transform: translateY(-3px);
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+.os-pop {
+  animation: osPop 1.6s ease-in-out infinite;
+}
 
+/* ------------------------------ */
+/* Reduced Motion Accessibility   */
+/* ------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
   .os-fade,
   .os-pop {
     animation: none !important;

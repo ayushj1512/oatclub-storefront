@@ -24,7 +24,8 @@ export const useAuthStore = create((set, get) => ({
   token: null,
   loading: true,
   isAuthenticated: false,
-
+activeCartId: null,
+activeCartType: "cart", // cart | abandoned
   modalDismissed: false,
   setModalDismissed: () => set({ modalDismissed: true }),
 
@@ -32,17 +33,71 @@ export const useAuthStore = create((set, get) => ({
      SET CUSTOMER STATE
   --------------------------------------------- */
   setCustomerState: (customer) => {
-    set({ customer, isAuthenticated: true });
+  const activeCartId = customer?.cart?.activeCartId || null;
+  const activeCartType = customer?.cart?.activeCartType || "cart";
 
-    const { user, token } = get();
-    if (user && token) {
-      Cookies.set(
-        COOKIE_KEY,
-        JSON.stringify({ user, customer, token }),
-        { expires: 7 }
-      );
-    }
-  },
+  set({
+    customer,
+    activeCartId,
+    activeCartType,
+    isAuthenticated: true,
+  });
+
+  const { user, token } = get();
+  if (user && token) {
+    Cookies.set(
+      COOKIE_KEY,
+      JSON.stringify({
+        user,
+        customer,
+        token,
+        activeCartId,
+        activeCartType,
+      }),
+      { expires: 7 }
+    );
+  }
+},
+
+/* ---------------------------------------------
+   🛒 SET ACTIVE CART (cart / abandoned)
+--------------------------------------------- */
+setActiveCart: (cartId, type = "cart") => {
+  const customer = get().customer;
+  if (!customer?._id) return;
+
+  const updatedCustomer = {
+    ...customer,
+    cart: {
+      ...customer.cart,
+      activeCartId: cartId,
+      activeCartType: type,
+      lastCartActivityAt: new Date().toISOString(),
+    },
+  };
+
+  set({
+    customer: updatedCustomer,
+    activeCartId: cartId,
+    activeCartType: type,
+  });
+
+  const { user, token } = get();
+
+  Cookies.set(
+    COOKIE_KEY,
+    JSON.stringify({
+      user,
+      customer: updatedCustomer,
+      token,
+      activeCartId: cartId,
+      activeCartType: type,
+    }),
+    { expires: 7 }
+  );
+},
+
+
 
   /* ---------------------------------------------
      FETCH CUSTOMER BY FIREBASE UID
@@ -71,15 +126,18 @@ export const useAuthStore = create((set, get) => ({
   --------------------------------------------- */
   syncCustomer: async (firebaseUser) => {
   try {
-    if (!firebaseUser) return null;
+    if (!firebaseUser) {
+      console.warn("⚠️ syncCustomer called without firebaseUser");
+      return null;
+    }
 
     const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
-
     if (!BACKEND) {
       console.error("❌ NEXT_PUBLIC_BACKEND_URL missing");
       return null;
     }
 
+    // 🔐 Always refresh token to avoid 401s
     const token = await firebaseUser.getIdToken(true);
 
     const payload = {
@@ -99,195 +157,363 @@ export const useAuthStore = create((set, get) => ({
       body: JSON.stringify(payload),
     });
 
+    // ❌ Backend / auth failure
     if (!res.ok) {
       const text = await res.text();
-      console.error("❌ Customer API error:", text);
+      console.error("❌ Customer API error:", res.status, text);
       return null;
     }
 
     const data = await res.json();
 
-    if (!data?.customer) {
+    // ❌ Invalid shape protection
+    if (!data || !data.customer || !data.customer._id) {
       console.error("❌ Invalid customer response:", data);
       return null;
     }
 
+    const customer = data.customer;
+
     return {
-      customer: data.customer,
+      customer,
       token,
+      activeCartId: customer?.cart?.activeCartId || null,
+      activeCartType: customer?.cart?.activeCartType || "cart",
     };
   } catch (error) {
-    console.error("❌ syncCustomer error:", error);
+    console.error("❌ syncCustomer exception:", error);
+    return null;
+  }
+},
+
+
+
+  /* ---------------------------------------------
+     🔥 NEW: UPDATE CUSTOMER PROFILE (Realtime Sync)
+  --------------------------------------------- */
+ updateCustomerProfile: async (updates) => {
+  const existingCustomer = get().customer;
+  if (!existingCustomer?._id) {
+    console.error("❌ No customer loaded");
+    return null;
+  }
+
+  try {
+    // 🔄 send updates to backend
+    const res = await fetch(
+      `${BACKEND}/api/customers/${existingCustomer._id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok || !data?.customer) {
+      console.error("❌ Update Customer Error:", data?.message);
+      return null;
+    }
+
+    const updatedCustomer = data.customer;
+
+    // 🧠 update Zustand store (keep cart state in sync)
+    set({
+      customer: updatedCustomer,
+      activeCartId: updatedCustomer?.cart?.activeCartId || null,
+      activeCartType: updatedCustomer?.cart?.activeCartType || "cart",
+    });
+
+    const { user, token } = get();
+
+    // 🍪 update cookie safely
+    Cookies.set(
+      COOKIE_KEY,
+      JSON.stringify({
+        user,
+        customer: updatedCustomer,
+        token,
+        activeCartId: updatedCustomer?.cart?.activeCartId || null,
+        activeCartType: updatedCustomer?.cart?.activeCartType || "cart",
+      }),
+      { expires: 7 }
+    );
+
+    return updatedCustomer;
+  } catch (err) {
+    console.error("❌ updateCustomerProfile exception:", err);
     return null;
   }
 },
 
 
   /* ---------------------------------------------
-     🔥 NEW: UPDATE CUSTOMER PROFILE (Realtime Sync)
+     FIREBASE SESSION LISTENER
   --------------------------------------------- */
-  updateCustomerProfile: async (updates) => {
-    const customer = get().customer;
-    if (!customer?._id) {
-      console.error("❌ No customer loaded");
-      return null;
+ initialize: () => {
+  if (typeof window === "undefined") return;
+
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    // 🚪 Logged out
+    if (!firebaseUser) {
+      set({
+        user: null,
+        customer: null,
+        token: null,
+        activeCartId: null,
+        activeCartType: "cart",
+        isAuthenticated: false,
+        loading: false,
+      });
+      Cookies.remove(COOKIE_KEY);
+      return;
     }
 
-    // send updates to backend
-    const res = await fetch(`${BACKEND}/api/customers/${customer._id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updates),
+    // 👤 Firebase user snapshot
+    const userData = {
+      uid: firebaseUser.uid,
+      name: firebaseUser.displayName || "",
+      email: firebaseUser.email || "",
+      photoURL: firebaseUser.photoURL || "",
+    };
+
+    // 🔄 Sync with backend (CRASH-SAFE)
+    const syncResult = await get().syncCustomer(firebaseUser);
+
+    if (!syncResult) {
+      console.error("❌ Failed to sync customer during initialize");
+      set({
+        user: userData,
+        customer: null,
+        token: null,
+        activeCartId: null,
+        activeCartType: "cart",
+        isAuthenticated: false,
+        loading: false,
+      });
+      return;
+    }
+
+    const {
+      customer,
+      token,
+      activeCartId,
+      activeCartType,
+    } = syncResult;
+
+    // ✅ Update Zustand store
+    set({
+      user: userData,
+      customer,
+      token,
+      activeCartId,
+      activeCartType,
+      isAuthenticated: true,
+      loading: false,
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      console.error("❌ Update Customer Error:", data.message);
-      return null;
-    }
-
-    // update Zustand store
-    set({ customer: data.customer });
-
-    const { user, token } = get();
-
-    // update cookie
+    // 🍪 Persist session
     Cookies.set(
       COOKIE_KEY,
       JSON.stringify({
-        user,
-        customer: data.customer,
+        user: userData,
+        customer,
         token,
+        activeCartId,
+        activeCartType,
       }),
       { expires: 7 }
     );
+  });
+},
 
-    return data.customer;
-  },
 
-  /* ---------------------------------------------
-     FIREBASE SESSION LISTENER
-  --------------------------------------------- */
-  initialize: () => {
-    if (typeof window === "undefined") return;
-
-    onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        set({
-          user: null,
-          customer: null,
-          token: null,
-          isAuthenticated: false,
-          loading: false,
-        });
-        Cookies.remove(COOKIE_KEY);
-        return;
-      }
-
-      const { customer, token } = await get().syncCustomer(firebaseUser);
-
-      const userData = {
-        uid: firebaseUser.uid,
-        name: firebaseUser.displayName,
-        email: firebaseUser.email,
-        photoURL: firebaseUser.photoURL,
-      };
-
-      set({ user: userData, customer, token, isAuthenticated: true, loading: false });
-
-      Cookies.set(
-        COOKIE_KEY,
-        JSON.stringify({ user: userData, customer, token }),
-        { expires: 7 }
-      );
-    });
-  },
 
   /* ---------------------------------------------
      GOOGLE LOGIN
   --------------------------------------------- */
   loginWithGoogle: async () => {
+  try {
     const result = await signInWithPopup(auth, googleProvider);
     const firebaseUser = result.user;
 
-    const { customer, token } = await get().syncCustomer(firebaseUser);
+    if (!firebaseUser) {
+      console.error("❌ Google login failed: no Firebase user");
+      return null;
+    }
+
+    // 🔄 Sync customer with backend (CRASH-SAFE)
+    const syncResult = await get().syncCustomer(firebaseUser);
+    if (!syncResult) {
+      console.error("❌ Customer sync failed (Google login)");
+      return null;
+    }
+
+    const { customer, token } = syncResult;
 
     const userData = {
       uid: firebaseUser.uid,
-      name: firebaseUser.displayName,
-      email: firebaseUser.email,
-      photoURL: firebaseUser.photoURL,
+      name: firebaseUser.displayName || "",
+      email: firebaseUser.email || "",
+      photoURL: firebaseUser.photoURL || "",
     };
 
-    set({ user: userData, customer, token, isAuthenticated: true });
+    // ✅ Update Zustand store
+    set({
+      user: userData,
+      customer,
+      token,
+      isAuthenticated: true,
+      activeCartId: customer?.cart?.activeCartId || null,
+      activeCartType: customer?.cart?.activeCartType || "cart",
+    });
 
+    // 🍪 Persist session
     Cookies.set(
       COOKIE_KEY,
-      JSON.stringify({ user: userData, customer, token }),
+      JSON.stringify({
+        user: userData,
+        customer,
+        token,
+        activeCartId: customer?.cart?.activeCartId || null,
+        activeCartType: customer?.cart?.activeCartType || "cart",
+      }),
       { expires: 7 }
     );
 
     return { user: userData, customer };
-  },
+  } catch (err) {
+    console.error("❌ loginWithGoogle exception:", err);
+    return null;
+  }
+},
 
   /* ---------------------------------------------
      EMAIL LOGIN
   --------------------------------------------- */
   loginWithEmail: async (email, password) => {
+  try {
     const result = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = result.user;
 
-    const { customer, token } = await get().syncCustomer(firebaseUser);
+    if (!firebaseUser) {
+      console.error("❌ Email login failed: no Firebase user");
+      return null;
+    }
+
+    // 🔄 Sync customer with backend (CRASH-SAFE)
+    const syncResult = await get().syncCustomer(firebaseUser);
+    if (!syncResult) {
+      console.error("❌ Customer sync failed (Email login)");
+      return null;
+    }
+
+    const { customer, token } = syncResult;
 
     const userData = {
       uid: firebaseUser.uid,
       name: firebaseUser.displayName || email.split("@")[0],
-      email: firebaseUser.email,
+      email: firebaseUser.email || email,
       photoURL: firebaseUser.photoURL || "/profile/user-avatar.jpg",
     };
 
-    set({ user: userData, customer, token, isAuthenticated: true });
+    // ✅ Update Zustand store
+    set({
+      user: userData,
+      customer,
+      token,
+      isAuthenticated: true,
+      activeCartId: customer?.cart?.activeCartId || null,
+      activeCartType: customer?.cart?.activeCartType || "cart",
+    });
 
+    // 🍪 Persist session
     Cookies.set(
       COOKIE_KEY,
-      JSON.stringify({ user: userData, customer, token }),
+      JSON.stringify({
+        user: userData,
+        customer,
+        token,
+        activeCartId: customer?.cart?.activeCartId || null,
+        activeCartType: customer?.cart?.activeCartType || "cart",
+      }),
       { expires: 7 }
     );
 
     return { user: userData, customer };
-  },
+  } catch (err) {
+    console.error("❌ loginWithEmail exception:", err);
+    return null;
+  }
+},
+
 
   /* ---------------------------------------------
      REGISTER WITH EMAIL
   --------------------------------------------- */
   registerWithEmail: async (email, password, name) => {
+  try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = result.user;
 
+    if (!firebaseUser) {
+      console.error("❌ Registration failed: no Firebase user");
+      return null;
+    }
+
+    // 👤 Update Firebase profile
     await updateProfile(firebaseUser, {
       displayName: name,
       photoURL: "/profile/user-avatar.jpg",
     });
 
-    const { customer, token } = await get().syncCustomer(firebaseUser);
+    // 🔄 Sync customer with backend (CRASH-SAFE)
+    const syncResult = await get().syncCustomer(firebaseUser);
+    if (!syncResult) {
+      console.error("❌ Customer sync failed (Register)");
+      return null;
+    }
+
+    const { customer, token } = syncResult;
 
     const userData = {
       uid: firebaseUser.uid,
       name,
-      email: firebaseUser.email,
+      email: firebaseUser.email || email,
       photoURL: "/profile/user-avatar.jpg",
     };
 
-    set({ user: userData, customer, token, isAuthenticated: true });
+    // ✅ Update Zustand store
+    set({
+      user: userData,
+      customer,
+      token,
+      isAuthenticated: true,
+      activeCartId: customer?.cart?.activeCartId || null,
+      activeCartType: customer?.cart?.activeCartType || "cart",
+    });
 
+    // 🍪 Persist session
     Cookies.set(
       COOKIE_KEY,
-      JSON.stringify({ user: userData, customer, token }),
+      JSON.stringify({
+        user: userData,
+        customer,
+        token,
+        activeCartId: customer?.cart?.activeCartId || null,
+        activeCartType: customer?.cart?.activeCartType || "cart",
+      }),
       { expires: 7 }
     );
 
     return { user: userData, customer };
-  },
+  } catch (err) {
+    console.error("❌ registerWithEmail exception:", err);
+    return null;
+  }
+},
+
 
   /* ---------------------------------------------
      LOGOUT FLOW
@@ -296,17 +522,19 @@ export const useAuthStore = create((set, get) => ({
   requestLogout: () => set({ showLogoutConfirm: true }),
   cancelLogout: () => set({ showLogoutConfirm: false }),
 
-  confirmLogout: async () => {
-    await signOut(auth);
+ confirmLogout: async () => {
+  await signOut(auth);
 
-    set({
-      user: null,
-      customer: null,
-      token: null,
-      isAuthenticated: false,
-      showLogoutConfirm: false,
-    });
+  set({
+    user: null,
+    customer: null,
+    token: null,
+    activeCartId: null,
+    activeCartType: "cart",
+    isAuthenticated: false,
+    showLogoutConfirm: false,
+  });
 
-    Cookies.remove(COOKIE_KEY);
-  },
+  Cookies.remove(COOKIE_KEY);
+},
 }));

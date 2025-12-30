@@ -5,8 +5,6 @@ import { Tag, X, Loader2 } from "lucide-react";
 import { useCouponStore } from "@/store/couponStore";
 import { useAuthStore } from "@/store/authStore";
 
-const BRAND = "#800020";
-
 export default function ApplyCoupon({ cartTotal }) {
   const [code, setCode] = useState("");
 
@@ -15,7 +13,6 @@ export default function ApplyCoupon({ cartTotal }) {
   const {
     coupon,
     discount,
-    finalTotal,
     isApplying,
     error,
     applyCoupon,
@@ -25,8 +22,7 @@ export default function ApplyCoupon({ cartTotal }) {
   const hasCoupon = Boolean(coupon?.code);
 
   const onApply = async () => {
-    if (!code.trim()) return;
-
+    if (!code.trim() || isApplying) return;
     try {
       await applyCoupon({
         code,
@@ -39,26 +35,28 @@ export default function ApplyCoupon({ cartTotal }) {
     }
   };
 
-  const displayDiscount = useMemo(() => {
-    if (!discount) return 0;
-    return Math.max(0, Number(discount));
-  }, [discount]);
+  const displayDiscount = useMemo(
+    () => Math.max(0, Number(discount || 0)),
+    [discount]
+  );
 
   return (
-    <div className="mt-4 rounded-2xl border border-black/10 bg-white/70 p-4 shadow-[0_8px_18px_rgba(0,0,0,0.06)]">
+    <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.06)]">
       <div className="flex items-center gap-2 mb-2">
         <Tag className="w-4 h-4 text-gray-700" />
-        <p className="text-sm font-semibold text-gray-900">Apply Coupon</p>
+        <p className="text-sm font-semibold text-black">
+          Apply Coupon
+        </p>
       </div>
 
-      {/* Applied coupon */}
+      {/* APPLIED */}
       {hasCoupon ? (
-        <div className="flex items-center justify-between rounded-xl bg-green-50 border border-green-200 px-3 py-2">
+        <div className="flex items-center justify-between rounded-xl bg-gray-50 border border-gray-200 px-3 py-2">
           <div>
-            <p className="text-sm font-semibold text-green-700">
+            <p className="text-sm font-semibold text-black">
               {coupon.code} applied
             </p>
-            <p className="text-xs text-green-600">
+            <p className="text-xs text-gray-600">
               You saved ₹{displayDiscount}
             </p>
           </div>
@@ -66,10 +64,10 @@ export default function ApplyCoupon({ cartTotal }) {
           <button
             type="button"
             onClick={removeCoupon}
-            className="grid place-items-center size-8 rounded-full bg-green-100 hover:bg-green-200"
             aria-label="Remove coupon"
+            className="grid place-items-center w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 transition"
           >
-            <X className="w-4 h-4 text-green-700" />
+            <X className="w-4 h-4 text-black" />
           </button>
         </div>
       ) : (
@@ -79,15 +77,14 @@ export default function ApplyCoupon({ cartTotal }) {
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="Enter coupon code"
-              className="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
+              className="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 transition"
             />
 
             <button
               type="button"
               disabled={isApplying}
               onClick={onApply}
-              className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60"
-              style={{ backgroundColor: BRAND }}
+              className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-black hover:bg-black/90 transition disabled:opacity-60"
             >
               {isApplying ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -98,7 +95,9 @@ export default function ApplyCoupon({ cartTotal }) {
           </div>
 
           {error && (
-            <p className="mt-2 text-xs text-red-600">{error}</p>
+            <p className="mt-2 text-xs text-red-600">
+              {error}
+            </p>
           )}
         </>
       )}

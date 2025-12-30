@@ -76,60 +76,69 @@ export default function RecentlyViewedProducts() {
   /* -------------------------------------------------------
      NORMAL VIEW
   ------------------------------------------------------- */
-  return (
-    <section className="mt-10 px-3 md:px-6 w-full relative flex flex-col">
-      <div className="flex justify-between items-center mb-3">
-        <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
-          Recently Viewed
-        </h2>
+ return (
+  <section className="relative mt-12 w-full px-3 md:px-6 flex flex-col">
 
-        <div className="flex items-center gap-3">
-          {/* VIEW ALL */}
-          <Link
-            href="/profile/recently-viewed"
-            className="text-sm font-semibold text-[#800020] hover:opacity-80 transition"
+    {/* ================= HEADER ================= */}
+    <div className="mb-4 flex items-center justify-between">
+      <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-black">
+        Recently Viewed
+      </h2>
+
+      <div className="flex items-center gap-3">
+        {/* View all */}
+        <Link
+          href="/profile/recently-viewed"
+          className="text-sm font-semibold text-black/70 hover:text-black transition"
+        >
+          View all →
+        </Link>
+
+        {/* Desktop controls */}
+        <div className="hidden md:flex items-center gap-2">
+          <button
+            onClick={() => scroll("left")}
+            aria-label="Scroll left"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full
+                       border border-black/10 hover:bg-black/5 transition"
           >
-            View All →
-          </Link>
+            <ChevronLeft className="h-4 w-4 text-black" />
+          </button>
 
-          {/* DESKTOP SCROLL CONTROLS */}
-          <div className="hidden md:flex gap-2">
-            <button
-              onClick={() => scroll("left")}
-              aria-label="Scroll left"
-              className="p-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition"
-            >
-              <ChevronLeft className="w-4 h-4 text-gray-700" />
-            </button>
-            <button
-              onClick={() => scroll("right")}
-              aria-label="Scroll right"
-              className="p-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition"
-            >
-              <ChevronRight className="w-4 h-4 text-gray-700" />
-            </button>
-          </div>
+          <button
+            onClick={() => scroll("right")}
+            aria-label="Scroll right"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full
+                       border border-black/10 hover:bg-black/5 transition"
+          >
+            <ChevronRight className="h-4 w-4 text-black" />
+          </button>
         </div>
       </div>
+    </div>
 
-      {/* FADE EDGES */}
-      <div className="pointer-events-none absolute top-0 left-0 h-full w-6 bg-gradient-to-r from-white to-transparent" />
-      <div className="pointer-events-none absolute top-0 right-0 h-full w-6 bg-gradient-to-l from-white to-transparent" />
+    {/* ================= FADE EDGES ================= */}
+    <div className="pointer-events-none absolute inset-y-0 left-0 w-8
+                    bg-gradient-to-r from-white to-transparent" />
+    <div className="pointer-events-none absolute inset-y-0 right-0 w-8
+                    bg-gradient-to-l from-white to-transparent" />
 
-      {/* SCROLLER */}
-      <div
-        ref={scrollRef}
-        className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory scroll-smooth pb-2"
-      >
-        {items.map((p) => (
-          <div
-            key={String(p?.id || p?.slug)}
-            className={`${CARD_WRAP} ${CARD_HEIGHT}`}
-          >
-            <ProductCard product={p} disableRecentlyViewed />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
+    {/* ================= SCROLLER ================= */}
+    <div
+      ref={scrollRef}
+      className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory
+                 pb-2 scrollbar-hide"
+    >
+      {items.map((p) => (
+        <div
+          key={String(p?.id || p?.slug)}
+          className={`${CARD_WRAP} ${CARD_HEIGHT} snap-start`}
+        >
+          <ProductCard product={p} disableRecentlyViewed />
+        </div>
+      ))}
+    </div>
+  </section>
+);
+
 }

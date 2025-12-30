@@ -58,74 +58,140 @@ const FAQS = [
 ];
 
 export default function FAQPage() {
-  return (
-    <main className="w-full bg-white text-gray-900">
-      <section className="w-full px-4 md:px-10 py-10 md:py-14">
-        <div className="w-full">
-          <div className="flex flex-col gap-2 mb-8">
-            <p className="text-xs font-semibold text-[#800020] tracking-widest uppercase">Miray Fashion</p>
-            <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight">FAQs</h1>
-            <p className="text-sm md:text-base text-gray-600">Everything you need to know about exchange, return, pickup, and support.</p>
-          </div>
+return (
+  <main className="w-full bg-white text-black">
+    <section className="w-full px-4 md:px-10 py-16">
+      <div className="mx-auto max-w-7xl">
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_330px] gap-8">
-            <div className="space-y-4">
-              {FAQS.map((f, i) => (
-                <details key={i} className="group rounded-2xl border border-gray-200 bg-white p-5 md:p-6">
-                  <summary className="cursor-pointer list-none flex items-start justify-between gap-4">
-                    <span className="text-sm md:text-base font-semibold text-gray-900">{f.q}</span>
-                    <span className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-900 group-open:bg-[#800020] group-open:text-white transition">
-                      <span className="block group-open:hidden">+</span>
-                      <span className="hidden group-open:block">−</span>
-                    </span>
-                  </summary>
-                  <div className="mt-3 text-sm md:text-base text-gray-700 leading-relaxed">{f.a}</div>
-                </details>
-              ))}
-            </div>
+        {/* ================= HEADER ================= */}
+        <div className="mb-14 max-w-3xl">
+          <p className="text-[11px] font-semibold tracking-[0.35em] uppercase text-black/60">
+            Miray Fashion · Help
+          </p>
 
-            <aside className="space-y-4">
-              <div className="rounded-2xl border border-gray-200 p-5 bg-gray-50">
-                <h3 className="text-base font-bold mb-2">Quick Actions</h3>
-                <div className="flex flex-col gap-3">
-                  <Link href="/profile" className="inline-flex items-center justify-center rounded-full bg-black px-5 py-2 text-sm font-semibold text-white hover:opacity-90 transition">
-                    Go to My Account
-                  </Link>
-                  <Link href="/exchange-and-return" className="inline-flex items-center justify-center rounded-full border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-900 hover:bg-white transition">
-                    Read Policy Page
-                  </Link>
-                  <Link href="/contact" className="inline-flex items-center justify-center rounded-full bg-[#800020] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 transition">
-                    Contact Support
-                  </Link>
-                </div>
-              </div>
+          <h1 className="mt-4 text-3xl md:text-5xl font-extrabold tracking-tight">
+            Frequently Asked Questions
+          </h1>
 
-              <div className="rounded-2xl border border-gray-200 p-5">
-                <h3 className="text-base font-bold mb-2">Timelines</h3>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li><span className="font-semibold">Exchange window:</span> 7 days from delivery</li>
-                  <li><span className="font-semibold">Return window:</span> 7 days from delivery</li>
-                  <li><span className="font-semibold">Ticket (damage/wrong):</span> within 24 hours</li>
-                  <li><span className="font-semibold">Pickup:</span> 2–3 working days (service availability dependent)</li>
-                </ul>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 p-5 bg-gray-50">
-                <h3 className="text-base font-bold mb-2">Fees</h3>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li><span className="font-semibold">Size exchange fee:</span> INR 99</li>
-                  <li><span className="font-semibold">Second exchange fee:</span> INR 250</li>
-                  <li><span className="font-semibold">Courier reimbursement:</span> up to INR 250 (if reverse pickup not available)</li>
-                </ul>
-              </div>
-            </aside>
-          </div>
-
-          <p className="text-xs text-gray-500 mt-8">
-            Miray Fashion reserves the right to amend these terms and conditions at any time. Exchange/return requests are subject to inspection and approval.
+          <p className="mt-4 text-base md:text-lg leading-relaxed text-black/70">
+            Clear answers about exchanges, returns, pickups, and customer support —
+            designed to save you time.
           </p>
         </div>
-      </section>
-    </main>
-  );
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-12">
+
+          {/* ================= FAQ LIST ================= */}
+          <div className="space-y-4">
+            {FAQS.map((f, i) => (
+              <details
+                key={i}
+                className="group rounded-3xl border border-black/10 bg-white p-6 md:p-7 transition hover:border-black/20"
+              >
+                <summary className="flex cursor-pointer list-none items-start gap-4">
+                  <span className="text-sm md:text-base font-semibold leading-snug">
+                    {f.q}
+                  </span>
+
+                  <span className="ml-auto inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-black/10 text-black/70 transition group-open:bg-black group-open:text-white">
+                    <span className="block group-open:hidden">+</span>
+                    <span className="hidden group-open:block">−</span>
+                  </span>
+                </summary>
+
+                <div className="mt-4 text-sm md:text-base leading-relaxed text-black/70">
+                  {f.a}
+                </div>
+              </details>
+            ))}
+          </div>
+
+          {/* ================= SIDEBAR ================= */}
+          <aside className="space-y-6 lg:sticky lg:top-24 h-fit">
+
+            {/* Quick Actions */}
+            <div className="rounded-3xl border border-black/10 bg-white p-6">
+              <h3 className="mb-4 text-xs font-bold tracking-widest uppercase text-black/50">
+                Quick Actions
+              </h3>
+
+              <div className="flex flex-col gap-3">
+                <Link
+                  href="/profile"
+                  className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:opacity-90 transition"
+                >
+                  Go to My Account
+                </Link>
+
+                <Link
+                  href="/exchange-and-return"
+                  className="inline-flex items-center justify-center rounded-full border border-black px-6 py-3 text-sm font-semibold hover:bg-black hover:text-white transition"
+                >
+                  Exchange & Return Policy
+                </Link>
+
+                <Link
+                  href="/contact"
+                  className="inline-flex items-center justify-center rounded-full border border-black/20 px-6 py-3 text-sm font-semibold hover:border-black transition"
+                >
+                  Contact Support
+                </Link>
+              </div>
+            </div>
+
+            {/* Timelines */}
+            <div className="rounded-3xl border border-black/10 bg-white p-6">
+              <h3 className="mb-4 text-xs font-bold tracking-widest uppercase text-black/50">
+                Timelines
+              </h3>
+
+              <ul className="space-y-3 text-sm text-black/75">
+                <li>
+                  <span className="font-semibold">Exchange window:</span> 7 days from delivery
+                </li>
+                <li>
+                  <span className="font-semibold">Return window:</span> 7 days from delivery
+                </li>
+                <li>
+                  <span className="font-semibold">Damage / wrong item:</span> within 24 hours
+                </li>
+                <li>
+                  <span className="font-semibold">Pickup:</span> 2–3 working days
+                </li>
+              </ul>
+            </div>
+
+            {/* Fees */}
+            <div className="rounded-3xl border border-black/10 bg-white p-6">
+              <h3 className="mb-4 text-xs font-bold tracking-widest uppercase text-black/50">
+                Fees
+              </h3>
+
+              <ul className="space-y-3 text-sm text-black/75">
+                <li>
+                  <span className="font-semibold">Size exchange:</span> ₹99
+                </li>
+                <li>
+                  <span className="font-semibold">Second exchange:</span> ₹250
+                </li>
+                <li>
+                  <span className="font-semibold">Courier reimbursement:</span> up to ₹250
+                </li>
+              </ul>
+            </div>
+
+          </aside>
+        </div>
+
+        {/* ================= FOOTER NOTE ================= */}
+        <p className="mt-14 max-w-4xl text-xs leading-relaxed text-black/50">
+          Miray Fashion reserves the right to update these FAQs at any time.
+          Exchange and return requests are subject to inspection and approval.
+        </p>
+
+      </div>
+    </section>
+  </main>
+);
+
 }

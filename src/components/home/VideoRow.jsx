@@ -134,116 +134,124 @@ export default function VideoRow() {
 
   if (!mounted || !reelsWithProducts.length) return null;
 
-  return (
-    <>
-      <section className="w-full flex flex-col bg-white py-10 md:py-14 overflow-hidden">
-        <h2 className="text-xl md:text-3xl font-extrabold text-center text-black border-b-4 border-[#800020] pb-1 w-fit mx-auto mb-6 tracking-wide uppercase">
-          Fashion In Motion
-        </h2>
+ return (
+  <>
+    <section className="w-full flex flex-col bg-white py-10 md:py-14 overflow-hidden">
+      <h2 className="text-xl md:text-3xl font-extrabold text-center text-black border-b border-black pb-2 w-fit mx-auto mb-6 tracking-[0.25em] uppercase">
+        Fashion In Motion
+      </h2>
 
-        <div className="relative px-6 md:px-10">
-          <button
-            onClick={() => scrollByCards("left")}
-            className="hidden md:flex items-center justify-center absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 border shadow-sm"
-          >
-            <ChevronLeft size={18} />
-          </button>
+      <div className="relative px-6 md:px-10">
+        {/* Left Arrow */}
+        <button
+          onClick={() => scrollByCards("left")}
+          className="hidden md:flex items-center justify-center absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow transition"
+        >
+          <ChevronLeft size={18} className="text-black" />
+        </button>
 
-          <button
-            onClick={() => scrollByCards("right")}
-            className="hidden md:flex items-center justify-center absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 border shadow-sm"
-          >
-            <ChevronRight size={18} />
-          </button>
+        {/* Right Arrow */}
+        <button
+          onClick={() => scrollByCards("right")}
+          className="hidden md:flex items-center justify-center absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow transition"
+        >
+          <ChevronRight size={18} className="text-black" />
+        </button>
 
-          <div
-            ref={scrollerRef}
-            className="flex gap-4 md:gap-5 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2"
-          >
-            {reelsWithProducts.map((reel, i) => (
-              <div
-                key={reel.src}
-                data-reel-card="true"
-                onClick={() => setActiveIndex(i)}
-                className="snap-start bg-white flex flex-col cursor-pointer relative min-w-[160px] md:min-w-[220px] lg:min-w-[240px] hover:shadow-md transition"
-              >
-                <div className="relative w-full aspect-[9/16] bg-black">
-                  <video
-                    ref={(el) => (videoRefs.current[i] = el)}
-                    src={reel.src}
-                    muted
-                    loop
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
+        <div
+          ref={scrollerRef}
+          className="flex gap-4 md:gap-5 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2"
+        >
+          {reelsWithProducts.map((reel, i) => (
+            <div
+              key={reel.src}
+              data-reel-card="true"
+              onClick={() => setActiveIndex(i)}
+              className="snap-start bg-white flex flex-col cursor-pointer relative min-w-[160px] md:min-w-[220px] lg:min-w-[240px] border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition"
+            >
+              {/* Reel */}
+              <div className="relative w-full aspect-[9/16] bg-black">
+                <video
+                  ref={(el) => (videoRefs.current[i] = el)}
+                  src={reel.src}
+                  muted
+                  loop
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+
+                <div className="absolute bottom-3 right-3 flex flex-col gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleLike(i);
+                    }}
+                    className="p-2 bg-black/40 rounded-full backdrop-blur"
+                  >
+                    <Heart
+                      size={18}
+                      className={
+                        likes[i]
+                          ? "text-red-500 fill-red-500"
+                          : "text-white"
+                      }
+                    />
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      shareReel(reel);
+                    }}
+                    className="p-2 bg-black/40 rounded-full backdrop-blur"
+                  >
+                    <Share2 size={18} className="text-white" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 🔗 PRODUCT NAVIGATION */}
+              {reel.product && (
+                <div
+                  onClick={(e) => navigateToProduct(e, reel.product)}
+                  className="flex items-center gap-3 p-3 border-t border-gray-200 bg-white"
+                >
+                  <img
+                    src={reel.product.image}
+                    alt={reel.product.name}
+                    className="w-12 h-14 md:w-14 md:h-16 object-contain bg-gray-100"
                   />
-                  <div className="absolute bottom-3 right-3 flex flex-col gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleLike(i);
-                      }}
-                      className="p-2 bg-black/40 rounded-full"
-                    >
-                      <Heart
-                        size={18}
-                        className={
-                          likes[i]
-                            ? "text-red-500 fill-red-500"
-                            : "text-white"
-                        }
-                      />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        shareReel(reel);
-                      }}
-                      className="p-2 bg-black/40 rounded-full"
-                    >
-                      <Share2 size={18} className="text-white" />
-                    </button>
+
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <p className="text-[11px] md:text-sm font-medium text-gray-900 line-clamp-1">
+                      {reel.product.name}
+                    </p>
+                    <p className="text-black font-semibold text-xs md:text-sm">
+                      ₹{reel.product.price}
+                    </p>
+                  </div>
+
+                  <div className="text-black/70 text-lg md:text-xl font-bold">
+                    →
                   </div>
                 </div>
-
-                {/* 🔗 PRODUCT NAVIGATION */}
-                {reel.product && (
-                  <div
-                    onClick={(e) => navigateToProduct(e, reel.product)}
-                    className="flex items-center gap-3 p-3 border-t bg-white"
-                  >
-                    <img
-                      src={reel.product.image}
-                      alt={reel.product.name}
-                      className="w-12 h-14 md:w-14 md:h-16 object-contain bg-gray-100"
-                    />
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <p className="text-[11px] md:text-sm font-medium line-clamp-1">
-                        {reel.product.name}
-                      </p>
-                      <p className="text-[#800020] font-semibold text-xs md:text-sm">
-                        ₹{reel.product.price}
-                      </p>
-                    </div>
-                    <div className="text-[#800020] text-lg md:text-xl font-bold">
-                      →
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+              )}
+            </div>
+          ))}
         </div>
-      </section>
+      </div>
+    </section>
 
-      {activeIndex !== null && (
-        <ReelViewer
-          reels={reelsWithProducts}
-          currentIndex={activeIndex}
-          setCurrentIndex={setActiveIndex}
-          onClose={() => setActiveIndex(null)}
-        />
-      )}
-    </>
-  );
+    {activeIndex !== null && (
+      <ReelViewer
+        reels={reelsWithProducts}
+        currentIndex={activeIndex}
+        setCurrentIndex={setActiveIndex}
+        onClose={() => setActiveIndex(null)}
+      />
+    )}
+  </>
+);
+
 }

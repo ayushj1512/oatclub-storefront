@@ -17,61 +17,76 @@ export default function Footer() {
     setOpenSection((p) => (p === section ? null : section));
   const year = useMemo(() => new Date().getFullYear(), []);
 
-  return (
-    <footer className="w-full bg-black text-gray-300 pt-10 px-6 md:px-12 mt-16">
-      {/* 🖥️ Desktop Layout */}
-      <div className="hidden md:grid grid-cols-4 gap-10 max-w-7xl mx-auto">
-        {/* Logo + Info */}
-        <div className="flex flex-col gap-4">
-          <h2 className="text-2xl font-bold tracking-tight text-white">
-            MIRAY<span className="text-[#800020]">.</span>
+ return (
+  <footer className="w-full bg-black text-white mt-16">
+
+    {/* ================= MAIN ================= */}
+    <div className="mx-auto max-w-7xl px-6 md:px-12 py-12">
+
+      {/* ================= DESKTOP ================= */}
+      <div className="hidden md:grid grid-cols-4 gap-12">
+
+        {/* Brand */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-extrabold tracking-tight">
+            MIRAY
           </h2>
-          <p className="text-gray-400 text-sm max-w-sm">
-            Redefining fashion with elegance and modern style. Discover curated
-            collections that inspire confidence.
+          <p className="text-sm text-white/60 max-w-sm leading-relaxed">
+            Redefining fashion with elegance and modern style.
+            Curated collections designed to inspire confidence.
           </p>
         </div>
 
         {/* Quick Links */}
-        <div className="flex flex-col gap-2">
-          <h3 className="text-lg font-semibold mb-2 text-white">Quick Links</h3>
-          <Link href="/" className="hover:text-[#800020]">Home</Link>
-          <Link href="/categories" className="hover:text-[#800020]">Shop</Link>
-          <Link href="/about" className="hover:text-[#800020]">About Us</Link>
-          <Link href="/contact" className="hover:text-[#800020]">Contact</Link>
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold tracking-widest uppercase text-white/80">
+            Quick Links
+          </h3>
+          <nav className="flex flex-col gap-2 text-sm text-white/60">
+            <Link href="/" className="hover:text-white transition">Home</Link>
+            <Link href="/categories" className="hover:text-white transition">Shop</Link>
+            <Link href="/about" className="hover:text-white transition">About Us</Link>
+            <Link href="/contact" className="hover:text-white transition">Contact</Link>
+          </nav>
         </div>
 
         {/* Support */}
-        <div className="flex flex-col gap-2">
-          <h3 className="text-lg font-semibold mb-2 text-white">Support</h3>
-          <Link href="/support" className="hover:text-[#800020]">Support</Link>
-          <Link href="/faq" className="hover:text-[#800020]">FAQs</Link>
-          <Link href="/shipping-policy" className="hover:text-[#800020]">Shipping Policy</Link>
-          <Link href="/exchange-and-return" className="hover:text-[#800020]">Exchange & Return</Link>
-          <Link href="/cancellation-and-refund" className="hover:text-[#800020]">
-            Cancellation & Refund
-          </Link>
-          <Link href="/privacy-policy" className="hover:text-[#800020]">Privacy Policy</Link>
-          <Link href="/terms-and-conditions" className="hover:text-[#800020]">Terms & Conditions</Link>
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold tracking-widest uppercase text-white/80">
+            Support
+          </h3>
+          <nav className="flex flex-col gap-2 text-sm text-white/60">
+            <Link href="/support" className="hover:text-white transition">Support</Link>
+            <Link href="/faq" className="hover:text-white transition">FAQs</Link>
+            <Link href="/shipping-policy" className="hover:text-white transition">Shipping Policy</Link>
+            <Link href="/exchange-and-return" className="hover:text-white transition">Exchange & Return</Link>
+            <Link href="/cancellation-and-refund" className="hover:text-white transition">
+              Cancellation & Refund
+            </Link>
+            <Link href="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link>
+            <Link href="/terms-and-conditions" className="hover:text-white transition">Terms & Conditions</Link>
+          </nav>
         </div>
 
         {/* Social */}
-        <div className="flex flex-col gap-2">
-          <h3 className="text-lg font-semibold mb-2 text-white">Follow Us</h3>
-          <div className="flex flex-row gap-4">
-            <a href="#" className="hover:text-[#800020]" aria-label="Instagram">
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold tracking-widest uppercase text-white/80">
+            Follow Us
+          </h3>
+          <div className="flex gap-4 text-white/60">
+            <a href="#" aria-label="Instagram" className="hover:text-white transition">
               <Instagram />
             </a>
-            <a href="#" className="hover:text-[#800020]" aria-label="Facebook">
+            <a href="#" aria-label="Facebook" className="hover:text-white transition">
               <Facebook />
             </a>
-            <a href="#" className="hover:text-[#800020]" aria-label="Twitter">
+            <a href="#" aria-label="Twitter" className="hover:text-white transition">
               <Twitter />
             </a>
             <a
               href="mailto:info@mirayfashions.com"
-              className="hover:text-[#800020]"
               aria-label="Email"
+              className="hover:text-white transition"
             >
               <Mail />
             </a>
@@ -79,36 +94,38 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* 📱 Mobile Layout */}
-      <div className="md:hidden flex flex-col gap-6 max-w-md mx-auto">
-        {/* Logo */}
-        <div className="flex flex-col items-center text-center gap-3">
-          <h2 className="text-2xl font-bold tracking-tight text-white">
-            MIRAY<span className="text-[#800020]">.</span>
+      {/* ================= MOBILE ================= */}
+      <div className="md:hidden max-w-md mx-auto space-y-6">
+
+        {/* Brand */}
+        <div className="text-center space-y-3">
+          <h2 className="text-2xl font-extrabold tracking-tight">
+            MIRAY
           </h2>
-          <p className="text-gray-400 text-sm max-w-xs">
-            Redefining fashion with elegance and modern style. Discover curated
-            collections that inspire confidence.
+          <p className="text-sm text-white/60 leading-relaxed">
+            Redefining fashion with elegance and modern style.
           </p>
         </div>
 
-        {/* Expandable Sections */}
-        <div className="divide-y divide-gray-800 border-t border-b border-gray-800">
+        {/* Accordions */}
+        <div className="divide-y divide-white/10 border-y border-white/10">
+
           {/* Quick Links */}
           <div>
             <button
               onClick={() => toggleSection("quick")}
-              className="w-full flex justify-between items-center py-3 text-left text-white"
+              className="w-full flex items-center justify-between py-3 text-sm font-semibold"
             >
-              <span className="text-lg font-semibold">Quick Links</span>
+              Quick Links
               {openSection === "quick" ? <ChevronUp /> : <ChevronDown />}
             </button>
+
             {openSection === "quick" && (
-              <div className="flex flex-col gap-2 pb-3 pl-2 text-gray-400">
-                <Link href="/" className="hover:text-[#800020]">Home</Link>
-                <Link href="/categories" className="hover:text-[#800020]">Shop</Link>
-                <Link href="/about" className="hover:text-[#800020]">About Us</Link>
-                <Link href="/contact" className="hover:text-[#800020]">Contact</Link>
+              <div className="pb-3 pl-2 flex flex-col gap-2 text-sm text-white/60">
+                <Link href="/" className="hover:text-white">Home</Link>
+                <Link href="/categories" className="hover:text-white">Shop</Link>
+                <Link href="/about" className="hover:text-white">About Us</Link>
+                <Link href="/contact" className="hover:text-white">Contact</Link>
               </div>
             )}
           </div>
@@ -117,22 +134,23 @@ export default function Footer() {
           <div>
             <button
               onClick={() => toggleSection("support")}
-              className="w-full flex justify-between items-center py-3 text-left text-white"
+              className="w-full flex items-center justify-between py-3 text-sm font-semibold"
             >
-              <span className="text-lg font-semibold">Support</span>
+              Support
               {openSection === "support" ? <ChevronUp /> : <ChevronDown />}
             </button>
+
             {openSection === "support" && (
-              <div className="flex flex-col gap-2 pb-3 pl-2 text-gray-400">
-                <Link href="/support" className="hover:text-[#800020]">Support</Link>
-                <Link href="/faq" className="hover:text-[#800020]">FAQs</Link>
-                <Link href="/shipping-policy" className="hover:text-[#800020]">Shipping Policy</Link>
-                <Link href="/exchange-and-return" className="hover:text-[#800020]">Exchange & Return</Link>
-                <Link href="/cancellation-and-refund" className="hover:text-[#800020]">
+              <div className="pb-3 pl-2 flex flex-col gap-2 text-sm text-white/60">
+                <Link href="/support" className="hover:text-white">Support</Link>
+                <Link href="/faq" className="hover:text-white">FAQs</Link>
+                <Link href="/shipping-policy" className="hover:text-white">Shipping Policy</Link>
+                <Link href="/exchange-and-return" className="hover:text-white">Exchange & Return</Link>
+                <Link href="/cancellation-and-refund" className="hover:text-white">
                   Cancellation & Refund
                 </Link>
-                <Link href="/privacy-policy" className="hover:text-[#800020]">Privacy Policy</Link>
-                <Link href="/terms-and-conditions" className="hover:text-[#800020]">Terms & Conditions</Link>
+                <Link href="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
+                <Link href="/terms-and-conditions" className="hover:text-white">Terms & Conditions</Link>
               </div>
             )}
           </div>
@@ -141,26 +159,27 @@ export default function Footer() {
           <div>
             <button
               onClick={() => toggleSection("social")}
-              className="w-full flex justify-between items-center py-3 text-left text-white"
+              className="w-full flex items-center justify-between py-3 text-sm font-semibold"
             >
-              <span className="text-lg font-semibold">Follow Us</span>
+              Follow Us
               {openSection === "social" ? <ChevronUp /> : <ChevronDown />}
             </button>
+
             {openSection === "social" && (
-              <div className="flex flex-row justify-start gap-4 pb-4 pl-2 text-gray-200">
-                <a href="#" className="hover:text-[#800020]" aria-label="Instagram">
+              <div className="pb-4 pl-2 flex gap-4 text-white/60">
+                <a href="#" aria-label="Instagram" className="hover:text-white">
                   <Instagram />
                 </a>
-                <a href="#" className="hover:text-[#800020]" aria-label="Facebook">
+                <a href="#" aria-label="Facebook" className="hover:text-white">
                   <Facebook />
                 </a>
-                <a href="#" className="hover:text-[#800020]" aria-label="Twitter">
+                <a href="#" aria-label="Twitter" className="hover:text-white">
                   <Twitter />
                 </a>
                 <a
                   href="mailto:info@mirayfashions.com"
-                  className="hover:text-[#800020]"
                   aria-label="Email"
+                  className="hover:text-white"
                 >
                   <Mail />
                 </a>
@@ -169,11 +188,13 @@ export default function Footer() {
           </div>
         </div>
       </div>
+    </div>
 
-      {/* Bottom Bar */}
-      <div className="mt-10 pt-6 border-t border-gray-800 text-center text-sm text-gray-500">
-        © {year} Miray Fashions. All rights reserved.
-      </div>
-    </footer>
-  );
+    {/* ================= BOTTOM ================= */}
+    <div className="border-t border-white/10 py-6 text-center text-sm text-white/50">
+      © {year} Miray Fashions. All rights reserved.
+    </div>
+  </footer>
+);
+
 }

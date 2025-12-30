@@ -16,26 +16,24 @@ export default function LogoutConfirmModal() {
       {showLogoutConfirm && (
         <motion.div
           className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
-          onClick={cancelLogout}  // ⭐ CLICK OUTSIDE closes modal
+          onClick={cancelLogout}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Center Modal */}
           <motion.div
-            className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl text-center"
-            initial={{ scale: 0.8, opacity: 0, y: 30 }}
+            onClick={(e) => e.stopPropagation()}
+            initial={{ scale: 0.85, opacity: 0, y: 24 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.8, opacity: 0, y: 30 }}
-            transition={{ type: 'spring', stiffness: 160, damping: 20 }}
-            onClick={(e) => e.stopPropagation()} // ❗ Prevent closing when clicking inside
+            exit={{ scale: 0.85, opacity: 0, y: 24 }}
+            transition={{ type: "spring", stiffness: 160, damping: 20 }}
+            className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl text-center"
           >
-            {/* Greeting */}
             <p className="text-gray-600 text-sm font-medium mb-1">
               Hey, {safeName}
             </p>
 
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+            <h3 className="text-xl font-bold text-black mb-2">
               Confirm Logout
             </h3>
 
@@ -46,7 +44,7 @@ export default function LogoutConfirmModal() {
             <div className="flex flex-col gap-3">
               <button
                 onClick={confirmLogout}
-                className="w-full py-3 rounded-xl bg-[#800020] text-white font-semibold hover:bg-[#6a001a] active:scale-[0.97] transition"
+                className="w-full py-3 rounded-xl bg-black text-white font-semibold hover:bg-black/90 active:scale-[0.97] transition"
               >
                 Log Out
               </button>

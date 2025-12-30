@@ -16,7 +16,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, MapPin, Plus, CheckCircle2, Loader2, Home, Building2, BadgeCheck } from "lucide-react";
 import { usePincodeLookup } from "@/utils/usePincodeLookup";
 
-const BRAND = "#800020";
 
 export default function AddressBookPage() {
   const router = useRouter();
@@ -42,13 +41,13 @@ export default function AddressBookPage() {
     isDefaultShipping: false,
   });
 
-  // pincode lookup (no error UI)
+  // pincode lookup
   const pin = String(formData.postalCode || "");
   const { loading: pinLoading, data: pinData } = usePincodeLookup(pin);
   const pinValid = useMemo(() => /^\d{6}$/.test(pin), [pin]);
   const filledByPin = !!(pinData?.city || pinData?.state);
 
-  // init: load addresses + prefill user info
+  // init
   useEffect(() => {
     if (!user) return;
     fetchAddresses(user.uid);
@@ -62,7 +61,7 @@ export default function AddressBookPage() {
     }));
   }, [user, customer, fetchAddresses]);
 
-  // autofill on success
+  // autofill
   useEffect(() => {
     if (!pinData) return;
     setFormData((p) => ({
@@ -72,7 +71,7 @@ export default function AddressBookPage() {
     }));
   }, [pinData]);
 
-  // update fields (sanitize pincode)
+  // update fields
   const updateField = (e) => {
     const { name, value } = e.target;
     if (name === "postalCode") {
@@ -89,7 +88,6 @@ export default function AddressBookPage() {
     try {
       await createAddress(formData);
       if (user?.uid) await fetchAddresses(user.uid);
-      // keep name/phone; clear rest
       setFormData((p) => ({
         ...p,
         alternatePhone: "",
@@ -111,29 +109,36 @@ export default function AddressBookPage() {
     <section className="min-h-screen bg-[#F2F2F7]">
       <IOSStyles />
 
-      {/* ✅ FULL-WIDTH flex container (no max-width) */}
-      <div className="w-full flex flex-col gap-5 px-4 sm:px-6 lg:px-10 py-7 sm:py-10">
+      <div className="flex w-full flex-col gap-5 px-4 py-7 sm:px-6 sm:py-10 lg:px-10">
+
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push("/profile")} className="ios-icon-btn" aria-label="Back">
+          <button
+            onClick={() => router.push("/profile")}
+            className="ios-icon-btn"
+            aria-label="Back"
+          >
             <ChevronLeft size={18} />
           </button>
+
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-3xl font-semibold text-gray-900 truncate">My Addresses</h1>
-            <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
+            <h1 className="truncate text-xl font-semibold text-gray-900 sm:text-3xl">
+              My Addresses
+            </h1>
+            <p className="mt-0.5 text-xs text-gray-600 sm:text-sm">
               Enter pincode first — auto-fill when available.
             </p>
           </div>
         </div>
 
-        {/* ✅ Saved addresses (top) */}
+        {/* Saved Addresses */}
         <IOSCard
           title="Saved Addresses"
-          icon={<MapPin size={16} style={{ color: BRAND }} />}
+          icon={<MapPin size={16} className="text-black" />}
           right={<span className="ios-subtle">{addresses?.length || 0} saved</span>}
         >
           {addresses?.length ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {addresses.map((addr) => (
                 <AddressCard key={addr._id} addr={addr} />
               ))}
@@ -143,13 +148,13 @@ export default function AddressBookPage() {
           )}
         </IOSCard>
 
-        {/* ✅ Add form (bottom) */}
+        {/* Add Address */}
         <IOSCard
           title="Add New Address"
-          icon={<Plus size={16} style={{ color: BRAND }} />}
+          icon={<Plus size={16} className="text-black" />}
           right={<PinStatus pinValid={pinValid} loading={pinLoading} filled={filledByPin} />}
         >
-          {/* PINCODE FIRST */}
+          {/* Pincode */}
           <IOSInput
             label="Pincode (enter first)"
             name="postalCode"
@@ -161,18 +166,18 @@ export default function AddressBookPage() {
                 pinLoading ? (
                   <PremiumLoader />
                 ) : filledByPin ? (
-                  <CheckCircle2 className="w-4 h-4" style={{ color: BRAND }} />
+                  <CheckCircle2 className="h-4 w-4 text-black" />
                 ) : null
               ) : null
             }
           />
 
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <IOSInput label="Full Name" name="fullName" value={formData.fullName} onChange={updateField} />
             <IOSInput label="Phone" name="phone" value={formData.phone} onChange={updateField} />
           </div>
 
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <IOSInput
               label="Alternate Phone"
               name="alternatePhone"
@@ -180,7 +185,12 @@ export default function AddressBookPage() {
               onChange={updateField}
               placeholder="Optional"
             />
-            <IOSSelect label="Address Type" name="addressType" value={formData.addressType} onChange={updateField}>
+            <IOSSelect
+              label="Address Type"
+              name="addressType"
+              value={formData.addressType}
+              onChange={updateField}
+            >
               <option value="home">Home</option>
               <option value="office">Office</option>
               <option value="billing">Billing</option>
@@ -189,8 +199,7 @@ export default function AddressBookPage() {
             </IOSSelect>
           </div>
 
-          {/* Autofill fields (always editable; no error UI) */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <IOSInput
               label="City"
               name="city"
@@ -207,7 +216,7 @@ export default function AddressBookPage() {
             />
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4">
+          <div className="mt-4 grid gap-4">
             <IOSInput
               label="Address Line 1"
               name="addressLine1"
@@ -232,21 +241,32 @@ export default function AddressBookPage() {
           </div>
 
           {/* Default toggle */}
-          <label className="mt-4 ios-toggle">
+          <label className="ios-toggle mt-4">
             <input
               type="checkbox"
               checked={!!formData.isDefaultShipping}
-              onChange={(e) => setFormData((p) => ({ ...p, isDefaultShipping: e.target.checked }))}
+              onChange={(e) =>
+                setFormData((p) => ({ ...p, isDefaultShipping: e.target.checked }))
+              }
               className="ios-checkbox"
             />
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-gray-900">Set as default shipping</div>
-              <div className="text-[11px] text-gray-600">Use this address by default at checkout.</div>
+              <div className="text-sm font-semibold text-gray-900">
+                Set as default shipping
+              </div>
+              <div className="text-[11px] text-gray-600">
+                Use this address by default at checkout.
+              </div>
             </div>
           </label>
 
-          <button onClick={saveAddress} disabled={saving} className="mt-5 ios-primary-btn" style={{ backgroundColor: BRAND }}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          {/* Save */}
+          <button
+            onClick={saveAddress}
+            disabled={saving}
+            className="ios-primary-btn mt-5 bg-black text-white hover:opacity-90 disabled:bg-black/20 disabled:text-black/40"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             {saving ? "Saving..." : "Save Address"}
           </button>
         </IOSCard>
@@ -255,6 +275,7 @@ export default function AddressBookPage() {
   );
 }
 
+
 /* ---------- small UI parts ---------- */
 
 function IOSCard({ title, icon, right, children }) {
@@ -262,15 +283,17 @@ function IOSCard({ title, icon, right, children }) {
     <div className="ios-card">
       <div className="ios-card-header">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="ios-icon">{icon}</div>
-          <div className="ios-title truncate">{title}</div>
+          <div className="ios-icon text-black">{icon}</div>
+          <div className="ios-title truncate text-black">{title}</div>
         </div>
-        {right ? <div className="shrink-0">{right}</div> : null}
+        {right && <div className="shrink-0 text-black/60">{right}</div>}
       </div>
       <div className="ios-card-body">{children}</div>
     </div>
   );
 }
+
+/* ------------------------------------ */
 
 function AddressCard({ addr }) {
   const type = String(addr.addressType || "home").toLowerCase();
@@ -282,55 +305,70 @@ function AddressCard({ addr }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="ios-pill">
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className="h-3.5 w-3.5" />
               <span className="uppercase">{type}</span>
             </span>
-            {addr.isDefaultShipping ? (
-              <span className="ios-pill ios-pill-good">
-                <BadgeCheck className="w-3.5 h-3.5" />
+
+            {addr.isDefaultShipping && (
+              <span className="ios-pill ios-pill-default">
+                <BadgeCheck className="h-3.5 w-3.5" />
                 Default
               </span>
-            ) : null}
+            )}
           </div>
 
-          <div className="mt-3 font-semibold text-gray-900 truncate">{addr.fullName}</div>
-          <div className="text-sm text-gray-700">{addr.phone}</div>
+          <div className="mt-3 truncate font-semibold text-black">
+            {addr.fullName}
+          </div>
+          <div className="text-sm text-black/70">{addr.phone}</div>
         </div>
       </div>
 
-      <div className="mt-3 text-sm text-gray-700 leading-5">
+      <div className="mt-3 text-sm leading-5 text-black/70">
         {addr.addressLine1}
-        {addr.addressLine2 ? `, ${addr.addressLine2}` : ""}
-        {addr.landmark ? `, ${addr.landmark}` : ""}
+        {addr.addressLine2 && `, ${addr.addressLine2}`}
+        {addr.landmark && `, ${addr.landmark}`}
         <br />
-        {addr.city}, {addr.state} - {addr.postalCode}
+        {addr.city}, {addr.state} – {addr.postalCode}
       </div>
     </div>
   );
 }
+
+/* ------------------------------------ */
 
 function IOSInput({ label, rightNode, ...props }) {
   return (
-    <div className="flex flex-col w-full">
-      <label className="ios-label">{label}</label>
+    <div className="flex w-full flex-col">
+      <label className="ios-label text-black/70">{label}</label>
       <div className="relative">
-        <input {...props} className="ios-input pr-14" />
-        {rightNode ? <div className="absolute right-3 top-1/2 -translate-y-1/2">{rightNode}</div> : null}
+        <input
+          {...props}
+          className="ios-input pr-14 text-black placeholder:text-black/40"
+        />
+        {rightNode && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-black">
+            {rightNode}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
+/* ------------------------------------ */
+
 function IOSSelect({ label, children, ...props }) {
   return (
-    <div className="flex flex-col w-full">
-      <label className="ios-label">{label}</label>
-      <select {...props} className="ios-input">
+    <div className="flex w-full flex-col">
+      <label className="ios-label text-black/70">{label}</label>
+      <select {...props} className="ios-input text-black">
         {children}
       </select>
     </div>
   );
 }
+
 
 function PinStatus({ pinValid, loading, filled }) {
   if (!pinValid) return <span className="ios-subtle"> </span>;

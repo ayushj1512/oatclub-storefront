@@ -226,7 +226,7 @@ export default function OrderDetailsPage() {
                   <p>Qty: {qty}</p>
                 </div>
 
-                <p className="text-[#800020] font-semibold mt-2">₹{price}</p>
+<p className="mt-2 font-semibold text-black/90">₹{price}</p>
 
                 {/* Customer actions: keep UI but currently mock-only */}
                 <div className="flex gap-3 mt-4 flex-wrap">
@@ -314,52 +314,55 @@ export default function OrderDetailsPage() {
       {/* ----------------------------------------------------
           MODAL: EXCHANGE SIZE (still mock UI)
       ---------------------------------------------------- */}
-      {showExchangeModal && (
-        <Modal
-          onClose={() => {
-            setShowExchangeModal(null);
-            setSelectedSize(null);
-          }}
+     {showExchangeModal && (
+  <Modal
+    onClose={() => {
+      setShowExchangeModal(null);
+      setSelectedSize(null);
+    }}
+  >
+    <h2 className="mb-3 text-xl font-semibold">
+      Exchange Size
+    </h2>
+
+    <p className="mb-4 text-sm text-black/70">
+      Select a new size for <strong>{showExchangeModal.name}</strong>
+    </p>
+
+    <div className="mb-6 flex flex-wrap gap-2">
+      {showExchangeModal.availableSizes.map((sz) => (
+        <button
+          key={sz}
+          onClick={() => setSelectedSize(sz)}
+          className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+            selectedSize === sz
+              ? "border-black bg-black text-white"
+              : "border-black/15 bg-white hover:bg-black/5"
+          }`}
         >
-          <h2 className="text-xl font-semibold mb-4">Exchange Size</h2>
+          {sz}
+        </button>
+      ))}
+    </div>
 
-          <p className="text-gray-600 mb-3">
-            Select a new size for: <b>{showExchangeModal.name}</b>
-          </p>
+    <button
+      disabled={!selectedSize}
+      onClick={() => {
+        alert(`Exchange requested (UI only): ${selectedSize}`);
+        setShowExchangeModal(null);
+        setSelectedSize(null);
+      }}
+      className={`w-full rounded-lg py-3 text-sm font-semibold transition ${
+        selectedSize
+          ? "bg-black text-white hover:opacity-90"
+          : "bg-black/10 text-black/40 cursor-not-allowed"
+      }`}
+    >
+      Submit Exchange
+    </button>
+  </Modal>
+)}
 
-          <div className="flex gap-2 flex-wrap mb-5">
-            {showExchangeModal.availableSizes.map((sz) => (
-              <button
-                key={sz}
-                onClick={() => setSelectedSize(sz)}
-                className={`px-4 py-2 rounded-lg border ${
-                  selectedSize === sz
-                    ? "bg-[#800020] text-white border-[#800020]"
-                    : "bg-gray-100 hover:bg-gray-200"
-                }`}
-              >
-                {sz}
-              </button>
-            ))}
-          </div>
-
-          <button
-            disabled={!selectedSize}
-            className={`w-full py-3 rounded-lg font-semibold ${
-              selectedSize
-                ? "bg-[#800020] text-white hover:bg-[#6a001b]"
-                : "bg-gray-200 text-gray-400"
-            }`}
-            onClick={() => {
-              alert(`Exchange requested (UI only): ${selectedSize}`);
-              setShowExchangeModal(null);
-              setSelectedSize(null);
-            }}
-          >
-            Submit Exchange
-          </button>
-        </Modal>
-      )}
 
       {/* ----------------------------------------------------
           MODAL: RETURN REQUEST (still mock UI)
@@ -392,21 +395,22 @@ export default function OrderDetailsPage() {
             <option>Not as described</option>
           </select>
 
-          <button
-            disabled={!returnReason}
-            className={`w-full py-3 rounded-lg font-semibold ${
-              returnReason
-                ? "bg-[#800020] text-white hover:bg-[#6a001b]"
-                : "bg-gray-200 text-gray-400"
-            }`}
-            onClick={() => {
-              alert(`Return submitted (UI only): ${returnReason}`);
-              setShowReturnModal(null);
-              setReturnReason("");
-            }}
-          >
-            Submit Return Request
-          </button>
+        <button
+  disabled={!returnReason}
+  onClick={() => {
+    alert(`Return submitted (UI only): ${returnReason}`);
+    setShowReturnModal(null);
+    setReturnReason("");
+  }}
+  className={`w-full rounded-lg py-3 text-sm font-semibold transition ${
+    returnReason
+      ? "bg-black text-white hover:opacity-90"
+      : "bg-black/10 text-black/40 cursor-not-allowed"
+  }`}
+>
+  Submit Return Request
+</button>
+
         </Modal>
       )}
     </section>

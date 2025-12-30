@@ -26,16 +26,20 @@ export default function RecentlyViewedPage() {
       </div>
 
       {/* EMPTY STATE */}
-      {(!items || items.length === 0) && (
-        <div className="text-center mt-20 text-gray-500 text-sm">
-          You haven't viewed any products yet.
-          <div className="mt-3">
-            <Link href="/products" className="text-[#800020] font-medium hover:underline">
-              Browse Products
-            </Link>
-          </div>
-        </div>
-      )}
+   {(!items || items.length === 0) && (
+  <div className="mt-20 text-center text-sm text-black/60">
+    You haven't viewed any products yet.
+    <div className="mt-3">
+      <Link
+        href="/products"
+        className="font-medium text-black underline underline-offset-4 hover:opacity-70 transition"
+      >
+        Browse Products
+      </Link>
+    </div>
+  </div>
+)}
+
 
       {/* PRODUCT GRID */}
       {items?.length > 0 && (

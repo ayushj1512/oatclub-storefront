@@ -70,52 +70,86 @@ export default function Newsletter() {
     }
   };
 
-  return (
-    <section className="w-full bg-white pt-4 px-5 flex justify-center">
-      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} viewport={{ once: true }} className="w-full max-w-md text-center">
+return (
+  <section className="w-full bg-white pt-4 px-5 flex justify-center">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      viewport={{ once: true }}
+      className="w-full max-w-md text-center"
+    >
+      <Mail className="w-8 h-8 text-black mx-auto mb-2" />
 
-        <Mail className="w-8 h-8 text-[#800020] mx-auto mb-2" />
+      <h2 className="text-lg md:text-xl font-semibold text-black mb-1">
+        Stay Updated
+      </h2>
+      <p className="text-gray-600 text-xs md:text-sm mb-5">
+        Get new arrivals and exclusive offers.
+      </p>
 
-        <h2 className="text-lg md:text-xl font-semibold text-black mb-1">Stay Updated</h2>
-        <p className="text-gray-600 text-xs md:text-sm mb-5">Get new arrivals and exclusive offers.</p>
+      {!state.success ? (
+        <>
+          {/* FORM */}
+          <motion.form
+            onSubmit={handleSubmit}
+            animate={shake ? { x: [-6, 6, -6, 6, 0] } : {}}
+            transition={{ duration: 0.35 }}
+            className="flex w-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm"
+          >
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email address"
+              required
+              className="flex-1 px-3 py-2 text-sm text-gray-800 outline-none placeholder-gray-400"
+            />
 
-        {!state.success ? (
-          <>
-            {/* FORM */}
-            <motion.form
-              onSubmit={handleSubmit}
-              animate={shake ? { x: [-6, 6, -6, 6, 0] } : {}}
-              transition={{ duration: 0.35 }}
-              className="flex w-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm"
+            <button
+              type="submit"
+              disabled={state.loading}
+              className="px-4 bg-black text-white flex items-center gap-1 text-sm font-medium active:scale-95 transition disabled:opacity-60 hover:bg-black/90"
             >
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" required className="flex-1 px-3 py-2 text-sm text-gray-800 outline-none placeholder-gray-400" />
+              {state.loading ? "..." : "Go"}
+              {!state.loading && <ArrowRight className="w-4 h-4" />}
+            </button>
+          </motion.form>
 
-              <button type="submit" disabled={state.loading} className="px-4 bg-[#800020] text-white flex items-center gap-1 text-sm font-medium active:scale-95 transition disabled:opacity-60">
-                {state.loading ? "..." : "Go"}
-                {!state.loading && <ArrowRight className="w-4 h-4" />}
-              </button>
-            </motion.form>
+          {/* EMAIL SUGGESTIONS */}
+          {suggestions.length > 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl mt-2 p-2 shadow-sm text-left">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => setEmail(s)}
+                  className="block w-full text-xs py-1 px-2 text-gray-700 hover:bg-gray-100 rounded-md text-left"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
 
-            {/* EMAIL SUGGESTIONS */}
-            {suggestions.length > 0 && (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl mt-2 p-2 shadow-sm text-left">
-                {suggestions.map((s, i) => (
-                  <button key={i} onClick={() => setEmail(s)} className="block w-full text-xs py-1 px-2 text-gray-700 hover:bg-gray-100 rounded-md text-left">
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
+          {/* ERROR */}
+          {state.error && (
+            <p className="text-red-600 text-xs mt-2">
+              {state.error}
+            </p>
+          )}
+        </>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-center gap-2 bg-white border border-gray-200 px-4 py-3 rounded-xl shadow-sm text-black mt-2"
+        >
+          <CheckCircle className="w-5 h-5" />
+          <span className="text-sm font-medium">Subscribed!</span>
+        </motion.div>
+      )}
+    </motion.div>
+  </section>
+);
 
-            {/* ERROR */}
-            {state.error && <p className="text-red-600 text-xs mt-2">{state.error}</p>}
-          </>
-        ) : (
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center gap-2 bg-white border border-gray-200 px-4 py-3 rounded-xl shadow-sm text-[#800020] mt-2">
-            <CheckCircle className="w-5 h-5" /><span className="text-sm font-medium">Subscribed!</span>
-          </motion.div>
-        )}
-      </motion.div>
-    </section>
-  );
 }

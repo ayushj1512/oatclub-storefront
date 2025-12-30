@@ -50,120 +50,132 @@ ${shareUrl}`;
     }
   };
 
-  return (
-    <>
-      {/* ICON ONLY BURGUNDY BUTTON */}
-      <button
-        onClick={() => {
-          handleNativeShare();
-          setOpen(true);
-        }}
-        className="p-2 rounded-full shadow-sm transition"
-        style={{ backgroundColor: "#800020" }}
-      >
-        <Share2
-          className={`w-4 h-4 text-white transition ${
-            copied ? "scale-110" : ""
-          }`}
-        />
-      </button>
+return (
+  <>
+    {/* ================= ICON BUTTON ================= */}
+    <button
+      onClick={() => {
+        handleNativeShare();
+        setOpen(true);
+      }}
+      className="inline-flex items-center justify-center rounded-full bg-black p-2 shadow-sm
+                 transition hover:opacity-90 active:scale-[0.96]"
+      aria-label="Share"
+    >
+      <Share2
+        className={`h-4 w-4 text-white transition ${
+          copied ? "scale-110" : ""
+        }`}
+      />
+    </button>
 
-      {/* SHARE MODAL */}
-      {open && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl animate-slideUp relative">
-            
-            {/* CLOSE */}
-            <button
-              className="absolute top-3 right-3 p-1 rounded-full hover:bg-gray-100"
-              onClick={() => setOpen(false)}
-            >
-              <X size={20} />
-            </button>
+    {/* ================= SHARE MODAL ================= */}
+    {open && (
+      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center
+                      bg-black/50 backdrop-blur-sm p-4">
 
-            {/* PRODUCT PREVIEW */}
-            <div className="flex gap-4 mb-4">
-              <div className="w-20 h-20 relative rounded-xl overflow-hidden border">
-                <Image
-                  src={product.images?.[0] || "/placeholder.png"}
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
+        <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl
+                        animate-slideUp">
 
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
-                <p className="text-sm text-gray-500">Share this product</p>
-              </div>
+          {/* Close */}
+          <button
+            onClick={() => setOpen(false)}
+            className="absolute right-3 top-3 rounded-full p-1
+                       text-black/60 hover:bg-black/5 transition"
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
+
+          {/* ================= PRODUCT PREVIEW ================= */}
+          <div className="mb-5 flex gap-4">
+            <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-black/10">
+              <Image
+                src={product.images?.[0] || "/placeholder.png"}
+                alt={product.name}
+                fill
+                className="object-cover"
+              />
             </div>
 
-            {/* SHARE OPTIONS */}
-            <div className="grid grid-cols-3 gap-4 text-center">
-
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(message)}`}
-                target="_blank"
-                className="flex flex-col items-center gap-1 hover:opacity-80"
-              >
-                <MessageCircle size={28} className="text-green-600" />
-                <span className="text-xs">WhatsApp</span>
-              </a>
-
-              <a
-                href="https://www.instagram.com/direct/inbox/"
-                target="_blank"
-                className="flex flex-col items-center gap-1 hover:opacity-80"
-              >
-                <Instagram size={28} className="text-pink-600" />
-                <span className="text-xs">Instagram</span>
-              </a>
-
-              <a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-                  shareUrl
-                )}`}
-                target="_blank"
-                className="flex flex-col items-center gap-1 hover:opacity-80"
-              >
-                <Facebook size={28} className="text-blue-600" />
-                <span className="text-xs">Facebook</span>
-              </a>
-
-              <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                  message
-                )}`}
-                target="_blank"
-                className="flex flex-col items-center gap-1 hover:opacity-80"
-              >
-                <Twitter size={28} className="text-sky-500" />
-                <span className="text-xs">Twitter</span>
-              </a>
-
-              <a
-                href={`https://t.me/share/url?url=${encodeURIComponent(
-                  shareUrl
-                )}&text=${encodeURIComponent(message)}`}
-                target="_blank"
-                className="flex flex-col items-center gap-1 hover:opacity-80"
-              >
-                <Send size={28} className="text-blue-500" />
-                <span className="text-xs">Telegram</span>
-              </a>
-
-              <button
-                onClick={handleCopy}
-                className="flex flex-col items-center gap-1 hover:opacity-80"
-              >
-                <Copy size={28} className="text-gray-700" />
-                <span className="text-xs">Copy</span>
-              </button>
-
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold truncate">
+                {product.name}
+              </h3>
+              <p className="mt-1 text-sm text-black/60">
+                Share this product
+              </p>
             </div>
           </div>
+
+          {/* ================= SHARE OPTIONS ================= */}
+          <div className="grid grid-cols-3 gap-4 text-center">
+
+            {[
+              {
+                label: "WhatsApp",
+                href: `https://wa.me/?text=${encodeURIComponent(message)}`,
+                icon: <MessageCircle size={26} />,
+              },
+              {
+                label: "Instagram",
+                href: "https://www.instagram.com/direct/inbox/",
+                icon: <Instagram size={26} />,
+              },
+              {
+                label: "Facebook",
+                href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                  shareUrl
+                )}`,
+                icon: <Facebook size={26} />,
+              },
+              {
+                label: "Twitter",
+                href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                  message
+                )}`,
+                icon: <Twitter size={26} />,
+              },
+              {
+                label: "Telegram",
+                href: `https://t.me/share/url?url=${encodeURIComponent(
+                  shareUrl
+                )}&text=${encodeURIComponent(message)}`,
+                icon: <Send size={26} />,
+              },
+            ].map((o) => (
+              <a
+                key={o.label}
+                href={o.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center gap-1 rounded-xl p-2
+                           hover:bg-black/5 transition"
+              >
+                <span className="text-black">{o.icon}</span>
+                <span className="text-xs text-black/70">
+                  {o.label}
+                </span>
+              </a>
+            ))}
+
+            {/* Copy */}
+            <button
+              onClick={handleCopy}
+              className="flex flex-col items-center gap-1 rounded-xl p-2
+                         hover:bg-black/5 transition"
+            >
+              <Copy size={26} className="text-black" />
+              <span className="text-xs text-black/70">
+                {copied ? "Copied" : "Copy"}
+              </span>
+            </button>
+
+          </div>
         </div>
-      )}
-    </>
-  );
+      </div>
+    )}
+  </>
+);
+
 }

@@ -4,10 +4,9 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 
-const BRAND = {
-  burgundy: "#800020",
-};
-
+/* =========================================================
+   FILTER BAR
+========================================================= */
 export default function FilterBar({
   sort,
   setSort,
@@ -23,16 +22,15 @@ export default function FilterBar({
     <>
       {/* TOP BAR */}
       <div className="flex items-center justify-between mb-4 w-full">
-
-        {/* DESKTOP SORT TAGS */}
+        {/* DESKTOP SORT */}
         <div className="hidden md:flex gap-2 text-sm">
           {sortTabs.map((s) => (
             <button
               key={s.id}
               onClick={() => setSort(s.id)}
-              className={`px-3 py-1.5 whitespace-nowrap rounded-md border transition-all ${
+              className={`px-3 py-1.5 rounded-md border transition ${
                 sort === s.id
-                  ? "bg-[#800020] text-white border-[#800020] shadow-sm"
+                  ? "bg-black text-white border-black"
                   : "bg-white text-black border-gray-300 hover:bg-gray-100"
               }`}
             >
@@ -41,12 +39,12 @@ export default function FilterBar({
           ))}
         </div>
 
-        {/* MOBILE SORT DROPDOWN */}
+        {/* MOBILE SORT */}
         <div className="md:hidden w-1/2">
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-400 rounded-md text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-[#800020]"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-black"
           >
             {sortTabs.map((s) => (
               <option key={s.id} value={s.id}>
@@ -59,14 +57,14 @@ export default function FilterBar({
         {/* FILTER BUTTON */}
         <button
           onClick={() => setFilterOpen(true)}
-          className="flex items-center gap-1 px-3 py-1.5 bg-black text-white border border-black rounded-md text-xs md:text-sm hover:bg-black/90 transition-all"
+          className="flex items-center gap-1 px-3 py-1.5 bg-black text-white border border-black rounded-md text-xs md:text-sm hover:bg-black/90 transition"
         >
-          <Filter size={16} className="text-white" />
+          <Filter size={16} />
           Filters
         </button>
       </div>
 
-      {/* FILTER DRAWER */}
+      {/* DRAWER */}
       <FilterDrawer
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -79,23 +77,16 @@ export default function FilterBar({
   );
 }
 
-/* -------------------------------------------------------------
+/* =========================================================
    FILTER DRAWER
--------------------------------------------------------------- */
+========================================================= */
 function FilterDrawer({ open, onClose, attributes, selectedAttrs, toggleAttr, resetFilters }) {
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
-          className="fixed inset-0 z-50 flex"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          {/* BACKDROP */}
+        <motion.div className="fixed inset-0 z-50 flex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-          {/* DRAWER */}
           <motion.aside
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
@@ -103,14 +94,9 @@ function FilterDrawer({ open, onClose, attributes, selectedAttrs, toggleAttr, re
             transition={{ type: "spring", stiffness: 240, damping: 22 }}
             className="relative w-72 max-w-[85%] h-full bg-white shadow-2xl p-5 flex flex-col rounded-r-xl"
           >
-            {/* HEADER */}
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-black tracking-tight">Filters</h2>
-
-              <button
-                className="p-1.5 rounded-full hover:bg-gray-200 transition"
-                onClick={onClose}
-              >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-black">Filters</h2>
+              <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-200 transition">
                 <X size={20} />
               </button>
             </div>
@@ -122,11 +108,9 @@ function FilterDrawer({ open, onClose, attributes, selectedAttrs, toggleAttr, re
               resetFilters={resetFilters}
             />
 
-            {/* APPLY BUTTON */}
             <button
               onClick={onClose}
-              className="mt-5 w-full py-2 rounded-md text-white text-sm font-medium shadow-md transition"
-              style={{ backgroundColor: BRAND.burgundy }}
+              className="mt-5 w-full py-2 rounded-md bg-black text-white text-sm font-medium hover:bg-black/90 transition"
             >
               Apply Filters
             </button>
@@ -137,26 +121,19 @@ function FilterDrawer({ open, onClose, attributes, selectedAttrs, toggleAttr, re
   );
 }
 
-/* -------------------------------------------------------------
+/* =========================================================
    FILTER CONTENT
--------------------------------------------------------------- */
+========================================================= */
 function FilterContent({ attributes, selectedAttrs, toggleAttr, resetFilters }) {
-  const active = Object.values(selectedAttrs).some((arr) => arr.length > 0);
+  const active = Object.values(selectedAttrs).some((a) => a.length);
 
   return (
     <div className="space-y-6 overflow-y-auto text-xs pr-1">
       <div className="flex justify-between items-center">
         <span className="font-semibold text-black text-sm">
-          Filters{" "}
-          {active && (
-            <span className="text-[10px] text-[#800020] font-medium">(active)</span>
-          )}
+          Filters {active && <span className="text-[10px] text-black/60">(active)</span>}
         </span>
-
-        <button
-          className="text-[11px] text-gray-700 hover:text-black transition"
-          onClick={resetFilters}
-        >
+        <button onClick={resetFilters} className="text-[11px] text-gray-600 hover:text-black transition">
           Reset
         </button>
       </div>
@@ -174,26 +151,19 @@ function FilterContent({ attributes, selectedAttrs, toggleAttr, resetFilters }) 
   );
 }
 
-/* -------------------------------------------------------------
-   COLLAPSIBLE ATTRIBUTE GROUP
--------------------------------------------------------------- */
+/* =========================================================
+   ATTRIBUTE GROUP
+========================================================= */
 function AttrGroup({ title, options, selected, toggle }) {
   const [open, setOpen] = useState(true);
 
   return (
-    <div className="border-b border-gray-300 pb-3">
-      {/* HEADER */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex justify-between items-center py-1"
-      >
-        <span className="text-xs md:text-sm font-medium text-black capitalize">
-          {title}
-        </span>
+    <div className="border-b border-gray-200 pb-3">
+      <button onClick={() => setOpen(!open)} className="w-full flex justify-between items-center py-1">
+        <span className="text-xs md:text-sm font-medium text-black capitalize">{title}</span>
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
 
-      {/* OPTIONS */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -201,19 +171,18 @@ function AttrGroup({ title, options, selected, toggle }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.23 }}
+            transition={{ duration: 0.2 }}
           >
             {options.map((op) => {
-              const active = selected.includes(op);
-
+              const isActive = selected.includes(op);
               return (
                 <button
                   key={op}
                   onClick={() => toggle(op)}
-                  className={`px-3 py-1 rounded-md border text-xs md:text-sm transition-all ${
-                    active
-                      ? "bg-[#800020] text-white border-[#800020]"
-                      : "bg-white text-black border-gray-400 hover:bg-gray-100"
+                  className={`px-3 py-1 rounded-md border text-xs md:text-sm transition ${
+                    isActive
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-black border-gray-300 hover:bg-gray-100"
                   }`}
                 >
                   {op}

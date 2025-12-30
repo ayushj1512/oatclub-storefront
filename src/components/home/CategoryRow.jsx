@@ -11,12 +11,6 @@ export const categories = [
       "https://res.cloudinary.com/djtva6hec/image/upload/v1765904932/miray/categories/mfbj855yynshc5q4bnwj.jpg",
   },
   {
-    name: "Jeans",
-    slug: "bottom",
-    image:
-      "https://res.cloudinary.com/djtva6hec/image/upload/v1765904566/miray/categories/wfv7zp5vstpddcrro58s.jpg",
-  },
-  {
     name: "Tops",
     slug: "top",
     image:
@@ -62,18 +56,7 @@ export const categories = [
     image:
       "https://i.pinimg.com/1200x/11/1e/12/111e12ede388fc4eae2dd965448ef216.jpg",
   },
-  {
-    name: "Shorts",
-    slug: "shorts",
-    image:
-      "https://i.pinimg.com/736x/ac/a4/49/aca449ca9080137842c1c03cb94b0280.jpg",
-  },
-  {
-    name: "Leggings",
-    slug: "leggings",
-    image:
-      "https://i.pinimg.com/736x/ac/a4/49/aca449ca9080137842c1c03cb94b0280.jpg",
-  },
+
 
   // 🔹 Tops sub-types (kept minimal)
   {

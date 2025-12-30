@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import axios from "axios";
+import { useAbandonedCartStore } from "@/store/abandonedCartStore";
 
 /* ----------------------------------------------------
    ENV
@@ -105,33 +106,58 @@ export const useRazorpayStore = create((set) => ({
 
         /* 4️⃣ Payment Success → VERIFY */
         handler: async (response) => {
-          try {
-            await axios.post(
-              `${BACKEND}/api/razorpay/verify`,
-              {
-                mongoOrderId: data.mongoOrderId,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }
-            );
+  try {
+    /* ---------------- VERIFY PAYMENT ---------------- */
+    await axios.post(
+      `${BACKEND}/api/razorpay/verify`,
+      {
+        mongoOrderId: data.mongoOrderId,
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_signature: response.razorpay_signature,
+      }
+    );
 
-            set({ loading: false, paymentSuccess: true });
+    /* ------------------------------------------------
+       🔥 ABANDONED CART → RECOVERED
+    ------------------------------------------------ */
+    try {
+      const { useAbandonedCartStore } = await import(
+        "@/store/abandonedCartStore"
+      );
 
-            onSuccess?.({
-              orderNumber: data.orderNumber,
-              mongoOrderId: data.mongoOrderId,
-            });
-          } catch (err) {
-            set({
-              loading: false,
-              error:
-                err?.response?.data?.message ||
-                "Payment verification failed",
-            });
-            onFailure?.(err);
-          }
-        },
+      const abandoned = useAbandonedCartStore.getState();
+      const cart = abandoned.cart;
+
+      if (cart?._id) {
+        await abandoned.markRecovered(cart._id, data.mongoOrderId);
+      }
+    } catch (e) {
+      console.warn(
+        "⚠️ Abandoned cart recovery failed (Razorpay)",
+        e
+      );
+    }
+
+    /* ---------------- SUCCESS STATE ---------------- */
+    set({ loading: false, paymentSuccess: true });
+
+    onSuccess?.({
+      orderNumber: data.orderNumber,
+      mongoOrderId: data.mongoOrderId,
+    });
+  } catch (err) {
+    set({
+      loading: false,
+      error:
+        err?.response?.data?.message ||
+        "Payment verification failed",
+    });
+
+    onFailure?.(err);
+  }
+},
+
 
         /* 5️⃣ Modal Closed */
         modal: {

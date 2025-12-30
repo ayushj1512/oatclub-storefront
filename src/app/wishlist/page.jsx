@@ -172,219 +172,186 @@ export default function WishlistPage() {
      --------------------------------------------------- */
   const visibleItems = filteredWishlist.slice(0, visibleCount);
 
-  return (
-    <section className="w-full px-6 py-10 bg-gray-50 min-h-[85vh]">
+return (
+  <section className="w-full px-6 py-10 bg-gray-50 min-h-[85vh]">
+    {/* TOAST */}
+    <AnimatePresence>{toast && <Toast message={toast} />}</AnimatePresence>
 
-      {/* 🔥 Toast */}
-      <AnimatePresence>{toast && <Toast message={toast} />}</AnimatePresence>
+    {/* HEADER */}
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-2xl font-bold text-black flex items-center gap-2">
+        <Heart className="w-6 h-6 text-black" />
+        Your Wishlist
+      </h2>
 
-      {/* HEADER */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Heart className="w-6 h-6 text-[#800020]" />
-          Your Wishlist
-        </h2>
+      {wishlist.length > 0 && (
+        <button onClick={clearWishlist} className="text-sm text-gray-500 hover:text-black transition">
+          Clear All
+        </button>
+      )}
+    </div>
 
-        {wishlist.length > 0 && (
+    {/* SORT */}
+    <div className="mb-6 flex items-center gap-3">
+      <span className="text-sm font-medium text-gray-700">Sort:</span>
+      <select
+        value={sortBy}
+        onChange={(e) => setSortBy(e.target.value)}
+        className="px-3 py-1.5 border border-gray-300 bg-white rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-black"
+      >
+        <option value="default">Recommended</option>
+        <option value="low-high">Price: Low → High</option>
+        <option value="high-low">Price: High → Low</option>
+        <option value="newest">Newest</option>
+        <option value="discount">Biggest Discount</option>
+      </select>
+    </div>
+
+    {/* CATEGORY FILTER */}
+    {categories.length > 0 && (
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Filter className="w-5 h-5 text-black" />
+        {categories.map((slug) => (
           <button
-            onClick={clearWishlist}
-            className="text-sm text-gray-500 hover:text-red-600"
+            key={slug}
+            onClick={() =>
+              setSelectedCategories((p) =>
+                p.includes(slug) ? p.filter((c) => c !== slug) : [...p, slug]
+              )
+            }
+            className={`px-3 py-1 text-sm rounded-full border transition ${
+              selectedCategories.includes(slug)
+                ? "bg-black text-white border-black"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+            }`}
           >
-            Clear All
+            {slug.replace(/-/g, " ")}
           </button>
-        )}
+        ))}
       </div>
+    )}
 
-      {/* SORTING */}
-      <div className="mb-6 flex items-center gap-3">
-        <span className="text-sm font-medium text-gray-700">Sort:</span>
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="px-3 py-1.5 border bg-white rounded-full text-sm"
-        >
-          <option value="default">Recommended</option>
-          <option value="low-high">Price: Low → High</option>
-          <option value="high-low">Price: High → Low</option>
-          <option value="newest">Newest</option>
-          <option value="discount">Biggest Discount</option>
-        </select>
+    {/* TAG FILTER */}
+    {tags.length > 0 && (
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <Tag className="w-5 h-5 text-black" />
+        {tags.map((slug) => (
+          <button
+            key={slug}
+            onClick={() =>
+              setSelectedTags((p) =>
+                p.includes(slug) ? p.filter((t) => t !== slug) : [...p, slug]
+              )
+            }
+            className={`px-3 py-1 text-sm rounded-full border transition ${
+              selectedTags.includes(slug)
+                ? "bg-black text-white border-black"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+            }`}
+          >
+            {slug.replace(/-/g, " ")}
+          </button>
+        ))}
       </div>
+    )}
 
-      {/* CATEGORY FILTER */}
-      {categories.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Filter className="w-5 h-5 text-[#800020]" />
-          {categories.map((slug) => (
-            <button
-              key={slug}
-              onClick={() =>
-                setSelectedCategories((prev) =>
-                  prev.includes(slug)
-                    ? prev.filter((c) => c !== slug)
-                    : [...prev, slug]
-                )
-              }
-              className={`px-3 py-1 text-sm rounded-full border ${
-                selectedCategories.includes(slug)
-                  ? "bg-[#800020] text-white border-[#800020]"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {slug.replace(/-/g, " ")}
-            </button>
-          ))}
-        </div>
-      )}
+    {/* FILTER CHIPS */}
+    {(selectedCategories.length > 0 || selectedTags.length > 0) && (
+      <div className="mb-6 flex flex-wrap gap-2">
+        {selectedCategories.map((slug) => (
+          <div key={slug} className="flex items-center gap-2 bg-black/10 text-black px-3 py-1 rounded-full text-xs">
+            {slug.replace(/-/g, " ")}
+            <X size={14} className="cursor-pointer" onClick={() => removeCategoryChip(slug)} />
+          </div>
+        ))}
 
-      {/* TAG FILTER */}
-      {tags.length > 0 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
-          <Tag className="w-5 h-5 text-[#800020]" />
-          {tags.map((slug) => (
-            <button
-              key={slug}
-              onClick={() =>
-                setSelectedTags((prev) =>
-                  prev.includes(slug)
-                    ? prev.filter((t) => t !== slug)
-                    : [...prev, slug]
-                )
-              }
-              className={`px-3 py-1 text-sm rounded-full border ${
-                selectedTags.includes(slug)
-                  ? "bg-[#800020] text-white border-[#800020]"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {slug.replace(/-/g, " ")}
-            </button>
-          ))}
-        </div>
-      )}
+        {selectedTags.map((slug) => (
+          <div key={slug} className="flex items-center gap-2 bg-black/10 text-black px-3 py-1 rounded-full text-xs">
+            {slug.replace(/-/g, " ")}
+            <X size={14} className="cursor-pointer" onClick={() => removeTagChip(slug)} />
+          </div>
+        ))}
+      </div>
+    )}
 
-      {/* FILTER CHIPS (Myntra-style) */}
-      {(selectedCategories.length > 0 || selectedTags.length > 0) && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          {selectedCategories.map((slug) => (
-            <div
-              key={slug}
-              className="flex items-center gap-2 bg-[#800020]/10 text-[#800020] px-3 py-1 rounded-full text-xs"
-            >
-              {slug.replace(/-/g, " ")}
-              <X
-                size={14}
-                className="cursor-pointer"
-                onClick={() => removeCategoryChip(slug)}
-              />
-            </div>
-          ))}
+    {/* EMPTY STATE */}
+    {wishlist.length === 0 ? (
+      <div className="text-center py-20">
+        <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500 text-lg mb-4">Your wishlist is empty.</p>
+        <Link href="/collections" className="inline-block bg-black text-white px-6 py-3 rounded-full hover:bg-black/90 transition">
+          Continue Shopping →
+        </Link>
+      </div>
+    ) : (
+      <>
+        {/* GRID */}
+        <motion.div layout className="flex flex-wrap gap-6 justify-center md:justify-start">
+          <AnimatePresence>
+            {visibleItems.map((item) => {
+              const productLink = getProductLink(item);
+              const image = item.image || item.images?.[0]?.src || "/placeholder.png";
 
-          {selectedTags.map((slug) => (
-            <div
-              key={slug}
-              className="flex items-center gap-2 bg-black/10 text-black px-3 py-1 rounded-full text-xs"
-            >
-              {slug.replace(/-/g, " ")}
-              <X
-                size={14}
-                className="cursor-pointer"
-                onClick={() => removeTagChip(slug)}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+              return (
+                <motion.div
+                  layout
+                  key={item.id}
+                  initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.25 }}
+                  className="relative bg-white rounded-3xl shadow-sm hover:shadow-md w-[160px] md:w-[220px] overflow-hidden transition"
+                >
+                  <Link href={productLink} className="absolute inset-0 z-0" />
 
-      {/* EMPTY */}
-      {wishlist.length === 0 ? (
-        <div className="text-center py-20">
-          <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-lg mb-3">Your wishlist is empty.</p>
-          <Link
-            href="/collections"
-            className="bg-[#800020] hover:bg-[#6a0018] text-white px-6 py-3 rounded-full"
-          >
-            Continue Shopping →
-          </Link>
-        </div>
-      ) : (
-        <>
-          {/* PRODUCT GRID */}
-          <motion.div
-            layout
-            className="flex flex-wrap gap-6 justify-center md:justify-start"
-          >
-            <AnimatePresence>
-              {visibleItems.map((item) => {
-                const productLink = getProductLink(item);
-                const image =
-                  item.image || item.images?.[0]?.src || "/placeholder.png";
-
-                return (
-                  <motion.div
-                    layout
-                    key={item.id}
-                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.25 }}
-                    className="relative bg-white rounded-3xl shadow-sm hover:shadow-md w-[160px] md:w-[220px] overflow-hidden"
+                  {/* REMOVE */}
+                  <button
+                    onClick={() => removeFromWishlist(item.id)}
+                    className="absolute top-2 right-2 z-20 bg-white p-1.5 rounded-full shadow"
                   >
-                    <Link href={productLink} className="absolute inset-0 z-0" />
+                    <Trash2 className="w-4 h-4 text-gray-700" />
+                  </button>
 
-                    {/* REMOVE */}
+                  {/* IMAGE */}
+                  <div className="relative w-full h-[220px] z-10">
+                    <Image src={image} alt={item.name} fill className="object-contain" />
+                  </div>
+
+                  {/* DETAILS */}
+                  <div className="p-3 z-10 flex flex-col">
+                    <h3 className="text-sm font-medium text-black truncate">
+                      {item.name}
+                    </h3>
+
+                    <p className="text-black font-semibold text-sm mb-2">
+                      ₹{item.price}
+                    </p>
+
                     <button
-                      onClick={() => removeFromWishlist(item.id)}
-                      className="absolute top-2 right-2 z-20 bg-white p-1.5 rounded-full shadow"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveToCart(item);
+                      }}
+                      className="bg-black text-white py-2 rounded-full text-sm hover:bg-black/90 transition"
                     >
-                      <Trash2 className="w-4 h-4 text-gray-700" />
+                      <ShoppingCart className="inline w-4 h-4 mr-2" />
+                      Move to Cart
                     </button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </motion.div>
 
-                    {/* IMAGE */}
-                    <div className="relative w-full h-[220px] z-10">
-                      <Image
-                        src={image}
-                        alt={item.name}
-                        fill
-                        className="object-contain"
-                      />
-                    </div>
+        {visibleItems.length < filteredWishlist.length && (
+          <p className="text-center text-sm text-gray-500 py-6">
+            Loading more...
+          </p>
+        )}
+      </>
+    )}
+  </section>
+);
 
-                    {/* DETAILS */}
-                    <div className="p-3 z-10 flex flex-col">
-                      <h3 className="text-sm font-medium text-gray-900 truncate">
-                        {item.name}
-                      </h3>
-                      <p className="text-[#800020] font-semibold text-sm mb-2">
-                        ₹{item.price}
-                      </p>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          moveToCart(item);
-                        }}
-                        className="bg-[#800020] hover:bg-[#6a0018] text-white py-2 rounded-full text-sm"
-                      >
-                        <ShoppingCart className="inline w-4 h-4 mr-2" />
-                        Move to Cart
-                      </button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
-
-          {/* LOADING MORE */}
-          {visibleItems.length < filteredWishlist.length && (
-            <p className="text-center text-sm text-gray-500 py-6">
-              Loading more...
-            </p>
-          )}
-        </>
-      )}
-    </section>
-  );
 }

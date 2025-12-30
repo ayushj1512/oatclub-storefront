@@ -5,188 +5,178 @@ import { Crown, HeartHandshake, Sparkles, ShieldCheck, Users, Gem, ArrowRight, B
 
 export default function AboutPage() {
   return (
-    <main className="w-full bg-[#fafafa] text-gray-900">
-      <section className="w-full px-4 md:px-10 py-10 md:py-14">
-        <div className="w-full flex flex-col">
-          {/* Header */}
-          <div className="flex flex-col gap-2 mb-8">
-            <p className="text-xs font-semibold text-[#800020] tracking-[0.22em] uppercase">Miray Fashions</p>
-            <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight">About Us</h1>
-            <p className="text-sm md:text-base text-gray-600">A customer-first fashion brand inspired by empowerment, elegance, and everyday confidence.</p>
+    <main className="w-full bg-[#f5f5f5] text-gray-900">
+  <section className="w-full px-4 md:px-12 py-12 md:py-16">
+    <div className="max-w-7xl mx-auto flex flex-col gap-10">
+
+      {/* ================= HEADER ================= */}
+      <div className="max-w-3xl">
+        <p className="text-[11px] font-semibold tracking-[0.3em] uppercase text-gray-500">
+          Miray Fashions
+        </p>
+        <h1 className="mt-3 text-3xl md:text-5xl font-extrabold tracking-tight">
+          About Us
+        </h1>
+        <p className="mt-4 text-base text-gray-600 leading-relaxed">
+          A customer-first fashion brand inspired by confidence, elegance, and everyday wearability.
+        </p>
+      </div>
+
+      {/* ================= HERO ================= */}
+      <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6 rounded-3xl border border-gray-200 bg-white p-6 md:p-10">
+
+        {/* Left */}
+        <div>
+          <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-1 text-xs font-semibold tracking-widest uppercase">
+            Premium • Empowered • Customer-first
+          </span>
+
+          <h2 className="mt-6 text-2xl md:text-4xl font-extrabold leading-tight">
+            Miray is inspired by a Turkish word that reflects
+            <span className="block text-black">strength & empowerment.</span>
+          </h2>
+
+          <p className="mt-4 text-gray-600 leading-relaxed max-w-xl">
+            That meaning defines everything we do — from curated styles to honest quality
+            and a shopping experience designed entirely around you.
+          </p>
+
+          <div className="mt-7 flex flex-wrap gap-4">
+            <Link
+              href="/categories"
+              className="inline-flex items-center gap-2 rounded-full bg-black px-7 py-3 text-sm font-semibold text-white hover:opacity-90 transition"
+            >
+              Shop Collection <ArrowRight className="w-4 h-4" />
+            </Link>
+
+            <Link
+              href="/support"
+              className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-7 py-3 text-sm font-semibold hover:bg-gray-50 transition"
+            >
+              Contact Support <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
-
-          {/* Hero (white only) */}
-          <div className="w-full flex flex-col lg:flex-row gap-6 rounded-3xl border border-gray-200 bg-white shadow-[0_12px_30px_rgba(0,0,0,0.04)] p-6 md:p-10">
-            <div className="flex-1 min-w-0">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 ring-1 ring-black/5">
-                <Sparkles className="w-4 h-4 text-[#800020]" />
-                <span className="text-[11px] md:text-xs font-semibold tracking-[0.22em] uppercase text-gray-900">Empowerment • Premium • Customer-first</span>
-              </div>
-
-              <h2 className="mt-4 text-xl md:text-3xl font-extrabold leading-tight text-gray-900">
-                Miray is inspired by a Turkish word associated with the <span className="text-[#800020]">empowerment of women</span>.
-              </h2>
-
-              <p className="mt-3 text-sm md:text-base text-gray-700 leading-relaxed">
-                That meaning shapes our brand: curated styles, honest quality, and a smooth experience built around you. We want every customer to feel confident—whether it’s a daily essential or a special occasion pick.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/categories" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#800020] px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition">
-                  Shop Now <ArrowRight className="w-4 h-4" />
-                </Link>
-                <Link href="/support" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-gray-900 ring-1 ring-gray-200 hover:bg-gray-50 transition">
-                  Contact Support <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-            </div>
-
-            <div className="w-full lg:w-[380px] flex-none min-w-0 rounded-2xl border border-gray-200 bg-white p-5">
-              <p className="text-xs font-semibold text-gray-500 tracking-[0.22em] uppercase">What you can expect</p>
-              <div className="mt-4 flex flex-col gap-3">
-                <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#800020]/10 text-[#800020] ring-1 ring-black/5">
-                    <BadgeCheck className="w-5 h-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-gray-900">Premium Picks</p>
-                    <p className="text-sm text-gray-600">Curated styles that feel elevated and confident.</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 text-black ring-1 ring-black/5">
-                    <ShieldCheck className="w-5 h-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-gray-900">Trust & Transparency</p>
-                    <p className="text-sm text-gray-600">Clear policies and support that helps.</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#800020]/10 text-[#800020] ring-1 ring-black/5">
-                    <HeartHandshake className="w-5 h-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-gray-900">Customer-First</p>
-                    <p className="text-sm text-gray-600">Built around your comfort and feedback.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Mission + Vision */}
-          <div className="w-full flex flex-col lg:flex-row gap-6 mt-8">
-            <div className="flex-1 rounded-3xl border border-gray-200 p-6 md:p-8 bg-white shadow-[0_12px_30px_rgba(0,0,0,0.04)]">
-              <div className="flex items-start gap-3">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#800020]/10 text-[#800020] ring-1 ring-black/5">
-                  <HeartHandshake className="w-5 h-5" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-[#800020] tracking-[0.22em] uppercase">Our Mission</p>
-                  <h2 className="text-xl md:text-2xl font-extrabold mt-1">Fashion that empowers, service that cares.</h2>
-                </div>
-              </div>
-              <p className="text-sm md:text-base text-gray-700 mt-4 leading-relaxed">
-                Our mission is to build a <span className="font-semibold">customer-centric fashion brand</span> that empowers women through styles that feel confident, comfortable, and premium—without the hassle. We focus on reliable quality, thoughtful pricing, and a smooth shopping journey so every customer feels valued, heard, and supported.
-              </p>
-              <ul className="mt-4 space-y-2 text-sm md:text-base text-gray-700 list-disc pl-5">
-                <li>Curated collections for modern Indian fashion—sarees, kurtis, ethnic wear & more.</li>
-                <li>Quality-first approach with a premium feel.</li>
-                <li>Support that actually helps—fast resolutions and transparent policies.</li>
-              </ul>
-            </div>
-
-            <div className="flex-1 rounded-3xl border border-gray-200 p-6 md:p-8 bg-white shadow-[0_12px_30px_rgba(0,0,0,0.04)]">
-              <div className="flex items-start gap-3">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-black/5 text-black ring-1 ring-black/5">
-                  <Users className="w-5 h-5" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-[#800020] tracking-[0.22em] uppercase">Our Vision</p>
-                  <h2 className="text-xl md:text-2xl font-extrabold mt-1">Make Miray for everyone, everywhere.</h2>
-                </div>
-              </div>
-              <p className="text-sm md:text-base text-gray-700 mt-4 leading-relaxed">
-                Our vision is to grow Miray into a brand that’s <span className="font-semibold">accessible to all</span>—a place where women from every background can find styles that match their vibe and lifestyle. We aim to build a community rooted in confidence and trust, where fashion becomes a tool for self-expression and empowerment.
-              </p>
-              <ul className="mt-4 space-y-2 text-sm md:text-base text-gray-700 list-disc pl-5">
-                <li>Inclusive styles for different occasions, ages, and aesthetics.</li>
-                <li>Consistent quality and a shopping experience customers love returning to.</li>
-                <li>A brand that grows responsibly by listening closely to customers.</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Values */}
-          <div className="mt-8 rounded-3xl border border-gray-200 p-6 md:p-8 bg-white shadow-[0_12px_30px_rgba(0,0,0,0.04)]">
-            <div className="flex items-end justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-[#800020] tracking-[0.22em] uppercase">Values</p>
-                <h2 className="text-xl md:text-2xl font-extrabold mt-1">What We Stand For</h2>
-                <p className="text-sm md:text-base text-gray-600 mt-2">The pillars that shape our products, service, and community.</p>
-              </div>
-              <Link href="/faq" className="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-[#800020] hover:opacity-80 transition">
-                Read FAQs <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-
-            <div className="w-full flex flex-col md:flex-row gap-4 mt-6">
-              <div className="flex-1 rounded-3xl border border-gray-200 bg-[#fafafa] p-5 hover:bg-white transition">
-                <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#800020]/10 text-[#800020] ring-1 ring-black/5">
-                    <Crown className="w-5 h-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-gray-900">Empowerment</p>
-                    <p className="text-sm text-gray-700 mt-1">Styles that help you feel strong, confident, and completely yourself.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 rounded-3xl border border-gray-200 bg-[#fafafa] p-5 hover:bg-white transition">
-                <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 text-black ring-1 ring-black/5">
-                    <ShieldCheck className="w-5 h-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-gray-900">Customer First</p>
-                    <p className="text-sm text-gray-700 mt-1">Clear communication, helpful support, and transparent policies.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 rounded-3xl border border-gray-200 bg-[#fafafa] p-5 hover:bg-white transition">
-                <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#800020]/10 text-[#800020] ring-1 ring-black/5">
-                    <Gem className="w-5 h-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-gray-900">Everyday Premium</p>
-                    <p className="text-sm text-gray-700 mt-1">Premium feel, polished looks—made for daily wear and special moments.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-7 w-full flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-2xl border border-gray-200 p-5 bg-[#fafafa]">
-              <p className="text-sm text-gray-700">Want to talk to us? For queries, order help, or collaborations — reach our support team anytime.</p>
-              <div className="flex flex-wrap gap-3">
-                <Link href="/support" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#800020] px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition">
-                  Support <ArrowRight className="w-4 h-4" />
-                </Link>
-                <Link href="/categories" className="inline-flex items-center justify-center gap-2 rounded-full bg-white border border-gray-300 px-6 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-50 transition">
-                  Explore Collections <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-xs text-gray-500 mt-8">Miray Fashions is built with love, detail, and a promise: to keep improving—based on what our customers truly want.</p>
         </div>
-      </section>
-    </main>
+
+        {/* Right */}
+        <div className="rounded-2xl border border-gray-200 bg-[#fafafa] p-6">
+          <p className="text-[11px] font-semibold tracking-[0.3em] uppercase text-gray-500">
+            What You Can Expect
+          </p>
+
+          <div className="mt-5 space-y-5">
+            {[
+              {
+                title: "Premium Picks",
+                desc: "Curated styles with a refined, elevated finish.",
+                icon: <BadgeCheck className="w-5 h-5" />,
+              },
+              {
+                title: "Trust & Transparency",
+                desc: "Clear policies and reliable customer support.",
+                icon: <ShieldCheck className="w-5 h-5" />,
+              },
+              {
+                title: "Customer First",
+                desc: "Every decision made with customer comfort in mind.",
+                icon: <HeartHandshake className="w-5 h-5" />,
+              },
+            ].map((i) => (
+              <div key={i.title} className="flex gap-4">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
+                  {i.icon}
+                </span>
+                <div>
+                  <p className="font-semibold">{i.title}</p>
+                  <p className="text-sm text-gray-600">{i.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ================= MISSION + VISION ================= */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {[
+          {
+            tag: "Our Mission",
+            title: "Fashion that empowers. Service that cares.",
+            desc:
+              "To build a customer-centric fashion brand that delivers confidence, comfort, and premium quality — without unnecessary complexity.",
+            icon: <HeartHandshake className="w-5 h-5" />,
+          },
+          {
+            tag: "Our Vision",
+            title: "Made for everyone, everywhere.",
+            desc:
+              "To create an inclusive fashion destination where women of all backgrounds find styles that reflect their individuality.",
+            icon: <Users className="w-5 h-5" />,
+          },
+        ].map((b) => (
+          <div
+            key={b.tag}
+            className="rounded-3xl border border-gray-200 bg-white p-6 md:p-8"
+          >
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-black text-white">
+              {b.icon}
+            </span>
+
+            <p className="mt-4 text-xs font-semibold tracking-widest uppercase text-gray-500">
+              {b.tag}
+            </p>
+            <h3 className="mt-2 text-xl md:text-2xl font-extrabold">
+              {b.title}
+            </h3>
+            <p className="mt-3 text-gray-600 leading-relaxed">{b.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ================= VALUES ================= */}
+      <div className="rounded-3xl border border-gray-200 bg-white p-6 md:p-8">
+        <h2 className="text-2xl md:text-3xl font-extrabold">
+          What We Stand For
+        </h2>
+        <p className="mt-2 text-gray-600">
+          The principles shaping our brand and community.
+        </p>
+
+        <div className="mt-6 grid md:grid-cols-3 gap-4">
+          {[
+            {
+              title: "Empowerment",
+              icon: <Crown className="w-5 h-5" />,
+            },
+            {
+              title: "Customer First",
+              icon: <ShieldCheck className="w-5 h-5" />,
+            },
+            {
+              title: "Everyday Premium",
+              icon: <Gem className="w-5 h-5" />,
+            },
+          ].map((v) => (
+            <div
+              key={v.title}
+              className="rounded-2xl border border-gray-200 bg-[#fafafa] p-5 hover:bg-white transition"
+            >
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
+                {v.icon}
+              </span>
+              <p className="mt-4 font-semibold">{v.title}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-500">
+        Built with detail, intention, and a promise to keep improving — guided by our customers.
+      </p>
+
+    </div>
+  </section>
+</main>
+
   );
 }
