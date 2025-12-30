@@ -419,130 +419,172 @@ export default function ProfilePage() {
         ) : null}
 
         {/* PROFILE HEADER */}
-        <div className="bg-white shadow-xl p-8 text-center border border-gray-200">
-          <div className="w-32 h-32 overflow-hidden border shadow-inner mx-auto relative mb-4 bg-gray-50 rounded-full">
-            <Image
-              src={photoSrc}
-              alt="Profile Photo"
-              fill
-              unoptimized
-              onError={() => setPhotoSrc(FALLBACK_IMG)}
-              className="object-cover"
-              priority
-            />
-          </div>
+       <div className="bg-white shadow-xl p-8 text-center border border-gray-200 rounded-3xl">
+  {/* Profile Image */}
+  <div className="w-32 h-32 overflow-hidden border border-gray-200 shadow-inner mx-auto relative mb-4 bg-gray-50 rounded-full">
+    <Image
+      src={photoSrc}
+      alt="Profile Photo"
+      fill
+      unoptimized
+      onError={() => setPhotoSrc(FALLBACK_IMG)}
+      className="object-cover"
+      priority
+    />
+  </div>
 
-          <h2 className="text-2xl font-semibold text-gray-900">{safeName}</h2>
-          <p className="text-gray-500 text-sm mt-1">{formData.email}</p>
-          <p className="text-gray-400 text-xs mt-3 italic">{quote}</p>
+  {/* Name */}
+  <h2 className="text-2xl font-semibold text-gray-900">
+    {safeName}
+  </h2>
 
-          <div className="flex justify-center gap-4 mt-6 flex-wrap">
-            <button
-              onClick={() => router.push("/profile/edit")}
-              className="flex items-center gap-2 bg-black text-white px-5 py-2.5 text-sm shadow-md hover:bg-gray-900 transition"
-            >
-              <Edit3 size={16} />
-              Edit Profile
-            </button>
+  {/* Email */}
+  <p className="text-gray-500 text-sm mt-1">
+    {formData.email}
+  </p>
 
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 bg-red-600 text-white px-5 py-2.5 text-sm shadow-md hover:bg-red-700 transition"
-            >
-              <LogOut size={16} />
-              Logout
-            </button>
-          </div>
-        </div>
+  {/* Quote */}
+  <p className="text-gray-400 text-xs mt-3 italic px-4">
+    {quote}
+  </p>
+
+  {/* Actions */}
+  <div className="flex justify-center gap-4 mt-6 flex-wrap">
+    <button
+      onClick={() => router.push("/profile/edit")}
+      className="flex items-center gap-2 bg-black text-white px-5 py-2.5 text-sm
+                 rounded-xl shadow-md hover:bg-gray-900 transition"
+    >
+      <Edit3 size={16} />
+      Edit Profile
+    </button>
+
+    <button
+      onClick={handleLogout}
+      className="flex items-center gap-2 bg-red-600 text-white px-5 py-2.5 text-sm
+                 rounded-xl shadow-md hover:bg-red-700 transition"
+    >
+      <LogOut size={16} />
+      Logout
+    </button>
+  </div>
+</div>
+
 
         {/* ✅ SUPPORT TICKETS ROW */}
         <SupportTicketsRow email={formData.email} />
 
         {/* RECENT ORDERS */}
-        <div className="bg-white p-6 shadow-lg border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ShoppingBag size={18} />
-            Recent Orders
-          </h3>
+     <div className="bg-white p-6 shadow-lg border border-gray-200 rounded-3xl">
+  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+    <ShoppingBag size={18} />
+    Recent Orders
+  </h3>
 
-          {ordersLoading ? (
-            <div className="text-sm text-gray-500">Loading orders...</div>
-          ) : ordersError ? (
-            <div className="text-sm text-red-600">Failed to load orders: {ordersError}</div>
-          ) : recentOrders.length === 0 ? (
-            <div className="text-sm text-gray-500">No orders yet.</div>
-          ) : (
-            <div className="space-y-4">
-              {recentOrders.map((o) => {
-                const pill = statusPill(o.fulfillmentStatus);
-                return (
-                  <Link
-                    href={`/profile/orders/${o._id}`}
-                    key={o._id}
-                    className="p-4 bg-gray-50 border shadow-sm flex justify-between items-center hover:shadow-md transition"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        Order {o.orderNumber ? `#${o.orderNumber}` : `#${o._id?.slice(-6)}`}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {formatDate(o.orderDate || o.createdAt)} • ₹{o.finalPayable ?? o.totalAmount ?? 0}
-                      </p>
-                    </div>
-                    <span className={`text-sm font-semibold ${pill.cls}`}>{pill.label}</span>
-                  </Link>
-                );
-              })}
+  {ordersLoading ? (
+    <div className="text-sm text-gray-500">Loading orders...</div>
+  ) : ordersError ? (
+    <div className="text-sm text-red-600">
+      Failed to load orders: {ordersError}
+    </div>
+  ) : recentOrders.length === 0 ? (
+    <div className="text-sm text-gray-500">No orders yet.</div>
+  ) : (
+    <div className="space-y-4">
+      {recentOrders.map((o) => {
+        const pill = statusPill(o.fulfillmentStatus);
+
+        return (
+          <Link
+            href={`/profile/orders/${o._id}`}
+            key={o._id}
+            className="p-4 bg-gray-50 border border-gray-200 rounded-2xl shadow-sm
+                       flex justify-between items-center
+                       hover:shadow-md hover:bg-white transition"
+          >
+            <div>
+              <p className="font-medium text-gray-900">
+                Order{" "}
+                {o.orderNumber
+                  ? `#${o.orderNumber}`
+                  : `#${o._id?.slice(-6)}`}
+              </p>
+              <p className="text-xs text-gray-500">
+                {formatDate(o.orderDate || o.createdAt)} • ₹
+                {o.finalPayable ?? o.totalAmount ?? 0}
+              </p>
             </div>
-          )}
 
-          <Link href="/profile/orders" className="text-black flex items-center gap-1 text-sm mt-4 hover:underline">
-            View All <ChevronRight size={14} />
+            <span
+              className={`text-sm font-semibold rounded-full px-3 py-1 ${pill.cls}`}
+            >
+              {pill.label}
+            </span>
           </Link>
-        </div>
+        );
+      })}
+    </div>
+  )}
+
+  <Link
+    href="/profile/orders"
+    className="text-black flex items-center gap-1 text-sm mt-4
+               hover:underline"
+  >
+    View All <ChevronRight size={14} />
+  </Link>
+</div>
+
 
         {/* SAVED ADDRESSES */}
-        <div className="bg-white p-6 shadow-lg border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <MapPin size={18} />
-            Saved Addresses
-          </h3>
+       <div className="bg-white p-6 shadow-lg border border-gray-200 rounded-3xl">
+  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+    <MapPin size={18} />
+    Saved Addresses
+  </h3>
 
-          {addresses.length > 0 ? (
-            <div className="space-y-4">
-              {addresses.map((addr) => (
-                <div key={addr._id} className="bg-gray-50 border shadow-sm p-4 text-sm">
-                  <p className="font-semibold text-gray-900">{addr.fullName}</p>
-                  <p>{addr.phone}</p>
-                  <p>
-                    {addr.addressLine1},{" "}
-                    {addr.addressLine2 && `${addr.addressLine2}, `}
-                    {addr.city}, {addr.state}, {addr.postalCode}
-                  </p>
+  {addresses.length > 0 ? (
+    <div className="space-y-4">
+      {addresses.map((addr) => (
+        <div
+          key={addr._id}
+          className="bg-gray-50 border border-gray-200 shadow-sm p-4 text-sm rounded-2xl
+                     hover:bg-white hover:shadow-md transition"
+        >
+          <p className="font-semibold text-gray-900">{addr.fullName}</p>
+          <p className="text-gray-700">{addr.phone}</p>
+          <p className="text-gray-600 mt-1">
+            {addr.addressLine1},{" "}
+            {addr.addressLine2 && `${addr.addressLine2}, `}
+            {addr.city}, {addr.state}, {addr.postalCode}
+          </p>
 
-                  {addr.isDefaultShipping && (
-                    <span className="inline-block mt-2 text-[10px] bg-green-100 text-green-700 px-2 py-0.5">
-                      Default Shipping
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">No saved addresses yet.</p>
+          {addr.isDefaultShipping && (
+            <span className="inline-block mt-3 text-[10px]
+                             bg-green-100 text-green-700
+                             px-2.5 py-1 rounded-full font-semibold">
+              Default Shipping
+            </span>
           )}
-
-          <button
-            onClick={() => router.push("/profile/address")}
-            className="flex items-center gap-1 text-black text-sm mt-4 hover:underline"
-          >
-            <Plus size={14} />
-            Add New Address
-          </button>
         </div>
+      ))}
+    </div>
+  ) : (
+    <p className="text-gray-500 text-sm">No saved addresses yet.</p>
+  )}
+
+  <button
+    onClick={() => router.push("/profile/address")}
+    className="flex items-center gap-1 text-black text-sm mt-4 hover:underline"
+  >
+    <Plus size={14} />
+    Add New Address
+  </button>
+</div>
+
 
         {/* RECENTLY VIEWED */}
-        <div className="bg-white p-6 shadow-lg border border-gray-200">
+        <div className=" shadow-lg ">
           <RecentlyViewedRow />
         </div>
       </div>
