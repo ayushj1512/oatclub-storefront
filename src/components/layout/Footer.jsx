@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
@@ -21,16 +21,24 @@ export default function Footer() {
   <footer className="w-full bg-black text-white mt-16">
 
     {/* ================= MAIN ================= */}
-    <div className="mx-auto max-w-7xl px-6 md:px-12 py-12">
+    <div className="mx-auto  px-6 md:px-12 py-12">
 
       {/* ================= DESKTOP ================= */}
       <div className="hidden md:grid grid-cols-4 gap-12">
 
         {/* Brand */}
         <div className="space-y-4">
-          <h2 className="text-2xl font-extrabold tracking-tight">
-            MIRAY
-          </h2>
+         <div className="flex items-center justify-center">
+  <Image
+    src="https://res.cloudinary.com/djtva6hec/image/upload/v1767036287/miray/media/qopxsngt9pusq1bohaif.png"
+    alt="Miray"
+    width={120}
+    height={40}
+    priority
+    className="object-contain"
+  />
+</div>
+
           <p className="text-sm text-white/60 max-w-sm leading-relaxed">
             Redefining fashion with elegance and modern style.
             Curated collections designed to inspire confidence.
@@ -99,9 +107,17 @@ export default function Footer() {
 
         {/* Brand */}
         <div className="text-center space-y-3">
-          <h2 className="text-2xl font-extrabold tracking-tight">
-            MIRAY
-          </h2>
+     <div className="flex items-center justify-center">
+  <Image
+    src="https://res.cloudinary.com/djtva6hec/image/upload/v1767036287/miray/media/qopxsngt9pusq1bohaif.png"
+    alt="Miray"
+    width={120}
+    height={40}
+    priority
+    className="object-contain"
+  />
+</div>
+
           <p className="text-sm text-white/60 leading-relaxed">
             Redefining fashion with elegance and modern style.
           </p>
