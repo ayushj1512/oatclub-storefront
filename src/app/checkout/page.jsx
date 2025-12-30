@@ -68,7 +68,7 @@ const GlassCard = ({ children, className = "" }) => (
   </div>
 );
 const Chip = ({ children }) => (
-  <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-3 py-1 text-[11px] text-gray-700">
+  <span className="inline-flex items-center gap-1.5 rounded-full bg-black/4 px-3 py-1 text-[11px] text-gray-700">
     {children}
   </span>
 );
@@ -86,7 +86,7 @@ function PayCard({ label, value, icon, sub, selected, setSelected }) {
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="grid place-items-center size-10 rounded-2xl bg-black/[0.04] text-gray-800 shrink-0">
+          <span className="grid place-items-center size-10 rounded-2xl bg-black/4 text-gray-800 shrink-0">
             {icon}
           </span>
           <div className="min-w-0">
@@ -122,8 +122,8 @@ function FormField({ label, name, value, onChange, rightNode, inputMode, placeho
 function PremiumPinLoader() {
   return (
     <div className="flex items-center gap-2">
-      <span className="h-[14px] w-[44px] rounded-full border border-black/10 bg-black/[0.04] overflow-hidden relative">
-        <span className="absolute inset-0 -translate-x-[120%] bg-gradient-to-r from-transparent via-white/80 to-transparent animate-[pinShimmer_1s_infinite]" />
+      <span className="h-3.5 w-11 rounded-full border border-black/10 bg-black/4 overflow-hidden relative">
+        <span className="absolute inset-0 -translate-x-[120%] bg-linear-to-r from-transparent via-white/80 to-transparent animate-[pinShimmer_1s_infinite]" />
       </span>
       <span className="inline-flex items-center gap-1">
         <i className="w-1.5 h-1.5 rounded-full bg-black/30 animate-[pinDot_.85s_infinite]" />
@@ -489,7 +489,7 @@ const [paymentRecovery, setPaymentRecovery] = useState({
             className="flex items-center justify-between gap-3 rounded-2xl bg-white/60 px-3 py-2 shadow-[0_10px_25px_rgba(0,0,0,0.06)]"
           >
             <div className="flex min-w-0 items-center gap-3">
-              <div className="relative h-[64px] w-[56px] shrink-0 overflow-hidden rounded-xl bg-black/[0.04]">
+              <div className="relative h-[64px] w-[56px] shrink-0 overflow-hidden rounded-xl bg-black/4">
                 {src ? (
                   <Image
                     src={src}

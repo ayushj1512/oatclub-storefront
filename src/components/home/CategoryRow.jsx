@@ -122,7 +122,7 @@ export default function CategoryRow() {
         onClick={() => handleNavigate(cat)}
         aria-label={cat.name}
       >
-        <div className="w-[72px] h-[72px] rounded-full overflow-hidden bg-black/[0.04] md:w-[92px] md:h-[92px]">
+        <div className="w-[72px] h-[72px] rounded-full overflow-hidden bg-black/4 md:w-[92px] md:h-[92px]">
           {cat.image ? (
             <Image
               src={cat.image}

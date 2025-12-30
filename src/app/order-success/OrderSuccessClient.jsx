@@ -310,10 +310,10 @@ export default function OrderSuccessClient() {
                               </div>
 
                               <div className="mt-3 flex flex-wrap gap-2">
-                                <span className="text-[11px] px-2 py-1 rounded-xl bg-black/[0.04] border border-black/5 text-gray-700">
+                                <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
                                   Qty: {q}
                                 </span>
-                                <span className="text-[11px] px-2 py-1 rounded-xl bg-black/[0.04] border border-black/5 text-gray-700">
+                                <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
                                   {money(unit, cur)} each
                                 </span>
                               </div>

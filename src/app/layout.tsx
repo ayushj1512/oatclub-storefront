@@ -1,6 +1,6 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Poppins, Bebas_Neue } from "next/font/google";
+import { Poppins, Bebas_Neue, Plus_Jakarta_Sans } from "next/font/google";
 import LayoutClient from "./layout.client";
 
 /* ------------------------------

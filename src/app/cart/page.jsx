@@ -8,7 +8,6 @@ import { Trash2, Plus, Minus, ArrowRight, Sparkles } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useRouter } from "next/navigation";
 import ApplyCoupon from "@/components/cart/ApplyCoupon";
-import { useCouponStore } from "@/store/couponStore";
 import { useAuthStore } from "@/store/authStore";
 import { useAbandonedCartStore } from "@/store/abandonedCartStore";
 import { usePathname } from "next/navigation";
@@ -57,7 +56,7 @@ function QtyStepper({ value, onDec, onInc }) {
       <button
         type="button"
         onClick={onDec}
-        className="grid place-items-center size-9 rounded-xl bg-black/[0.04] hover:bg-black/[0.06] active:scale-[0.98] transition"
+        className="grid place-items-center size-9 rounded-xl bg-black/4 hover:bg-black/6 active:scale-[0.98] transition"
         aria-label="Decrease quantity"
       >
         <Minus className="w-4 h-4 text-gray-900" />
@@ -70,7 +69,7 @@ function QtyStepper({ value, onDec, onInc }) {
       <button
         type="button"
         onClick={onInc}
-        className="grid place-items-center size-9 rounded-xl bg-black/[0.04] hover:bg-black/[0.06] active:scale-[0.98] transition"
+        className="grid place-items-center size-9 rounded-xl bg-black/4 hover:bg-black/6 active:scale-[0.98] transition"
         aria-label="Increase quantity"
       >
         <Plus className="w-4 h-4 text-gray-900" />
@@ -136,14 +135,11 @@ useEffect(() => {
 }, [pathname]);
 
 
-  const subtotal = useMemo(() => (typeof totalPriceFn === "function" ? totalPriceFn() : 0), [items, totalPriceFn]);
+  const subtotal = useMemo(() => (typeof totalPriceFn === "function" ? totalPriceFn() : 0), [totalPriceFn]);
 
     
-const coupon = useCouponStore((s) => s.coupon);
-const discount = useCouponStore((s) => s.discount);
-const finalTotal = useCouponStore((s) => s.finalTotal);
+
 // Final payable amount
-const payable = coupon ? finalTotal : subtotal;
 
   const itemCount = useMemo(
     () => (items || []).reduce((sum, it) => sum + Number(it?.qty || it?.quantity || 0), 0),
@@ -197,7 +193,7 @@ const payable = coupon ? finalTotal : subtotal;
 
   return (
     <section className="min-h-[80vh] bg-[#F6F6F8]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-black/[0.06] to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-linear-to-b from-black/6 to-transparent" />
 
       <div className="relative w-full px-4 sm:px-6 lg:px-10 py-8 sm:py-10">
         {/* Header */}
@@ -251,7 +247,7 @@ const payable = coupon ? finalTotal : subtotal;
 
               {items.length === 0 ? (
                 <div className="p-8 sm:p-10 text-center">
-                  <div className="mx-auto mb-3 grid place-items-center size-14 rounded-2xl bg-black/[0.04]">
+                  <div className="mx-auto mb-3 grid place-items-center size-14 rounded-2xl bg-black/4">
                     <Sparkles className="w-6 h-6 text-gray-700" />
                   </div>
                   <p className="text-gray-900 font-semibold">Your cart is empty</p>
@@ -280,7 +276,7 @@ const payable = coupon ? finalTotal : subtotal;
                         className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4"
                       >
                         <div className="flex items-center gap-4 min-w-0">
-                          <div className="relative w-[84px] h-[104px] sm:w-[92px] sm:h-[112px] overflow-hidden rounded-[18px] bg-black/[0.04] border border-black/5 shadow-[0_10px_18px_rgba(0,0,0,0.05)]">
+                          <div className="relative w-[84px] h-[104px] sm:w-[92px] sm:h-28 overflow-hidden rounded-[18px] bg-black/4 border border-black/5 shadow-[0_10px_18px_rgba(0,0,0,0.05)]">
                             {src ? (
                               <Image
                                 src={src}
@@ -305,18 +301,18 @@ const payable = coupon ? finalTotal : subtotal;
 
                                 <div className="mt-1 flex flex-wrap items-center gap-2">
                                   {!!item?.selectedSize && (
-                                    <span className="text-[11px] px-2 py-1 rounded-xl bg-black/[0.04] border border-black/5 text-gray-700">
+                                    <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
                                       Size: {String(item.selectedSize).toUpperCase()}
                                     </span>
                                   )}
 
                                   {!!item?.variantId && (
-                                    <span className="text-[11px] px-2 py-1 rounded-xl bg-black/[0.04] border border-black/5 text-gray-700">
+                                    <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
                                       Variant: {String(item.variantId).slice(-6)}
                                     </span>
                                   )}
 
-                                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/[0.04] border border-black/5 text-gray-700">
+                                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
                                     ₹{money(price)} each
                                   </span>
                                 </div>

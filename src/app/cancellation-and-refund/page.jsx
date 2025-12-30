@@ -19,7 +19,7 @@ return (
       <div className="mx-auto ">
 
         {/* ================= HERO HEADER ================= */}
-        <div className="relative mb-16 overflow-hidden rounded-[32px] border border-gray-200 bg-white p-8 md:p-12">
+        <div className="relative mb-16 overflow-hidden rounded-4xl border border-gray-200 bg-white p-8 md:p-12">
           <div className="max-w-3xl">
             <p className="text-[11px] font-semibold tracking-[0.35em] uppercase text-gray-500">
               Miray Fashion · Policy

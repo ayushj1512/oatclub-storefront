@@ -38,12 +38,12 @@ export default function TrendingSection() {
 if (isLoading && !products.length) {
   return (
     <section className="pt-10 px-4 bg-white">
-   <h2 className="text-xl md:text-2xl font-extrabold text-center text-gray-900 mb-8 tracking-[0.3em] uppercase">
-<h2 className="text-xl md:text-3xl font-black text-center text-black mb-10 tracking-[0.28em] uppercase">
+<h2 className="font-bogle text-xl md:text-3xl font-black text-center text-black mb-10  uppercase">
   Trending Now
 </h2>
 
-</h2>
+
+
 
 
       <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
@@ -70,7 +70,7 @@ return (
     animate={{ opacity: 1 }}
     transition={{ duration: 0.3 }}
   >
-    <h2 className="text-xl md:text-3xl font-black text-center text-black mb-10 tracking-[0.28em] uppercase">
+   <h2 className="font-bogle text-xl md:text-3xl font-black text-center text-black mb-10 tracking-[0.28em] uppercase">
   Trending Now
 </h2>
 
