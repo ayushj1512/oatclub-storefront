@@ -9,9 +9,10 @@ export default function ExchangeAndReturnPage() {
 
         {/* Header */}
         <header className="mb-12 space-y-3">
-          <p className="text-xs font-medium tracking-[0.25em] uppercase text-gray-500">
-            :contentReference[oaicite:0]{index=0}
-          </p>
+       <p className="text-xs font-medium tracking-[0.25em] uppercase text-gray-500">
+  Miray Fashions
+</p>
+
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
             Exchange & Return Policy
           </h1>
