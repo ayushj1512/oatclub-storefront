@@ -7,6 +7,7 @@
  * - Uses authStore.user + authStore.customer to fill required fields
  * - Pincode first, silent if not found
  */
+import PaymentCard from "@/components/checkout/OnlinePaymentButton";
 import CodConfirmCaptcha from "@/components/checkout/CodConfirmCaptcha";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
@@ -703,14 +704,14 @@ const handlePlaceOrder = async () => {
                 <PayCard label="Cash on Delivery" value="cod" icon={<Wallet />} sub="Pay on delivery" selected={selectedPayment} setSelected={setSelectedPayment} />
               
 
-<PayCard
-  label="Online Payment"
-  value="razorpay"
-  icon={<IndianRupee />}
-  sub="UPI / Cards / Netbanking"
-  selected={selectedPayment}
-  setSelected={setSelectedPayment}
-/>
+ <PaymentCard
+    label="Online Payment"
+    value="razorpay"
+    icon={<IndianRupee />}
+    sub="UPI / Cards / Netbanking"
+    selected={selectedPayment}
+    setSelected={setSelectedPayment}
+  />
 
               </div>
             )}

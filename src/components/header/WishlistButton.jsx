@@ -5,6 +5,8 @@ import { Heart } from "lucide-react";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { useEffect, useState } from "react";
 
+const DARK_RED = "#800020";
+
 export default function WishlistButton() {
   const store = useWishlistStore?.();
   const items = store?.items || [];
@@ -23,24 +25,28 @@ export default function WishlistButton() {
   return (
     <Link href="/wishlist" className="relative group">
       <div
-        className={`
-          relative transition-all duration-300
-          ${animate ? "scale-[1.15] text-black" : "text-gray-700"}
-          group-hover:text-black
-        `}
+        className={`relative transition-all duration-300 ${
+          animate ? "scale-[1.15]" : ""
+        }`}
+        style={{
+          color: animate ? DARK_RED : "#4b5563", // gray-600
+        }}
       >
         {/* HEART ICON */}
         <Heart
-          className={`w-6 h-6 transition-all duration-300 ${
-            items.length > 0
-              ? "fill-black text-black"
-              : "text-gray-700"
-          }`}
+          className="w-6 h-6 transition-all duration-300"
+          style={{
+            color: items.length > 0 ? DARK_RED : "#4b5563",
+            fill: items.length > 0 ? DARK_RED : "none",
+          }}
         />
 
         {/* subtle pulse ring */}
         {animate && (
-          <span className="absolute inset-0 rounded-full ring-1 ring-black/30 animate-ping pointer-events-none"></span>
+          <span
+            className="absolute inset-0 rounded-full ring-1 animate-ping pointer-events-none"
+            style={{ ringColor: DARK_RED }}
+          />
         )}
       </div>
     </Link>

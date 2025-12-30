@@ -1,18 +1,17 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
+import ProductCard from "@/components/common/ProductCard";
 
 /**
- * Reusable Recommended Products section
- * Premium black & white, hydration-safe
+ * Recommended Products
+ * Uses the SAME ProductCard as listings
  */
 export default function RecommendedProducts({ products = [] }) {
-  if (!products.length) return null;
+  if (!Array.isArray(products) || products.length === 0) return null;
 
   return (
-    <section className="mt-16 max-w-[900px] mx-auto">
-      {/* HEADER */}
+    <section className="mt-16 max-w-[1100px] mx-auto">
+      {/* ================= HEADER ================= */}
       <div className="mb-4">
         <h2 className="text-2xl font-semibold text-black">
           Recommended Products
@@ -20,34 +19,36 @@ export default function RecommendedProducts({ products = [] }) {
         <div className="h-px w-20 bg-black/30 mt-2" />
       </div>
 
-      {/* PRODUCTS ROW */}
-      <div className="flex gap-5 mt-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
-        {products.map((p) => (
-          <Link
-            key={p.id}
-            href={p.link}
-            className="snap-start flex-shrink-0 w-[160px] bg-white border border-gray-200 rounded-xl transition hover:-translate-y-1 hover:shadow-md p-3"
-          >
-            {/* IMAGE */}
-            <div className="relative w-full aspect-[4/5] rounded-lg overflow-hidden bg-gray-50">
-              <Image
-                src={p.image}
-                alt={p.title}
-                fill
-                className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-              />
+      {/* ================= PRODUCTS ================= */}
+      <div className="flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4">
+        {products.map((p, index) => {
+          /**
+           * 🔥 Normalize blog product → ProductCard format
+           * ProductCard expects:
+           * { id, name, price, image, images, categories }
+           */
+          const product = {
+            id: p.id || p._id,
+            name: p.name || p.title || "Product",
+            price: p.price,
+            image: p.image || p.thumbnail,
+            images: p.images ? p.images : p.image ? [{ src: p.image }] : [],
+            categories: p.category
+              ? [{ slug: p.category }]
+              : [{ slug: "products" }],
+          };
+
+          if (!product.id) return null;
+
+          return (
+            <div
+              key={product.id ?? index}
+              className="snap-start flex-shrink-0 w-[180px]"
+            >
+              <ProductCard product={product} />
             </div>
-
-            {/* INFO */}
-            <p className="text-sm font-medium mt-2 text-black line-clamp-2">
-              {p.title}
-            </p>
-
-            <p className="text-black text-sm font-semibold">
-              {p.price}
-            </p>
-          </Link>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

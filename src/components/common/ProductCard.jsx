@@ -147,13 +147,14 @@ return (
             wishlisted ? "Remove from wishlist" : "Add to wishlist"
           }
         >
-          <Heart
-            className={
-              wishlisted
-                ? "w-6 h-6 text-black fill-black"
-                : "w-6 h-6 text-black/60"
-            }
-          />
+         <Heart
+  className={
+    wishlisted
+      ? "w-6 h-6 text-[#800020] fill-[#800020]"
+      : "w-6 h-6 text-[#800020]/60"
+  }
+/>
+
         </motion.button>
       </div>
 

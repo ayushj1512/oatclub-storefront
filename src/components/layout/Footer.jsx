@@ -30,7 +30,7 @@ export default function Footer() {
         <div className="space-y-4">
          <div className="flex items-center justify-center">
   <Image
-    src="https://res.cloudinary.com/djtva6hec/image/upload/v1767036287/miray/media/qopxsngt9pusq1bohaif.png"
+    src="https://res.cloudinary.com/djtva6hec/image/upload/v1767117853/miray/media/prjk693rucvgygdzkzx4.png"
     alt="Miray"
     width={120}
     height={40}
@@ -109,7 +109,7 @@ export default function Footer() {
         <div className="text-center space-y-3">
      <div className="flex items-center justify-center">
   <Image
-    src="https://res.cloudinary.com/djtva6hec/image/upload/v1767036287/miray/media/qopxsngt9pusq1bohaif.png"
+    src="https://res.cloudinary.com/djtva6hec/image/upload/v1767117853/miray/media/prjk693rucvgygdzkzx4.png"
     alt="Miray"
     width={120}
     height={40}

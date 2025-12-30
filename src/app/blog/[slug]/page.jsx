@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use as usePromise, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -16,34 +16,8 @@ import {
 import { useBlogStore } from "@/store/blogStore";
 import RecommendedProducts from "@/components/blog/RecommendedProducts";
 import RelatedBlogs from "@/components/blog/RelatedBlogs";
+import { useProductStore } from "@/store/productStore";
 
-/* Demo recommended products (static for now) */
-const recommendedProducts = [
-  {
-    id: 1,
-    title: "Premium Chiffon Kurti – Peach Glow",
-    image:
-      "https://i.pinimg.com/736x/c2/e3/63/c2e363620d7b634da8c7f2c1afa9f2e7.jpg",
-    price: "₹1299",
-    link: "/products/premium-kurti-peach",
-  },
-  {
-    id: 2,
-    title: "Elegant Organza Suit Set – Wine",
-    image:
-      "https://i.pinimg.com/736x/0e/1d/fa/0e1dfad5f78ec2c8b8cf3688fcf6a473.jpg",
-    price: "₹1899",
-    link: "/products/organza-wine-set",
-  },
-  {
-    id: 3,
-    title: "Designer Festive Saree – Gold Luxe",
-    image:
-      "https://i.pinimg.com/736x/f1/4e/39/f14e39539d110b3e693a468f40894d0c.jpg",
-    price: "₹2499",
-    link: "/products/gold-luxe-saree",
-  },
-];
 
 /* -------------------------------------------------------
    BLOG CONTENT SANITIZER
@@ -78,8 +52,9 @@ const shareUrl =
 
 
 
-export default function BlogDetailPage(props) {
-  const { slug } = use(props.params);
+
+export default function BlogDetailPage({ params }) {
+  const { slug } = usePromise(params); // ✅ FINAL FIX
 
   const {
     currentBlog,
@@ -93,20 +68,40 @@ export default function BlogDetailPage(props) {
 
   
   // 🔥 Fetch blog + ensure list exists (for related blogs)
-  useEffect(() => {
-    fetchSingleBlog(slug);
+useEffect(() => {
+  fetchSingleBlog(slug);
 
-    // 👇 IMPORTANT: fetch list only if missing
-    if (!blogs || blogs.length === 0) {
-      fetchBlogs({ page: 1, limit: 12 });
-    }
+  if (!blogs || blogs.length === 0) {
+    fetchBlogs({ page: 1, limit: 12 });
+  }
 
-    return () => {
-      clearCurrentBlog();
-    };
-  }, [slug, fetchSingleBlog, fetchBlogs, clearCurrentBlog]);
+  return () => {
+    clearCurrentBlog();
+  };
+}, [slug]);
 
-  
+const fetchProductDetails = useProductStore(
+  (state) => state.fetchProductDetails
+);
+
+const [recommendedProducts, setRecommendedProducts] = useState([]);
+
+useEffect(() => {
+  if (!currentBlog?.products?.length) return;
+
+  console.log("🔥 Fetching linked products:", currentBlog.products);
+
+  Promise.all(
+    currentBlog.products.map((p) =>
+      fetchProductDetails(p._id)
+    )
+  ).then((res) => {
+    setRecommendedProducts(res.filter(Boolean));
+  });
+}, [currentBlog?.products]);
+
+// ✅ ONLY depend on blog change
+
 
   /* ---------------- LOADING ---------------- */
   if (loading && !currentBlog) {
@@ -135,7 +130,7 @@ export default function BlogDetailPage(props) {
     );
   }
 
-  const blog = currentBlog;
+const blog = currentBlog;
 
   const cleanContent = extractCleanBlogContent(blog.content);
 const paragraphs = splitParagraphs(cleanContent);
@@ -282,9 +277,16 @@ const handleNativeShare = async () => {
   </div>
 
   {/* ================= RECOMMENDED PRODUCTS ================= */}
-  <div className="mt-20">
+<div className="mt-20">
+  {recommendedProducts.length === 0 ? (
+    <p className="text-sm text-gray-500">
+      Loading recommended products…
+    </p>
+  ) : (
     <RecommendedProducts products={recommendedProducts} />
-  </div>
+  )}
+</div>
+
 
   {/* ================= RELATED BLOGS ================= */}
   <div className="mt-20">

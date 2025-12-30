@@ -117,21 +117,23 @@ export const useBlogStore = create((set, get) => ({
 
       const b = await res.json();
 
-      const normalizedBlog = {
-        id: b._id,
-        slug: b.slug,
-        title: b.title,
-        excerpt: b.excerpt,
-        content: b.content || "",
-        image: b.image,
-        category: b.category,
-        tags: b.tags || [],
-        author: b.author,
-        isPublished: b.isPublished,
-        date: b.date ? String(b.date) : null,
-        createdAt: b.createdAt,
-        updatedAt: b.updatedAt,
-      };
+    const normalizedBlog = {
+  id: b._id,
+  slug: b.slug,
+  title: b.title,
+  excerpt: b.excerpt,
+  content: b.content || "",
+  image: b.image,
+  category: b.category,
+  tags: b.tags || [],
+  products: Array.isArray(b.products) ? b.products : [], // ✅ ADD THIS
+  author: b.author,
+  isPublished: b.isPublished,
+  date: b.date ? String(b.date) : null,
+  createdAt: b.createdAt,
+  updatedAt: b.updatedAt,
+};
+
 
       set({
         currentBlog: normalizedBlog,
