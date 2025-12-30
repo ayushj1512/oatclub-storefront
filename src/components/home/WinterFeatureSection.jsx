@@ -9,6 +9,15 @@ import ProductCard from "@/components/common/ProductCard";
 const FEATURE_IMAGE =
   "https://res.cloudinary.com/djtva6hec/image/upload/v1765956745/miray/media/nhzqroykgtmg1modqikj.jpg";
 
+function ShimmerBlock({ className = "" }) {
+  return (
+    <div className={`relative overflow-hidden bg-gray-200 ${className}`}>
+      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
+    </div>
+  );
+}
+
+
 export default function WinterDropSection() {
   const [localLoading, setLocalLoading] = useState(true);
 
@@ -76,16 +85,23 @@ export default function WinterDropSection() {
           href="/winterdrops"
           className="block w-full md:w-[40%] lg:w-[38%] flex-none self-start"
         >
-          <div className="relative w-full overflow-hidden bg-white aspect-[4/4] md:aspect-square rounded-2xl border border-gray-200">
-            <Image
-              src={FEATURE_IMAGE}
-              alt="Winter Drops Collection"
-              fill
-              priority
-              sizes="(max-width: 768px) 100vw, 40vw"
-              className="object-cover object-center transition-transform duration-700 hover:scale-[1.03]"
-            />
-          </div>
+        <div className="relative w-full overflow-hidden aspect-[4/4] md:aspect-square rounded-2xl border border-gray-200 bg-gray-100">
+  {localLoading && (
+    <ShimmerBlock className="absolute inset-0 rounded-2xl" />
+  )}
+
+  {!localLoading && (
+    <Image
+      src={FEATURE_IMAGE}
+      alt="Winter Drops Collection"
+      fill
+      priority
+      sizes="(max-width: 768px) 100vw, 40vw"
+      className="object-cover object-center transition-transform duration-700 hover:scale-[1.03]"
+    />
+  )}
+</div>
+
         </Link>
 
         {/* Product Grid Area */}

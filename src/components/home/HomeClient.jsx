@@ -3,14 +3,12 @@
 import Script from "next/script";
 import { generateSEO } from "@/utils/seoConfig";
 
-import LazySection from "@/components/common/LazySection";
-
-// ⭐ ABOVE THE FOLD (DO NOT LAZY)
+// ⭐ ABOVE THE FOLD
 import HeroSection from "@/components/home/HeroSection";
 import CategoryRow from "@/components/home/CategoryRow";
 import StyleByOccasion from "@/components/home/StyleByOccasion";
 
-// ⭐ BELOW THE FOLD (LAZY LOAD)
+// ⭐ BELOW THE FOLD (NORMAL RENDER)
 import TrendingSection from "@/components/home/TrendingSection";
 import WinterFeatureSection from "@/components/home/WinterFeatureSection";
 import BestSellerSection from "@/components/home/BestSellerSection";
@@ -40,7 +38,6 @@ export default function HomeClient() {
         />
       )}
 
-      {/* 🔥 min-h-screen IS CRITICAL FOR MOBILE SCROLL */}
       <main className="flex flex-col w-full min-h-screen overflow-x-hidden bg-white text-gray-900">
         {/* ABOVE THE FOLD */}
         <div className="pt-4">
@@ -50,39 +47,16 @@ export default function HomeClient() {
         <HeroSection />
         <StyleByOccasion />
 
-        {/* ⬇️ BELOW THE FOLD — LAZY (SCROLL SAFE) */}
+        {/* BELOW THE FOLD — NORMAL SECTIONS */}
 
-        <LazySection minHeight={600}>
-          <TrendingSection />
-        </LazySection>
-
-        <LazySection minHeight={550}>
-          <WinterFeatureSection />
-        </LazySection>
-
-        <LazySection minHeight={700}>
-          <BestSellerSection />
-        </LazySection>
-
-        <LazySection minHeight={500}>
-          <VideoRow />
-        </LazySection>
-
-        <LazySection minHeight={600}>
-          <BlogSection />
-        </LazySection>
-
-        <LazySection minHeight={350}>
-          <RecentlyViewed />
-        </LazySection>
-
-        <LazySection minHeight={220}>
-          <InfoStrip />
-        </LazySection>
-
-        <LazySection minHeight={320}>
-          <Newsletter />
-        </LazySection>
+        <TrendingSection />
+        <WinterFeatureSection />
+        <BestSellerSection />
+        <VideoRow />
+        <BlogSection />
+        <RecentlyViewed />
+        <InfoStrip />
+        <Newsletter />
       </main>
     </>
   );

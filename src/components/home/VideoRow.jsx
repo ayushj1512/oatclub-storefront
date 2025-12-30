@@ -52,27 +52,36 @@ const reels = [
   },
 ];
 
+function Shimmer({ className = "" }) {
+  return (
+    <div className={`relative overflow-hidden bg-gray-200 ${className}`}>
+      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
+    </div>
+  );
+}
+
+
 export default function VideoRow() {
   const router = useRouter();
   const scrollerRef = useRef(null);
   const videoRefs = useRef([]);
-  const [mounted, setMounted] = useState(false);
   const [activeIndex, setActiveIndex] = useState(null);
   const [likes, setLikes] = useState({});
 
   const { allProducts, fetchProducts } = useProductStore();
 
-  /* fetch products once */
-  useEffect(() => {
-    fetchProducts({ page: 1, limit: 50, isActive: true });
-  }, [fetchProducts]);
+ const fetchedRef = useRef(false);
 
-  useEffect(() => setMounted(true), []);
+useEffect(() => {
+  if (fetchedRef.current) return;
+  fetchedRef.current = true;
 
-  useEffect(() => {
-    if (!mounted) return;
-    videoRefs.current.forEach((v) => v?.play?.().catch(() => {}));
-  }, [mounted]);
+  fetchProducts({ page: 1, limit: 50, isActive: true });
+}, [fetchProducts]);
+
+
+
+
 
   /* 🔗 Attach realtime product */
   const reelsWithProducts = useMemo(() => {
@@ -98,6 +107,14 @@ export default function VideoRow() {
       };
     });
   }, [allProducts]);
+
+useEffect(() => {
+  if (!reelsWithProducts.length) return;
+
+  videoRefs.current.forEach((v) => v?.play?.().catch(() => {}));
+}, [reelsWithProducts.length]);
+
+const isLoading = !reelsWithProducts.length;
 
   const toggleLike = (i) => setLikes((p) => ({ ...p, [i]: !p[i] }));
 
@@ -132,7 +149,39 @@ export default function VideoRow() {
     );
   };
 
-  if (!mounted || !reelsWithProducts.length) return null;
+ if (isLoading) {
+  return (
+    <section className="w-full flex flex-col bg-white py-10 md:py-14 overflow-hidden">
+      {/* Heading shimmer */}
+      <div className="flex justify-center mb-6">
+        <Shimmer className="h-8 w-64 rounded" />
+      </div>
+
+      {/* Reel shimmer row */}
+      <div className="flex gap-4 px-6 md:px-10 overflow-x-auto no-scrollbar">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="min-w-[160px] md:min-w-[220px] lg:min-w-[240px] border border-gray-200 rounded-xl overflow-hidden"
+          >
+            {/* Video shimmer */}
+            <Shimmer className="w-full aspect-[9/16]" />
+
+            {/* Product strip shimmer */}
+            <div className="flex gap-3 p-3 border-t border-gray-200">
+              <Shimmer className="w-12 h-14 rounded" />
+              <div className="flex-1 space-y-2">
+                <Shimmer className="h-3 w-3/4 rounded" />
+                <Shimmer className="h-3 w-1/3 rounded" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 
  return (
   <>
@@ -172,7 +221,9 @@ export default function VideoRow() {
               {/* Reel */}
               <div className="relative w-full aspect-[9/16] bg-black">
                 <video
-                  ref={(el) => (videoRefs.current[i] = el)}
+               ref={(el) => {
+  if (el) videoRefs.current[i] = el;
+}}
                   src={reel.src}
                   muted
                   loop

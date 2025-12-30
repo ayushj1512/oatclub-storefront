@@ -11,6 +11,7 @@ export default function HeroSection() {
   ];
 
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [loaded, setLoaded] = useState(false); // 🔥 shimmer control
   const slideInterval = useRef(null);
 
   // Touch vars
@@ -18,9 +19,7 @@ export default function HeroSection() {
   const endX = useRef(0);
 
   const startAutoplay = () => {
-    slideInterval.current = setInterval(() => {
-      nextSlide();
-    }, 5000);
+    slideInterval.current = setInterval(nextSlide, 5000);
   };
 
   const stopAutoplay = () => {
@@ -50,11 +49,7 @@ export default function HeroSection() {
 
   const handleTouchEnd = () => {
     const diff = startX.current - endX.current;
-    const threshold = 50;
-
-    if (Math.abs(diff) > threshold) {
-      diff > 0 ? nextSlide() : prevSlide();
-    }
+    if (Math.abs(diff) > 50) diff > 0 ? nextSlide() : prevSlide();
     startAutoplay();
   };
 
@@ -65,31 +60,41 @@ export default function HeroSection() {
 
   return (
     <section
-      className="relative w-full overflow-hidden touch-pan-y select-none"
-      style={{ paddingTop: "46.92%" }} // same aspect ratio as Vue
+      className="relative w-full overflow-hidden touch-pan-y select-none bg-gray-100"
+      style={{ paddingTop: "46.92%" }} // fixed aspect ratio (no CLS)
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Slider */}
+      {/* 🔥 SHIMMER PLACEHOLDER */}
+      {!loaded && (
+        <div className="absolute inset-0 bg-gray-200 overflow-hidden">
+          <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
+        </div>
+      )}
+
+      {/* SLIDER */}
       <div
-        className="absolute top-0 left-0 w-full h-full flex transition-transform duration-700 ease-in-out"
+        className={`absolute top-0 left-0 w-full h-full flex transition-transform duration-700 ease-in-out ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
         {slides.map((src, index) => (
           <div key={index} className="w-full h-full flex-shrink-0 relative">
             <Image
               src={src}
-              alt={`Slide ${index}`}
+              alt={`Slide ${index + 1}`}
               fill
+              priority={index === 0} // 🔥 LCP optimized
               className="object-cover object-center"
-              loading="lazy"
+              onLoad={() => index === 0 && setLoaded(true)}
             />
           </div>
         ))}
       </div>
 
-      {/* Left Arrow */}
+      {/* LEFT ARROW */}
       <button
         onClick={prevSlide}
         className="hidden sm:flex absolute top-1/2 left-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
@@ -97,7 +102,7 @@ export default function HeroSection() {
         &#10094;
       </button>
 
-      {/* Right Arrow */}
+      {/* RIGHT ARROW */}
       <button
         onClick={nextSlide}
         className="hidden sm:flex absolute top-1/2 right-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
@@ -105,7 +110,7 @@ export default function HeroSection() {
         &#10095;
       </button>
 
-      {/* Dots */}
+      {/* DOTS */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-20">
         {slides.map((_, index) => (
           <span
@@ -114,7 +119,7 @@ export default function HeroSection() {
             className={`w-3 h-3 rounded-full cursor-pointer ${
               currentSlide === index ? "bg-white" : "bg-gray-400"
             }`}
-          ></span>
+          />
         ))}
       </div>
     </section>

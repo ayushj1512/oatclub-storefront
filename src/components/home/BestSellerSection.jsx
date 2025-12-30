@@ -5,6 +5,15 @@ import { motion } from "framer-motion";
 import ProductCard from "@/components/common/ProductCard";
 import { useProductStore } from "@/store/productStore";
 
+/* 🔥 Shimmer block (JS only) */
+function ShimmerBlock({ className = "" }) {
+  return (
+    <div className={`relative overflow-hidden bg-gray-200 ${className}`}>
+      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
+    </div>
+  );
+}
+
 export default function BestSellerSection() {
   const { allProducts, isLoading, error, fetchProducts } = useProductStore();
   const fetchedRef = useRef(false);
@@ -47,17 +56,16 @@ export default function BestSellerSection() {
     [allProducts]
   );
 
-  /* ---------- Loading skeleton ---------- */
+  /* ================= SHIMMER LOADING ================= */
   if (isLoading && !products.length) {
     return (
       <section className="pt-10 px-4 bg-white">
-        {/* Centered Heading */}
+        {/* Heading shimmer */}
         <div className="w-full text-center mb-6">
-          <h2 className="inline-block border-b border-black pb-2 text-xl md:text-2xl font-extrabold uppercase tracking-[0.25em] text-black">
-            Best Sellers
-          </h2>
+          <ShimmerBlock className="h-7 w-52 mx-auto rounded" />
         </div>
 
+        {/* Product shimmer row */}
         <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
           {Array.from({ length: 8 }).map((_, i) => (
             <div
@@ -81,7 +89,7 @@ export default function BestSellerSection() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Centered Heading */}
+      {/* Heading */}
       <div className="w-full text-center mb-6">
         <h2 className="inline-block border-b border-black pb-2 text-xl md:text-2xl font-extrabold uppercase tracking-[0.25em] text-black">
           Best Sellers
