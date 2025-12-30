@@ -222,15 +222,16 @@ useEffect(() => {
                 Continue shopping <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
 
-              <button
-                type="button"
-              disabled={!items.length || !isLoggedIn}
-                onClick={goCheckout}
-                className="inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(128,0,32,0.28)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
-                style={{ backgroundColor: BRAND }}
-              >
-                Checkout
-              </button>
+            <button
+  type="button"
+  disabled={!items.length || !isLoggedIn}
+  onClick={goCheckout}
+  className="inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
+  style={{ backgroundColor: BRAND }}
+>
+  Checkout
+</button>
+
             </div>
           </div>
         </GlassCard>
@@ -379,9 +380,10 @@ useEffect(() => {
           </div>
 
           {/* Summary */}
-          <div className="lg:col-span-4">
-          <ApplyCoupon cartTotal={subtotal} />
-            <div className="lg:sticky lg:top-6">
+          <div className="lg:col-span-4 ">
+       <div className="mb-4 md:mb-6"> <ApplyCoupon cartTotal={subtotal} />
+</div>    
+            <div className="lg:sticky lg:top-6 ">
               <GlassCard className="rounded-[22px] overflow-hidden">
                 <div className="p-4 sm:p-5 border-b border-black/5">
                   <h2 className="text-base font-semibold text-gray-900">Order Summary</h2>
@@ -415,15 +417,16 @@ useEffect(() => {
   </div>
 )}
 
-                  <button
-                    type="button"
-                      disabled={items.length === 0 || !isLoggedIn}
-                    onClick={goCheckout}
-                    className="mt-3 w-full rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white shadow-[0_14px_28px_rgba(128,0,32,0.28)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
-                    style={{ backgroundColor: BRAND }}
-                  >
-                    Proceed to Checkout
-                  </button>
+             <button
+  type="button"
+  disabled={items.length === 0 || !isLoggedIn}
+  onClick={goCheckout}
+  className="mt-3 w-full rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
+  style={{ backgroundColor: BRAND }}
+>
+  Proceed to Checkout
+</button>
+
 
                   <div className="text-[11px] text-gray-500 leading-relaxed">
                     By placing your order, you agree to our{" "}

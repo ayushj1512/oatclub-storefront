@@ -66,8 +66,8 @@ export const useOrderStore = create((set, get) => ({
  */
 createOrder: async ({
   customerId,
-  shippingAddressSnapshot,
-  billingAddressSnapshot,
+  shippingAddressId,        // ✅ ID, not snapshot
+  billingAddressId,         // optional
   items,
   discount = 0,
   coupon = null,
@@ -82,12 +82,20 @@ createOrder: async ({
   set({ placing: true, error: null });
 
   try {
-    if (!customerId) throw new Error("customerId is required");
-    if (!shippingAddressSnapshot)
-      throw new Error("shippingAddressSnapshot is required");
-    if (!items?.length) throw new Error("Order items missing");
+    if (!customerId) {
+      throw new Error("customerId is required");
+    }
 
-    if (!["cod", "razorpay"].includes(paymentMethod)) {
+    if (!shippingAddressId) {
+      throw new Error("shippingAddressId is required");
+    }
+
+    if (!items?.length) {
+      throw new Error("Order items missing");
+    }
+
+    const pm = String(paymentMethod).toLowerCase();
+    if (!["cod", "razorpay"].includes(pm)) {
       throw new Error("Invalid payment method");
     }
 
@@ -111,11 +119,14 @@ createOrder: async ({
       };
     });
 
+    /* -------------------------------
+       Payload (BACKEND CONTRACT)
+    -------------------------------- */
     const payload = {
       customerId,
-      shippingAddressSnapshot,
-      billingAddressSnapshot:
-        billingAddressSnapshot || shippingAddressSnapshot,
+      shippingAddressId,                         // ✅ REQUIRED
+      billingAddressId: billingAddressId || shippingAddressId,
+
       items: normalizedItems,
 
       discount,
@@ -124,7 +135,7 @@ createOrder: async ({
       tax,
       currency,
 
-      paymentMethod,
+      paymentMethod: pm,
       source,
       isGiftOrder,
       customerMessage,
@@ -139,11 +150,10 @@ createOrder: async ({
     });
 
     /* -------------------------------
-       📊 ANALYTICS: PURCHASE (SUCCESS)
+       📊 ANALYTICS: PURCHASE
     -------------------------------- */
     try {
       const analytics = useAnalyticsStore.getState();
-
       normalizedItems.forEach((item) => {
         analytics.trackPurchase(item.productId);
       });
@@ -158,6 +168,7 @@ createOrder: async ({
     throw e;
   }
 },
+
 
 
 

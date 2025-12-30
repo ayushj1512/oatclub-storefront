@@ -10,15 +10,27 @@ import { useAnalyticsStore } from "@/store/analyticsStore";
 import { motion } from "framer-motion";
 
 /* ----------------------------- Shimmer ----------------------------- */
+/* ----------------------------- Shimmer ----------------------------- */
 const ShimmerCard = () => (
   <div className="w-full bg-white overflow-hidden flex flex-col h-full">
-    <div className="aspect-[3/4] bg-black/5 animate-pulse" />
-    <div className="p-3 space-y-2 animate-pulse">
-      <div className="h-3.5 bg-black/5 w-4/5" />
-      <div className="h-4 bg-black/5 w-2/5" />
+    {/* Image shimmer */}
+    <div className="relative aspect-[3/4] bg-black/5 overflow-hidden">
+      <div className="absolute inset-0 shimmer" />
+    </div>
+
+    {/* Content shimmer */}
+    <div className="p-3 space-y-2">
+      <div className="relative h-3.5 w-4/5 bg-black/5 overflow-hidden rounded">
+        <div className="absolute inset-0 shimmer" />
+      </div>
+
+      <div className="relative h-4 w-2/5 bg-black/5 overflow-hidden rounded">
+        <div className="absolute inset-0 shimmer" />
+      </div>
     </div>
   </div>
 );
+
 
 /* -------------------------- Safe image helper -------------------------- */
 function getSafeImage(product) {
@@ -43,12 +55,21 @@ function toNum(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+
+
 export default function ProductCard({
   product,
   loading = false,
   disableRecentlyViewed = false,
 }) {
-  if (loading || !product) return <ShimmerCard />;
+ if (loading || !product) {
+  return (
+    <div className="pointer-events-none select-none">
+      <ShimmerCard />
+    </div>
+  );
+}
+
 
   const {
     addToWishlist,

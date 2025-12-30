@@ -349,20 +349,39 @@ if (!["cod", "razorpay"].includes(selectedPayment)) {
     const shipSnap = toAddressSnapshot(selectedAddressObj, user?.email || "");
 
     const order = await createOrder({
-      customerId: customer._id,
-      shippingAddressSnapshot: shipSnap,
-      billingAddressSnapshot: shipSnap,
+  customerId: customer._id,
 
-     items: useCartStore.getState().toOrderItems(),
+  // ✅ FIX
+  shippingAddressId: selectedAddressObj._id,
+  billingAddressId: selectedAddressObj._id,
 
+  paymentMethod: "cod",
 
-      paymentMethod: "razorpay", // 🔥 IMPORTANT
-      source: "website",
+  items: items.map((it) => {
+    const productId = resolveMongoProductId(it);
+    const qty = Number(it?.qty ?? it?.quantity ?? 1);
+    const variantId = isObjectId(String(it?.variantId || ""))
+      ? String(it.variantId)
+      : null;
 
-      coupon: coupon
-        ? { code: coupon.code, discount, finalTotal: payable }
-        : null,
-    });
+    return {
+      productId,
+      quantity: qty,
+      ...(variantId ? { variantId } : {}),
+    };
+  }),
+
+  source: "website",
+
+  coupon: coupon
+    ? {
+        code: coupon.code,
+        discount,
+        finalTotal: payable,
+      }
+    : null,
+});
+
 
     setCreatedOrderId(order._id); // 🔑 THIS is passed to Razorpay
   } catch (e) {
@@ -377,22 +396,22 @@ const [paymentRecovery, setPaymentRecovery] = useState({
 });
 
 
-  const handlePlaceOrder = async () => {
+const handlePlaceOrder = async () => {
   const err = validate();
   if (err) return alert(err);
 
   try {
-    const shipSnap = toAddressSnapshot(
-      selectedAddressObj,
-      user?.email || ""
-    );
-    const billSnap = shipSnap;
+    if (!selectedAddressObj?._id) {
+      return alert("Shipping address not selected.");
+    }
 
     /* ---------------- CREATE ORDER ---------------- */
     const order = await createOrder({
       customerId: customer._id,
-      shippingAddressSnapshot: shipSnap,
-      billingAddressSnapshot: billSnap,
+
+      // ✅ REQUIRED BY BACKEND
+      shippingAddressId: selectedAddressObj._id,
+      billingAddressId: selectedAddressObj._id,
 
       paymentMethod: "cod",
 
@@ -447,6 +466,7 @@ const [paymentRecovery, setPaymentRecovery] = useState({
     alert(e?.message || "Failed to place order.");
   }
 };
+
 
 
   return (
@@ -755,21 +775,27 @@ const [paymentRecovery, setPaymentRecovery] = useState({
       user?.email || ""
     );
 
-    return await createOrder({
-      customerId: customer._id,
-      shippingAddressSnapshot: shipSnap,
-      billingAddressSnapshot: shipSnap,
-      items: useCartStore.getState().toOrderItems(),
-      paymentMethod: "razorpay",
-      source: "website",
-      coupon: coupon
-        ? {
-            code: coupon.code,
-            discount,
-            finalTotal: payable,
-          }
-        : null,
-    });
+   return await createOrder({
+  customerId: customer._id,
+
+  // ✅ FIX
+  shippingAddressId: selectedAddressObj._id,
+  billingAddressId: selectedAddressObj._id,
+
+  items: useCartStore.getState().toOrderItems(),
+
+  paymentMethod: "razorpay",
+  source: "website",
+
+  coupon: coupon
+    ? {
+        code: coupon.code,
+        discount,
+        finalTotal: payable,
+      }
+    : null,
+});
+
   }}
 />
 

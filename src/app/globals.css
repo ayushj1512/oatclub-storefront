@@ -182,3 +182,23 @@ body {
 .animate-shimmer {
   animation: shimmer 1.4s infinite;
 }
+
+/* shimmer utility */
+.shimmer {
+  background: linear-gradient(
+    110deg,
+    rgba(0,0,0,0.05) 25%,
+    rgba(255,255,255,0.5) 37%,
+    rgba(0,0,0,0.05) 63%
+  );
+  animation: shimmer 1.2s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
