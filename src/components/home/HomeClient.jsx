@@ -40,8 +40,9 @@ export default function HomeClient() {
         />
       )}
 
-      <main className="flex flex-col w-full overflow-x-hidden bg-white text-gray-900">
-        {/* 🔥 ABOVE THE FOLD — LOAD IMMEDIATELY */}
+      {/* 🔥 min-h-screen IS CRITICAL FOR MOBILE SCROLL */}
+      <main className="flex flex-col w-full min-h-screen overflow-x-hidden bg-white text-gray-900">
+        {/* ABOVE THE FOLD */}
         <div className="pt-4">
           <CategoryRow />
         </div>
@@ -49,7 +50,7 @@ export default function HomeClient() {
         <HeroSection />
         <StyleByOccasion />
 
-        {/* ⬇️ BELOW THE FOLD — MOBILE SAFE LAZY LOAD */}
+        {/* ⬇️ BELOW THE FOLD — LAZY (SCROLL SAFE) */}
 
         <LazySection minHeight={600}>
           <TrendingSection />

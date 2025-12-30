@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 export default function LazySection({
   children,
   rootMargin = "300px",
-  minHeight = 200, // 👈 important
+  minHeight = 300,
 }) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -17,28 +17,33 @@ export default function LazySection({
       ([entry]) => {
         if (entry.isIntersecting) {
           setVisible(true);
-          observer.disconnect(); // 🔥 once loaded, stop observing
+          observer.disconnect();
         }
       },
       {
         rootMargin,
-        threshold: 0.01, // 👈 mobile friendly
+        threshold: 0.01,
       }
     );
 
     observer.observe(ref.current);
-
     return () => observer.disconnect();
   }, [rootMargin, visible]);
 
   return (
-    <div
+    <section
       ref={ref}
       style={{
-        minHeight: visible ? "auto" : minHeight,
+        minHeight, // 🔥 ALWAYS occupies space → scroll works
       }}
+      className="w-full"
     >
-      {visible ? children : null}
-    </div>
+      {visible ? (
+        children
+      ) : (
+        // 🔥 placeholder (invisible but gives height)
+        <div className="w-full h-full" />
+      )}
+    </section>
   );
 }
