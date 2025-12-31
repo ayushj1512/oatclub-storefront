@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useAnalyticsStore } from "@/store/analyticsStore";
+import { trackMeta } from "@/lib/meta/track";
 
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -66,8 +67,8 @@ export const useOrderStore = create((set, get) => ({
  */
 createOrder: async ({
   customerId,
-  shippingAddressId,        // ✅ ID, not snapshot
-  billingAddressId,         // optional
+  shippingAddressId, // ✅ ID, not snapshot
+  billingAddressId, // optional
   items,
   discount = 0,
   coupon = null,
@@ -82,17 +83,9 @@ createOrder: async ({
   set({ placing: true, error: null });
 
   try {
-    if (!customerId) {
-      throw new Error("customerId is required");
-    }
-
-    if (!shippingAddressId) {
-      throw new Error("shippingAddressId is required");
-    }
-
-    if (!items?.length) {
-      throw new Error("Order items missing");
-    }
+    if (!customerId) throw new Error("customerId is required");
+    if (!shippingAddressId) throw new Error("shippingAddressId is required");
+    if (!items?.length) throw new Error("Order items missing");
 
     const pm = String(paymentMethod).toLowerCase();
     if (!["cod", "razorpay"].includes(pm)) {
@@ -120,11 +113,81 @@ createOrder: async ({
     });
 
     /* -------------------------------
+       Compute cart value (for Meta)
+    -------------------------------- */
+    const safeItems = items || [];
+    const contents = safeItems
+      .map((it) => {
+        const id = it?.productId || it?.id;
+        const quantity = Number(it?.quantity ?? it?.qty ?? 1) || 1;
+        const price =
+          Number(it?.price ?? it?.item_price ?? it?.salePrice ?? 0) || 0;
+
+        if (!id) return null;
+
+        return {
+          id: String(id),
+          quantity,
+          item_price: price,
+        };
+      })
+      .filter(Boolean);
+
+    const itemsTotal = contents.reduce(
+      (sum, c) =>
+        sum +
+        (Number(c.item_price) || 0) * (Number(c.quantity) || 1),
+      0
+    );
+
+    const orderValue =
+      Math.max(
+        0,
+        Number(itemsTotal || 0) +
+          Number(shippingFee || 0) +
+          Number(tax || 0) -
+          Number(discount || 0)
+      ) || 0;
+
+    /* -------------------------------
+       ✅ META: InitiateCheckout
+    -------------------------------- */
+    try {
+      await trackMeta("InitiateCheckout", {
+        currency,
+        value: orderValue,
+        content_type: "product",
+        content_ids: contents.map((c) => c.id),
+        contents,
+        num_items: contents.reduce((s, c) => s + (c.quantity || 0), 0),
+        ...(coupon ? { coupon: String(coupon) } : {}),
+      });
+    } catch (e) {
+      console.warn("🧾 Meta InitiateCheckout failed", e);
+    }
+
+    /* -------------------------------
+       ✅ META: AddPaymentInfo
+    -------------------------------- */
+    try {
+      await trackMeta("AddPaymentInfo", {
+        currency,
+        value: orderValue,
+        content_type: "product",
+        content_ids: contents.map((c) => c.id),
+        contents,
+        payment_method: pm,
+      });
+    } catch (e) {
+      console.warn("🧾 Meta AddPaymentInfo failed", e);
+    }
+
+    /* -------------------------------
        Payload (BACKEND CONTRACT)
     -------------------------------- */
     const payload = {
       customerId,
-      shippingAddressId,                         // ✅ REQUIRED
+      shippingAddressId, // ✅ REQUIRED
       billingAddressId: billingAddressId || shippingAddressId,
 
       items: normalizedItems,
@@ -150,15 +213,58 @@ createOrder: async ({
     });
 
     /* -------------------------------
-       📊 ANALYTICS: PURCHASE
+       ✅ META: PURCHASE (COD ONLY)
+       Razorpay purchase happens after verify in razorpayStore
+    -------------------------------- */
+    try {
+      if (pm === "cod") {
+        const orderId =
+          data?.order?._id || data?.order?.orderNumber || undefined;
+
+        const now = Date.now();
+        const key = `purchase_cod_${orderId || customerId}_${orderValue}`;
+
+        const { _lastPurchaseKey, _lastPurchaseAt } = get();
+        const sameKey = _lastPurchaseKey === key;
+        const tooSoon =
+          _lastPurchaseAt && now - _lastPurchaseAt < 5000;
+
+        if (!(sameKey && tooSoon)) {
+          await trackMeta("Purchase", {
+            currency,
+            value: orderValue,
+            content_type: "product",
+            content_ids: contents.map((c) => c.id),
+            contents,
+            num_items: contents.reduce((s, c) => s + (c.quantity || 0), 0),
+            order_id: orderId,
+            payment_method: "cod",
+          });
+
+          set({ _lastPurchaseKey: key, _lastPurchaseAt: now });
+        }
+      }
+    } catch (e) {
+      console.warn("🧾 Meta Purchase failed (COD)", e);
+    }
+
+    /* -------------------------------
+       📊 ANALYTICS
     -------------------------------- */
     try {
       const analytics = useAnalyticsStore.getState();
-      normalizedItems.forEach((item) => {
-        analytics.trackPurchase(item.productId);
-      });
+
+      if (analytics.trackInitiateCheckout) {
+        normalizedItems.forEach((item) => {
+          analytics.trackInitiateCheckout(item.productId);
+        });
+      } else {
+        normalizedItems.forEach((item) => {
+          analytics.trackPurchase(item.productId);
+        });
+      }
     } catch (e) {
-      console.warn("📊 Analytics purchase tracking failed", e);
+      console.warn("📊 Analytics checkout tracking failed", e);
     }
 
     set({ lastCreatedOrder: data.order, placing: false });
@@ -168,6 +274,7 @@ createOrder: async ({
     throw e;
   }
 },
+
 
 
 

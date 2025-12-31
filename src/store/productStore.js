@@ -187,11 +187,12 @@ export const useProductStore = create(
       hasMore: () => get().hasMoreFlag,
       isLoading: false,
       error: null,
-
+_lastMetaViewKey: null,
+_lastMetaViewAt: 0,
       /* =====================================================
           ✅ MAIN FETCH (existing)
         ===================================================== */
-      fetchProducts: async (params = {}) => {
+     fetchProducts: async (params = {}) => {
   if (!BACKEND) {
     set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
     return;
@@ -209,25 +210,25 @@ export const useProductStore = create(
   ctrl = new AbortController();
   const myId = ++reqId;
 
-  set((state) => {
-    const categoryChanged = rawCategory !== state.activeCategory;
+  // ✅ Determine if category changed BEFORE set()
+  const prevActiveCategory = get().activeCategory;
+  const categoryChanged = rawCategory !== prevActiveCategory;
 
-    return {
-      isLoading: true,
-      error: null,
+  set((state) => ({
+    isLoading: true,
+    error: null,
 
-      // ✅ track category correctly
-      activeCategory: rawCategory,
-      lastParams: cleaned,
+    // ✅ track category correctly
+    activeCategory: rawCategory,
+    lastParams: cleaned,
 
-      // ✅ reset only when category actually changes
-      ...(categoryChanged && {
-        allProducts: [],
-        page: 1,
-        hasMoreFlag: true,
-      }),
-    };
-  });
+    // ✅ reset only when category actually changes
+    ...(categoryChanged && {
+      allProducts: [],
+      page: 1,
+      hasMoreFlag: true,
+    }),
+  }));
 
   try {
     const res = await fetch(url, {
@@ -236,15 +237,55 @@ export const useProductStore = create(
     });
 
     const data = await safeJson(res);
-    if (!res.ok)
-      throw new Error(data?.message || "Failed to load products");
+    if (!res.ok) throw new Error(data?.message || "Failed to load products");
     if (myId !== reqId) return;
 
     const incoming = uniqBySlug((data?.products || []).map(normalize));
 
+    /* ---------------------------------------------
+       🧾 META (PIXEL + CAPI): Category View
+       ✅ Fire only when:
+         - category exists
+         - page === 1
+         - category actually changed
+         - not duplicate within short window
+    --------------------------------------------- */
+    try {
+      if (rawCategory && page === 1 && categoryChanged) {
+        const now = Date.now();
+        const key = `view_category_${String(rawCategory).trim().toLowerCase()}`;
+
+        const { _lastMetaCategoryKey, _lastMetaCategoryAt } = get();
+        const tooSoon =
+          _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
+        const sameKey = _lastMetaCategoryKey && _lastMetaCategoryKey === key;
+
+        if (!(sameKey && tooSoon)) {
+          await trackMeta("ViewContent", {
+            content_type: "product_group",
+            content_ids: [String(rawCategory)], // category slug
+            content_name: String(rawCategory),
+            currency: "INR",
+
+            // optional: pass a few product ids from category list
+            content_ids_product: incoming
+              .slice(0, 10)
+              .map((p) => String(p?.id))
+              .filter(Boolean),
+          });
+
+          set({
+            _lastMetaCategoryKey: key,
+            _lastMetaCategoryAt: now,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("🧾 Meta Category View failed", e);
+    }
+
     set((state) => {
-      const merged =
-        page === 1 ? incoming : [...state.allProducts, ...incoming];
+      const merged = page === 1 ? incoming : [...state.allProducts, ...incoming];
 
       return {
         allProducts: merged,
@@ -260,6 +301,7 @@ export const useProductStore = create(
     set({ isLoading: false });
   }
 },
+
 
 
       /* =====================================================
@@ -308,90 +350,147 @@ export const useProductStore = create(
         }
       },
 
-      fetchProductDetails: async (idOrSlug) => {
-        if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+    fetchProductDetails: async (idOrSlug) => {
+  if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
 
-        // Abort previous request
-        if (ctrl) {
-          try {
-            ctrl.abort();
-          } catch (_) {
-            // noop
-          }
-        }
+  // Abort previous request
+  if (ctrl) {
+    try {
+      ctrl.abort();
+    } catch (_) {
+      // noop
+    }
+  }
 
-        ctrl = new AbortController();
-        const myId = ++reqId;
+  ctrl = new AbortController();
+  const myId = ++reqId;
 
-        set({ isLoading: true, error: null });
+  set({ isLoading: true, error: null });
 
-        const param = encodeURIComponent(String(idOrSlug || ""));
-        const tryUrls = [
-          `${BACKEND}/api/products/details/${param}`,
-          `${BACKEND}/api/products/${param}`,
-        ];
+  const param = encodeURIComponent(String(idOrSlug || ""));
+  const tryUrls = [
+    `${BACKEND}/api/products/details/${param}`,
+    `${BACKEND}/api/products/${param}`,
+  ];
 
+  try {
+    for (let i = 0; i < tryUrls.length; i++) {
+      const r = await fetch(tryUrls[i], {
+        cache: "no-store",
+        signal: ctrl.signal,
+      });
+
+      const j = await safeJson(r);
+
+      // ✅ request was superseded
+      if (myId !== reqId) return null;
+
+      if (r.ok) {
+        const prod = normalize(j);
+
+        // ✅ Update store cache
+        get().upsertProduct(prod);
+
+        // ✅ stop loader
+        set({ isLoading: false });
+
+        /* ---------------------------------------------
+           🧾 META (PIXEL + CAPI): ViewContent (Product View)
+           ✅ Fire only once for same product in short window
+        --------------------------------------------- */
         try {
-          for (let i = 0; i < tryUrls.length; i++) {
-            const r = await fetch(tryUrls[i], {
-              cache: "no-store",
-              signal: ctrl.signal,
+          const now = Date.now();
+          const key = `view_product_${prod?.id || prod?.slug || param}`;
+
+          const { _lastMetaViewKey, _lastMetaViewAt } = get();
+
+          const tooSoon = _lastMetaViewAt && now - _lastMetaViewAt < 1500;
+          const sameKey = _lastMetaViewKey && _lastMetaViewKey === key;
+
+          if (!(sameKey && tooSoon)) {
+            await trackMeta("ViewContent", {
+              content_type: "product",
+              content_ids: prod?.id ? [String(prod.id)] : [],
+              contents: prod?.id
+                ? [
+                    {
+                      id: String(prod.id),
+                      quantity: 1,
+                      item_price: Number(prod.price || 0),
+                    },
+                  ]
+                : [],
+              value: Number(prod.price || 0),
+              currency: prod.currency || "INR",
+              content_name: prod.name || "",
+              content_category: prod.category || "",
             });
 
-            const j = await safeJson(r);
-
-            // ✅ request was superseded
-            if (myId !== reqId) return null;
-
-            if (r.ok) {
-              const prod = normalize(j);
-              get().upsertProduct(prod);
-              set({ isLoading: false });
-              return prod;
-            }
-
-            // last URL failed
-            if (i === tryUrls.length - 1) {
-              throw new Error(j?.message || "Failed to load product");
-            }
-          }
-        } catch (err) {
-          // ✅ EXPECTED: AbortController cancellation
-          if (err?.name === "AbortError") {
-            return null; // silently ignore
-          }
-
-          console.error("❌ fetchProductDetails error:", err);
-
-          if (myId === reqId) {
+            // ✅ save dedupe key
             set({
-              error: err.message || "Failed to load product",
-              isLoading: false,
+              _lastMetaViewKey: key,
+              _lastMetaViewAt: now,
             });
           }
-
-          throw err;
-        } finally {
-          // only clear loading if this is still the active request
-          if (myId === reqId) {
-            set({ isLoading: false });
-          }
+        } catch (e) {
+          console.warn("🧾 Meta ViewContent failed", e);
         }
 
-        return null;
-      },
+        return prod;
+      }
+
+      // last URL failed
+      if (i === tryUrls.length - 1) {
+        throw new Error(j?.message || "Failed to load product");
+      }
+    }
+  } catch (err) {
+    // ✅ EXPECTED: AbortController cancellation
+    if (err?.name === "AbortError") {
+      return null; // silently ignore
+    }
+
+    console.error("❌ fetchProductDetails error:", err);
+
+    if (myId === reqId) {
+      set({
+        error: err.message || "Failed to load product",
+        isLoading: false,
+      });
+    }
+
+    throw err;
+  } finally {
+    // only clear loading if this is still the active request
+    if (myId === reqId) {
+      set({ isLoading: false });
+    }
+  }
+
+  return null;
+},
+
 
       // Add this inside your zustand create store:
-      fetchProductsByCategory: async (categorySlug) => {
-        if (!categorySlug) return;
+     fetchProductsByCategory: async (categorySlug, opts = {}) => {
+  const slug = String(categorySlug || "").trim();
+  if (!slug) return;
 
-        // Reset pagination + fetch first page
-        return get().fetchProducts({
-          category: categorySlug,
-          page: 1,
-          isActive: true,
-        });
-      },
+  const { activeCategory, isLoading } = get();
+
+  // ✅ prevent duplicate request if same category already loaded
+  if (!opts.force && String(activeCategory || "") === slug && !isLoading) {
+    return;
+  }
+
+  // ✅ Reset pagination + fetch first page
+  return get().fetchProducts({
+    category: slug,
+    page: 1,
+    isActive: true,
+  });
+},
+
 
       fetchProductBySKU: async (sku) => {
         if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");

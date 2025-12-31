@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import axios from "axios";
-import { useAbandonedCartStore } from "@/store/abandonedCartStore";
+import { trackMeta } from "@/lib/meta/track"; // ✅ Meta Pixel + CAPI unified tracker
 
 /* ----------------------------------------------------
    ENV
@@ -15,13 +15,18 @@ if (!BACKEND) {
 
 /* ----------------------------------------------------
    Razorpay SDK Loader (OFFICIAL)
+   ✅ Prevent duplicate script injection
 ---------------------------------------------------- */
 const loadRazorpaySDK = () =>
   new Promise((resolve) => {
     if (typeof window === "undefined") return resolve(false);
     if (window.Razorpay) return resolve(true);
 
+    // ✅ Prevent multiple loaders
+    if (document.getElementById("razorpay-checkout-js")) return resolve(true);
+
     const script = document.createElement("script");
+    script.id = "razorpay-checkout-js";
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
 
@@ -32,9 +37,36 @@ const loadRazorpaySDK = () =>
   });
 
 /* ----------------------------------------------------
+   Helper: build "contents" payload for Meta
+---------------------------------------------------- */
+function buildMetaContents(orderData) {
+  // If backend returns items details, use them
+  const items = orderData?.items || orderData?.order?.items || [];
+
+  const contents = (items || [])
+    .map((it) => {
+      const id = it?.productId || it?.id;
+      const quantity = Number(it?.quantity ?? it?.qty ?? 1) || 1;
+
+      // price may or may not exist here
+      const price = Number(it?.price ?? it?.item_price ?? it?.salePrice ?? 0) || 0;
+
+      if (!id) return null;
+      return {
+        id: String(id),
+        quantity,
+        item_price: price,
+      };
+    })
+    .filter(Boolean);
+
+  return contents;
+}
+
+/* ----------------------------------------------------
    Zustand Razorpay Store
 ---------------------------------------------------- */
-export const useRazorpayStore = create((set) => ({
+export const useRazorpayStore = create((set, get) => ({
   /* ---------- STATE ---------- */
   loading: false,
   error: null,
@@ -50,12 +82,11 @@ export const useRazorpayStore = create((set) => ({
 
   /* ------------------------------------------------
      MAIN PAYMENT FLOW
+     ✅ Fires:
+       - AddPaymentInfo (after create-order)
+       - Purchase (after verify success)
   ------------------------------------------------ */
-  payWithRazorpay: async ({
-    mongoOrderId,
-    onSuccess,
-    onFailure,
-  }) => {
+  payWithRazorpay: async ({ mongoOrderId, onSuccess, onFailure }) => {
     try {
       if (!mongoOrderId) {
         throw new Error("mongoOrderId is required");
@@ -70,13 +101,33 @@ export const useRazorpayStore = create((set) => ({
       }
 
       /* 2️⃣ Create Razorpay Order (BACKEND) */
-      const { data } = await axios.post(
-        `${BACKEND}/api/razorpay/create-order`,
-        { mongoOrderId }
-      );
+      const { data } = await axios.post(`${BACKEND}/api/razorpay/create-order`, {
+        mongoOrderId,
+      });
 
       if (!data?.success) {
         throw new Error(data?.message || "Failed to create Razorpay order");
+      }
+
+      /* ------------------------------------------------
+         ✅ META: AddPaymentInfo
+         Fire once payment method is engaged (Razorpay)
+      ------------------------------------------------- */
+      try {
+        const value = Number(data?.amount || 0) / 100 || 0; // Razorpay amount = paise
+        const currency = data?.currency || "INR";
+        const contents = buildMetaContents(data);
+
+        await trackMeta("AddPaymentInfo", {
+          currency,
+          value,
+          payment_method: "razorpay",
+          content_type: "product",
+          content_ids: contents.map((c) => c.id),
+          contents,
+        });
+      } catch (e) {
+        console.warn("🧾 Meta AddPaymentInfo failed (razorpay)", e);
       }
 
       /* 3️⃣ Configure Razorpay Checkout */
@@ -106,58 +157,73 @@ export const useRazorpayStore = create((set) => ({
 
         /* 4️⃣ Payment Success → VERIFY */
         handler: async (response) => {
-  try {
-    /* ---------------- VERIFY PAYMENT ---------------- */
-    await axios.post(
-      `${BACKEND}/api/razorpay/verify`,
-      {
-        mongoOrderId: data.mongoOrderId,
-        razorpay_order_id: response.razorpay_order_id,
-        razorpay_payment_id: response.razorpay_payment_id,
-        razorpay_signature: response.razorpay_signature,
-      }
-    );
+          try {
+            /* ---------------- VERIFY PAYMENT ---------------- */
+            await axios.post(`${BACKEND}/api/razorpay/verify`, {
+              mongoOrderId: data.mongoOrderId,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
 
-    /* ------------------------------------------------
-       🔥 ABANDONED CART → RECOVERED
-    ------------------------------------------------ */
-    try {
-      const { useAbandonedCartStore } = await import(
-        "@/store/abandonedCartStore"
-      );
+            /* ------------------------------------------------
+               ✅ META: PURCHASE (MOST IMPORTANT)
+               Fire ONLY after successful verification
+            ------------------------------------------------- */
+            try {
+              const value = Number(data?.amount || 0) / 100 || 0;
+              const currency = data?.currency || "INR";
+              const contents = buildMetaContents(data);
 
-      const abandoned = useAbandonedCartStore.getState();
-      const cart = abandoned.cart;
+              await trackMeta("Purchase", {
+                currency,
+                value,
+                order_id: data.mongoOrderId || data.orderNumber || mongoOrderId,
+                content_type: "product",
+                content_ids: contents.map((c) => c.id),
+                contents,
+              });
+            } catch (e) {
+              console.warn("🧾 Meta Purchase failed (razorpay)", e);
+            }
 
-      if (cart?._id) {
-        await abandoned.markRecovered(cart._id, data.mongoOrderId);
-      }
-    } catch (e) {
-      console.warn(
-        "⚠️ Abandoned cart recovery failed (Razorpay)",
-        e
-      );
-    }
+            /* ------------------------------------------------
+               🔥 ABANDONED CART → RECOVERED
+            ------------------------------------------------ */
+            try {
+              const { useAbandonedCartStore } = await import(
+                "@/store/abandonedCartStore"
+              );
 
-    /* ---------------- SUCCESS STATE ---------------- */
-    set({ loading: false, paymentSuccess: true });
+              const abandoned = useAbandonedCartStore.getState();
+              const cart = abandoned.cart;
 
-    onSuccess?.({
-      orderNumber: data.orderNumber,
-      mongoOrderId: data.mongoOrderId,
-    });
-  } catch (err) {
-    set({
-      loading: false,
-      error:
-        err?.response?.data?.message ||
-        "Payment verification failed",
-    });
+              if (cart?._id) {
+                await abandoned.markRecovered(cart._id, data.mongoOrderId);
+              }
+            } catch (e) {
+              console.warn("⚠️ Abandoned cart recovery failed (Razorpay)", e);
+            }
 
-    onFailure?.(err);
-  }
-},
+            /* ---------------- SUCCESS STATE ---------------- */
+            set({ loading: false, paymentSuccess: true });
 
+            onSuccess?.({
+              orderNumber: data.orderNumber,
+              mongoOrderId: data.mongoOrderId,
+              razorpay_payment_id: response.razorpay_payment_id,
+            });
+          } catch (err) {
+            set({
+              loading: false,
+              error:
+                err?.response?.data?.message ||
+                "Payment verification failed",
+            });
+
+            onFailure?.(err);
+          }
+        },
 
         /* 5️⃣ Modal Closed */
         modal: {
@@ -172,6 +238,7 @@ export const useRazorpayStore = create((set) => ({
 
       rzp.on("payment.failed", (response) => {
         set({ loading: false });
+
         onFailure?.(
           new Error(
             response?.error?.description ||
@@ -183,10 +250,12 @@ export const useRazorpayStore = create((set) => ({
       rzp.open();
     } catch (err) {
       console.error("❌ Razorpay Error:", err);
+
       set({
         loading: false,
         error: err?.response?.data?.message || err.message,
       });
+
       onFailure?.(err);
     }
   },

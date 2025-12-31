@@ -6,6 +6,7 @@ import { notify } from "@/lib/notify";
 import { useAnalyticsStore } from "@/store/analyticsStore";
 import { useAbandonedCartStore } from "@/store/abandonedCartStore";
 import { useAuthStore } from "@/store/authStore";
+import { trackMeta } from "@/lib/meta/track.js"; // adjust path based on your project
 
 const KEY = "cart_products";
 
@@ -170,7 +171,7 @@ export const useCartStore = create((set, get) => ({
      Call like:
      addToCart({ product, qty: 1, variantId, selectedSize })
   */
-  addToCart: ({ product, qty = 1, variantId = null, selectedSize = null }) => {
+  addToCart: async ({ product, qty = 1, variantId = null, selectedSize = null }) => {
   const built = buildCartItem({ product, qty, variantId, selectedSize });
 
   if (!built) return;
@@ -188,10 +189,12 @@ export const useCartStore = create((set, get) => ({
     ? curr.map((p) => {
         const pk = p.__key || cartKey(p);
         if (pk !== key) return p;
+
         const nextQty = Math.max(
           1,
           toNum(p.quantity || 1) + toNum(built.quantity || 1)
         );
+
         return { ...p, ...built, quantity: nextQty, __key: pk };
       })
     : [{ ...built }, ...curr];
@@ -215,6 +218,38 @@ export const useCartStore = create((set, get) => ({
       useAnalyticsStore.getState().trackAddToCart(product?._id);
     } catch (e) {
       console.warn("📊 Analytics cart_add failed", e);
+    }
+
+    /* ---------------- META (PIXEL + CAPI) ---------------- */
+    try {
+      // Safely determine product identifier
+      const pid = product?.sku || product?._id || product?.id || built?.productId;
+
+      // Price fallback: built.price > product.price > 0
+      const price =
+        Number(built?.price ?? product?.price ?? product?.salePrice ?? 0) || 0;
+
+      const quantity = Number(built?.quantity ?? qty ?? 1) || 1;
+
+      const value = price * quantity;
+
+      await trackMeta("AddToCart", {
+        content_type: "product",
+        content_ids: pid ? [String(pid)] : [],
+        contents: pid
+          ? [
+              {
+                id: String(pid),
+                quantity,
+                item_price: price,
+              },
+            ]
+          : [],
+        value,
+        currency: "INR", // change if needed
+      });
+    } catch (e) {
+      console.warn("🧾 Meta AddToCart failed", e);
     }
   }
 
@@ -244,43 +279,91 @@ export const useCartStore = create((set, get) => ({
 
 
 
-  /* ---------------- REMOVE ---------------- */
-  removeFromCart: (idOrKey, variantId = null) => {
-  const curr = get().items || [];
-  const key = str(idOrKey).includes("__")
-    ? str(idOrKey)
-    : `${str(idOrKey)}__${str(variantId || "")}`;
 
-  const removed = curr.find((p) => (p.__key || cartKey(p)) === key);
-  const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
+  /* =====================================================
+     ✅ UPDATED REMOVE FROM CART (FULL)
+  ===================================================== */
+  removeFromCart: async (idOrKey, variantId = null) => {
+    const curr = get().items || [];
 
-  set({ items: updated });
-  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+    const key = str(idOrKey).includes("__")
+      ? str(idOrKey)
+      : `${str(idOrKey)}__${str(variantId || "")}`;
 
-  if (removed) notify.cartRemoved?.(removed);
-  else notify.info?.(`Removed: ${getDisplayName({ id: idOrKey })}`);
+    const removed = curr.find((p) => (p.__key || cartKey(p)) === key);
+    const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
 
-  /* 🔥 Abandoned cart snapshot */
-  try {
-    const abandoned = useAbandonedCartStore.getState();
-    const auth = useAuthStore.getState();
+    set({ items: updated });
+    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
 
-    abandoned.upsertCart({
-      cartId: auth.activeCartId || "",
-      items: updated.map((it) => ({
-        productId: it.productId,
-        variantId: it.variantId || null,
-        qty: it.quantity,
-      })),
-      context: {
-        lastPageUrl: window.location.href,
-        device: window.innerWidth < 768 ? "mobile" : "desktop",
-      },
-    });
-  } catch (e) {
-    console.warn("🛒 Abandoned snapshot failed (removeFromCart)", e);
-  }
-},
+    if (removed) notify.cartRemoved?.(removed);
+    else notify.info?.(`Removed: ${getDisplayName({ id: idOrKey })}`);
+
+    /* ---------------- ANALYTICS: REMOVE ---------------- */
+    try {
+      const analytics = useAnalyticsStore.getState();
+
+      // ✅ If you later add trackRemoveFromCart, it will use it
+      if (analytics.trackRemoveFromCart) {
+        analytics.trackRemoveFromCart(removed?.productId || idOrKey);
+      } else {
+        // fallback: generic tracker
+        analytics.trackProductEvent?.({
+          productId: removed?.productId || idOrKey,
+          event: "cart_remove",
+        });
+      }
+    } catch (e) {
+      console.warn("📊 Analytics cart_remove failed", e);
+    }
+
+    /* ---------------- META: RemoveFromCart (CUSTOM EVENT) ---------------- */
+    try {
+      if (removed) {
+        const pid =
+          removed?.productSnapshot?.sku ||
+          removed?.productId ||
+          removed?.id ||
+          removed?._id;
+
+        const quantity = Number(removed?.quantity ?? 1) || 1;
+        const price = Number(removed?.price ?? 0) || 0;
+
+        await trackMeta("RemoveFromCart", {
+          content_type: "product",
+          content_ids: pid ? [String(pid)] : [],
+          contents: pid
+            ? [{ id: String(pid), quantity, item_price: price }]
+            : [],
+          value: price * quantity,
+          currency: "INR",
+        });
+      }
+    } catch (e) {
+      console.warn("🧾 Meta RemoveFromCart failed", e);
+    }
+
+    /* ---------------- ABANDONED CART SNAPSHOT ---------------- */
+    try {
+      const abandoned = useAbandonedCartStore.getState();
+      const auth = useAuthStore.getState();
+
+      abandoned.upsertCart({
+        cartId: auth.activeCartId || "",
+        items: updated.map((it) => ({
+          productId: it.productId,
+          variantId: it.variantId || null,
+          qty: it.quantity,
+        })),
+        context: {
+          lastPageUrl: window.location.href,
+          device: window.innerWidth < 768 ? "mobile" : "desktop",
+        },
+      });
+    } catch (e) {
+      console.warn("🛒 Abandoned snapshot failed (removeFromCart)", e);
+    }
+  },
 
 
   /* ---------------- UPDATE QTY ---------------- */

@@ -5,6 +5,7 @@ import Cookies from "js-cookie";
 import { useAuthStore } from "./authStore";
 import { notify } from "@/lib/notify";
 import { useAnalyticsStore } from "@/store/analyticsStore";
+import { trackMeta } from "@/lib/meta/track";
 
 const COOKIE_KEY = "wishlist_cache";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -236,24 +237,43 @@ addToWishlist: async (product) => {
      📊 ANALYTICS: WISHLIST ADD (ONCE)
   ---------------------------------------- */
   try {
-    useAnalyticsStore
-      .getState()
-      .trackWishlistAdd(pid);
+    useAnalyticsStore.getState().trackWishlistAdd(pid);
   } catch (e) {
     console.warn("📊 Analytics wishlist_add failed", e);
+  }
+
+  /* ---------------------------------------
+     🧾 META (PIXEL + CAPI): AddToWishlist
+  ---------------------------------------- */
+  try {
+    const price = Number(product?.price ?? optimisticItem?.price ?? 0) || 0;
+
+    await trackMeta("AddToWishlist", {
+      content_type: "product",
+      content_ids: [String(pid)],
+      contents: [
+        {
+          id: String(pid),
+          quantity: 1,
+          item_price: price,
+        },
+      ],
+      value: price,
+      currency: "INR", // change if you support multi-currency
+      content_name: optimisticItem?.name || "",
+    });
+  } catch (e) {
+    console.warn("🧾 Meta AddToWishlist failed", e);
   }
 
   try {
     if (!BACKEND) throw new Error("Missing NEXT_PUBLIC_BACKEND_URL");
 
-    const res = await fetch(
-      `${BACKEND}/api/wishlist/firebase/${user.uid}/add`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: pid }),
-      }
-    );
+    const res = await fetch(`${BACKEND}/api/wishlist/firebase/${user.uid}/add`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId: pid }),
+    });
 
     const data = await safeJson(res);
 
@@ -279,6 +299,7 @@ addToWishlist: async (product) => {
     notify.error("Failed to add to wishlist");
   }
 },
+
 
 
 

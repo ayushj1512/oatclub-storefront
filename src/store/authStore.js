@@ -1,5 +1,5 @@
 "use client";
-
+import { trackMeta } from "@/lib/meta/track";
 import { create } from "zustand";
 import Cookies from "js-cookie";
 import { auth, googleProvider } from "@/lib/firebase";
@@ -14,6 +14,18 @@ import {
 
 const COOKIE_KEY = "user_auth";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+// ✅ Returns true = skip event, false = fire event
+const shouldSkipAuthMetaEvent = (get, set, key, windowMs = 4000) => {
+  const now = Date.now();
+  const { _lastAuthEvent, _lastAuthEventAt } = get();
+
+  if (_lastAuthEvent === key && now - _lastAuthEventAt < windowMs) {
+    return true; // ✅ skip duplicate
+  }
+
+  set({ _lastAuthEvent: key, _lastAuthEventAt: now });
+  return false; // ✅ allow tracking
+};
 
 /* =====================================================================
    ⚡ UNIFIED AUTH STORE – + REALTIME PROFILE UPDATE
@@ -58,6 +70,8 @@ activeCartType: "cart", // cart | abandoned
     );
   }
 },
+
+
 
 /* ---------------------------------------------
    🛒 SET ACTIVE CART (cart / abandoned)
@@ -332,8 +346,13 @@ setActiveCart: (cartId, type = "cart") => {
 
   /* ---------------------------------------------
      GOOGLE LOGIN
-  --------------------------------------------- */
-  loginWithGoogle: async () => {
+/* ---------------------------------------------
+   GOOGLE LOGIN
+--------------------------------------------- */
+/* ---------------------------------------------
+   GOOGLE LOGIN
+--------------------------------------------- */
+loginWithGoogle: async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const firebaseUser = result.user;
@@ -382,6 +401,32 @@ setActiveCart: (cartId, type = "cart") => {
       { expires: 7 }
     );
 
+    /* ---------------------------------------------
+       🧾 META (PIXEL + CAPI): Login (Google)
+       ✅ Fire ONLY on successful login (with dedupe guard)
+    --------------------------------------------- */
+    try {
+      const key = `login_google_${firebaseUser.uid}`;
+      const shouldSkip = skipAuthMetaEvent(get, set, key, 4000);
+
+      if (!shouldSkip) {
+        await trackMeta(
+          "Login",
+          {
+            content_name: "Google Login",
+            status: "success",
+          },
+          {
+            em: firebaseUser.email || undefined,
+            ph: customer?.phone || firebaseUser.phoneNumber || undefined,
+            external_id: firebaseUser.uid || undefined,
+          }
+        );
+      }
+    } catch (e) {
+      console.warn("🧾 Meta Login (Google) failed", e);
+    }
+
     return { user: userData, customer };
   } catch (err) {
     console.error("❌ loginWithGoogle exception:", err);
@@ -389,10 +434,15 @@ setActiveCart: (cartId, type = "cart") => {
   }
 },
 
-  /* ---------------------------------------------
-     EMAIL LOGIN
-  --------------------------------------------- */
-  loginWithEmail: async (email, password) => {
+
+
+/* ---------------------------------------------
+   EMAIL LOGIN
+--------------------------------------------- */
+/* ---------------------------------------------
+   EMAIL LOGIN
+--------------------------------------------- */
+loginWithEmail: async (email, password) => {
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = result.user;
@@ -441,6 +491,32 @@ setActiveCart: (cartId, type = "cart") => {
       { expires: 7 }
     );
 
+    /* ---------------------------------------------
+       🧾 META (PIXEL + CAPI): Login (Email)
+       ✅ Fire ONLY on successful login (with dedupe guard)
+    --------------------------------------------- */
+    try {
+      const key = `login_email_${firebaseUser.uid}`;
+      const shouldSkip = skipAuthMetaEvent(get, set, key, 4000);
+
+      if (!shouldSkip) {
+        await trackMeta(
+          "Login",
+          {
+            content_name: "Email Login",
+            status: "success",
+          },
+          {
+            em: firebaseUser.email || email || undefined,
+            ph: customer?.phone || firebaseUser.phoneNumber || undefined,
+            external_id: firebaseUser.uid || undefined,
+          }
+        );
+      }
+    } catch (e) {
+      console.warn("🧾 Meta Login (Email) failed", e);
+    }
+
     return { user: userData, customer };
   } catch (err) {
     console.error("❌ loginWithEmail exception:", err);
@@ -449,10 +525,12 @@ setActiveCart: (cartId, type = "cart") => {
 },
 
 
-  /* ---------------------------------------------
-     REGISTER WITH EMAIL
-  --------------------------------------------- */
-  registerWithEmail: async (email, password, name) => {
+
+
+/* ---------------------------------------------
+   REGISTER WITH EMAIL
+--------------------------------------------- */
+registerWithEmail: async (email, password, name) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = result.user;
@@ -507,12 +585,40 @@ setActiveCart: (cartId, type = "cart") => {
       { expires: 7 }
     );
 
+    /* ---------------------------------------------
+       🧾 META (PIXEL + CAPI): CompleteRegistration
+       ✅ Fire ONLY on successful registration (with dedupe guard)
+    --------------------------------------------- */
+    try {
+      const key = `register_email_${firebaseUser.uid}`;
+      const shouldSkip = skipAuthMetaEvent(get, set, key, 6000);
+
+      if (!shouldSkip) {
+        await trackMeta(
+          "CompleteRegistration",
+          {
+            content_name: "Email Signup",
+            status: "success",
+          },
+          {
+            em: firebaseUser.email || email || undefined,
+            ph: customer?.phone || firebaseUser.phoneNumber || undefined,
+            external_id: firebaseUser.uid || undefined,
+          }
+        );
+      }
+    } catch (e) {
+      console.warn("🧾 Meta CompleteRegistration failed", e);
+    }
+
     return { user: userData, customer };
   } catch (err) {
     console.error("❌ registerWithEmail exception:", err);
     return null;
   }
 },
+
+
 
 
   /* ---------------------------------------------

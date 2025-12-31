@@ -202,3 +202,49 @@ body {
     transform: translateX(100%);
   }
 }
+/* ===============================
+   PRINT FIX (INVOICE / PACKING)
+=============================== */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Hide everything */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Show only print area */
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Ensure SVG / Barcode prints */
+  svg {
+    display: block !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Remove shadows/borders that cause cut */
+  * {
+    box-shadow: none !important;
+  }
+}
