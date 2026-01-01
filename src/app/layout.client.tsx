@@ -8,6 +8,9 @@ import { useEffect, useCallback, Suspense } from "react";
 import GTMPageView from "@/components/tracking/GTMPageView";
 import GoogleTagManager from "@/components/tracking/GoogleTagManager";
 
+// ✅ ADD THIS (Clarity Provider)
+import ClarityProvider from "@/components/clarity/ClarityProvider";
+
 import TopbarHeadline from "@/components/layout/TopbarHeadline";
 import DesktopHeader from "@/components/layout/DesktopHeader";
 import MobileHeader from "@/components/layout/MobileHeader";
@@ -46,6 +49,9 @@ export default function LayoutClient({
       <Suspense fallback={null}>
         <GoogleTagManager gtmId="GTM-5CTM95TR" />
         <GTMPageView />
+
+        {/* ✅ MICROSOFT CLARITY INIT (Loads once globally) */}
+        <ClarityProvider />
       </Suspense>
 
       {/* TOP BAR */}

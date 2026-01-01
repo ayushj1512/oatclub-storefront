@@ -12,6 +12,9 @@ import { useAuthStore } from "@/store/authStore";
 import { useAbandonedCartStore } from "@/store/abandonedCartStore";
 import { usePathname } from "next/navigation";
 import { useRef } from "react";
+import { pushEcomEvent } from "@/components/tracking/gtm";
+import { mapItem } from "@/components/tracking/ga4Mapper";
+import { trackMeta } from "@/lib/meta/track";
 
 const BRAND = "#111111";
 
@@ -36,6 +39,22 @@ const getImageSrc = (item) => {
   const src = candidates.find((v) => typeof v === "string" && v.trim().length > 0);
   return src || null;
 };
+
+const ga4CartItem = (it) =>
+  mapItem(
+    {
+      _id: it?.productId || it?.id || it?._id,
+      id: it?.productId || it?.id || it?._id,
+      name: it?.name,
+      title: it?.name,
+      price: Number(it?.price ?? 0) || 0,
+      category: it?.productSnapshot?.category || "",
+      variant: it?.selectedSize || "",
+      sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
+    },
+    Number(it?.qty ?? it?.quantity ?? 1)
+  );
+
 
 function GlassCard({ children, className = "" }) {
   return (
@@ -81,6 +100,7 @@ function QtyStepper({ value, onDec, onInc }) {
 export default function CartPage() {
   const router = useRouter();
 const pathname = usePathname();
+const lastViewCartRef = useRef({ key: null, at: 0 });
 
   const items = useCartStore((s) => s.items) || [];
   const initialize = useCartStore((s) => s.initialize);
@@ -137,7 +157,49 @@ useEffect(() => {
 
   const subtotal = useMemo(() => (typeof totalPriceFn === "function" ? totalPriceFn() : 0), [totalPriceFn]);
 
-    
+useEffect(() => {
+  try {
+    if (!items?.length) return;
+
+    const contents = items
+      .map((it) => {
+        const id = it?.productId || it?.id || it?._id;
+        if (!id) return null;
+        const quantity = Number(it?.qty ?? it?.quantity ?? 1) || 1;
+        const item_price = Number(it?.price ?? 0) || 0;
+        return { id: String(id), quantity, item_price };
+      })
+      .filter(Boolean);
+
+    if (!contents.length) return;
+
+    const value = contents.reduce((s, c) => s + c.item_price * c.quantity, 0);
+    const key = `cart_${contents.slice(0, 20).map((c) => c.id).join("_")}_${value}`;
+    const now = Date.now();
+
+    if (lastViewCartRef.current.key === key && now - (lastViewCartRef.current.at || 0) < 2000) return;
+    lastViewCartRef.current = { key, at: now };
+
+    // ✅ GA4 view_cart
+    pushEcomEvent("view_cart", { currency: "INR", value, items: items.slice(0, 50).map(ga4CartItem) });
+
+    // ✅ Meta ViewCart (safe promise)
+    Promise.resolve(
+      trackMeta("ViewCart", {
+        currency: "INR",
+        value,
+        content_type: "product",
+        content_ids: contents.map((c) => c.id),
+        contents,
+        num_items: contents.reduce((s, c) => s + (c.quantity || 0), 0),
+      })
+    ).catch(() => {});
+  } catch (e) {
+    console.warn("view_cart failed", e);
+  }
+}, [items]);
+
+
 
 // Final payable amount
 

@@ -2,6 +2,9 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { pushEcomEvent } from "@/components/tracking/gtm";
+import { mapItem } from "@/components/tracking/ga4Mapper";
+import { trackMeta } from "@/lib/meta/track";
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -24,7 +27,8 @@ const normalize = (p) => {
     productType:
       p?.productType ||
       (Array.isArray(p?.variants) && p.variants.length ? "variable" : "simple"),
-    name: p?.title || "",
+  name: p?.name || p?.title || "",
+
     slug: p?.slug || "",
     price: Number(p?.price || 0),
     compareAtPrice: p?.compareAtPrice ?? null,
@@ -44,6 +48,29 @@ const normalize = (p) => {
     source: "backend",
     raw: p,
   };
+};
+
+const ga4Item = (p, qty = 1) =>
+  mapItem(
+    {
+      _id: p?.id || p?._id,
+      id: p?.id || p?._id,
+      name: p?.name || p?.title,
+      title: p?.name || p?.title,
+      price: Number(p?.price ?? 0) || 0,
+      category: p?.category || p?.categoryId || "",
+      variant: "",
+      sku: p?.sku || "",
+    },
+    qty
+  );
+
+const shouldSkipGA4 = (get, set, key, ms = 1500) => {
+  const now = Date.now();
+  const { _lastGA4Key, _lastGA4At } = get();
+  if (_lastGA4Key === key && now - _lastGA4At < ms) return true;
+  set({ _lastGA4Key: key, _lastGA4At: now });
+  return false;
 };
 
 const uniqBySlug = (arr = []) => {
@@ -189,18 +216,17 @@ export const useProductStore = create(
       error: null,
 _lastMetaViewKey: null,
 _lastMetaViewAt: 0,
+_lastGA4Key: null,
+_lastGA4At: 0,
+_lastMetaCategoryKey: null,
+_lastMetaCategoryAt: 0,
       /* =====================================================
           ✅ MAIN FETCH (existing)
         ===================================================== */
-     fetchProducts: async (params = {}) => {
-  if (!BACKEND) {
-    set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
-    return;
-  }
+    fetchProducts: async (params = {}) => {
+  if (!BACKEND) return set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
 
   const { page = 1, limit = get().limit } = params;
-
-  // ✅ IMPORTANT: capture RAW category before sanitize
   const rawCategory = params.category ?? null;
 
   const cleaned = sanitize(params);
@@ -210,94 +236,75 @@ _lastMetaViewAt: 0,
   ctrl = new AbortController();
   const myId = ++reqId;
 
-  // ✅ Determine if category changed BEFORE set()
   const prevActiveCategory = get().activeCategory;
   const categoryChanged = rawCategory !== prevActiveCategory;
 
-  set((state) => ({
+  set(() => ({
     isLoading: true,
     error: null,
-
-    // ✅ track category correctly
     activeCategory: rawCategory,
     lastParams: cleaned,
-
-    // ✅ reset only when category actually changes
-    ...(categoryChanged && {
-      allProducts: [],
-      page: 1,
-      hasMoreFlag: true,
-    }),
+    ...(categoryChanged ? { allProducts: [], page: 1, hasMoreFlag: true } : {}),
   }));
 
   try {
-    const res = await fetch(url, {
-      cache: "no-store",
-      signal: ctrl.signal,
-    });
-
+    const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
     const data = await safeJson(res);
     if (!res.ok) throw new Error(data?.message || "Failed to load products");
     if (myId !== reqId) return;
 
     const incoming = uniqBySlug((data?.products || []).map(normalize));
 
-    /* ---------------------------------------------
-       🧾 META (PIXEL + CAPI): Category View
-       ✅ Fire only when:
-         - category exists
-         - page === 1
-         - category actually changed
-         - not duplicate within short window
-    --------------------------------------------- */
+    /* ✅ GA4: view_item_list (only first page) */
+    try {
+      if (page === 1 && incoming.length) {
+        const listId = rawCategory ? `cat_${rawCategory}` : "products";
+        const key = `vil_${listId}_${incoming.slice(0, 15).map((p) => p.id).join("_")}`;
+        if (!shouldSkipGA4(get, set, key, 1500)) {
+          pushEcomEvent("view_item_list", {
+            item_list_id: listId,
+            item_list_name: rawCategory ? String(rawCategory) : "All Products",
+            items: incoming.slice(0, 50).map((p) => ga4Item(p, 1)),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("📈 GA4 view_item_list failed", e);
+    }
+
+    /* 🧾 META: Category View (same logic) */
     try {
       if (rawCategory && page === 1 && categoryChanged) {
         const now = Date.now();
         const key = `view_category_${String(rawCategory).trim().toLowerCase()}`;
-
         const { _lastMetaCategoryKey, _lastMetaCategoryAt } = get();
-        const tooSoon =
-          _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
+        const tooSoon = _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
         const sameKey = _lastMetaCategoryKey && _lastMetaCategoryKey === key;
 
         if (!(sameKey && tooSoon)) {
           await trackMeta("ViewContent", {
             content_type: "product_group",
-            content_ids: [String(rawCategory)], // category slug
+            content_ids: [String(rawCategory)],
             content_name: String(rawCategory),
             currency: "INR",
-
-            // optional: pass a few product ids from category list
-            content_ids_product: incoming
-              .slice(0, 10)
-              .map((p) => String(p?.id))
-              .filter(Boolean),
+            content_ids_product: incoming.slice(0, 10).map((p) => String(p?.id)).filter(Boolean),
           });
 
-          set({
-            _lastMetaCategoryKey: key,
-            _lastMetaCategoryAt: now,
-          });
+          set({ _lastMetaCategoryKey: key, _lastMetaCategoryAt: now });
         }
       }
     } catch (e) {
       console.warn("🧾 Meta Category View failed", e);
     }
 
-    set((state) => {
-      const merged = page === 1 ? incoming : [...state.allProducts, ...incoming];
-
-      return {
-        allProducts: merged,
-        page,
-        hasMoreFlag: incoming.length === limit,
-        isLoading: false,
-      };
-    });
+    set((state) => ({
+      allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
+      page,
+      hasMoreFlag: incoming.length === limit,
+      isLoading: false,
+    }));
   } catch (e) {
-    if (e?.name !== "AbortError") {
-      set({ error: e.message || "Failed to load products" });
-    }
+    if (e?.name !== "AbortError") set({ error: e.message || "Failed to load products" });
     set({ isLoading: false });
   }
 },
@@ -309,57 +316,62 @@ _lastMetaViewAt: 0,
           GET /api/products/by-tag?tag=... OR tags=a,b
         ===================================================== */
       fetchProductsByTag: async (params = {}) => {
-        if (!BACKEND) {
-          set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
-          return;
-        }
+  if (!BACKEND) return set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
 
-        const { page = 1, limit = get().limit } = params;
-        const url = buildTagUrl({ ...params, page, limit });
+  const { page = 1, limit = get().limit } = params;
+  const url = buildTagUrl({ ...params, page, limit });
 
-        if (ctrl) ctrl.abort();
-        ctrl = new AbortController();
-        const myId = ++reqId;
+  if (ctrl) ctrl.abort();
+  ctrl = new AbortController();
+  const myId = ++reqId;
 
-        set({ isLoading: true, error: null });
+  set({ isLoading: true, error: null });
 
-        try {
-          const res = await fetch(url, {
-            cache: "no-store",
-            signal: ctrl.signal,
+  try {
+    const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+    const data = await safeJson(res);
+    if (!res.ok) throw new Error(data?.message || "Failed to load products");
+    if (myId !== reqId) return;
+
+    const incoming = uniqBySlug((data?.products || []).map(normalize));
+
+    /* ✅ GA4: view_item_list for tag page (only page 1) */
+    try {
+      if (page === 1 && incoming.length) {
+        const tagName = params?.tag || (Array.isArray(params?.tags) ? params.tags.join(",") : "tag");
+        const listId = `tag_${String(tagName).trim().toLowerCase()}`;
+        const key = `vil_${listId}_${incoming.slice(0, 15).map((p) => p.id).join("_")}`;
+
+        if (!shouldSkipGA4(get, set, key, 1500)) {
+          pushEcomEvent("view_item_list", {
+            item_list_id: listId,
+            item_list_name: String(tagName),
+            items: incoming.slice(0, 50).map((p) => ga4Item(p, 1)),
           });
-          const data = await safeJson(res);
-          if (!res.ok)
-            throw new Error(data?.message || "Failed to load products");
-          if (myId !== reqId) return;
-
-          const incoming = uniqBySlug((data?.products || []).map(normalize));
-
-          set((state) => ({
-            allProducts:
-              page === 1 ? incoming : [...state.allProducts, ...incoming],
-            page,
-            hasMoreFlag: incoming.length === limit,
-            isLoading: false,
-          }));
-        } catch (e) {
-          if (e?.name !== "AbortError") {
-            set({ error: e.message || "Failed to load products" });
-          }
-          set({ isLoading: false });
         }
-      },
+      }
+    } catch (e) {
+      console.warn("📈 GA4 tag view_item_list failed", e);
+    }
+
+    set((state) => ({
+      allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
+      page,
+      hasMoreFlag: incoming.length === limit,
+      isLoading: false,
+    }));
+  } catch (e) {
+    if (e?.name !== "AbortError") set({ error: e.message || "Failed to load products" });
+    set({ isLoading: false });
+  }
+},
+
 
     fetchProductDetails: async (idOrSlug) => {
   if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
 
-  // Abort previous request
   if (ctrl) {
-    try {
-      ctrl.abort();
-    } catch (_) {
-      // noop
-    }
+    try { ctrl.abort(); } catch {}
   }
 
   ctrl = new AbortController();
@@ -368,40 +380,37 @@ _lastMetaViewAt: 0,
   set({ isLoading: true, error: null });
 
   const param = encodeURIComponent(String(idOrSlug || ""));
-  const tryUrls = [
-    `${BACKEND}/api/products/details/${param}`,
-    `${BACKEND}/api/products/${param}`,
-  ];
+  const tryUrls = [`${BACKEND}/api/products/details/${param}`, `${BACKEND}/api/products/${param}`];
 
   try {
     for (let i = 0; i < tryUrls.length; i++) {
-      const r = await fetch(tryUrls[i], {
-        cache: "no-store",
-        signal: ctrl.signal,
-      });
-
+      const r = await fetch(tryUrls[i], { cache: "no-store", signal: ctrl.signal });
       const j = await safeJson(r);
-
-      // ✅ request was superseded
       if (myId !== reqId) return null;
 
       if (r.ok) {
         const prod = normalize(j);
-
-        // ✅ Update store cache
         get().upsertProduct(prod);
-
-        // ✅ stop loader
         set({ isLoading: false });
 
-        /* ---------------------------------------------
-           🧾 META (PIXEL + CAPI): ViewContent (Product View)
-           ✅ Fire only once for same product in short window
-        --------------------------------------------- */
+        /* ✅ GA4: view_item (deduped) */
+        try {
+          const k = `vi_${prod?.id || prod?.slug || param}`;
+          if (!shouldSkipGA4(get, set, k, 1500)) {
+            pushEcomEvent("view_item", {
+              currency: prod?.currency || "INR",
+              value: Number(prod?.price || 0),
+              items: [ga4Item(prod, 1)],
+            });
+          }
+        } catch (e) {
+          console.warn("📈 GA4 view_item failed", e);
+        }
+
+        /* 🧾 META: ViewContent (existing logic same) */
         try {
           const now = Date.now();
           const key = `view_product_${prod?.id || prod?.slug || param}`;
-
           const { _lastMetaViewKey, _lastMetaViewAt } = get();
 
           const tooSoon = _lastMetaViewAt && now - _lastMetaViewAt < 1500;
@@ -411,26 +420,14 @@ _lastMetaViewAt: 0,
             await trackMeta("ViewContent", {
               content_type: "product",
               content_ids: prod?.id ? [String(prod.id)] : [],
-              contents: prod?.id
-                ? [
-                    {
-                      id: String(prod.id),
-                      quantity: 1,
-                      item_price: Number(prod.price || 0),
-                    },
-                  ]
-                : [],
+              contents: prod?.id ? [{ id: String(prod.id), quantity: 1, item_price: Number(prod.price || 0) }] : [],
               value: Number(prod.price || 0),
               currency: prod.currency || "INR",
               content_name: prod.name || "",
               content_category: prod.category || "",
             });
 
-            // ✅ save dedupe key
-            set({
-              _lastMetaViewKey: key,
-              _lastMetaViewAt: now,
-            });
+            set({ _lastMetaViewKey: key, _lastMetaViewAt: now });
           }
         } catch (e) {
           console.warn("🧾 Meta ViewContent failed", e);
@@ -439,36 +436,22 @@ _lastMetaViewAt: 0,
         return prod;
       }
 
-      // last URL failed
-      if (i === tryUrls.length - 1) {
-        throw new Error(j?.message || "Failed to load product");
-      }
+      if (i === tryUrls.length - 1) throw new Error(j?.message || "Failed to load product");
     }
   } catch (err) {
-    // ✅ EXPECTED: AbortController cancellation
-    if (err?.name === "AbortError") {
-      return null; // silently ignore
-    }
+    if (err?.name === "AbortError") return null;
 
     console.error("❌ fetchProductDetails error:", err);
 
-    if (myId === reqId) {
-      set({
-        error: err.message || "Failed to load product",
-        isLoading: false,
-      });
-    }
-
+    if (myId === reqId) set({ error: err.message || "Failed to load product", isLoading: false });
     throw err;
   } finally {
-    // only clear loading if this is still the active request
-    if (myId === reqId) {
-      set({ isLoading: false });
-    }
+    if (myId === reqId) set({ isLoading: false });
   }
 
   return null;
 },
+
 
 
       // Add this inside your zustand create store:
@@ -493,40 +476,82 @@ _lastMetaViewAt: 0,
 
 
       fetchProductBySKU: async (sku) => {
-        if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
-        if (!sku) throw new Error("SKU missing");
+  if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+  if (!sku) throw new Error("SKU missing");
 
-        if (ctrl) ctrl.abort();
-        ctrl = new AbortController();
-        const myId = ++reqId;
+  if (ctrl) ctrl.abort();
+  ctrl = new AbortController();
+  const myId = ++reqId;
 
-        set({ isLoading: true, error: null });
+  set({ isLoading: true, error: null });
 
-        const param = encodeURIComponent(String(sku));
-        const res = await fetch(`${BACKEND}/api/products/sku/${param}`, {
-          cache: "no-store",
-          signal: ctrl.signal,
-        });
-        const data = await safeJson(res);
+  try {
+    const param = encodeURIComponent(String(sku));
+    const res = await fetch(`${BACKEND}/api/products/sku/${param}`, { cache: "no-store", signal: ctrl.signal });
+    const data = await safeJson(res);
 
-        if (!res.ok) {
-          set({
-            error: data?.message || "Failed to load product by SKU",
-            isLoading: false,
+    if (!res.ok) throw new Error(data?.message || "Failed to load product by SKU");
+    if (myId !== reqId) return { product: null, matchedVariant: null };
+
+    const productDoc = data?.product || null;
+    const matchedVariant = data?.matchedVariant || null;
+
+    const product = productDoc ? normalize(productDoc) : null;
+    if (product) get().upsertProduct(product);
+
+    set({ isLoading: false });
+
+    /* ✅ GA4: view_item (deduped) */
+    try {
+      if (product?.id) {
+        const k = `vi_${product.id}`;
+        if (!shouldSkipGA4(get, set, k, 1500)) {
+          pushEcomEvent("view_item", {
+            currency: product.currency || "INR",
+            value: Number(product.price || 0),
+            items: [ga4Item(product, 1)],
           });
-          throw new Error(data?.message || "Failed to load product by SKU");
         }
-        if (myId !== reqId) return { product: null, matchedVariant: null };
+      }
+    } catch (e) {
+      console.warn("📈 GA4 view_item (sku) failed", e);
+    }
 
-        const productDoc = data?.product || null;
-        const matchedVariant = data?.matchedVariant || null;
+    /* 🧾 META: ViewContent (deduped) */
+    try {
+      if (product?.id) {
+        const now = Date.now();
+        const key = `view_product_${product.id}`;
+        const { _lastMetaViewKey, _lastMetaViewAt } = get();
+        const tooSoon = _lastMetaViewAt && now - _lastMetaViewAt < 1500;
+        const sameKey = _lastMetaViewKey && _lastMetaViewKey === key;
 
-        const product = productDoc ? normalize(productDoc) : null;
-        if (product) get().upsertProduct(product);
+        if (!(sameKey && tooSoon)) {
+          await trackMeta("ViewContent", {
+            content_type: "product",
+            content_ids: [String(product.id)],
+            contents: [{ id: String(product.id), quantity: 1, item_price: Number(product.price || 0) }],
+            value: Number(product.price || 0),
+            currency: product.currency || "INR",
+            content_name: product.name || "",
+            content_category: product.category || "",
+          });
 
-        set({ isLoading: false });
-        return { product, matchedVariant };
-      },
+          set({ _lastMetaViewKey: key, _lastMetaViewAt: now });
+        }
+      }
+    } catch (e) {
+      console.warn("🧾 Meta ViewContent (sku) failed", e);
+    }
+
+    return { product, matchedVariant };
+  } catch (err) {
+    if (err?.name !== "AbortError") set({ error: err.message || "Failed to load product by SKU" });
+    set({ isLoading: false });
+    throw err;
+  }
+},
+
 
       upsertProduct: (product) => {
         const p = product?.source === "backend" ? product : normalize(product);

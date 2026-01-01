@@ -6,6 +6,8 @@ import { useAuthStore } from "./authStore";
 import { notify } from "@/lib/notify";
 import { useAnalyticsStore } from "@/store/analyticsStore";
 import { trackMeta } from "@/lib/meta/track";
+import { pushEcomEvent } from "@/components/tracking/gtm";
+import { mapItem } from "@/components/tracking/ga4Mapper";
 
 const COOKIE_KEY = "wishlist_cache";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -35,6 +37,22 @@ const safeJson = async (r) => {
     return {};
   }
 };
+
+const ga4WishItem = (p) =>
+  mapItem(
+    {
+      _id: p?.id ?? p?._id,
+      id: p?.id ?? p?._id,
+      name: p?.name || p?.title,
+      title: p?.name || p?.title,
+      price: Number(p?.price ?? 0) || 0,
+      category: p?.categories?.[0]?.name || p?.categories?.[0] || "",
+      variant: p?.variant || "",
+      sku: p?.sku || "",
+    },
+    1
+  );
+
 
 export const useWishlistStore = create((set, get) => ({
   items: [],
@@ -200,16 +218,11 @@ addToWishlist: async (product) => {
   const { user } = useAuthStore.getState();
   if (!user?.uid) return notify.info("Please login first");
 
-  // ✅ normalize ID once and forever
   const pid = normalizeId(product?.id ?? product?._id);
   if (!pid) return;
 
   const prev = get().items || [];
-
-  // ✅ hard guard (prevents race duplicates)
-  if (prev.some((i) => String(i.id) === pid)) {
-    return notify.info("Already in wishlist");
-  }
+  if (prev.some((i) => String(i.id) === pid)) return notify.info("Already in wishlist");
 
   const optimisticItem = {
     id: pid,
@@ -225,7 +238,6 @@ addToWishlist: async (product) => {
     tags: product?.tags || [],
   };
 
-  // ✅ optimistic update WITH dedupe
   const next = dedupeById([optimisticItem, ...prev]);
 
   set({ items: next, loading: true });
@@ -233,37 +245,35 @@ addToWishlist: async (product) => {
 
   notify.wishlistAdded(optimisticItem);
 
-  /* ---------------------------------------
-     📊 ANALYTICS: WISHLIST ADD (ONCE)
-  ---------------------------------------- */
-  try {
-    useAnalyticsStore.getState().trackWishlistAdd(pid);
-  } catch (e) {
-    console.warn("📊 Analytics wishlist_add failed", e);
-  }
+  /* 📊 ANALYTICS */
+  try { useAnalyticsStore.getState().trackWishlistAdd(pid); } 
+  catch (e) { console.warn("📊 Analytics wishlist_add failed", e); }
 
-  /* ---------------------------------------
-     🧾 META (PIXEL + CAPI): AddToWishlist
-  ---------------------------------------- */
+  /* 🧾 META */
   try {
     const price = Number(product?.price ?? optimisticItem?.price ?? 0) || 0;
-
     await trackMeta("AddToWishlist", {
       content_type: "product",
       content_ids: [String(pid)],
-      contents: [
-        {
-          id: String(pid),
-          quantity: 1,
-          item_price: price,
-        },
-      ],
+      contents: [{ id: String(pid), quantity: 1, item_price: price }],
       value: price,
-      currency: "INR", // change if you support multi-currency
+      currency: "INR",
       content_name: optimisticItem?.name || "",
     });
   } catch (e) {
     console.warn("🧾 Meta AddToWishlist failed", e);
+  }
+
+  /* ✅ GA4: add_to_wishlist (NEW) */
+  try {
+    const price = Number(product?.price ?? optimisticItem?.price ?? 0) || 0;
+    pushEcomEvent("add_to_wishlist", {
+      currency: "INR",
+      value: price,
+      items: [ga4WishItem(product, pid)],
+    });
+  } catch (e) {
+    console.warn("📈 GA4 add_to_wishlist failed", e);
   }
 
   try {
@@ -278,22 +288,14 @@ addToWishlist: async (product) => {
     const data = await safeJson(res);
 
     if (!res.ok) {
-      // 🔁 rollback on failure
       set({ items: prev, loading: false });
       Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
       return notify.error(data?.message || "Failed to add to wishlist");
     }
 
-    // ✅ mark fetch state so TTL logic stays correct
-    set({
-      loading: false,
-      _lastFetchAt: Date.now(),
-      _lastFetchUid: user.uid,
-    });
+    set({ loading: false, _lastFetchAt: Date.now(), _lastFetchUid: user.uid });
   } catch (e) {
     console.error("Add to wishlist error:", e);
-
-    // 🔁 rollback on exception
     set({ items: prev, loading: false });
     Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
     notify.error("Failed to add to wishlist");
@@ -303,49 +305,63 @@ addToWishlist: async (product) => {
 
 
 
+
   /* ----------------------------------------------------
      ⭐ REMOVE FROM WISHLIST (single request; no extra GET)
   ---------------------------------------------------- */
   removeFromWishlist: async (productId) => {
-    const { user } = useAuthStore.getState();
-    if (!user?.uid) return notify.info("Please login first");
+  const { user } = useAuthStore.getState();
+  if (!user?.uid) return notify.info("Please login first");
 
-    const prev = get().items;
-    const removedItem = prev.find((i) => String(i.id) === String(productId));
-    const next = prev.filter((i) => String(i.id) !== String(productId));
+  const prev = get().items;
+  const removedItem = prev.find((i) => String(i.id) === String(productId));
+  const next = prev.filter((i) => String(i.id) !== String(productId));
 
-    set({ items: next, loading: true });
-    Cookies.set(COOKIE_KEY, JSON.stringify(next), { expires: 7 });
+  set({ items: next, loading: true });
+  Cookies.set(COOKIE_KEY, JSON.stringify(next), { expires: 7 });
 
-    if (removedItem) notify.wishlistRemoved(removedItem);
-    else notify.info(`Removed: ${getDisplayName({ id: productId })}`);
+  removedItem ? notify.wishlistRemoved(removedItem) : notify.info("Removed");
 
-    try {
-      if (!BACKEND) throw new Error("Missing NEXT_PUBLIC_BACKEND_URL");
-
-      const res = await fetch(`${BACKEND}/api/wishlist/firebase/${user.uid}/remove`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
+  /* ✅ GA4: remove_from_wishlist (NEW) */
+  try {
+    if (removedItem) {
+      const price = Number(removedItem?.price ?? 0) || 0;
+      pushEcomEvent("remove_from_wishlist", {
+        currency: "INR",
+        value: price,
+        items: [ga4WishItem(removedItem)],
       });
+    }
+  } catch (e) {
+    console.warn("📈 GA4 remove_from_wishlist failed", e);
+  }
 
-      const data = await safeJson(res);
+  try {
+    if (!BACKEND) throw new Error("Missing NEXT_PUBLIC_BACKEND_URL");
 
-      if (!res.ok) {
-        // rollback
-        set({ items: prev, loading: false });
-        Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
-        return notify.error(data?.message || "Failed to remove from wishlist");
-      }
+    const res = await fetch(`${BACKEND}/api/wishlist/firebase/${user.uid}/remove`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId }),
+    });
 
-      set({ loading: false, _lastFetchAt: Date.now(), _lastFetchUid: user.uid });
-    } catch (e) {
-      console.error("Remove wishlist error:", e);
+    const data = await safeJson(res);
+
+    if (!res.ok) {
       set({ items: prev, loading: false });
       Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
-      notify.error("Failed to remove from wishlist");
+      return notify.error(data?.message || "Failed to remove from wishlist");
     }
-  },
+
+    set({ loading: false, _lastFetchAt: Date.now(), _lastFetchUid: user.uid });
+  } catch (e) {
+    console.error("Remove wishlist error:", e);
+    set({ items: prev, loading: false });
+    Cookies.set(COOKIE_KEY, JSON.stringify(prev), { expires: 7 });
+    notify.error("Failed to remove from wishlist");
+  }
+},
+
 
   /* ----------------------------------------------------
      ⭐ CLEAR WISHLIST

@@ -7,6 +7,8 @@ import { useAnalyticsStore } from "@/store/analyticsStore";
 import { useAbandonedCartStore } from "@/store/abandonedCartStore";
 import { useAuthStore } from "@/store/authStore";
 import { trackMeta } from "@/lib/meta/track.js"; // adjust path based on your project
+import { pushEcomEvent } from "@/components/tracking/gtm";
+import { mapItem } from "@/components/tracking/ga4Mapper";
 
 const KEY = "cart_products";
 
@@ -134,6 +136,27 @@ const buildCartItem = ({ product, qty = 1, variantId = null, selectedSize = null
   return item;
 };
 
+const getCartCurrency = (item, fallback = "INR") =>
+  str(item?.productSnapshot?.currency || item?.currency || fallback) || "INR";
+
+const getItemPrice = (item) => toNum(item?.price || item?.productSnapshot?.price || 0);
+
+const toGa4Item = (item, qtyOverride = null) => {
+  // mapItem expects "product-like" object
+  const p = {
+    _id: item?.productId,
+    id: item?.productId,
+    name: item?.name,
+    title: item?.name,
+    price: item?.price,
+    sku: item?.variant?.sku || item?.productSnapshot?.sku || "",
+    category: item?.productSnapshot?.category || "",
+    variant: item?.selectedSize || "",
+  };
+
+  return mapItem(p, qtyOverride ?? toNum(item?.quantity || 1));
+};
+
 export const useCartStore = create((set, get) => ({
   items: [],
 
@@ -171,7 +194,7 @@ export const useCartStore = create((set, get) => ({
      Call like:
      addToCart({ product, qty: 1, variantId, selectedSize })
   */
-  addToCart: async ({ product, qty = 1, variantId = null, selectedSize = null }) => {
+addToCart: async ({ product, qty = 1, variantId = null, selectedSize = null }) => {
   const built = buildCartItem({ product, qty, variantId, selectedSize });
 
   if (!built) return;
@@ -253,6 +276,24 @@ export const useCartStore = create((set, get) => ({
     }
   }
 
+  /* ---------------- GA4: ADD TO CART (🔥 NEW) ---------------- */
+  try {
+    // Track the quantity that was ADDED this time (delta), not full cart qty
+    const addQty = Number(built?.quantity ?? qty ?? 1) || 1;
+    const price = Number(built?.price ?? product?.price ?? 0) || 0;
+    const value = price * addQty;
+
+    const currency = getCurrency(built, product);
+
+    pushEcomEvent("add_to_cart", {
+      currency,
+      value,
+      items: [toGA4ItemFromBuilt(built, product, addQty)],
+    });
+  } catch (e) {
+    console.warn("📈 GA4 add_to_cart failed", e);
+  }
+
   /* ------------------------------------------------
      🛒 ABANDONED CART SNAPSHOT (🔥 IMPORTANT)
   ------------------------------------------------- */
@@ -280,90 +321,84 @@ export const useCartStore = create((set, get) => ({
 
 
 
+
   /* =====================================================
      ✅ UPDATED REMOVE FROM CART (FULL)
   ===================================================== */
-  removeFromCart: async (idOrKey, variantId = null) => {
-    const curr = get().items || [];
+ removeFromCart: async (idOrKey, variantId = null) => {
+  const curr = get().items || [];
+  const key = str(idOrKey).includes("__")
+    ? str(idOrKey)
+    : `${str(idOrKey)}__${str(variantId || "")}`;
 
-    const key = str(idOrKey).includes("__")
-      ? str(idOrKey)
-      : `${str(idOrKey)}__${str(variantId || "")}`;
+  const removed = curr.find((p) => (p.__key || cartKey(p)) === key);
+  const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
 
-    const removed = curr.find((p) => (p.__key || cartKey(p)) === key);
-    const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
+  set({ items: updated });
+  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
 
-    set({ items: updated });
-    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+  removed ? notify.cartRemoved?.(removed) : notify.info?.(`Removed item`);
 
-    if (removed) notify.cartRemoved?.(removed);
-    else notify.info?.(`Removed: ${getDisplayName({ id: idOrKey })}`);
+  /* ---------- GA4: remove_from_cart (NEW) ---------- */
+  try {
+    if (removed) {
+      const rmQty = Number(removed?.quantity ?? 1) || 1;
+      const price = Number(removed?.price ?? 0) || 0;
+      const currency = str(removed?.productSnapshot?.currency || "INR") || "INR";
 
-    /* ---------------- ANALYTICS: REMOVE ---------------- */
-    try {
-      const analytics = useAnalyticsStore.getState();
-
-      // ✅ If you later add trackRemoveFromCart, it will use it
-      if (analytics.trackRemoveFromCart) {
-        analytics.trackRemoveFromCart(removed?.productId || idOrKey);
-      } else {
-        // fallback: generic tracker
-        analytics.trackProductEvent?.({
-          productId: removed?.productId || idOrKey,
-          event: "cart_remove",
-        });
-      }
-    } catch (e) {
-      console.warn("📊 Analytics cart_remove failed", e);
-    }
-
-    /* ---------------- META: RemoveFromCart (CUSTOM EVENT) ---------------- */
-    try {
-      if (removed) {
-        const pid =
-          removed?.productSnapshot?.sku ||
-          removed?.productId ||
-          removed?.id ||
-          removed?._id;
-
-        const quantity = Number(removed?.quantity ?? 1) || 1;
-        const price = Number(removed?.price ?? 0) || 0;
-
-        await trackMeta("RemoveFromCart", {
-          content_type: "product",
-          content_ids: pid ? [String(pid)] : [],
-          contents: pid
-            ? [{ id: String(pid), quantity, item_price: price }]
-            : [],
-          value: price * quantity,
-          currency: "INR",
-        });
-      }
-    } catch (e) {
-      console.warn("🧾 Meta RemoveFromCart failed", e);
-    }
-
-    /* ---------------- ABANDONED CART SNAPSHOT ---------------- */
-    try {
-      const abandoned = useAbandonedCartStore.getState();
-      const auth = useAuthStore.getState();
-
-      abandoned.upsertCart({
-        cartId: auth.activeCartId || "",
-        items: updated.map((it) => ({
-          productId: it.productId,
-          variantId: it.variantId || null,
-          qty: it.quantity,
-        })),
-        context: {
-          lastPageUrl: window.location.href,
-          device: window.innerWidth < 768 ? "mobile" : "desktop",
-        },
+      pushEcomEvent("remove_from_cart", {
+        currency,
+        value: price * rmQty,
+        items: [toGA4ItemFromBuilt(removed, removed?.productSnapshot, rmQty)],
       });
-    } catch (e) {
-      console.warn("🛒 Abandoned snapshot failed (removeFromCart)", e);
     }
-  },
+  } catch (e) {
+    console.warn("📈 GA4 remove_from_cart failed", e);
+  }
+
+  /* ---------- Analytics ---------- */
+  try {
+    const a = useAnalyticsStore.getState();
+    a.trackRemoveFromCart
+      ? a.trackRemoveFromCart(removed?.productId || idOrKey)
+      : a.trackProductEvent?.({ productId: removed?.productId || idOrKey, event: "cart_remove" });
+  } catch (e) {
+    console.warn("📊 Analytics cart_remove failed", e);
+  }
+
+  /* ---------- Meta ---------- */
+  try {
+    if (removed) {
+      const pid = removed?.productSnapshot?.sku || removed?.productId;
+      const quantity = Number(removed?.quantity ?? 1) || 1;
+      const price = Number(removed?.price ?? 0) || 0;
+
+      await trackMeta("RemoveFromCart", {
+        content_type: "product",
+        content_ids: pid ? [String(pid)] : [],
+        contents: pid ? [{ id: String(pid), quantity, item_price: price }] : [],
+        value: price * quantity,
+        currency: "INR",
+      });
+    }
+  } catch (e) {
+    console.warn("🧾 Meta RemoveFromCart failed", e);
+  }
+
+  /* ---------- Abandoned Snapshot ---------- */
+  try {
+    const abandoned = useAbandonedCartStore.getState();
+    const auth = useAuthStore.getState();
+    abandoned.upsertCart({
+      cartId: auth.activeCartId || "",
+      items: updated.map((it) => ({ productId: it.productId, variantId: it.variantId || null, qty: it.quantity })),
+      context: { lastPageUrl: window.location.href, device: window.innerWidth < 768 ? "mobile" : "desktop" },
+    });
+  } catch (e) {
+    console.warn("🛒 Abandoned snapshot failed (removeFromCart)", e);
+  }
+},
+
 
 
   /* ---------------- UPDATE QTY ---------------- */
@@ -378,31 +413,37 @@ export const useCartStore = create((set, get) => ({
   const item = curr.find((p) => (p.__key || cartKey(p)) === key);
   if (!item) return;
 
-  /* ---------------- REMOVE IF ZERO ---------------- */
+  const prevQty = toNum(item.quantity || 1);
+
+  /* -------- REMOVE IF ZERO -------- */
   if (nextQty <= 0) {
     const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
 
     set({ items: updated });
     Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-
     notify.cartRemoved?.(item);
 
-    /* 🔥 Abandoned cart snapshot */
+    // ✅ GA4 remove_from_cart (full qty removed)
+    try {
+      const price = toNum(item.price);
+      const currency = str(item?.productSnapshot?.currency || "INR") || "INR";
+      pushEcomEvent("remove_from_cart", {
+        currency,
+        value: price * prevQty,
+        items: [toGA4ItemFromBuilt(item, item?.productSnapshot, prevQty)],
+      });
+    } catch (e) {
+      console.warn("📈 GA4 qty->remove failed", e);
+    }
+
+    // Abandoned snapshot
     try {
       const abandoned = useAbandonedCartStore.getState();
       const auth = useAuthStore.getState();
-
       abandoned.upsertCart({
         cartId: auth.activeCartId || "",
-        items: updated.map((it) => ({
-          productId: it.productId,
-          variantId: it.variantId || null,
-          qty: it.quantity,
-        })),
-        context: {
-          lastPageUrl: window.location.href,
-          device: window.innerWidth < 768 ? "mobile" : "desktop",
-        },
+        items: updated.map((it) => ({ productId: it.productId, variantId: it.variantId || null, qty: it.quantity })),
+        context: { lastPageUrl: window.location.href, device: window.innerWidth < 768 ? "mobile" : "desktop" },
       });
     } catch (e) {
       console.warn("🛒 Abandoned snapshot failed (qty->remove)", e);
@@ -413,7 +454,7 @@ export const useCartStore = create((set, get) => ({
 
   if (nextQty < 1) nextQty = 1;
 
-  /* ---------------- UPDATE QTY ---------------- */
+  /* -------- UPDATE -------- */
   const updated = curr.map((p) => {
     const pk = p.__key || cartKey(p);
     return pk === key ? { ...p, quantity: nextQty, __key: pk } : p;
@@ -421,30 +462,41 @@ export const useCartStore = create((set, get) => ({
 
   set({ items: updated });
   Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-
   notify.cartQtyUpdated?.(item, nextQty);
 
-  /* 🔥 Abandoned cart snapshot */
+  /* ✅ GA4 delta tracking */
+  try {
+    const delta = nextQty - prevQty;
+    if (delta !== 0) {
+      const price = toNum(item.price);
+      const currency = str(item?.productSnapshot?.currency || "INR") || "INR";
+      const ev = delta > 0 ? "add_to_cart" : "remove_from_cart";
+      const dQty = Math.abs(delta);
+
+      pushEcomEvent(ev, {
+        currency,
+        value: price * dQty,
+        items: [toGA4ItemFromBuilt(item, item?.productSnapshot, dQty)],
+      });
+    }
+  } catch (e) {
+    console.warn("📈 GA4 updateQty delta failed", e);
+  }
+
+  // Abandoned snapshot
   try {
     const abandoned = useAbandonedCartStore.getState();
     const auth = useAuthStore.getState();
-
     abandoned.upsertCart({
       cartId: auth.activeCartId || "",
-      items: updated.map((it) => ({
-        productId: it.productId,
-        variantId: it.variantId || null,
-        qty: it.quantity,
-      })),
-      context: {
-        lastPageUrl: window.location.href,
-        device: window.innerWidth < 768 ? "mobile" : "desktop",
-      },
+      items: updated.map((it) => ({ productId: it.productId, variantId: it.variantId || null, qty: it.quantity })),
+      context: { lastPageUrl: window.location.href, device: window.innerWidth < 768 ? "mobile" : "desktop" },
     });
   } catch (e) {
     console.warn("🛒 Abandoned snapshot failed (updateQty)", e);
   }
 },
+
 
 
   /* ---------------- CLEAR ---------------- */

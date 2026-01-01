@@ -30,8 +30,8 @@ import {
 import { useCouponStore } from "@/store/couponStore";
 import { notify } from "@/lib/notify";
 import RazorpayCheckoutButton from "@/components/checkout/RazorpayCheckoutButton";
-
-
+import { pushEcomEvent } from "@/components/tracking/gtm";
+import { mapItem } from "@/components/tracking/ga4Mapper";
 
 /* ---------- utils ---------- */
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0");
@@ -154,6 +154,7 @@ const user = useAuthStore((s) => s.user);
 const customer = useAuthStore((s) => s.customer);
 const loading = useAuthStore((s) => s.loading);
 const initializeAuth = useAuthStore((s) => s.initialize);
+const trackAddShippingInfo = useAddressStore((s) => s.trackAddShippingInfo);
 
 const [createdOrderId, setCreatedOrderId] = useState(null);
 const [showCodCaptcha, setShowCodCaptcha] = useState(false);
@@ -190,6 +191,48 @@ const payable = coupon ? finalTotal : subtotal;
     if (!selectedAddressId) return null;
     return addresses.find((a) => String(a?._id) === String(selectedAddressId)) || null;
   }, [addresses, selectedAddressId]);
+
+  const ga4Items = useMemo(() => {
+  return (items || []).map((it) =>
+    mapItem(
+      {
+        _id: it?.productId,
+        id: it?.productId,
+        name: it?.name,
+        title: it?.name,
+        price: Number(it?.price || 0),
+        category: it?.productSnapshot?.category || "",
+        variant: it?.selectedSize || "",
+        sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
+      },
+      Number(it?.quantity ?? it?.qty ?? 1)
+    )
+  );
+}, [items]);
+
+  // ✅ GA4 + Meta: add_shipping_info (fires when address is selected)
+const lastShipKey = useRef("");
+
+useEffect(() => {
+  if (!selectedAddressObj?._id) return;
+  if (!items?.length) return;
+
+  const key = `${selectedAddressObj._id}_${payable}`;
+  if (lastShipKey.current === key) return;
+  lastShipKey.current = key;
+
+  try {
+    trackAddShippingInfo?.({
+      currency: "INR",
+      value: Number(payable || 0),
+      addressId: selectedAddressObj._id,
+      shippingTier: "standard",
+      items: ga4Items,
+    });
+  } catch (e) {
+    console.warn("📦 add_shipping_info failed", e);
+  }
+}, [selectedAddressObj?._id, payable, items?.length, ga4Items]);
 
   // address form
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -345,50 +388,6 @@ if (!["cod", "razorpay"].includes(selectedPayment)) {
     return null;
   };
 
-  const handleRazorpayCheckout = async () => {
-  try {
-    const shipSnap = toAddressSnapshot(selectedAddressObj, user?.email || "");
-
-    const order = await createOrder({
-  customerId: customer._id,
-
-  // ✅ FIX
-  shippingAddressId: selectedAddressObj._id,
-  billingAddressId: selectedAddressObj._id,
-
-  paymentMethod: "cod",
-
-  items: items.map((it) => {
-    const productId = resolveMongoProductId(it);
-    const qty = Number(it?.qty ?? it?.quantity ?? 1);
-    const variantId = isObjectId(String(it?.variantId || ""))
-      ? String(it.variantId)
-      : null;
-
-    return {
-      productId,
-      quantity: qty,
-      ...(variantId ? { variantId } : {}),
-    };
-  }),
-
-  source: "website",
-
-  coupon: coupon
-    ? {
-        code: coupon.code,
-        discount,
-        finalTotal: payable,
-      }
-    : null,
-});
-
-
-    setCreatedOrderId(order._id); // 🔑 THIS is passed to Razorpay
-  } catch (e) {
-    notify.error("Failed to create order");
-  }
-};
 
 const [paymentRecovery, setPaymentRecovery] = useState({
   open: false,
@@ -467,6 +466,27 @@ const handlePlaceOrder = async () => {
     alert(e?.message || "Failed to place order.");
   }
 };
+
+
+const checkoutTracked = useRef(false);
+
+useEffect(() => {
+  if (checkoutTracked.current) return;
+  if (!items?.length) return;
+
+  checkoutTracked.current = true;
+
+  try {
+    pushEcomEvent("begin_checkout", {
+      currency: "INR",
+      value: Number(payable || 0),
+      coupon: coupon?.code || undefined,
+      items: ga4Items,
+    });
+  } catch (e) {
+    console.warn("📈 GA4 begin_checkout failed", e);
+  }
+}, [items?.length, payable, coupon?.code, ga4Items]);
 
 
 

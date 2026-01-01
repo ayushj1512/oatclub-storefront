@@ -2,65 +2,52 @@
 
 import { create } from "zustand";
 import { useAnalyticsStore } from "@/store/analyticsStore";
-import { trackMeta } from "@/lib/meta/track"; // ✅ Meta Pixel + CAPI unified tracker
+import { trackMeta } from "@/lib/meta/track";
+import { pushToDataLayer, pushEcomEvent } from "@/components/tracking/gtm";
+import { mapItem } from "@/components/tracking/ga4Mapper";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-function stableStringify(obj) {
-  try {
-    return JSON.stringify(obj, Object.keys(obj).sort());
-  } catch {
-    return "";
-  }
-}
+const stableStringify = (obj) => {
+  try { return JSON.stringify(obj, Object.keys(obj).sort()); }
+  catch { return ""; }
+};
+
+const ga4Item = (p) =>
+  mapItem(
+    {
+      _id: p?._id || p?.id,
+      id: p?._id || p?.id,
+      name: p?.name || p?.title,
+      title: p?.name || p?.title,
+      price: Number(p?.price ?? 0) || 0,
+      category: p?.category?.name || p?.category || "",
+      variant: p?.variant || "",
+      sku: p?.sku || "",
+    },
+    1
+  );
 
 export const useSearchStore = create((set, get) => ({
-  /* -----------------------------
-     State
-  ------------------------------ */
   query: "",
   results: [],
   total: 0,
   page: 1,
   pages: 1,
   limit: 20,
-
-  filters: {
-    category: null,
-    tags: [],
-    minPrice: null,
-    maxPrice: null,
-    sort: "newest",
-  },
-
+  filters: { category: null, tags: [], minPrice: null, maxPrice: null, sort: "newest" },
   loading: false,
   error: null,
   lastSearchedAt: null,
 
-  // ✅ guards to prevent repeated firing for same query
   _lastMetaSearchKey: null,
   _lastMetaSearchAt: null,
+  _lastGA4SearchKey: null,
+  _lastGA4SearchAt: null,
 
-  /* -----------------------------
-     Actions
-  ------------------------------ */
-
-  /**
-   * Update search query
-   */
   setQuery: (query) => set({ query }),
+  setFilters: (next) => set((s) => ({ filters: { ...s.filters, ...next } })),
 
-  /**
-   * Update filters
-   */
-  setFilters: (next) =>
-    set((state) => ({
-      filters: { ...state.filters, ...next },
-    })),
-
-  /**
-   * Reset everything
-   */
   resetSearch: () =>
     set({
       query: "",
@@ -71,46 +58,28 @@ export const useSearchStore = create((set, get) => ({
       error: null,
       _lastMetaSearchKey: null,
       _lastMetaSearchAt: null,
+      _lastGA4SearchKey: null,
+      _lastGA4SearchAt: null,
     }),
 
-  /**
-   * Perform search
-   */
   searchProducts: async ({ page = 1 } = {}) => {
     const state = get();
-    const {
-      query,
-      limit,
-      filters: { category, tags, minPrice, maxPrice, sort },
-    } = state;
+    const { query, limit, filters: { category, tags, minPrice, maxPrice, sort } } = state;
 
-    if (!API_BASE) {
-      return set({ error: "Search API not configured" });
-    }
+    if (!API_BASE) return set({ error: "Search API not configured" });
 
     const q = (query || "").trim();
-
-    // ✅ basic guard
     if (!q || q.length < 2) {
-      return set({
-        results: [],
-        total: 0,
-        pages: 1,
-        page: 1,
-        error: null,
-        loading: false,
-      });
+      return set({ results: [], total: 0, pages: 1, page: 1, error: null, loading: false });
     }
 
     set({ loading: true, error: null });
 
     try {
       const params = new URLSearchParams();
-
       params.set("search", q);
       params.set("page", String(page));
       params.set("limit", String(limit));
-
       if (category) params.set("category", String(category));
       if (tags?.length) params.set("tags", tags.join(","));
       if (minPrice != null) params.set("minPrice", String(minPrice));
@@ -118,17 +87,11 @@ export const useSearchStore = create((set, get) => ({
       if (sort) params.set("sort", String(sort));
 
       const res = await fetch(`${API_BASE}/api/products?${params.toString()}`);
-
-      if (!res.ok) {
-        throw new Error("Search request failed");
-      }
+      if (!res.ok) throw new Error("Search request failed");
 
       const data = await res.json();
-
-      // ✅ if page=1 replace results, else append (supports infinite scroll)
       const incoming = data.products || [];
-      const finalResults =
-        page === 1 ? incoming : [...(get().results || []), ...incoming];
+      const finalResults = page === 1 ? incoming : [...(get().results || []), ...incoming];
 
       set({
         results: finalResults,
@@ -139,75 +102,68 @@ export const useSearchStore = create((set, get) => ({
         lastSearchedAt: Date.now(),
       });
 
-      /* --------------------------------
-         📊 ANALYTICS: SEARCH APPEARANCE
-      --------------------------------- */
+      /* ✅ Analytics appearance */
       try {
         const analytics = useAnalyticsStore.getState();
-        incoming.forEach((p) => {
-          analytics.trackSearchAppearance(p._id || p.id);
-        });
+        incoming.forEach((p) => analytics.trackSearchAppearance(p._id || p.id));
       } catch (e) {
         console.warn("📊 Search analytics failed", e);
       }
 
-      /* --------------------------------
-         🧾 META (PIXEL + CAPI): SEARCH EVENT (ONCE)
-      --------------------------------- */
+      /* ✅ GA4: search + view_search_results (ONLY for page=1 + deduped) */
       try {
-        // Build a stable key so same search doesn't fire repeatedly
-        const metaKey = stableStringify({
-          q,
-          category,
-          tags,
-          minPrice,
-          maxPrice,
-          sort,
-        });
+        const ga4Key = stableStringify({ q, category, tags, minPrice, maxPrice, sort });
+        const now = Date.now();
+        const { _lastGA4SearchKey, _lastGA4SearchAt } = get();
 
+        const tooSoon = _lastGA4SearchAt && now - _lastGA4SearchAt < 2500;
+        const sameKey = _lastGA4SearchKey && _lastGA4SearchKey === ga4Key;
+
+        if (page === 1 && !(sameKey && tooSoon)) {
+          // basic search event
+          pushToDataLayer({ event: "search", search_term: q });
+
+          // ecommerce recommended: view_search_results
+          pushEcomEvent("view_search_results", {
+            currency: "INR",
+            items: incoming.slice(0, 20).map(ga4Item),
+          });
+
+          set({ _lastGA4SearchKey: ga4Key, _lastGA4SearchAt: now });
+        }
+      } catch (e) {
+        console.warn("📈 GA4 search events failed", e);
+      }
+
+      /* ✅ Meta Search (existing logic) */
+      try {
+        const metaKey = stableStringify({ q, category, tags, minPrice, maxPrice, sort });
         const now = Date.now();
         const { _lastMetaSearchKey, _lastMetaSearchAt } = get();
 
         const tooSoon = _lastMetaSearchAt && now - _lastMetaSearchAt < 2500;
         const sameKey = _lastMetaSearchKey && _lastMetaSearchKey === metaKey;
 
-        // ✅ fire only if:
-        // - this is first page (main search action), AND
-        // - not duplicate within small window
         if (page === 1 && !(sameKey && tooSoon)) {
           await trackMeta("Search", {
             search_string: q,
             content_category: category ? String(category) : undefined,
-            // result count helps optimization
-            content_ids: incoming
-              .slice(0, 20)
-              .map((p) => String(p._id || p.id))
-              .filter(Boolean),
+            content_ids: incoming.slice(0, 20).map((p) => String(p._id || p.id)).filter(Boolean),
           });
 
-          set({
-            _lastMetaSearchKey: metaKey,
-            _lastMetaSearchAt: now,
-          });
+          set({ _lastMetaSearchKey: metaKey, _lastMetaSearchAt: now });
         }
       } catch (e) {
         console.warn("🧾 Meta Search event failed", e);
       }
     } catch (e) {
-      set({
-        loading: false,
-        error: e?.message || "Search failed",
-      });
+      set({ loading: false, error: e?.message || "Search failed" });
     }
   },
 
-  /**
-   * Load next page (pagination / infinite scroll)
-   */
   loadMore: async () => {
     const { page, pages, loading } = get();
     if (loading || page >= pages) return;
-
     await get().searchProducts({ page: page + 1 });
   },
 }));
