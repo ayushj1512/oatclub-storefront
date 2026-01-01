@@ -4,7 +4,7 @@
 import "./globals.css";
 import { Toaster } from "sonner";
 import { useEffect, useCallback } from "react";
-
+import GTMPageView from "@/components/tracking/GTMPageView";
 import TopbarHeadline from "@/components/layout/TopbarHeadline";
 import DesktopHeader from "@/components/layout/DesktopHeader";
 import MobileHeader from "@/components/layout/MobileHeader";
@@ -42,6 +42,7 @@ export default function LayoutClient({
     <>
       {/* TRACKING */}
       <GoogleTagManager gtmId="GTM-5CTM95TR" />
+      <GTMPageView />
 
       {/* TOP BAR */}
       <TopbarHeadline />

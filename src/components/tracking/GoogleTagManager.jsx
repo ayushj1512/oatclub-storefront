@@ -25,7 +25,7 @@ import Script from "next/script";
 export default function GoogleTagManager({
   gtmId,
   dataLayerName = "dataLayer",
-  initialDataLayer,
+    initialDataLayer = null,   // ✅ ADD THIS
 }) {
   const cleanedGtmId = typeof gtmId === "string" ? gtmId.trim() : "";
 
