@@ -3,8 +3,11 @@
 
 import "./globals.css";
 import { Toaster } from "sonner";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, Suspense } from "react";
+
 import GTMPageView from "@/components/tracking/GTMPageView";
+import GoogleTagManager from "@/components/tracking/GoogleTagManager";
+
 import TopbarHeadline from "@/components/layout/TopbarHeadline";
 import DesktopHeader from "@/components/layout/DesktopHeader";
 import MobileHeader from "@/components/layout/MobileHeader";
@@ -16,7 +19,6 @@ import SignupModal from "@/components/auth/SignupModal";
 import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
 
 import { useAuthStore } from "@/store/authStore";
-import GoogleTagManager from "@/components/tracking/GoogleTagManager";
 
 /* ---------------------------------
    🔥 Initialize Auth Store
@@ -40,9 +42,11 @@ export default function LayoutClient({
 
   return (
     <>
-      {/* TRACKING */}
-      <GoogleTagManager gtmId="GTM-5CTM95TR" />
-      <GTMPageView />
+      {/* ✅ TRACKING (Wrapped in Suspense to avoid build error) */}
+      <Suspense fallback={null}>
+        <GoogleTagManager gtmId="GTM-5CTM95TR" />
+        <GTMPageView />
+      </Suspense>
 
       {/* TOP BAR */}
       <TopbarHeadline />
