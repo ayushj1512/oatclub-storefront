@@ -14,9 +14,15 @@ export const useCouponStore = create(
       finalTotal: null,
       isApplying: false,
       error: null,
+      message: null,
 
       // internal lock (prevents double apply)
       _applyPromise: null,
+
+      // --------------------
+      // GETTERS
+      // --------------------
+      isApplied: () => Boolean(get().coupon?.code),
 
       // --------------------
       // ACTIONS
@@ -27,11 +33,13 @@ export const useCouponStore = create(
        */
       applyCoupon: async ({ code, customerId, cartTotal }) => {
         if (!API_BASE) {
-          return set({ error: "Backend not configured" });
+          set({ error: "Backend not configured" });
+          throw new Error("Backend not configured");
         }
 
         if (!code || !customerId || cartTotal == null) {
-          return set({ error: "Invalid coupon data" });
+          set({ error: "Invalid coupon data" });
+          throw new Error("Invalid coupon data");
         }
 
         // ✅ prevent double apply spam
@@ -40,39 +48,36 @@ export const useCouponStore = create(
         }
 
         const couponCode = String(code).trim().toUpperCase();
+        const cid = String(customerId).trim();
+
+        // ✅ optional: if same coupon already applied, do nothing
+        if (get().coupon?.code === couponCode) {
+          return { message: "Coupon already applied", discount: get().discount, finalTotal: get().finalTotal };
+        }
 
         const p = (async () => {
           try {
-            set({ isApplying: true, error: null });
+            set({ isApplying: true, error: null, message: null });
 
             const res = await fetch(`${API_BASE}/api/coupons/apply`, {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                code: couponCode,
-                customerId,
-                cartTotal,
-              }),
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ code: couponCode, customerId: cid, cartTotal }),
             });
 
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
               throw new Error(data.message || "Failed to apply coupon");
             }
 
             set({
-              coupon: {
-                code: couponCode,
-                discount: data.discount,
-                finalTotal: data.finalTotal,
-              },
+              coupon: { code: couponCode, discount: data.discount, finalTotal: data.finalTotal },
               discount: data.discount,
               finalTotal: data.finalTotal,
               isApplying: false,
               error: null,
+              message: data.message || "Coupon applied successfully",
             });
 
             return data;
@@ -83,6 +88,7 @@ export const useCouponStore = create(
               finalTotal: null,
               isApplying: false,
               error: err.message || "Coupon failed",
+              message: null,
             });
 
             throw err;
@@ -104,7 +110,17 @@ export const useCouponStore = create(
           discount: 0,
           finalTotal: null,
           error: null,
+          message: null,
+          isApplying: false,
+          _applyPromise: null,
         });
+      },
+
+      /**
+       * Clear message/error only
+       */
+      clearCouponMessages: () => {
+        set({ error: null, message: null });
       },
 
       /**
@@ -117,6 +133,7 @@ export const useCouponStore = create(
           finalTotal: null,
           isApplying: false,
           error: null,
+          message: null,
           _applyPromise: null,
         });
       },

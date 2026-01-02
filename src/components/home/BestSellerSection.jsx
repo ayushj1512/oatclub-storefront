@@ -90,11 +90,12 @@ export default function BestSellerSection() {
       transition={{ duration: 0.3 }}
     >
       {/* Heading */}
-      <div className="w-full text-center mb-6">
-        <h2 className="inline-block border-b border-black pb-2 text-xl md:text-2xl font-extrabold uppercase tracking-[0.25em] text-black">
-          Best Sellers
-        </h2>
-      </div>
+    <div className="w-full bg-black text-center mb-6">
+  <h2 className="text-white py-3 text-lg md:text-2xl font-semibold uppercase tracking-[0.25em]">
+    Best Sellers
+  </h2>
+</div>
+
 
       {error && (
         <p className="text-sm text-red-600 text-center mb-3">

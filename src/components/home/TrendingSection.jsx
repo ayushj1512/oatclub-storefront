@@ -83,9 +83,12 @@ export default function TrendingSection() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
     >
-      <h2 className="font-bogle text-xl md:text-3xl font-black text-center text-black mb-10 tracking-[0.28em] uppercase">
-        Trending Now
-      </h2>
+     <div className="w-full bg-black text-center mb-10">
+  <h2 className="text-white py-3 text-lg md:text-3xl font-semibold uppercase tracking-[0.28em]">
+    Trending Now
+  </h2>
+</div>
+
 
       {error && (
         <p className="text-sm text-red-600 text-center mb-3">

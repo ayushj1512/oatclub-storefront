@@ -1,79 +1,103 @@
+import toast from "react-hot-toast";
 import { loadRazorpay } from "./loadRazorpay";
 
 export const payWithRazorpay = async ({ mongoOrderId }) => {
-  // 1️⃣ Create Razorpay order (backend)
-  const res = await fetch("/api/razorpay/create-order", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mongoOrderId }),
-  });
+  let toastId = null;
 
-  const data = await res.json();
-  if (!data.success) {
-    throw new Error(data.message || "Failed to create Razorpay order");
-  }
+  try {
+    toastId = toast.loading("Preparing payment...");
 
-  // 2️⃣ Load SDK
-  const loaded = await loadRazorpay();
-  if (!loaded) {
-    throw new Error("Razorpay SDK failed to load");
-  }
+    // 1️⃣ Create Razorpay order (backend)
+    const res = await fetch("/api/razorpay/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mongoOrderId }),
+    });
 
-  // 3️⃣ Configure checkout
-  const options = {
-    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-    amount: data.amount,
-    currency: data.currency,
-    name: "Miray Fashion",
-    description: "Order Payment",
-    order_id: data.razorpayOrderId,
+    const data = await res.json();
 
-    prefill: {
-      name: data.customer?.name || "",
-      email: data.customer?.email || "",
-      contact: data.customer?.phone || "",
-    },
+    if (!data.success) {
+      toast.error(data.message || "Failed to create Razorpay order", { id: toastId });
+      throw new Error(data.message || "Failed to create Razorpay order");
+    }
 
-    handler: async function (response) {
-      // 4️⃣ Verify payment (backend)
-      const verifyRes = await fetch("/api/razorpay/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mongoOrderId: data.mongoOrderId,
-          razorpay_order_id: response.razorpay_order_id,
-          razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_signature: response.razorpay_signature,
-        }),
-      });
+    toast.success("Payment gateway ready!", { id: toastId });
 
-      const verifyData = await verifyRes.json();
+    // 2️⃣ Load SDK
+    const loaded = await loadRazorpay();
+    if (!loaded) {
+      toast.error("Razorpay SDK failed to load");
+      throw new Error("Razorpay SDK failed to load");
+    }
 
-      if (verifyData.success) {
-        window.location.href = `/order-success?orderId=${data.mongoOrderId}`;
-      } else {
-        alert("Payment verification failed");
-      }
-    },
+    // 3️⃣ Configure checkout
+    const options = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      amount: data.amount,
+      currency: data.currency,
+      name: "Miray Fashion",
+      description: "Order Payment",
+      order_id: data.razorpayOrderId,
 
-    modal: {
-      ondismiss: async () => {
-        // Optional: mark failed or allow retry
-        console.log("Payment popup closed");
+      prefill: {
+        name: data.customer?.name || "",
+        email: data.customer?.email || "",
+        contact: data.customer?.phone || "",
       },
-    },
 
-    theme: {
-      color: "#800020",
-    },
-  };
+      handler: async function (response) {
+        let verifyToast = null;
 
-  const rzp = new window.Razorpay(options);
+        try {
+          verifyToast = toast.loading("Verifying payment...");
 
-  // Optional failure handler
-  rzp.on("payment.failed", function () {
-    alert("Payment failed. Please try again.");
-  });
+          // 4️⃣ Verify payment (backend)
+          const verifyRes = await fetch("/api/razorpay/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mongoOrderId: data.mongoOrderId,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
 
-  rzp.open();
+          const verifyData = await verifyRes.json();
+
+          if (verifyData.success) {
+            toast.success("✅ Payment verified successfully!", { id: verifyToast });
+            window.location.href = `/order-success?orderId=${data.mongoOrderId}`;
+          } else {
+            toast.error("Payment verification failed", { id: verifyToast });
+          }
+        } catch (err) {
+          toast.error(err?.message || "Verification error", { id: verifyToast });
+        }
+      },
+
+      modal: {
+        ondismiss: () => {
+          toast("Payment popup closed", { icon: "⚠️" });
+        },
+      },
+
+      theme: {
+        color: "#800020",
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+
+    // Optional failure handler
+    rzp.on("payment.failed", function (err) {
+      toast.error(err?.error?.description || "Payment failed. Please try again.");
+    });
+
+    rzp.open();
+  } catch (err) {
+    toast.error(err?.message || "Payment failed. Try again.");
+  } finally {
+    if (toastId) toast.dismiss(toastId);
+  }
 };

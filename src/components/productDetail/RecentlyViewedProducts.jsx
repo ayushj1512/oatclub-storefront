@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ProductCard from "@/components/common/ProductCard";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
@@ -30,12 +30,35 @@ export default function RecentlyViewedProducts() {
   }, [initialize]);
 
   /* -------------------------------------------------------
+     REMOVE DUPLICATES + REMOVE TOPMOST PRODUCT
+  ------------------------------------------------------- */
+  const uniqueItems = useMemo(() => {
+    if (!items?.length) return [];
+
+    const seen = new Set();
+
+    const deduped = items.filter((p) => {
+      const key = String(p?.id || p?.slug);
+      if (!key) return false;
+
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // ✅ Remove the topmost product (current product)
+    return deduped.slice(1);
+  }, [items]);
+
+  /* -------------------------------------------------------
      SCROLL HANDLER
   ------------------------------------------------------- */
   const scroll = (direction) => {
     if (!scrollRef.current) return;
+
     const { scrollLeft, clientWidth } = scrollRef.current;
     const delta = direction === "left" ? -clientWidth : clientWidth;
+
     scrollRef.current.scrollTo({
       left: scrollLeft + delta,
       behavior: "smooth",
@@ -59,7 +82,10 @@ export default function RecentlyViewedProducts() {
 
         <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={`rv-shimmer-${i}`} className={`${CARD_WRAP} ${CARD_HEIGHT}`}>
+            <div
+              key={`rv-shimmer-${i}`}
+              className={`${CARD_WRAP} ${CARD_HEIGHT}`}
+            >
               <ProductCard loading />
             </div>
           ))}
@@ -71,74 +97,70 @@ export default function RecentlyViewedProducts() {
   /* -------------------------------------------------------
      EMPTY STATE
   ------------------------------------------------------- */
-  if (!items?.length) return null;
+  if (!uniqueItems.length) return null;
 
   /* -------------------------------------------------------
      NORMAL VIEW
   ------------------------------------------------------- */
- return (
-  <section className="relative mt-12 w-full px-3 md:px-6 flex flex-col">
+  return (
+    <section className="relative mt-12 w-full px-3 md:px-6 flex flex-col">
+      {/* ================= HEADER ================= */}
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-black">
+          Recently Viewed
+        </h2>
 
-    {/* ================= HEADER ================= */}
-    <div className="mb-4 flex items-center justify-between">
-      <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-black">
-        Recently Viewed
-      </h2>
-
-      <div className="flex items-center gap-3">
-        {/* View all */}
-        <Link
-          href="/profile/recently-viewed"
-          className="text-sm font-semibold text-black/70 hover:text-black transition"
-        >
-          View all →
-        </Link>
-
-        {/* Desktop controls */}
-        <div className="hidden md:flex items-center gap-2">
-          <button
-            onClick={() => scroll("left")}
-            aria-label="Scroll left"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full
-                       border border-black/10 hover:bg-black/5 transition"
+        <div className="flex items-center gap-3">
+          {/* View all */}
+          <Link
+            href="/profile/recently-viewed"
+            className="text-sm font-semibold text-black/70 hover:text-black transition"
           >
-            <ChevronLeft className="h-4 w-4 text-black" />
-          </button>
+            View all →
+          </Link>
 
-          <button
-            onClick={() => scroll("right")}
-            aria-label="Scroll right"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full
+          {/* Desktop controls */}
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              onClick={() => scroll("left")}
+              aria-label="Scroll left"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full
                        border border-black/10 hover:bg-black/5 transition"
-          >
-            <ChevronRight className="h-4 w-4 text-black" />
-          </button>
+            >
+              <ChevronLeft className="h-4 w-4 text-black" />
+            </button>
+
+            <button
+              onClick={() => scroll("right")}
+              aria-label="Scroll right"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full
+                       border border-black/10 hover:bg-black/5 transition"
+            >
+              <ChevronRight className="h-4 w-4 text-black" />
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    {/* ================= FADE EDGES ================= */}
-    <div className="pointer-events-none absolute inset-y-0 left-0 w-8
-                    bg-gradient-to-r from-white to-transparent" />
-    <div className="pointer-events-none absolute inset-y-0 right-0 w-8
-                    bg-gradient-to-l from-white to-transparent" />
+      {/* ================= FADE EDGES ================= */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent" />
 
-    {/* ================= SCROLLER ================= */}
-    <div
-      ref={scrollRef}
-      className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory
+      {/* ================= SCROLLER ================= */}
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory
                  pb-2 scrollbar-hide"
-    >
-      {items.map((p) => (
-        <div
-          key={String(p?.id || p?.slug)}
-          className={`${CARD_WRAP} ${CARD_HEIGHT} snap-start`}
-        >
-          <ProductCard product={p} disableRecentlyViewed />
-        </div>
-      ))}
-    </div>
-  </section>
-);
-
+      >
+        {uniqueItems.map((p) => (
+          <div
+            key={String(p?.id || p?.slug)}
+            className={`${CARD_WRAP} ${CARD_HEIGHT} snap-start`}
+          >
+            <ProductCard product={p} disableRecentlyViewed />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }

@@ -6,14 +6,18 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, ShoppingBag, User, Search } from "lucide-react";
 import Image from "next/image";
+
 import WishlistButton from "@/components/header/WishlistButton";
 import MobileSidebarDrawer from "@/components/header/MobileSidebarDrawer";
+import TopbarHeadline from "@/components/layout/TopbarHeadline"; // ✅ INSIDE HEADER
+
 import { useCartStore } from "@/store/cartStore";
 import { trackMeta } from "@/lib/meta/track";
 import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
 
-const LOGO_URL = "https://res.cloudinary.com/djtva6hec/image/upload/v1764916639/miray/media/k0yvgu5m0ij1husm3ugh.png";
+const LOGO_URL =
+  "https://res.cloudinary.com/djtva6hec/image/upload/v1764916639/miray/media/k0yvgu5m0ij1husm3ugh.png";
 
 const ga4CartItem = (it) =>
   mapItem(
@@ -40,9 +44,7 @@ export default function MobileHeader() {
   const openMenu = useCallback(() => setMenuOpen(true), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
-  const topbarHRef = useRef(0);
   const lastViewCartRef = useRef({ key: null, at: 0 });
-
   const items = useCartStore((s) => s.items) || [];
 
   const fireViewCart = useCallback(async () => {
@@ -54,26 +56,44 @@ export default function MobileHeader() {
         .map((it) => {
           const id = it?.productId || it?.id || it?._id;
           if (!id) return null;
-          return { id: String(id), quantity: Number(it?.quantity || 1), item_price: Number(it?.price || 0) };
+          return {
+            id: String(id),
+            quantity: Number(it?.quantity || 1),
+            item_price: Number(it?.price || 0),
+          };
         })
         .filter(Boolean);
 
       if (!contents.length) return;
 
-      const value = contents.reduce((sum, c) => sum + (Number(c.item_price) || 0) * (Number(c.quantity) || 1), 0);
+      const value = contents.reduce(
+        (sum, c) =>
+          sum + (Number(c.item_price) || 0) * (Number(c.quantity) || 1),
+        0
+      );
+
       const key = `m_viewcart_${contents.map((c) => c.id).join("_")}_${value}`;
       const now = Date.now();
-      if (lastViewCartRef.current.key === key && now - (lastViewCartRef.current.at || 0) < 2000) return;
+      if (
+        lastViewCartRef.current.key === key &&
+        now - (lastViewCartRef.current.at || 0) < 2000
+      )
+        return;
+
       lastViewCartRef.current = { key, at: now };
 
       // ✅ GA4 view_cart
       try {
-        pushEcomEvent("view_cart", { currency: "INR", value, items: cartItems.slice(0, 50).map(ga4CartItem) });
+        pushEcomEvent("view_cart", {
+          currency: "INR",
+          value,
+          items: cartItems.slice(0, 50).map(ga4CartItem),
+        });
       } catch (e) {
         console.warn("📈 GA4 view_cart failed", e);
       }
 
-      // ✅ Meta ViewCart (optional but consistent)
+      // ✅ Meta ViewCart
       await trackMeta("ViewCart", {
         currency: "INR",
         value,
@@ -88,36 +108,27 @@ export default function MobileHeader() {
   }, []);
 
   useEffect(() => {
-    const measureTopbar = () => {
-      const el = document.getElementById("topbar-headline") || document.querySelector("[data-topbar]") || document.querySelector(".topbar-headline");
-      const h = el ? Math.round(el.getBoundingClientRect().height) : 0;
-      topbarHRef.current = h;
-      document.documentElement.style.setProperty("--app-topbar-h", `${h}px`);
-      return h;
-    };
-
     const onScroll = () => {
-      const topbarH = measureTopbar();
-      setIsSticky(window.scrollY > topbarH);
+      // ✅ make sticky once user scrolls even a bit
+      setIsSticky(window.scrollY > 10);
     };
 
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
     const el = document.getElementById("mobile-header");
     if (!el) return;
 
-    const setVar = () => document.documentElement.style.setProperty("--app-header-h", `${Math.round(el.getBoundingClientRect().height)}px`);
-    setVar();
+    const setVar = () =>
+      document.documentElement.style.setProperty(
+        "--app-header-h",
+        `${Math.round(el.getBoundingClientRect().height)}px`
+      );
 
+    setVar();
     const ro = new ResizeObserver(setVar);
     ro.observe(el);
     return () => ro.disconnect();
@@ -131,10 +142,6 @@ export default function MobileHeader() {
     }
   };
 
-  const topbarH = "var(--app-topbar-h, 0px)";
-  const safeTop = "env(safe-area-inset-top, 0px)";
-  const headerTop = isSticky ? `calc(${topbarH} + ${safeTop})` : "0px";
-
   const handleCartClick = useCallback(() => {
     fireViewCart();
     router.push("/cart");
@@ -142,31 +149,93 @@ export default function MobileHeader() {
 
   return (
     <>
-      <header id="mobile-header" className={["md:hidden w-full bg-white border-b border-black/10 z-[9999]", isSticky ? "fixed left-0 right-0" : "relative"].join(" ")} style={{ top: headerTop }}>
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <button onClick={openMenu} aria-label="Open menu" className="shrink-0 text-black transition hover:opacity-70"><Menu size={26} /></button>
+      {/* ✅ ONE STICKY UNIT: TOPBAR + HEADER */}
+      <header
+        id="mobile-header"
+        className={[
+          "md:hidden w-full bg-white border-b border-black/10 z-[9999]",
+          isSticky ? "fixed top-0 left-0 right-0" : "relative",
+        ].join(" ")}
+      >
+        {/* ✅ TOPBAR INSIDE HEADER (NO OVERLAP) */}
+        <TopbarHeadline />
 
-          <Link href="/" aria-label="Go to homepage" className="flex-1 flex items-center justify-center select-none">
+        {/* ✅ MAIN HEADER ROW */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <button
+            onClick={openMenu}
+            aria-label="Open menu"
+            className="shrink-0 text-black transition hover:opacity-70"
+          >
+            <Menu size={26} />
+          </button>
+
+          <Link
+            href="/"
+            aria-label="Go to homepage"
+            className="flex-1 flex items-center justify-center select-none"
+          >
             <div className="relative h-8 w-full max-w-[160px]">
-              <Image src={LOGO_URL} alt="Miray" fill priority className="object-contain" sizes="(max-width: 768px) 60vw, 240px" />
+              <Image
+                src={LOGO_URL}
+                alt="Miray"
+                fill
+                priority
+                className="object-contain"
+                sizes="(max-width: 768px) 60vw, 240px"
+              />
             </div>
           </Link>
 
           <div className="shrink-0 flex items-center gap-4">
-            <button onClick={() => setShowSearch((s) => !s)} aria-label="Search" className="text-black transition hover:opacity-70"><Search size={22} /></button>
+            <button
+              onClick={() => setShowSearch((s) => !s)}
+              aria-label="Search"
+              className="text-black transition hover:opacity-70"
+            >
+              <Search size={22} />
+            </button>
 
             <WishlistButton size={22} />
 
-            <button type="button" aria-label="Cart" onClick={handleCartClick} className="text-black transition hover:opacity-70"><ShoppingBag size={22} /></button>
+            <button
+              type="button"
+              aria-label="Cart"
+              onClick={handleCartClick}
+              className="text-black transition hover:opacity-70"
+            >
+              <ShoppingBag size={22} />
+            </button>
 
-            <Link href="/profile" aria-label="Profile" className="text-black transition hover:opacity-70"><User size={22} /></Link>
+            <Link
+              href="/profile"
+              aria-label="Profile"
+              className="text-black transition hover:opacity-70"
+            >
+              <User size={22} />
+            </Link>
           </div>
         </div>
 
+        {/* ✅ SEARCH DROPDOWN */}
         <AnimatePresence>
           {showSearch && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="border-t border-black/10 bg-white px-4 py-2">
-              <input type="text" autoFocus value={searchText} onChange={(e) => setSearchText(e.target.value)} onKeyDown={handleSearchKey} placeholder="Search products" className="w-full rounded-full border border-black/15 px-4 py-2 text-sm text-black placeholder-black/40 outline-none focus:border-black" />
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="border-t border-black/10 bg-white px-4 py-2"
+            >
+              <input
+                type="text"
+                autoFocus
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onKeyDown={handleSearchKey}
+                placeholder="Search products"
+                className="w-full rounded-full border border-black/15 px-4 py-2 text-sm text-black placeholder-black/40 outline-none focus:border-black"
+              />
             </motion.div>
           )}
         </AnimatePresence>

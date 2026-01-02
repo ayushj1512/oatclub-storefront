@@ -4,53 +4,8 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { Heart, Share2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useProductStore } from "@/store/productStore";
+import { useReelStore } from "@/store/reelStore";
 import ReelViewer from "./ReelViewer";
-
-/* 🎥 VIDEOS STAY SAME */
-const reels = [
-  {
-    src: "https://mirayfashions.com/wp-content/uploads/2025/10/137cf091405223837c47fd9297cd5504.mp4",
-    caption: "Unleashing western vibes with a soft glam ✨",
-    hashtags: ["#MirayFashions", "#WesternVibes", "#OOTD"],
-    slug: "western-denim-jacket",
-  },
-  {
-    src: "https://mirayfashions.com/wp-content/uploads/2025/10/60c4f113d46da5d704fb36d7212ce5a3.mp4",
-    caption: "Summer silhouettes done right ☀️",
-    hashtags: ["#SummerWear", "#BohoStyle"],
-    slug: "summer-floral-dress",
-  },
-  {
-    src: "https://mirayfashions.com/wp-content/uploads/2025/10/4165e18da252f877d3fc38542ef8734d.mp4",
-    caption: "Burgundy mood — soft glam + classy fits ❤️",
-    hashtags: ["#BurgundyLove", "#MirayFashions"],
-    slug: "burgundy-bodycon-dress",
-  },
-  {
-    src: "https://mirayfashions.com/wp-content/uploads/2025/10/103d7a1184e604c1f2173abaadd7e2f4.mp4",
-    caption: "Sleek western fusion outfit ✨",
-    hashtags: ["#FusionWear", "#WesternEdit"],
-    slug: "western-coord-set",
-  },
-  {
-    src: "https://mirayfashions.com/wp-content/uploads/2025/10/88ea3bd7609ac14b35c0dd9d89a586a1.mp4",
-    caption: "Elegant, effortless, everyday chic 🤍",
-    hashtags: ["#EverydayChic", "#FashionDaily"],
-    slug: "white-minimal-dress",
-  },
-  {
-    src: "https://mirayfashions.com/wp-content/uploads/2025/10/ebbdaaa759e439cca326d4096286575b.mp4",
-    caption: "Soft glam outfit that never fails 💖",
-    hashtags: ["#SoftGlam", "#GlowEdit"],
-    slug: "soft-glam-top",
-  },
-  {
-    src: "https://mirayfashions.com/wp-content/uploads/2025/10/b354e2323463863d462b14f1f8d71bdc_t4.mp4",
-    caption: "Aesthetic vibes all day ✨🎥",
-    hashtags: ["#AestheticFit", "#OOTD"],
-    slug: "aesthetic-streetwear-set",
-  },
-];
 
 function Shimmer({ className = "" }) {
   return (
@@ -60,7 +15,6 @@ function Shimmer({ className = "" }) {
   );
 }
 
-
 export default function VideoRow() {
   const router = useRouter();
   const scrollerRef = useRef(null);
@@ -69,31 +23,36 @@ export default function VideoRow() {
   const [likes, setLikes] = useState({});
 
   const { allProducts, fetchProducts } = useProductStore();
+  const { reels, fetchReels, loading: reelLoading } = useReelStore();
 
- const fetchedRef = useRef(false);
+  const fetchedRef = useRef(false);
 
-useEffect(() => {
-  if (fetchedRef.current) return;
-  fetchedRef.current = true;
+  // ✅ Fetch Products once
+  useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
 
-  fetchProducts({ page: 1, limit: 50, isActive: true });
-}, [fetchProducts]);
+    fetchProducts({ page: 1, limit: 50, isActive: true });
+  }, [fetchProducts]);
 
-
-
-
+  // ✅ Fetch Reels once
+  useEffect(() => {
+    fetchReels({ page: 1, limit: 20, isActive: true });
+  }, [fetchReels]);
 
   /* 🔗 Attach realtime product */
   const reelsWithProducts = useMemo(() => {
-    if (!allProducts?.length) return [];
+    if (!reels?.length) return [];
 
     return reels.map((reel, i) => {
+      const slug = reel.slug;
       const product =
-        allProducts.find((p) => p.slug === reel.slug) ||
-        allProducts[i % allProducts.length];
+        allProducts?.find((p) => p.slug === slug) ||
+        allProducts?.[i % (allProducts?.length || 1)];
 
       return {
         ...reel,
+        src: reel.video || reel.src, // ✅ support backend video field
         product: product
           ? {
               id: product.id,
@@ -106,15 +65,14 @@ useEffect(() => {
           : null,
       };
     });
-  }, [allProducts]);
+  }, [reels, allProducts]);
 
-useEffect(() => {
-  if (!reelsWithProducts.length) return;
+  useEffect(() => {
+    if (!reelsWithProducts.length) return;
+    videoRefs.current.forEach((v) => v?.play?.().catch(() => {}));
+  }, [reelsWithProducts.length]);
 
-  videoRefs.current.forEach((v) => v?.play?.().catch(() => {}));
-}, [reelsWithProducts.length]);
-
-const isLoading = !reelsWithProducts.length;
+  const isLoading = reelLoading || !reelsWithProducts.length;
 
   const toggleLike = (i) => setLikes((p) => ({ ...p, [i]: !p[i] }));
 
@@ -144,165 +102,177 @@ const isLoading = !reelsWithProducts.length;
     e.stopPropagation();
     if (!product) return;
 
-    router.push(
-      `/category/${product.category}/${product.slug}/${product.id}`
-    );
+    router.push(`/category/${product.category}/${product.slug}/${product.id}`);
   };
 
- if (isLoading) {
-  return (
-    <section className="w-full flex flex-col bg-white py-10 md:py-14 overflow-hidden">
-      {/* Heading shimmer */}
-      <div className="flex justify-center mb-6">
-        <Shimmer className="h-8 w-64 rounded" />
-      </div>
+  /* ✅ Shimmer Loading UI */
+  if (isLoading) {
+    return (
+      <section className="w-full flex flex-col bg-white py-10 md:py-14 overflow-hidden">
+        <div className="flex justify-center mb-6">
+          <Shimmer className="h-8 w-64 rounded" />
+        </div>
 
-      {/* Reel shimmer row */}
-      <div className="flex gap-4 px-6 md:px-10 overflow-x-auto no-scrollbar">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="min-w-[160px] md:min-w-[220px] lg:min-w-[240px] border border-gray-200 rounded-xl overflow-hidden"
-          >
-            {/* Video shimmer */}
-            <Shimmer className="w-full aspect-[9/16]" />
-
-            {/* Product strip shimmer */}
-            <div className="flex gap-3 p-3 border-t border-gray-200">
-              <Shimmer className="w-12 h-14 rounded" />
-              <div className="flex-1 space-y-2">
-                <Shimmer className="h-3 w-3/4 rounded" />
-                <Shimmer className="h-3 w-1/3 rounded" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-
- return (
-  <>
-    <section className="w-full flex flex-col bg-white py-10 md:py-14 overflow-hidden">
-      <h2 className="text-xl md:text-3xl font-extrabold text-center text-black border-b border-black pb-2 w-fit mx-auto mb-6 tracking-[0.25em] uppercase">
-        Fashion In Motion
-      </h2>
-
-      <div className="relative px-6 md:px-10">
-        {/* Left Arrow */}
-        <button
-          onClick={() => scrollByCards("left")}
-          className="hidden md:flex items-center justify-center absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow transition"
-        >
-          <ChevronLeft size={18} className="text-black" />
-        </button>
-
-        {/* Right Arrow */}
-        <button
-          onClick={() => scrollByCards("right")}
-          className="hidden md:flex items-center justify-center absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow transition"
-        >
-          <ChevronRight size={18} className="text-black" />
-        </button>
-
-        <div
-          ref={scrollerRef}
-          className="flex gap-4 md:gap-5 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2"
-        >
-          {reelsWithProducts.map((reel, i) => (
+        <div className="flex gap-4 px-6 md:px-10 overflow-x-auto no-scrollbar">
+          {Array.from({ length: 6 }).map((_, i) => (
             <div
-              key={reel.src}
-              data-reel-card="true"
-              onClick={() => setActiveIndex(i)}
-              className="snap-start bg-white flex flex-col cursor-pointer relative min-w-[160px] md:min-w-[220px] lg:min-w-[240px] border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition"
+              key={i}
+              className="min-w-[160px] md:min-w-[220px] lg:min-w-[240px] border border-gray-200 rounded-xl overflow-hidden"
             >
-              {/* Reel */}
-              <div className="relative w-full aspect-[9/16] bg-black">
-                <video
-               ref={(el) => {
-  if (el) videoRefs.current[i] = el;
-}}
-                  src={reel.src}
-                  muted
-                  loop
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
+              <Shimmer className="w-full aspect-[9/16]" />
 
-                <div className="absolute bottom-3 right-3 flex flex-col gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleLike(i);
-                    }}
-                    className="p-2 bg-black/40 rounded-full backdrop-blur"
-                  >
-                    <Heart
-                      size={18}
-                      className={
-                        likes[i]
-                          ? "text-red-500 fill-red-500"
-                          : "text-white"
-                      }
-                    />
-                  </button>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      shareReel(reel);
-                    }}
-                    className="p-2 bg-black/40 rounded-full backdrop-blur"
-                  >
-                    <Share2 size={18} className="text-white" />
-                  </button>
+              <div className="flex gap-3 p-3 border-t border-gray-200">
+                <Shimmer className="w-12 h-14 rounded" />
+                <div className="flex-1 space-y-2">
+                  <Shimmer className="h-3 w-3/4 rounded" />
+                  <Shimmer className="h-3 w-1/3 rounded" />
                 </div>
               </div>
-
-              {/* 🔗 PRODUCT NAVIGATION */}
-              {reel.product && (
-                <div
-                  onClick={(e) => navigateToProduct(e, reel.product)}
-                  className="flex items-center gap-3 p-3 border-t border-gray-200 bg-white"
-                >
-                  <img
-                    src={reel.product.image}
-                    alt={reel.product.name}
-                    className="w-12 h-14 md:w-14 md:h-16 object-contain bg-gray-100"
-                  />
-
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <p className="text-[11px] md:text-sm font-medium text-gray-900 line-clamp-1">
-                      {reel.product.name}
-                    </p>
-                    <p className="text-black font-semibold text-xs md:text-sm">
-                      ₹{reel.product.price}
-                    </p>
-                  </div>
-
-                  <div className="text-black/70 text-lg md:text-xl font-bold">
-                    →
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </div>
+      </section>
+    );
+  }
+
+  return (
+  <>
+  <section className="w-full flex flex-col bg-white py-8 md:py-14 overflow-hidden">
+    <div className="w-full bg-black text-center mb-5">
+  <h2 className="text-white py-3 text-lg md:text-3xl font-semibold uppercase tracking-[0.22em]">
+    Fashion In Motion
+  </h2>
+</div>
+
+
+    <div className="relative px-3 sm:px-6 md:px-10">
+      {/* Desktop arrows */}
+      <button
+        onClick={() => scrollByCards("left")}
+        className="hidden md:flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow transition"
+      >
+        <ChevronLeft size={18} className="text-black" />
+      </button>
+
+      <button
+        onClick={() => scrollByCards("right")}
+        className="hidden md:flex items-center justify-center absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow transition"
+      >
+        <ChevronRight size={18} className="text-black" />
+      </button>
+
+      {/* ✅ Horizontal row scroller */}
+      <div
+        ref={scrollerRef}
+        className="flex gap-3 md:gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2"
+      >
+        {reelsWithProducts.map((reel, i) => (
+          <div
+            key={reel._id || reel.src}
+            data-reel-card="true"
+            onClick={() => setActiveIndex(i)}
+            className="
+              snap-start bg-white flex flex-col cursor-pointer relative
+              min-w-[130px] sm:min-w-[150px]
+              md:min-w-[170px] lg:min-w-[185px] xl:min-w-[200px]
+              max-w-[200px] md:max-w-[185px] lg:max-w-[200px]
+              border border-gray-200 rounded-xl overflow-hidden
+              hover:shadow-md transition
+            "
+          >
+            {/* ✅ Reel (keep 9:16, full video visible) */}
+            <div className="relative w-full aspect-[9/16] bg-black">
+              <video
+                ref={(el) => {
+                  if (el) videoRefs.current[i] = el;
+                }}
+                src={reel.src}
+                muted
+                loop
+                autoPlay
+                playsInline
+                preload="metadata"
+                className="w-full h-full object-contain bg-black"
+              />
+
+              {/* Overlay buttons */}
+              <div className="absolute bottom-2 right-2 flex flex-col gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleLike(i);
+                  }}
+                  className="p-2 bg-black/40 rounded-full backdrop-blur"
+                >
+                  <Heart
+                    size={16}
+                    className={
+                      likes[i] ? "text-red-500 fill-red-500" : "text-white"
+                    }
+                  />
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    shareReel(reel);
+                  }}
+                  className="p-2 bg-black/40 rounded-full backdrop-blur"
+                >
+                  <Share2 size={16} className="text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* ✅ Product navigation */}
+            {reel.product && (
+              <div
+                onClick={(e) => navigateToProduct(e, reel.product)}
+                className="flex items-center gap-2 p-2 md:p-2.5 border-t border-gray-200 bg-white"
+              >
+                <img
+                  src={reel.product.image}
+                  alt={reel.product.name}
+                  className="w-10 h-12 md:w-11 md:h-13 object-contain bg-gray-100 rounded-md"
+                />
+
+                <div className="flex flex-col flex-1 min-w-0">
+                  <p className="text-[11px] md:text-xs font-medium text-gray-900 line-clamp-1">
+                    {reel.product.name}
+                  </p>
+                  <p className="text-black font-semibold text-[11px] md:text-xs">
+                    ₹{reel.product.price}
+                  </p>
+                </div>
+
+                <div className="text-black/70 text-base md:text-lg font-bold">
+                  →
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
-    </section>
 
-    {activeIndex !== null && (
-      <ReelViewer
-        reels={reelsWithProducts}
-        currentIndex={activeIndex}
-        setCurrentIndex={setActiveIndex}
-        onClose={() => setActiveIndex(null)}
-      />
-    )}
-  </>
-);
+      {/* Mobile hint */}
+      <p className="text-[11px] sm:text-xs text-gray-400 mt-3 text-center">
+        Swipe left/right to explore reels
+      </p>
+    </div>
+  </section>
 
+  {activeIndex !== null && (
+    <ReelViewer
+      reels={reelsWithProducts}
+      currentIndex={activeIndex}
+      setCurrentIndex={setActiveIndex}
+      onClose={() => setActiveIndex(null)}
+    />
+  )}
+</>
+
+
+
+  );
 }
+ 

@@ -1,87 +1,35 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 
-export default function TopbarHeadline() {
-  const items = useMemo(
-    () => [
-      "New arrivals just dropped — shop now",
-      "Use code WELCOME5 for 5% off",
-      "Gen-Z fits • Western vibes • Premium picks",
-      "Use code FIRST10 for 10% off",
-    ],
-    []
-  );
+export default function TopbarHeadline({ interval = 2800 }) {
+  const items = useMemo(() => ["New arrivals just dropped — shop now", "Use code WELCOME5 for 5% off", "Gen-Z fits • Western vibes • Premium picks", "Use code FIRST10 for 10% off"], []);
 
-  const loop = useMemo(
-    () => [...items, ...items, ...items, ...items],
-    [items]
-  );
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setActive((p) => (p + 1) % items.length), interval);
+    return () => clearInterval(t);
+  }, [items.length, interval]);
 
   return (
-   <div className="w-full overflow-hidden bg-black text-white">
-  <div className="relative flex h-9 items-center">
+    <div id="topbar-headline" data-topbar className="w-full overflow-hidden bg-black text-white">
+      <div className="relative flex h-8 items-center justify-center px-3 md:h-9 md:px-10">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.07),transparent_60%)]" />
 
-    {/* top & bottom hairline borders */}
-    <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-
-    {/* subtle monochrome glow */}
-    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.08),transparent_60%)]" />
-
-    {/* Infinite marquee */}
-    <div className="flex whitespace-nowrap will-change-transform">
-
-      {/* Track A */}
-      <motion.div
-        className="flex items-center font-bebas"
-        animate={{ x: ["0%", "-100%"] }}
-        transition={{ duration: 26, ease: "linear", repeat: Infinity }}
-      >
-        <div className="flex items-center px-4">
-          {loop.map((item, i) => (
-            <span key={`a-${i}`} className="inline-flex items-center">
-              <span className="text-[13px] md:text-[14px] tracking-[0.18em] uppercase text-white/95">
-                {item}
+        <div className="relative flex w-full items-center justify-center">
+          <AnimatePresence mode="wait">
+            <motion.div key={active} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.45, ease: "easeOut" }} className="absolute flex w-full items-center justify-center font-bebas">
+              <span className="max-w-[92%] truncate text-center text-[11px] uppercase tracking-[0.12em] text-white/95 sm:text-[12px] sm:tracking-[0.14em] md:text-[14px] md:tracking-[0.18em]">
+                {items[active]}
               </span>
-              <span
-                aria-hidden
-                className="mx-4 text-white/30 text-[14px] leading-none"
-              >
-                •
-              </span>
-            </span>
-          ))}
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </motion.div>
-
-      {/* Track B (clone for seamless loop) */}
-      <motion.div
-        className="flex items-center font-bebas"
-        animate={{ x: ["0%", "-100%"] }}
-        transition={{ duration: 26, ease: "linear", repeat: Infinity }}
-      >
-        <div className="flex items-center px-4">
-          {loop.map((item, i) => (
-            <span key={`b-${i}`} className="inline-flex items-center">
-              <span className="text-[13px] md:text-[14px] tracking-[0.18em] uppercase text-white/95">
-                {item}
-              </span>
-              <span
-                aria-hidden
-                className="mx-4 text-white/30 text-[14px] leading-none"
-              >
-                •
-              </span>
-            </span>
-          ))}
-        </div>
-      </motion.div>
-
+      </div>
     </div>
-  </div>
-</div>
-
   );
 }

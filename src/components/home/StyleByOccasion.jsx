@@ -45,9 +45,12 @@ export default function StyleByOccasion() {
 
   return (
     <section className="w-full bg-gray-50 py-7 md:py-9">
-      <h2 className="mx-auto mb-5 w-fit border-b border-black pb-2 text-center text-lg font-extrabold tracking-[0.25em] text-black uppercase md:text-2xl">
-        Style by Occasion
-      </h2>
+     <div className="w-full bg-black text-center mb-5">
+  <h2 className="text-white py-3 text-lg md:text-2xl font-semibold uppercase tracking-[0.25em]">
+    Style by Occasion
+  </h2>
+</div>
+
 
       {/* hide scrollbar cross-browser */}
       <style

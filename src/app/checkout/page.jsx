@@ -28,7 +28,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useCouponStore } from "@/store/couponStore";
-import { notify } from "@/lib/notify";
+import toast from "react-hot-toast";
 import RazorpayCheckoutButton from "@/components/checkout/RazorpayCheckoutButton";
 import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
@@ -269,8 +269,9 @@ useEffect(() => {
   if (loading) return; // ⏳ wait for Firebase auth
 
   if (!user?.uid) {
-    notify.loginRequired();
-    router.replace("/login?redirect=/checkout");
+   toast.error("Login required to continue");
+router.replace("/login?redirect=/checkout");
+
   }
 }, [loading, user?.uid, router]);
 
@@ -342,14 +343,29 @@ useEffect(() => {
     const customerId = customer?._id;
 
     if (!firebaseUID || !email || !customerId) {
-      return alert("Please login again. Customer profile is not ready yet.");
+     toast.error("Please login again. Customer profile is not ready yet.");
+return;
     }
 
     // basic validation
-    if (!addressForm.postalCode || addressForm.postalCode.length !== 6) return alert("Enter valid 6-digit pincode");
-    if (!addressForm.addressLine1) return alert("Address line 1 is required");
-    if (!addressForm.fullName) return alert("Full name is required");
-    if (!addressForm.phone) return alert("Phone is required");
+   if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
+  toast.error("Enter a valid 6-digit pincode");
+  return;
+}
+
+   if (!addressForm.addressLine1) {
+  toast.error("Address line 1 is required");
+  return;
+}
+if (!addressForm.fullName) {
+  toast.error("Full name is required");
+  return;
+}
+if (!addressForm.phone) {
+  toast.error("Phone is required");
+  return;
+}
+
 
     try {
       setSavingAddress(true);
@@ -398,13 +414,19 @@ const [paymentRecovery, setPaymentRecovery] = useState({
 
 const handlePlaceOrder = async () => {
   const err = validate();
-  if (err) return alert(err);
+  if (err) {
+    toast.error(err);
+    return;
+  }
+
+  if (!selectedAddressObj?._id) {
+    toast.error("Shipping address not selected.");
+    return;
+  }
+
+  const toastId = toast.loading("Placing your order...");
 
   try {
-    if (!selectedAddressObj?._id) {
-      return alert("Shipping address not selected.");
-    }
-
     /* ---------------- CREATE ORDER ---------------- */
     const order = await createOrder({
       customerId: customer._id,
@@ -457,15 +479,18 @@ const handlePlaceOrder = async () => {
     /* ---------------- CLEANUP + REDIRECT ---------------- */
     clearCart?.();
 
+    toast.success("Order placed successfully!", { id: toastId });
+
     router.push(
       order?.orderNumber
         ? `/order-success?order=${order.orderNumber}`
         : "/order-success"
     );
   } catch (e) {
-    alert(e?.message || "Failed to place order.");
+    toast.error(e?.message || "Failed to place order.", { id: toastId });
   }
 };
+
 
 
 const checkoutTracked = useRef(false);
@@ -506,67 +531,84 @@ useEffect(() => {
 
         <div className="flex flex-col gap-5">
           {/* 1) Summary */}
-          <GlassCard className="p-4 sm:p-5">
-            <button type="button" onClick={() => setShowSummary((s) => !s)} className="w-full flex items-center justify-between">
-              <div className="min-w-0">
-                <div className="text-sm text-gray-500">Step 1</div>
-                <div className="text-lg font-semibold text-gray-900">Order Summary</div>
-              </div>
-              {showSummary ? <ChevronUp /> : <ChevronDown />}
-            </button>
+        {/* 1) Summary */}
+<GlassCard className="p-4 sm:p-5">
+  <button type="button" onClick={() => setShowSummary((s) => !s)} className="w-full flex items-center justify-between">
+    <div className="min-w-0">
+      <div className="text-sm text-gray-500">Step 1</div>
+      <div className="text-lg font-semibold text-gray-900">Order Summary</div>
+    </div>
+    {showSummary ? <ChevronUp /> : <ChevronDown />}
+  </button>
 
-         {showSummary && (
-  <div className="mt-4 space-y-3">
-    {items.length ? (
-      items.map((item) => {
-        const src = getImageSrc(item);
-        const qty = Number(item?.qty ?? 1);
-        const price = Number(item?.price ?? 0);
-        const key = `${String(item?.productId || item?._id || item?.id || "")}__${String(item?.variantId || "")}`;
+  {showSummary && (
+    <div className="mt-4 space-y-3">
+      {items.length ? (
+        <>
+          {/* ITEMS LIST */}
+          <div className="space-y-3">
+            {items.map((item) => {
+              const src = getImageSrc(item);
+              const qty = Number(item?.qty ?? item?.quantity ?? 1);
+              const price = Number(item?.price ?? 0);
+              const key = `${String(item?.productId || item?._id || item?.id || "")}__${String(item?.variantId || "")}`;
 
-        return (
-          <div
-            key={key}
-            className="flex items-center justify-between gap-3 rounded-2xl bg-white/60 px-3 py-2 shadow-[0_10px_25px_rgba(0,0,0,0.06)]"
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="relative h-[64px] w-[56px] shrink-0 overflow-hidden rounded-xl bg-black/4">
-                {src ? (
-                  <Image
-                    src={src}
-                    alt={item?.name || "Product"}
-                    fill
-                    className="object-cover"
-                    sizes="56px"
-                  />
-                ) : (
-                  <div className="grid h-full w-full place-items-center text-[10px] text-black/50">
-                    No image
+              return (
+                <div key={key} className="flex items-center justify-between gap-3 rounded-2xl bg-white/60 px-3 py-2 shadow-[0_10px_25px_rgba(0,0,0,0.06)]">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="relative h-[64px] w-[56px] shrink-0 overflow-hidden rounded-xl bg-black/4">
+                      {src ? (
+                        <Image src={src} alt={item?.name || "Product"} fill className="object-cover" sizes="56px" />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center text-[10px] text-black/50">No image</div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-black">{item?.name || "Product"}</p>
+                      <p className="text-xs text-black/60">Qty: {qty}</p>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-black">
-                  {item?.name || "Product"}
-                </p>
-                <p className="text-xs text-black/60">Qty: {qty}</p>
-              </div>
+                  <p className="shrink-0 tabular-nums text-sm font-semibold text-black">₹{money(price * qty)}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* TOTALS */}
+          <div className="mt-4 rounded-2xl bg-white/70 p-4 shadow-[0_10px_25px_rgba(0,0,0,0.06)] space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Subtotal</span>
+              <span className="font-semibold tabular-nums text-gray-900">₹{money(subtotal)}</span>
             </div>
 
-            <p className="shrink-0 tabular-nums text-sm font-semibold text-black">
-              ₹{money(price * qty)}
-            </p>
-          </div>
-        );
-      })
-    ) : (
-      <p className="text-sm text-black/60">Your cart is empty.</p>
-    )}
-  </div>
-)}
+            {/* ✅ COUPON LINE */}
+            {coupon?.code && Number(discount || 0) > 0 && (
+              <div className="flex items-center justify-between text-sm text-green-700">
+                <span>Coupon <b>{coupon.code}</b></span>
+                <span className="font-semibold tabular-nums">− ₹{money(discount)}</span>
+              </div>
+            )}
 
-          </GlassCard>
+            <div className="h-px bg-black/5 my-1" />
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-900">Payable</span>
+              <span className="text-lg font-semibold tabular-nums text-gray-900">₹{money(payable)}</span>
+            </div>
+
+            <div className="text-[11px] text-gray-500">
+              Shipping: <span className="text-green-700 font-semibold">Free</span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-black/60">Your cart is empty.</p>
+      )}
+    </div>
+  )}
+</GlassCard>
 
           {/* 2) Address */}
           <GlassCard className="p-4 sm:p-5">
@@ -862,14 +904,16 @@ useEffect(() => {
           paymentMethod: "cod",
         });
 
-        notify.success("Order converted to Cash on Delivery");
+      toast.success("Order converted to Cash on Delivery");
+
 
         clearCart?.();
         router.replace(
           `/order-success?order=${paymentRecovery.orderNumber}`
         );
       } catch {
-        notify.error("Failed to switch to COD");
+      toast.error("Failed to switch to COD");
+
       }
     }}
     className="flex-1 rounded-xl border border-black/20 py-3 text-sm font-semibold text-black transition hover:bg-black/5 active:scale-[0.99]"

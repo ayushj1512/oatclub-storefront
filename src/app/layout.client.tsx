@@ -54,8 +54,6 @@ export default function LayoutClient({
         <ClarityProvider />
       </Suspense>
 
-      {/* TOP BAR */}
-      <TopbarHeadline />
 
       {/* HEADER */}
       <div className="hidden md:block">

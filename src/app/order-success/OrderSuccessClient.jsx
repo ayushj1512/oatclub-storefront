@@ -333,7 +333,7 @@ export default function OrderSuccessClient() {
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Link>
                     <Link
-                      href="/orders"
+                      href="/profile/orders"
                       className="flex-1 inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white active:scale-[0.99] transition"
                       style={{ backgroundColor: BRAND }}
                     >
