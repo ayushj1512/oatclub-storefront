@@ -45,7 +45,7 @@ export default function HomeClient() {
         </div>
 
         <HeroSection />
-        <StyleByOccasion />
+        {/* <StyleByOccasion /> */}
 
         {/* BELOW THE FOLD — NORMAL SECTIONS */}
 

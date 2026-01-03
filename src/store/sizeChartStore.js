@@ -1,45 +1,34 @@
+"use client";
+
 import { create } from "zustand";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL; 
+const API_URL = `${BASE_URL}/api/size-charts`;
 
 export const useSizeChartStore = create((set, get) => ({
-  sizeCharts: [],         // all charts list
-  currentSizeChart: null, // selected chart
+  /* ================= STATE ================= */
+  items: [],
+  active: null,
   loading: false,
   error: null,
-  success: null,
 
-  /* ============================
-     Fetch All Size Charts
-  ============================ */
-  fetchSizeCharts: async () => {
+  /* ================= HELPERS ================= */
+  setLoading: (val) => set({ loading: val }),
+  setError: (err) => set({ error: err }),
+
+  /* =========================================================
+     FETCH ALL SIZE CHARTS
+  ========================================================= */
+  fetchAll: async () => {
     try {
       set({ loading: true, error: null });
 
-      const res = await fetch(`${BASE_URL}/api/size-charts`);
+      const res = await fetch(API_URL, { cache: "no-store" });
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.message || "Failed to fetch size charts");
+      if (!res.ok) throw new Error(data?.message || "Failed to fetch charts");
 
-      set({ sizeCharts: data, loading: false });
-    } catch (err) {
-      set({ error: err.message, loading: false });
-    }
-  },
-
-  /* ============================
-     Fetch Size Chart by ID
-  ============================ */
-  fetchSizeChartById: async (id) => {
-    try {
-      set({ loading: true, error: null });
-
-      const res = await fetch(`${BASE_URL}/api/size-charts/${id}`);
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.message || "Failed to fetch size chart");
-
-      set({ currentSizeChart: data, loading: false });
+      set({ items: data, loading: false });
       return data;
     } catch (err) {
       set({ error: err.message, loading: false });
@@ -47,26 +36,47 @@ export const useSizeChartStore = create((set, get) => ({
     }
   },
 
-  /* ============================
-     Create Size Chart
-  ============================ */
-  createSizeChart: async (payload) => {
-    try {
-      set({ loading: true, error: null, success: null });
+  /* =========================================================
+     FETCH CHART BY ID
+  ========================================================= */
+  fetchById: async (id) => {
+    if (!id) return null;
 
-      const res = await fetch(`${BASE_URL}/api/size-charts`, {
+    try {
+      set({ loading: true, error: null });
+
+      const res = await fetch(`${API_URL}/${id}`, { cache: "no-store" });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data?.message || "Failed to fetch chart");
+
+      set({ active: data, loading: false });
+      return data;
+    } catch (err) {
+      set({ error: err.message, loading: false });
+      return null;
+    }
+  },
+
+  /* =========================================================
+     CREATE SIZE CHART
+  ========================================================= */
+  createChart: async (payload) => {
+    try {
+      set({ loading: true, error: null });
+
+      const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to create size chart");
+      if (!res.ok) throw new Error(data?.message || "Failed to create chart");
 
       set((state) => ({
-        sizeCharts: [data, ...state.sizeCharts],
+        items: [data, ...state.items],
         loading: false,
-        success: "Size chart created ✅",
       }));
 
       return data;
@@ -76,30 +86,28 @@ export const useSizeChartStore = create((set, get) => ({
     }
   },
 
-  /* ============================
-     Update Size Chart
-  ============================ */
-  updateSizeChart: async (id, payload) => {
-    try {
-      set({ loading: true, error: null, success: null });
+  /* =========================================================
+     UPDATE SIZE CHART
+  ========================================================= */
+  updateChart: async (id, payload) => {
+    if (!id) return null;
 
-      const res = await fetch(`${BASE_URL}/api/size-charts/${id}`, {
+    try {
+      set({ loading: true, error: null });
+
+      const res = await fetch(`${API_URL}/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to update size chart");
+      if (!res.ok) throw new Error(data?.message || "Failed to update chart");
 
       set((state) => ({
-        sizeCharts: state.sizeCharts.map((chart) =>
-          chart._id === id ? data : chart
-        ),
-        currentSizeChart:
-          state.currentSizeChart?._id === id ? data : state.currentSizeChart,
+        items: state.items.map((c) => (c?._id === id ? data : c)),
+        active: state.active?._id === id ? data : state.active,
         loading: false,
-        success: "Size chart updated ✅",
       }));
 
       return data;
@@ -109,26 +117,50 @@ export const useSizeChartStore = create((set, get) => ({
     }
   },
 
-  /* ============================
-     Delete Size Chart
-  ============================ */
-  deleteSizeChart: async (id) => {
-    try {
-      set({ loading: true, error: null, success: null });
+  fetchByCategory: async (categoryId) => {
+  if (!categoryId) return null;
 
-      const res = await fetch(`${BASE_URL}/api/size-charts/${id}`, {
+  try {
+    set({ loading: true, error: null });
+
+    const res = await fetch(API_URL, { cache: "no-store" });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data?.message || "Failed to fetch charts");
+
+    const chart = (Array.isArray(data) ? data : []).find((c) =>
+      (c?.categories || []).some((cat) => String(cat?._id || cat) === String(categoryId))
+    );
+
+    set({ active: chart || null, loading: false });
+    return chart || null;
+  } catch (err) {
+    set({ error: err.message, loading: false });
+    return null;
+  }
+},
+
+
+  /* =========================================================
+     DELETE SIZE CHART
+  ========================================================= */
+  deleteChart: async (id) => {
+    if (!id) return false;
+
+    try {
+      set({ loading: true, error: null });
+
+      const res = await fetch(`${API_URL}/${id}`, {
         method: "DELETE",
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to delete size chart");
+      if (!res.ok) throw new Error(data?.message || "Failed to delete chart");
 
       set((state) => ({
-        sizeCharts: state.sizeCharts.filter((chart) => chart._id !== id),
-        currentSizeChart:
-          state.currentSizeChart?._id === id ? null : state.currentSizeChart,
+        items: state.items.filter((c) => c?._id !== id),
+        active: state.active?._id === id ? null : state.active,
         loading: false,
-        success: "Size chart deleted ✅",
       }));
 
       return true;
@@ -138,9 +170,9 @@ export const useSizeChartStore = create((set, get) => ({
     }
   },
 
-  /* ============================
-     Helpers
-  ============================ */
-  setCurrentSizeChart: (chart) => set({ currentSizeChart: chart }),
-  clearMessages: () => set({ error: null, success: null }),
+  /* =========================================================
+     CLEAR
+  ========================================================= */
+  clearActive: () => set({ active: null }),
+  clearError: () => set({ error: null }),
 }));

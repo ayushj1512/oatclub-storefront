@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useHomepageSettingsStore } from "@/store/homepageSettingsStore"; 
+import { useHomepageSettingsStore } from "@/store/homepageSettingsStore";
 // ✅ update path according to your project structure
 
 export default function HeroSection() {
@@ -53,7 +53,9 @@ export default function HeroSection() {
   };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + heroBanners.length) % heroBanners.length);
+    setCurrentSlide(
+      (prev) => (prev - 1 + heroBanners.length) % heroBanners.length
+    );
   };
 
   const goToSlide = (index) => {
@@ -91,7 +93,7 @@ export default function HeroSection() {
   return (
     <section
       className="relative w-full overflow-hidden touch-pan-y select-none bg-gray-100"
-      style={{ paddingTop: "46.92%" }}
+      style={{ paddingTop: "41.67%" }} // ✅ 1920 × 800 ratio
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -126,7 +128,11 @@ export default function HeroSection() {
 
           // ✅ If banner has link, wrap in Link
           return banner.link ? (
-            <Link key={index} href={banner.link} className="w-full h-full flex-shrink-0">
+            <Link
+              key={index}
+              href={banner.link}
+              className="w-full h-full flex-shrink-0"
+            >
               {slideContent}
             </Link>
           ) : (

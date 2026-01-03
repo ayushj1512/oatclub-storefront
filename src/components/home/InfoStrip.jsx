@@ -24,8 +24,8 @@ export default function InfoStrip() {
 
   const infos = [
     {
-      title: "SHIPPING WITHIN 48 HOURS",
-      desc: "Your order will be shipped within 48 hours from the time it is placed!",
+      title: "FAST & RELIABLE SHIPPING",
+      desc: "We process and dispatch orders quickly with trusted delivery partners.",
       Icon: Truck,
     },
     {

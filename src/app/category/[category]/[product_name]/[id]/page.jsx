@@ -10,7 +10,7 @@ import { useWishlistStore } from "@/store/wishlistStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { useProductStore } from "@/store/productStore";
 import { notify } from "@/lib/notify";
-
+import SizeGuideAccordion from "../../../../../components/productDetail/SizeGuideAccordion";
 import ProductGallery from "@/components/productDetail/ProductGallery";
 import RelatedProducts from "@/components/productDetail/relatedProducts";
 import WashcareSection from "@/components/productDetail/WashcareSection";
@@ -498,7 +498,7 @@ export default function ProductPage({ params }) {
 
           {/* DETAILS */}
           <ProductDetailSection title="Product Details" content={product.description} />
-          <SizeGuideSection />
+<SizeGuideAccordion categoryId={product?.raw?.categories?.[0]?._id} />
 
           <WashcareSection
             title="Washcare & Instructions"
