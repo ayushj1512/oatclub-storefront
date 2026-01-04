@@ -44,6 +44,18 @@ const buildFacets = (products = []) => {
   };
 };
 
+const getStockCount = (p) => {
+  // product stock
+  const productStock = toNum(p?.stock_quantity ?? p?.stock, 0);
+
+  // variant stock max
+  const variantStock = Array.isArray(p?.variants)
+    ? Math.max(...p.variants.map((v) => toNum(v?.stock, 0)))
+    : 0;
+
+  return Math.max(productStock, variantStock);
+};
+
 export default function CategoryPage() {
   /* ============================================================
      PARAMS
@@ -78,7 +90,7 @@ export default function CategoryPage() {
 
   // ✅ prevent duplicate fetch in dev StrictMode
   const lastFetchRef = useRef("");
-
+const priceInitRef = useRef(false);
   /* ============================================================
      DRAWER SAFE AREA MEASUREMENTS
   ============================================================ */
@@ -137,15 +149,10 @@ export default function CategoryPage() {
     let arr = Array.isArray(allProducts) ? [...allProducts] : [];
 
     // ✅ In stock filter
-    if (onlyInStock) {
-      arr = arr.filter((p) => {
-        if (p?.stock_status) return p.stock_status === "instock";
-        if (typeof p?.in_stock === "boolean") return p.in_stock;
-        if (typeof p?.stock_quantity === "number") return p.stock_quantity > 0;
-        if (typeof p?.isInStock === "boolean") return p.isInStock;
-        return true;
-      });
-    }
+  if (onlyInStock) {
+  arr = arr.filter((p) => getStockCount(p) > 0);
+}
+
 
     // ✅ Price filter
     const lo = priceMin ?? facets.priceMin;
@@ -153,10 +160,15 @@ export default function CategoryPage() {
     const minV = Math.min(lo, hi);
     const maxV = Math.max(lo, hi);
 
-    arr = arr.filter((p) => {
-      const pr = Number(p?.price);
-      return Number.isFinite(pr) && pr >= minV && pr <= maxV;
-    });
+arr = arr.filter((p) => {
+  const pr = Number(p?.price);
+
+  // allow products with 0 / missing price
+  if (!Number.isFinite(pr) || pr === 0) return true;
+
+  return pr >= minV && pr <= maxV;
+});
+
 
     // ✅ Tags filter
     if (selectedTags.size > 0) {
@@ -183,7 +195,10 @@ export default function CategoryPage() {
     selectedTags,
   ]);
 
-  const totalAvailable = allProducts?.length || 0;
+const totalLoaded = allProducts?.length || 0;
+const inStockCount =
+  allProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
+
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
@@ -437,7 +452,10 @@ export default function CategoryPage() {
               {category || "Category"}
             </h1>
             <p className="text-sm text-zinc-600">
-              {showInitialLoading ? "Loading..." : `${totalAvailable} products loaded`}
+{showInitialLoading
+  ? "Loading..."
+  : ` ${inStockCount} products`}
+
             </p>
           </div>
 

@@ -160,15 +160,26 @@ const deriveImageList = (normalized) => {
 
 const findVariantIdBySize = (normalized, size) => {
   const raw = normalized?.raw || normalized;
+
   const vars = Array.isArray(raw?.variants)
     ? raw.variants
     : Array.isArray(normalized?.variants)
       ? normalized.variants
       : [];
-  const wanted = str(size).toLowerCase();
-  const v = vars.find((x) => getAttrValue(x?.attributes, "size").toLowerCase() === wanted);
-  return v?._id ? str(v._id) : null;
+
+  const wanted = String(size).trim().toUpperCase();
+
+  const v = vars.find((x) => {
+    const sku = String(x?.sku || "").toUpperCase();
+
+    // ✅ match patterns like: --M- , --XL- , --XS-
+    return sku.includes(`--${wanted}-`);
+  });
+
+  return v?._id || v?.id || null;
 };
+
+
 
 // ✅ cart key matches your cart store: `${pid}__${vid}`
 const cartKeyFor = (productId, variantId) => `${str(productId)}__${str(variantId || "")}`;
@@ -298,9 +309,10 @@ export default function ProductPage({ params }) {
     if (!normalized || !product) return;
 
     if (requireSize && !selectedSize) return notify.error("Please select a size");
-    if ((product.productType === "variable" || requireSize) && !selectedVariantId) {
-      return notify.error("Please select a size");
-    }
+    if (product.productType === "variable" && !selectedVariantId) {
+  return notify.error("Please select a size");
+}
+
 
     addToCart({
       product: normalized,
@@ -435,10 +447,12 @@ export default function ProductPage({ params }) {
           <button
             key={s}
             onClick={() => {
-              setSelectedSize(s);
-              const vid = normalized ? findVariantIdBySize(normalized, s) : null;
-              setSelectedVariantId(vid);
-            }}
+  setSelectedSize(s);
+  const vid = normalized ? findVariantIdBySize(normalized, s) : null;
+  console.log("SIZE:", s, "VID:", vid, "VARIANTS:", normalized?.raw?.variants);
+  setSelectedVariantId(vid);
+}}
+
             className={`px-3 py-1.5 text-sm font-medium rounded-md border transition ${
               active
                 ? "bg-black text-white border-black"
