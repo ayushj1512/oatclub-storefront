@@ -24,6 +24,48 @@ export const useCouponStore = create(
       // --------------------
       isApplied: () => Boolean(get().coupon?.code),
 
+           fetchSuggestedCoupons: async ({ customerId, cartTotal }) => {
+        if (!API_BASE) {
+          set({ suggestionError: "Backend not configured" });
+          return;
+        }
+
+        if (!customerId || cartTotal == null) return;
+
+        try {
+          set({
+            isLoadingSuggestions: true,
+            suggestionError: null,
+          });
+
+          const res = await fetch(
+            `${API_BASE}/api/coupons`,
+            {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            throw new Error(data.message || "Failed to fetch suggestions");
+          }
+
+          set({
+            suggestedCoupons: Array.isArray(data.coupons) ? data.coupons : [],
+            isLoadingSuggestions: false,
+            suggestionError: null,
+          });
+        } catch (err) {
+          set({
+            suggestedCoupons: [],
+            isLoadingSuggestions: false,
+            suggestionError: err.message || "Failed to fetch suggestions",
+          });
+        }
+      },
+
       // --------------------
       // ACTIONS
       // --------------------

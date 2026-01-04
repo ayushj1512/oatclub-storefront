@@ -101,24 +101,34 @@ export default function CartPage() {
 
   const isLoggedIn = Boolean(user?.uid && customer?._id);
 
-  const itemKey = (item) => String(item?.__key || `${String(item?.productId || item?.id || "")}__${String(item?.selectedSize || "")}`);
+const itemKey = (item) =>
+  String(
+    item?.__key ||
+      `${String(item?.productId || item?.id || "")}__${String(item?.variantId || "")}`
+  );
 
   const updateQtySafe = (item, nextQty) => {
-    const qty = Math.max(1, Number(nextQty || 1));
-    try {
-      updateQtyFn?.(item?.__key, qty);
-    } catch {
-      updateQtyFn?.(item?.productId || item?.id, qty, item?.selectedSize);
-    }
-  };
+  const qty = Math.max(1, Number(nextQty || 1));
+  const key = itemKey(item); // ✅ always correct key
 
-  const removeSafe = (item) => {
-    try {
-      removeFn?.(item?.__key);
-    } catch {
-      removeFn?.(item?.productId || item?.id, item?.selectedSize);
-    }
-  };
+  try {
+    updateQtyFn?.(key, qty);
+  } catch {
+    updateQtyFn?.(item?.productId || item?.id, qty, item?.variantId);
+  }
+};
+
+
+const removeSafe = (item) => {
+  const key = itemKey(item);
+
+  try {
+    removeFn?.(key);
+  } catch {
+    removeFn?.(item?.productId || item?.id, item?.variantId);
+  }
+};
+
 
   const getLineUnitPrice = (item) => {
     const p = item?.price ?? item?.productSnapshot?.price;
@@ -257,7 +267,11 @@ export default function CartPage() {
                               <div className="min-w-0">
                                 <p className="text-sm sm:text-[15px] font-semibold text-gray-900 truncate">{name}</p>
                                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                                  {!!item?.selectedSize && <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">Size: {String(item.selectedSize).toUpperCase()}</span>}
+{(item?.selectedSize || item?.variant?.size) && (
+  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
+    Size: {String(item?.selectedSize || item?.variant?.size).toUpperCase()}
+  </span>
+)}
                                   <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">₹{money(price)} each</span>
                                 </div>
                               </div>

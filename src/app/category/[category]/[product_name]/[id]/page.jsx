@@ -134,22 +134,37 @@ const deriveSizesFromBackend = (normalized) => {
 
   const raw = normalized.raw || normalized;
 
+  // 1) Try product attributes if available
   const attrs = Array.isArray(raw?.attributes) ? raw.attributes : [];
   const sizeAttr = attrs.find(
-    (a) => str(a?.key).toLowerCase() === "size" || str(a?.attribute?.slug).toLowerCase() === "size"
+    (a) =>
+      str(a?.key).toLowerCase() === "size" ||
+      str(a?.attribute?.slug).toLowerCase() === "size"
   );
+
   if (Array.isArray(sizeAttr?.values) && sizeAttr.values.length) {
-    return sizeAttr.values.map((s) => str(s).trim()).filter(Boolean);
+    return sizeAttr.values.map((s) => str(s).trim().toUpperCase()).filter(Boolean);
   }
 
+  // 2) Fallback: derive sizes from SKU inside variants
   const vars = Array.isArray(raw?.variants)
     ? raw.variants
     : Array.isArray(normalized?.variants)
       ? normalized.variants
       : [];
-  const fromVariants = vars.map((v) => getAttrValue(v?.attributes, "size")).filter(Boolean);
-  return Array.from(new Set(fromVariants));
+
+  const sizes = vars
+    .map((v) => {
+      const sku = String(v?.sku || "").toUpperCase();
+      // ✅ Example: ...-XS-1EL0  => XS
+      const parts = sku.split("-");
+      return parts.length >= 2 ? parts[parts.length - 2] : null;
+    })
+    .filter(Boolean);
+
+  return Array.from(new Set(sizes));
 };
+
 
 const deriveImageList = (normalized) => {
   const images = Array.isArray(normalized?.images) ? normalized.images : [];
@@ -172,12 +187,14 @@ const findVariantIdBySize = (normalized, size) => {
   const v = vars.find((x) => {
     const sku = String(x?.sku || "").toUpperCase();
 
-    // ✅ match patterns like: --M- , --XL- , --XS-
-    return sku.includes(`--${wanted}-`);
+    // ✅ Works for:
+    // ...-XS-... and ...--XS-...
+    return sku.includes(`-${wanted}-`) || sku.includes(`--${wanted}-`);
   });
 
   return v?._id || v?.id || null;
 };
+
 
 
 

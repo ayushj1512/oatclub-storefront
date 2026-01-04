@@ -32,6 +32,7 @@ import toast from "react-hot-toast";
 import RazorpayCheckoutButton from "@/components/checkout/RazorpayCheckoutButton";
 import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
+import CheckoutCouponSection from "@/components/checkout/CheckoutCouponSection";
 
 /* ---------- utils ---------- */
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0");
@@ -184,7 +185,10 @@ const createOrder = useOrderStore((s) => s.createOrder);
   const coupon = useCouponStore((s) => s.coupon);
 const discount = useCouponStore((s) => s.discount);
 const finalTotal = useCouponStore((s) => s.finalTotal);
-const payable = coupon ? finalTotal : subtotal;
+const payable = useMemo(() => {
+  const d = Math.max(0, Number(discount || 0));
+  return Math.max(0, subtotal - d);
+}, [subtotal, discount]);
 
 
   const selectedAddressObj = useMemo(() => {
@@ -435,7 +439,7 @@ const handlePlaceOrder = async () => {
       shippingAddressId: selectedAddressObj._id,
       billingAddressId: selectedAddressObj._id,
 
-      paymentMethod: "cod",
+paymentMethod: selectedPayment,
 
       items: items.map((it) => {
         const productId = resolveMongoProductId(it);
@@ -583,6 +587,10 @@ useEffect(() => {
               <span className="font-semibold tabular-nums text-gray-900">₹{money(subtotal)}</span>
             </div>
 
+{/* ✅ COUPON SECTION */}
+
+
+
             {/* ✅ COUPON LINE */}
             {coupon?.code && Number(discount || 0) > 0 && (
               <div className="flex items-center justify-between text-sm text-green-700">
@@ -609,6 +617,9 @@ useEffect(() => {
     </div>
   )}
 </GlassCard>
+
+            <CheckoutCouponSection cartTotal={subtotal} />
+
 
           {/* 2) Address */}
           <GlassCard className="p-4 sm:p-5">
@@ -901,7 +912,7 @@ useEffect(() => {
     onClick={async () => {
       try {
         await updateOrderStatus(paymentRecovery.orderId, {
-          paymentMethod: "cod",
+paymentMethod: selectedPayment,
         });
 
       toast.success("Order converted to Cash on Delivery");

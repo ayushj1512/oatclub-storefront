@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Tag, X, Loader2 } from "lucide-react";
 import { useCouponStore } from "@/store/couponStore";
 import { useAuthStore } from "@/store/authStore";
@@ -14,7 +14,7 @@ const couponLabel = (c) => {
   return `₹${money(c.discountValue)} OFF`;
 };
 
-export default function ApplyCoupon({ cartTotal }) {
+export default function CheckoutCouponSection({ cartTotal }) {
   const [code, setCode] = useState("");
 
   const user = useAuthStore((s) => s.user);
@@ -38,7 +38,7 @@ export default function ApplyCoupon({ cartTotal }) {
 
   const hasCoupon = Boolean(coupon?.code);
 
-  // ✅ Fetch coupon suggestions whenever cartTotal or user changes
+  // ✅ Fetch suggestions when user/cartTotal changes
   useEffect(() => {
     if (!user?.uid || cartTotal == null || cartTotal <= 0) return;
     fetchSuggestedCoupons({ customerId: user.uid, cartTotal });
@@ -63,26 +63,35 @@ export default function ApplyCoupon({ cartTotal }) {
   );
 
   return (
-    <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.06)]">
-      <div className="flex items-center gap-2 mb-2">
-        <Tag className="w-4 h-4 text-gray-700" />
-        <p className="text-sm font-semibold text-black">Apply Coupon</p>
+    <div className="mt-4 rounded-[22px] bg-white/75 backdrop-blur-xl shadow-[0_18px_45px_rgba(0,0,0,0.08)] p-4 sm:p-5">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="grid place-items-center size-9 rounded-2xl bg-black/4 text-gray-800">
+          <Tag className="w-4 h-4" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Apply Coupon</p>
+          <p className="text-xs text-gray-500">
+            Use a valid code to get discount
+          </p>
+        </div>
       </div>
 
       {!user?.uid && (
-        <div className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+        <div className="text-xs text-amber-700 bg-amber-50 rounded-2xl px-4 py-3">
           Login required to apply coupon
         </div>
       )}
 
+      {/* Applied Coupon */}
       {hasCoupon ? (
-        <div className="flex items-center justify-between rounded-xl bg-gray-50 border border-gray-200 px-3 py-2">
+        <div className="flex items-center justify-between rounded-2xl bg-white/70 border border-black/10 px-4 py-3 shadow-[0_10px_25px_rgba(0,0,0,0.06)]">
           <div>
-            <p className="text-sm font-semibold text-black">
-              {coupon.code} applied
+            <p className="text-sm font-semibold text-gray-900">
+              {coupon.code} applied ✅
             </p>
             <p className="text-xs text-gray-600">
-              You saved ₹{money(displayDiscount)}
+              You saved <b>₹{money(displayDiscount)}</b>
             </p>
           </div>
 
@@ -90,26 +99,27 @@ export default function ApplyCoupon({ cartTotal }) {
             type="button"
             onClick={removeCoupon}
             aria-label="Remove coupon"
-            className="grid place-items-center w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 transition"
+            className="grid place-items-center w-9 h-9 rounded-full bg-black/5 hover:bg-black/10 transition"
           >
-            <X className="w-4 h-4 text-black" />
+            <X className="w-4 h-4 text-gray-900" />
           </button>
         </div>
       ) : (
         <>
+          {/* Input + Apply */}
           <div className="flex items-center gap-2">
             <input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="Enter coupon code"
-              className="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 transition"
+              className="flex-1 rounded-2xl bg-white/80 px-4 py-3 text-sm outline-none shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.22)] transition"
             />
 
             <button
               type="button"
               disabled={isApplying || !user?.uid}
               onClick={() => onApply()}
-              className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-black hover:bg-black/90 transition disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white bg-black hover:opacity-90 transition disabled:bg-black/20 disabled:text-black/40"
             >
               {isApplying ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -119,10 +129,10 @@ export default function ApplyCoupon({ cartTotal }) {
             </button>
           </div>
 
-          {/* ✅ Suggested Coupons */}
+          {/* ✅ Coupon Suggestions */}
           {user?.uid && (
-            <div className="mt-3">
-              <p className="text-xs font-semibold text-gray-700 mb-2">
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-gray-800 mb-2">
                 Suggested Coupons
               </p>
 
@@ -140,7 +150,7 @@ export default function ApplyCoupon({ cartTotal }) {
                       key={c._id || c.code}
                       type="button"
                       onClick={() => onApply(c.code)}
-                      className="px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50 text-xs font-semibold text-black hover:bg-black hover:text-white transition"
+                      className="px-3 py-2 rounded-2xl bg-white/70 border border-black/10 shadow-[0_8px_22px_rgba(0,0,0,0.06)] text-xs font-semibold text-gray-900 hover:bg-black hover:text-white transition"
                     >
                       {c.code}
                       <span className="ml-1 font-medium opacity-70">
@@ -161,8 +171,11 @@ export default function ApplyCoupon({ cartTotal }) {
             </div>
           )}
 
+          {/* Message */}
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-          {message && <p className="mt-2 text-xs text-green-700">{message}</p>}
+          {message && (
+            <p className="mt-2 text-xs text-green-700">{message}</p>
+          )}
         </>
       )}
     </div>
