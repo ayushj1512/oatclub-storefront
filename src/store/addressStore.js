@@ -3,6 +3,9 @@
 
 /**
  * ✅ Address Store + PINCODE LOOKUP (India Post)
+ * ✅ Supports BOTH:
+ *    - Logged-in (firebaseUID)
+ *    - Guest checkout (customerId Mongo _id)
  * ✅ Meta Pixel + CAPI: AddShippingInfo
  * ✅ GA4: add_shipping_info
  */
@@ -44,15 +47,23 @@ export const useAddressStore = create((set, get) => ({
   _lastEventKey: null,
   _lastEventAt: 0,
 
-  /* ---------------- FETCH ---------------- */
-  fetchAddresses: async (firebaseUID) => {
+  /* ======================================================
+     ✅ FETCH ADDRESSES (firebaseUID OR customerId)
+     - Logged in -> firebaseUID
+     - Guest -> customerId (Mongo _id)
+  ====================================================== */
+  fetchAddresses: async ({ firebaseUID = null, customerId = null } = {}) => {
     if (!BACKEND) return [];
-    if (!firebaseUID) return [];
+    if (!firebaseUID && !customerId) return [];
 
     try {
       set({ loading: true, error: null });
 
-      const res = await fetch(`${BACKEND}/api/addresses/firebase/${firebaseUID}`, { cache: "no-store" });
+      const url = firebaseUID
+        ? `${BACKEND}/api/addresses/firebase/${firebaseUID}`
+        : `${BACKEND}/api/addresses/customer/${customerId}`;
+
+      const res = await fetch(url, { cache: "no-store" });
       const data = await safeJson(res);
 
       if (!data?.success) {
@@ -69,7 +80,10 @@ export const useAddressStore = create((set, get) => ({
     }
   },
 
-  /* ---------------- CREATE ---------------- */
+  /* ======================================================
+     ✅ CREATE ADDRESS (works for guest + login)
+     - Requires either firebaseUID OR customerId
+  ====================================================== */
   createAddress: async (addressPayload) => {
     if (!BACKEND) return null;
     try {
@@ -84,11 +98,19 @@ export const useAddressStore = create((set, get) => ({
       const data = await safeJson(res);
 
       if (!data?.success) {
-        set({ loading: false, error: data?.message || "Unable to save address" });
+        set({
+          loading: false,
+          error: data?.message || "Unable to save address",
+        });
         return null;
       }
 
-      await get().fetchAddresses(addressPayload.firebaseUID);
+      // ✅ refresh addresses
+      await get().fetchAddresses({
+        firebaseUID: addressPayload.firebaseUID || null,
+        customerId: addressPayload.customerId || null,
+      });
+
       set({ loading: false });
       return data.data || null;
     } catch (e) {
@@ -98,7 +120,10 @@ export const useAddressStore = create((set, get) => ({
     }
   },
 
-  /* ---------------- UPDATE ---------------- */
+  /* ======================================================
+     ✅ UPDATE ADDRESS
+     - Requires firebaseUID or customerId in payload
+  ====================================================== */
   updateAddress: async (id, payload) => {
     if (!BACKEND) return null;
     try {
@@ -117,7 +142,11 @@ export const useAddressStore = create((set, get) => ({
         return null;
       }
 
-      await get().fetchAddresses(payload.firebaseUID);
+      await get().fetchAddresses({
+        firebaseUID: payload.firebaseUID || null,
+        customerId: payload.customerId || null,
+      });
+
       set({ loading: false });
       return data.data || null;
     } catch (e) {
@@ -127,13 +156,18 @@ export const useAddressStore = create((set, get) => ({
     }
   },
 
-  /* ---------------- DELETE ---------------- */
-  deleteAddress: async (id, firebaseUID) => {
+  /* ======================================================
+     ✅ DELETE ADDRESS
+     - Works for guest + login
+  ====================================================== */
+  deleteAddress: async ({ id, firebaseUID = null, customerId = null }) => {
     if (!BACKEND) return null;
     try {
       set({ loading: true, error: null });
 
-      const res = await fetch(`${BACKEND}/api/addresses/${id}`, { method: "DELETE" });
+      const res = await fetch(`${BACKEND}/api/addresses/${id}`, {
+        method: "DELETE",
+      });
       const data = await safeJson(res);
 
       if (!data?.success) {
@@ -141,7 +175,7 @@ export const useAddressStore = create((set, get) => ({
         return null;
       }
 
-      await get().fetchAddresses(firebaseUID);
+      await get().fetchAddresses({ firebaseUID, customerId });
       set({ loading: false });
       return true;
     } catch (e) {
@@ -151,13 +185,18 @@ export const useAddressStore = create((set, get) => ({
     }
   },
 
-  /* ---------------- DEFAULT ---------------- */
-  setDefaultAddress: async (id, firebaseUID, type) => {
+  /* ======================================================
+     ✅ DEFAULT ADDRESS
+  ====================================================== */
+  setDefaultAddress: async ({ id, firebaseUID = null, customerId = null, type }) => {
     if (!BACKEND) return null;
     try {
       set({ loading: true, error: null });
 
-      const payload = type === "shipping" ? { isDefaultShipping: true } : { isDefaultBilling: true };
+      const payload =
+        type === "shipping"
+          ? { isDefaultShipping: true }
+          : { isDefaultBilling: true };
 
       const res = await fetch(`${BACKEND}/api/addresses/${id}`, {
         method: "PUT",
@@ -172,7 +211,7 @@ export const useAddressStore = create((set, get) => ({
         return null;
       }
 
-      await get().fetchAddresses(firebaseUID);
+      await get().fetchAddresses({ firebaseUID, customerId });
       set({ loading: false });
       return data.data || null;
     } catch (e) {
@@ -184,7 +223,6 @@ export const useAddressStore = create((set, get) => ({
 
   /* -------------------------------------------------------
      ✅ GA4 + META: add_shipping_info / AddShippingInfo
-     Call when user selects shipping address OR continues checkout
   ------------------------------------------------------- */
   trackAddShippingInfo: async ({
     currency = "INR",
@@ -204,7 +242,7 @@ export const useAddressStore = create((set, get) => ({
         addressId &&
         (get().addresses || []).find((a) => String(a?._id) === String(addressId));
 
-      /* ✅ GA4: add_shipping_info */
+      /* ✅ GA4 */
       try {
         pushEcomEvent("add_shipping_info", {
           currency,
@@ -216,7 +254,7 @@ export const useAddressStore = create((set, get) => ({
         console.warn("📈 GA4 add_shipping_info failed", e);
       }
 
-      /* ✅ Meta: AddShippingInfo */
+      /* ✅ Meta */
       try {
         await trackMeta("AddShippingInfo", {
           currency,

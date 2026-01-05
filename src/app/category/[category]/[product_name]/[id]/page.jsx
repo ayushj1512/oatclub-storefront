@@ -349,16 +349,40 @@ const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const handleViewCart = () => router.push("/cart");
 
   // ✅ Your request: Buy Now button should become "View Cart"
-  const handleBuyNowOrViewCart = () => {
-    if (selectionInCart) {
-      router.push("/cart");
-      return;
-    }
-    handleAddToCart();
-    window.setTimeout(() => {
-      window.location.href = "/checkout";
-    }, 50);
-  };
+  const handleBuyNowOrViewCart = async () => {
+  // ✅ if already added → just go cart/checkout
+  if (selectionInCart) {
+    router.push("/checkout");
+    return;
+  }
+
+  if (!normalized || !product) return;
+
+  if (requireSize && !selectedSize) {
+    notify.error("Please select a size");
+    return;
+  }
+
+  if ((product.productType === "variable" || requireSize) && !selectedVariantId) {
+    notify.error("Please select a size");
+    return;
+  }
+
+  // ✅ add to cart
+  addToCart({
+    product: normalized,
+    qty: 1,
+    selectedSize,
+    variantId: product.productType === "variable" || requireSize ? selectedVariantId : null,
+  });
+
+  // ✅ wait next tick so zustand/persist can update
+  await new Promise((r) => setTimeout(r, 250));
+
+  // ✅ push instead of window.location (better for next)
+  router.push("/checkout");
+};
+
 
   const handleToggleWishlist = () => {
     if (!product) return;
@@ -376,7 +400,7 @@ const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   const shareMessage = useMemo(() => {
     if (!product) return "";
-    const link = (typeof window !== "undefined" && window.location.href) || "";
+const link = typeof window !== "undefined" ? window.location.href : "";
     return `✨ ${product.name}\n₹${money(product.price)}${selectedSize ? ` • Size: ${selectedSize}` : ""}\n${link}`;
   }, [product, selectedSize]);
 

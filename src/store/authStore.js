@@ -15,7 +15,7 @@ import {
 const COOKIE_KEY = "user_auth";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 // ✅ Returns true = skip event, false = fire event
-const shouldSkipAuthMetaEvent = (get, set, key, windowMs = 4000) => {
+const shouldSkipAuthMetaEvent  = (get, set, key, windowMs = 4000) => {
   const now = Date.now();
   const { _lastAuthEvent, _lastAuthEventAt } = get();
 
@@ -56,20 +56,22 @@ activeCartType: "cart", // cart | abandoned
   });
 
   const { user, token } = get();
-  if (user && token) {
-    Cookies.set(
-      COOKIE_KEY,
-      JSON.stringify({
-        user,
-        customer,
-        token,
-        activeCartId,
-        activeCartType,
-      }),
-      { expires: 7 }
-    );
-  }
+
+  // ✅ Persist cookie for BOTH logged-in + guest
+  Cookies.set(
+    COOKIE_KEY,
+    JSON.stringify({
+      user: user || null,
+      customer,
+      token: token || null,
+      activeCartId,
+      activeCartType,
+      isGuest: !user,
+    }),
+    { expires: 7 }
+  );
 },
+
 
 
 
@@ -117,23 +119,23 @@ setActiveCart: (cartId, type = "cart") => {
      FETCH CUSTOMER BY FIREBASE UID
   --------------------------------------------- */
   fetchCustomerByUID: async (firebaseUID) => {
-    try {
-      const res = await fetch(`${BACKEND}/api/customers?search=${firebaseUID}`);
-      const data = await res.json();
+  try {
+    const res = await fetch(`${BACKEND}/api/customers/by-firebase/${firebaseUID}`);
+    const data = await res.json();
 
-      if (!Array.isArray(data) || data.length === 0) {
-        console.log("⚠️ No customer found for UID:", firebaseUID);
-        return null;
-      }
-
-      const customer = data[0];
-      get().setCustomerState(customer);
-      return customer;
-    } catch (err) {
-      console.error("❌ fetchCustomerByUID error:", err);
+    if (!res.ok || !data?._id) {
+      console.log("⚠️ No customer found for UID:", firebaseUID);
       return null;
     }
-  },
+
+    get().setCustomerState(data);
+    return data;
+  } catch (err) {
+    console.error("❌ fetchCustomerByUID error:", err);
+    return null;
+  }
+},
+
 
   /* ---------------------------------------------
      SYNC FIREBASE USER → BACKEND (UPSERT)
@@ -268,9 +270,44 @@ setActiveCart: (cartId, type = "cart") => {
  initialize: () => {
   if (typeof window === "undefined") return;
 
+  // ✅ Restore session from cookie (Guest + Auth)
+  const cached = Cookies.get(COOKIE_KEY);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+
+      if (parsed?.customer?._id) {
+        set({
+          user: parsed.user || null,
+          customer: parsed.customer,
+          token: parsed.token || null,
+          activeCartId: parsed.activeCartId || null,
+          activeCartType: parsed.activeCartType || "cart",
+          isAuthenticated: true,
+          loading: false,
+        });
+      }
+    } catch (e) {
+      console.warn("⚠️ Invalid auth cookie");
+    }
+  }
+
+  // ✅ Continue Firebase listener
   onAuthStateChanged(auth, async (firebaseUser) => {
-    // 🚪 Logged out
     if (!firebaseUser) {
+      // ✅ If guest exists, DON'T wipe it
+      const cookie = Cookies.get(COOKIE_KEY);
+      if (cookie) {
+        try {
+          const parsed = JSON.parse(cookie);
+          if (parsed?.isGuest && parsed?.customer?._id) {
+            set({ loading: false });
+            return;
+          }
+        } catch {}
+      }
+
+      // Normal logout cleanup
       set({
         user: null,
         customer: null,
@@ -280,11 +317,12 @@ setActiveCart: (cartId, type = "cart") => {
         isAuthenticated: false,
         loading: false,
       });
+
       Cookies.remove(COOKIE_KEY);
       return;
     }
 
-    // 👤 Firebase user snapshot
+    // ✅ Normal auth flow stays same
     const userData = {
       uid: firebaseUser.uid,
       name: firebaseUser.displayName || "",
@@ -292,11 +330,9 @@ setActiveCart: (cartId, type = "cart") => {
       photoURL: firebaseUser.photoURL || "",
     };
 
-    // 🔄 Sync with backend (CRASH-SAFE)
     const syncResult = await get().syncCustomer(firebaseUser);
 
     if (!syncResult) {
-      console.error("❌ Failed to sync customer during initialize");
       set({
         user: userData,
         customer: null,
@@ -309,14 +345,8 @@ setActiveCart: (cartId, type = "cart") => {
       return;
     }
 
-    const {
-      customer,
-      token,
-      activeCartId,
-      activeCartType,
-    } = syncResult;
+    const { customer, token, activeCartId, activeCartType } = syncResult;
 
-    // ✅ Update Zustand store
     set({
       user: userData,
       customer,
@@ -327,7 +357,6 @@ setActiveCart: (cartId, type = "cart") => {
       loading: false,
     });
 
-    // 🍪 Persist session
     Cookies.set(
       COOKIE_KEY,
       JSON.stringify({
@@ -336,11 +365,13 @@ setActiveCart: (cartId, type = "cart") => {
         token,
         activeCartId,
         activeCartType,
+        isGuest: false,
       }),
       { expires: 7 }
     );
   });
 },
+
 
 
 
@@ -407,7 +438,7 @@ loginWithGoogle: async () => {
     --------------------------------------------- */
     try {
       const key = `login_google_${firebaseUser.uid}`;
-      const shouldSkip = skipAuthMetaEvent(get, set, key, 4000);
+      const shouldSkip = shouldSkipAuthMetaEvent(get, set, key, 4000);
 
       if (!shouldSkip) {
         await trackMeta(
@@ -497,7 +528,7 @@ loginWithEmail: async (email, password) => {
     --------------------------------------------- */
     try {
       const key = `login_email_${firebaseUser.uid}`;
-      const shouldSkip = skipAuthMetaEvent(get, set, key, 4000);
+      const shouldSkip = shouldSkipAuthMetaEvent(get, set, key, 4000);
 
       if (!shouldSkip) {
         await trackMeta(
@@ -591,7 +622,7 @@ registerWithEmail: async (email, password, name) => {
     --------------------------------------------- */
     try {
       const key = `register_email_${firebaseUser.uid}`;
-      const shouldSkip = skipAuthMetaEvent(get, set, key, 6000);
+      const shouldSkip = shouldSkipAuthMetaEvent(get, set, key, 6000);
 
       if (!shouldSkip) {
         await trackMeta(
@@ -619,6 +650,60 @@ registerWithEmail: async (email, password, name) => {
 },
 
 
+// Guest checkout
+
+createGuestCustomer: async ({ name = "", email = "", phone = "" } = {}) => {
+  try {
+const payload = { firebaseUID: null, name, email, phone };
+
+    const res = await fetch(`${BACKEND}/api/customers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data?.customer?._id) {
+      console.error("❌ Guest create failed:", data?.message);
+      return null;
+    }
+
+    const customer = data.customer;
+
+    // ✅ Update store without Firebase user
+    set({
+      customer,
+      token: null,
+      user: null,
+      isAuthenticated: true,
+      activeCartId: customer?.cart?.activeCartId || null,
+      activeCartType: customer?.cart?.activeCartType || "cart",
+    });
+
+    // 🍪 Save session (guest)
+    Cookies.set(
+      COOKIE_KEY,
+      JSON.stringify({
+        user: null,
+        customer,
+        token: null,
+        activeCartId: customer?.cart?.activeCartId || null,
+        activeCartType: customer?.cart?.activeCartType || "cart",
+        isGuest: true,
+      }),
+      { expires: 7 }
+    );
+
+    return customer;
+  } catch (err) {
+    console.error("❌ createGuestCustomer exception:", err);
+    return null;
+  }
+},
+
+
+
 
 
   /* ---------------------------------------------
@@ -637,7 +722,7 @@ registerWithEmail: async (email, password, name) => {
     token: null,
     activeCartId: null,
     activeCartType: "cart",
-    isAuthenticated: false,
+    isAuthenticated: false, 
     showLogoutConfirm: false,
   });
 

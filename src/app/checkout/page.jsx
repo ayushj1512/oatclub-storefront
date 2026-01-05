@@ -156,9 +156,22 @@ const customer = useAuthStore((s) => s.customer);
 const loading = useAuthStore((s) => s.loading);
 const initializeAuth = useAuthStore((s) => s.initialize);
 const trackAddShippingInfo = useAddressStore((s) => s.trackAddShippingInfo);
+const createGuestCustomer = useAuthStore((s) => s.createGuestCustomer);
 
 const [createdOrderId, setCreatedOrderId] = useState(null);
 const [showCodCaptcha, setShowCodCaptcha] = useState(false);
+const [guestInfo, setGuestInfo] = useState({
+  name: "",
+  email: "",
+  phone: "",
+});
+const [creatingGuest, setCreatingGuest] = useState(false);
+
+const updateGuestField = (e) => {
+  const { name, value } = e.target;
+  setGuestInfo((p) => ({ ...p, [name]: value }));
+};
+
 
 
   // address store
@@ -263,6 +276,35 @@ useEffect(() => {
   const pinTimer = useRef(null);
   const lastPin = useRef("");
 
+  const ensureGuestCustomer = async () => {
+  if (customer?._id) return customer;
+
+  if (!guestInfo.email || !guestInfo.phone || !guestInfo.name) {
+    toast.error("Please fill Name, Email & Phone for Guest Checkout.");
+    return null;
+  }
+
+  try {
+    setCreatingGuest(true);
+
+    const created = await createGuestCustomer({
+      name: guestInfo.name,
+      email: guestInfo.email,
+      phone: guestInfo.phone,
+    });
+
+    if (!created?._id) {
+      toast.error("Could not create guest profile. Try again.");
+      return null;
+    }
+
+    toast.success("Guest profile created ✅");
+    return created;
+  } finally {
+    setCreatingGuest(false);
+  }
+};
+
   // init
   useEffect(() => {
     initCart?.();
@@ -272,18 +314,16 @@ useEffect(() => {
   useEffect(() => {
   if (loading) return; // ⏳ wait for Firebase auth
 
-  if (!user?.uid) {
-   toast.error("Login required to continue");
-router.replace("/login?redirect=/checkout");
-
-  }
+  
 }, [loading, user?.uid, router]);
 
   // when auth ready: fetch addresses + prefill required fields
   useEffect(() => {
-    if (!user?.uid) return;
+  if (loading) return;
 
-    fetchAddresses?.(user.uid);
+  // ✅ Logged-in
+  if (user?.uid) {
+    fetchAddresses?.({ firebaseUID: user.uid });
 
     setAddressForm((p) => ({
       ...p,
@@ -293,7 +333,36 @@ router.replace("/login?redirect=/checkout");
       fullName: p.fullName || customer?.name || user?.name || "",
       phone: p.phone || customer?.phone || "",
     }));
-  }, [user?.uid, user?.email, customer?._id, customer?.name, customer?.phone]);
+
+    return;
+  }
+
+  // ✅ Guest (customer exists)
+  if (!user?.uid && customer?._id) {
+    fetchAddresses?.({ customerId: customer._id });
+
+    setAddressForm((p) => ({
+      ...p,
+      firebaseUID: "",
+      email: guestInfo.email || customer?.email || p.email,
+      customerId: customer._id,
+      fullName: p.fullName || guestInfo.name || customer?.name || "",
+      phone: p.phone || guestInfo.phone || customer?.phone || "",
+    }));
+  }
+}, [
+  loading,
+  user?.uid,
+  user?.email,
+  customer?._id,
+  customer?.name,
+  customer?.phone,
+  guestInfo.email,
+  guestInfo.name,
+  guestInfo.phone,
+]);
+
+
 
   // select first address
   useEffect(() => {
@@ -341,74 +410,86 @@ router.replace("/login?redirect=/checkout");
   };
 
   const saveNewAddress = async () => {
-    // ✅ ensure required fields exist
-    const firebaseUID = user?.uid;
-    const email = user?.email;
-    const customerId = customer?._id;
+  let finalCustomer = customer;
 
-    if (!firebaseUID || !email || !customerId) {
-     toast.error("Please login again. Customer profile is not ready yet.");
-return;
-    }
+  // ✅ If guest & no customer, create it
+  if (!user?.uid) {
+    finalCustomer = await ensureGuestCustomer();
+    if (!finalCustomer?._id) return;
+  }
 
-    // basic validation
-   if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
-  toast.error("Enter a valid 6-digit pincode");
-  return;
-}
+  const firebaseUID = user?.uid || ""; // ✅ guest => ""
+  const email = user?.email || guestInfo.email || finalCustomer?.email || "";
+  const customerId = finalCustomer?._id;
 
-   if (!addressForm.addressLine1) {
-  toast.error("Address line 1 is required");
-  return;
-}
-if (!addressForm.fullName) {
-  toast.error("Full name is required");
-  return;
-}
-if (!addressForm.phone) {
-  toast.error("Phone is required");
-  return;
-}
+  if (!email || !customerId) {
+    toast.error("Customer profile missing. Try again.");
+    return;
+  }
 
+  // validation
+  if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
+    toast.error("Enter a valid 6-digit pincode");
+    return;
+  }
+  if (!addressForm.addressLine1) {
+    toast.error("Address line 1 is required");
+    return;
+  }
+  if (!addressForm.fullName) {
+    toast.error("Full name is required");
+    return;
+  }
+  if (!addressForm.phone) {
+    toast.error("Phone is required");
+    return;
+  }
 
-    try {
-      setSavingAddress(true);
+  try {
+    setSavingAddress(true);
 
-      const payload = {
-        ...addressForm,
-        firebaseUID,
-        email,
-        customerId,
+    const payload = {
+      ...addressForm,
+      firebaseUID, // ✅ empty allowed for guest
+      email,
+      customerId,
 
-        // keep these aligned if user didn't type
-        fullName: addressForm.fullName || customer?.name || user?.name || "",
-        phone: addressForm.phone || customer?.phone || "",
-      };
+      fullName: addressForm.fullName || finalCustomer?.name || guestInfo.name,
+      phone: addressForm.phone || finalCustomer?.phone || guestInfo.phone,
+    };
 
-      const created = await createAddress?.(payload);
-      setShowAddressForm(false);
+    const created = await createAddress?.(payload);
+    setShowAddressForm(false);
 
-      if (created?._id) setSelectedAddressId(created._id);
-    } finally {
-      setSavingAddress(false);
-    }
-  };
+    if (created?._id) setSelectedAddressId(created._id);
+  } finally {
+    setSavingAddress(false);
+  }
+};
+
 
   const validate = () => {
-    if (!items?.length) return "Your cart is empty.";
-    if (!user?.uid) return "Please login to continue.";
-    if (!customer?._id) return "Customer profile not ready yet. Please try again.";
-    if (!selectedAddressObj) return "Please select an address.";
-if (!["cod", "razorpay"].includes(selectedPayment)) {
-  return "Invalid payment method selected.";
-}
+  if (!items?.length) return "Your cart is empty.";
 
+  // ✅ must have either user OR customer
+  if (!user?.uid && !customer?._id) return "Please login or continue as guest.";
 
+  if (!customer?._id) return "Customer profile not ready yet. Please try again.";
+  if (!selectedAddressObj) return "Please select an address.";
 
-    const bad = items.find((it) => !resolveMongoProductId(it));
-    if (bad) return `Cart item missing Mongo ObjectId. Found "${String(bad?.productId || bad?._id || "")}".`;
-    return null;
-  };
+  if (!["cod", "razorpay"].includes(selectedPayment)) {
+    return "Invalid payment method selected.";
+  }
+
+  const bad = items.find((it) => !resolveMongoProductId(it));
+  if (bad)
+    return `Cart item missing Mongo ObjectId. Found "${String(
+      bad?.productId || bad?._id || ""
+    )}".`;
+
+  return null;
+};
+
 
 
   const checkoutError = useMemo(() => validate(), [
@@ -430,6 +511,12 @@ const [paymentRecovery, setPaymentRecovery] = useState({
 
 
 const handlePlaceOrder = async () => {
+  let finalCustomer = customer;
+if (!user?.uid) {
+  finalCustomer = await ensureGuestCustomer();
+  if (!finalCustomer?._id) return;
+}
+
   const err = validate();
   if (err) {
     toast.error(err);
@@ -446,38 +533,38 @@ const handlePlaceOrder = async () => {
   try {
     /* ---------------- CREATE ORDER ---------------- */
     const order = await createOrder({
-      customerId: customer._id,
+  customerId: finalCustomer._id,
 
-      // ✅ REQUIRED BY BACKEND
-      shippingAddressId: selectedAddressObj._id,
-      billingAddressId: selectedAddressObj._id,
+  shippingAddressId: selectedAddressObj._id,
+  billingAddressId: selectedAddressObj._id,
 
-paymentMethod: selectedPayment,
+  paymentMethod: selectedPayment,
 
-      items: items.map((it) => {
-        const productId = resolveMongoProductId(it);
-        const qty = Number(it?.qty ?? it?.quantity ?? 1);
-        const variantId = isObjectId(String(it?.variantId || ""))
-          ? String(it.variantId)
-          : null;
+  items: items.map((it) => {
+    const productId = resolveMongoProductId(it);
+    const qty = Number(it?.qty ?? it?.quantity ?? 1);
+    const variantId = isObjectId(String(it?.variantId || ""))
+      ? String(it.variantId)
+      : null;
 
-        return {
-          productId,
-          quantity: qty,
-          ...(variantId ? { variantId } : {}),
-        };
-      }),
+    return {
+      productId,
+      quantity: qty,
+      ...(variantId ? { variantId } : {}),
+    };
+  }),
 
-      source: "website",
+  source: "website",
 
-      coupon: coupon
-        ? {
-            code: coupon.code,
-            discount,
-            finalTotal: payable,
-          }
-        : null,
-    });
+  coupon: coupon
+    ? {
+        code: coupon.code,
+        discount,
+        finalTotal: payable,
+      }
+    : null,
+});
+
 
     /* ------------------------------------------------
        🔥 ABANDONED CART → RECOVERED
@@ -632,6 +719,45 @@ useEffect(() => {
 </GlassCard>
 
             <CheckoutCouponSection cartTotal={subtotal} />
+
+{!user?.uid && !customer?._id && (
+  <GlassCard className="p-4 sm:p-5">
+    <div className="text-sm text-gray-500">Guest Checkout</div>
+    <div className="text-lg font-semibold text-gray-900 mt-1">
+      Your Details
+    </div>
+
+    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <FormField
+        label="Full Name"
+        name="name"
+        value={guestInfo.name}
+        onChange={updateGuestField}
+      />
+      <FormField
+        label="Email"
+        name="email"
+        value={guestInfo.email}
+        onChange={updateGuestField}
+      />
+      <FormField
+        label="Phone"
+        name="phone"
+        value={guestInfo.phone}
+        onChange={updateGuestField}
+      />
+    </div>
+
+    <button
+      type="button"
+      onClick={ensureGuestCustomer}
+      disabled={creatingGuest}
+      className="mt-4 w-full rounded-2xl bg-black py-3 text-sm font-semibold text-white shadow transition disabled:bg-black/20"
+    >
+      {creatingGuest ? "Creating Guest Profile..." : "Continue as Guest"}
+    </button>
+  </GlassCard>
+)}
 
 
           {/* 2) Address */}
@@ -867,7 +993,7 @@ disabled={!canCheckout}
     );
 
    return await createOrder({
-  customerId: customer._id,
+customerId: (user?.uid ? customer._id : (customer?._id || (await ensureGuestCustomer())?._id)),
 
   // ✅ FIX
   shippingAddressId: selectedAddressObj._id,

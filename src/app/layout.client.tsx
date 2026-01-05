@@ -73,7 +73,7 @@ export default function LayoutClient({
         <ScrollToTop />
 
         {/* MODALS */}
-        <SignupModal closeAll={closeAll} />
+        {/* <SignupModal closeAll={closeAll} /> */}
         <LogoutConfirmModal />
 
         {/* TOASTER */}

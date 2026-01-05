@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Tag, X, Loader2 } from "lucide-react";
 import { useCouponStore } from "@/store/couponStore";
-import { useAuthStore } from "@/store/authStore";
 
 const money = (n) =>
   Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0";
@@ -18,8 +17,6 @@ export default function ApplyCoupon({ cartTotal }) {
   const [code, setCode] = useState("");
   const [clickedCode, setClickedCode] = useState(null);
 
-  const user = useAuthStore((s) => s.user);
-
   const {
     coupon,
     discount,
@@ -30,7 +27,7 @@ export default function ApplyCoupon({ cartTotal }) {
     removeCoupon,
     clearCouponMessages,
 
-    // ✅ Suggestions
+    // ✅ Suggestions (now works for guest too)
     suggestedCoupons,
     isLoadingSuggestions,
     suggestionError,
@@ -39,13 +36,15 @@ export default function ApplyCoupon({ cartTotal }) {
 
   const hasCoupon = Boolean(coupon?.code);
 
-  // ✅ Stable function (avoid useEffect dependency spam)
-  const loadSuggestions = useCallback(() => {
-    if (!user?.uid || cartTotal == null || cartTotal <= 0 || hasCoupon) return;
-    fetchSuggestedCoupons({ customerId: user.uid, cartTotal });
-  }, [user?.uid, cartTotal, fetchSuggestedCoupons, hasCoupon]);
+  // ✅ Always treat as guest (no auth dependency)
+  const customerId = "guest";
 
-  // ✅ Fetch suggestions when user/cart changes
+  // ✅ Load suggestions for everyone (guest-friendly)
+  const loadSuggestions = useCallback(() => {
+    if (cartTotal == null || cartTotal <= 0 || hasCoupon) return;
+    fetchSuggestedCoupons({ customerId, cartTotal });
+  }, [cartTotal, fetchSuggestedCoupons, hasCoupon]);
+
   useEffect(() => {
     loadSuggestions();
   }, [loadSuggestions]);
@@ -53,7 +52,6 @@ export default function ApplyCoupon({ cartTotal }) {
   const onApply = async (applyCode = code) => {
     const finalCode = String(applyCode || "").trim();
     if (!finalCode || isApplying) return;
-    if (!user?.uid) return;
 
     try {
       clearCouponMessages?.();
@@ -61,18 +59,14 @@ export default function ApplyCoupon({ cartTotal }) {
 
       await applyCoupon({
         code: finalCode,
-        customerId: user.uid,
+        customerId, // ✅ guest
         cartTotal,
       });
 
       setCode("");
       setClickedCode(null);
-
-      // ✅ Optional: refresh suggestions after applying (for better UX)
-      // loadSuggestions();
     } catch {
       setClickedCode(null);
-      /* handled in store */
     }
   };
 
@@ -96,12 +90,6 @@ export default function ApplyCoupon({ cartTotal }) {
         <Tag className="w-4 h-4 text-gray-700" />
         <p className="text-sm font-semibold text-black">Apply Coupon</p>
       </div>
-
-      {!user?.uid && (
-        <div className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
-          Login required to apply coupon
-        </div>
-      )}
 
       {hasCoupon ? (
         <div className="flex items-center justify-between rounded-xl bg-gray-50 border border-gray-200 px-3 py-2">
@@ -136,7 +124,7 @@ export default function ApplyCoupon({ cartTotal }) {
 
             <button
               type="button"
-              disabled={isApplying || !user?.uid || !code.trim()}
+              disabled={isApplying || !code.trim()}
               onClick={() => onApply()}
               className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-black hover:bg-black/90 transition disabled:opacity-60"
             >
@@ -148,75 +136,70 @@ export default function ApplyCoupon({ cartTotal }) {
             </button>
           </div>
 
-          {/* ✅ Suggested Coupons */}
-          {user?.uid && (
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-gray-700">
-                  Suggested Coupons
-                </p>
+          {/* ✅ Suggested Coupons (Guest + Logged-in) */}
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-gray-700">
+                Suggested Coupons
+              </p>
 
-                <button
-                  type="button"
-                  onClick={loadSuggestions}
-                  className="text-[11px] font-semibold text-gray-600 hover:text-black transition"
-                >
-                  Refresh
-                </button>
-              </div>
-
-              {isLoadingSuggestions ? (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading suggestions...
-                </div>
-              ) : suggestionError ? (
-                <p className="text-xs text-red-600">{suggestionError}</p>
-              ) : suggestedCoupons?.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {suggestedCoupons.map((c) => {
-                    const isThisApplying =
-                      isApplying && clickedCode === c.code;
-
-                    return (
-                      <button
-                        key={c._id || c.code}
-                        type="button"
-                        disabled={isApplying}
-                        onClick={() => onApply(c.code)}
-                        className="px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50 text-xs font-semibold text-black hover:bg-black hover:text-white transition disabled:opacity-60"
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          {isThisApplying ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : null}
-                          {c.code}
-                        </span>
-
-                        <span className="ml-1 font-medium opacity-70">
-                          {couponLabel(c)}
-                        </span>
-
-                        {c.minPurchase > 0 && (
-                          <span className="ml-2 text-[11px] opacity-60">
-                            Min ₹{money(c.minPurchase)}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500">No coupons available</p>
-              )}
+              <button
+                type="button"
+                onClick={loadSuggestions}
+                className="text-[11px] font-semibold text-gray-600 hover:text-black transition"
+              >
+                Refresh
+              </button>
             </div>
-          )}
+
+            {isLoadingSuggestions ? (
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading suggestions...
+              </div>
+            ) : suggestionError ? (
+              <p className="text-xs text-red-600">{suggestionError}</p>
+            ) : suggestedCoupons?.length ? (
+              <div className="flex flex-wrap gap-2">
+                {suggestedCoupons.map((c) => {
+                  const isThisApplying = isApplying && clickedCode === c.code;
+
+                  return (
+                    <button
+                      key={c._id || c.code}
+                      type="button"
+                      disabled={isApplying}
+                      onClick={() => onApply(c.code)}
+                      className="px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50 text-xs font-semibold text-black hover:bg-black hover:text-white transition disabled:opacity-60"
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {isThisApplying ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : null}
+                        {c.code}
+                      </span>
+
+                      <span className="ml-1 font-medium opacity-70">
+                        {couponLabel(c)}
+                      </span>
+
+                      {c.minPurchase > 0 && (
+                        <span className="ml-2 text-[11px] opacity-60">
+                          Min ₹{money(c.minPurchase)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500">No coupons available</p>
+            )}
+          </div>
 
           {/* ✅ Error / Message */}
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-          {message && (
-            <p className="mt-2 text-xs text-green-700">{message}</p>
-          )}
+          {message && <p className="mt-2 text-xs text-green-700">{message}</p>}
         </>
       )}
     </div>

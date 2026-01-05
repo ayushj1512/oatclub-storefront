@@ -221,9 +221,16 @@ const removeSafe = (item) => {
                 Continue shopping <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
 
-              <button type="button" disabled={!items.length || !isLoggedIn} onClick={goCheckout} className="inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none" style={{ backgroundColor: BRAND }}>
-                Checkout
-              </button>
+              <button
+  type="button"
+  disabled={!items.length}
+  onClick={goCheckout}
+  className="inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
+  style={{ backgroundColor: BRAND }}
+>
+  Checkout
+</button>
+
             </div>
           </div>
         </GlassCard>
@@ -344,11 +351,17 @@ const removeSafe = (item) => {
                     <span className="text-xl font-semibold tabular-nums" style={{ color: BRAND }}>₹{money(payableTotal)}</span>
                   </div>
 
-                  {!isLoggedIn && <div className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2">Please login to continue checkout</div>}
+                  
+                  <button
+  type="button"
+  disabled={!items.length}
+  onClick={goCheckout}
+  className="mt-3 w-full rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
+  style={{ backgroundColor: BRAND }}
+>
+  Proceed to Checkout
+</button>
 
-                  <button type="button" disabled={!items.length || !isLoggedIn} onClick={goCheckout} className="mt-3 w-full rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none" style={{ backgroundColor: BRAND }}>
-                    Proceed to Checkout
-                  </button>
 
                   <div className="text-[11px] text-gray-500 leading-relaxed">
                     By placing your order, you agree to our <Link href="/terms-and-conditions" className="text-gray-900 underline underline-offset-4">Terms</Link> & <Link href="/privacy-policy" className="text-gray-900 underline underline-offset-4">Privacy Policy</Link>.
