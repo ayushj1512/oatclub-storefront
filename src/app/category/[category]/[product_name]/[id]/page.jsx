@@ -10,7 +10,7 @@ import { useWishlistStore } from "@/store/wishlistStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { useProductStore } from "@/store/productStore";
 import { notify } from "@/lib/notify";
-import SizeGuideAccordion from "../../../../../components/productDetail/SizeGuideAccordion";
+import SizeGuideModal from "../../../../../components/productDetail/SizeGuideModal";
 import ProductGallery from "@/components/productDetail/ProductGallery";
 import RelatedProducts from "@/components/productDetail/relatedProducts";
 import WashcareSection from "@/components/productDetail/WashcareSection";
@@ -226,6 +226,7 @@ export default function ProductPage({ params }) {
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [loading, setLoading] = useState(true);
+const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   useEffect(() => {
     cartInitialize?.();
@@ -451,38 +452,72 @@ export default function ProductPage({ params }) {
             </div>
           </div>
 
-          {/* SIZE SELECTOR */}
-        {(product.sizes || []).length > 0 && (
+ {/* SIZE SELECTOR */}
+{(product.sizes || []).length > 0 && (
   <div className="space-y-1.5 pt-1">
-    <h3 className="text-xs font-medium text-black">Select Size</h3>
+    {/* Title + Size Guide link */}
+    <div className="flex items-center justify-between">
+      <h3 className="text-xs font-medium text-black">Select Size</h3>
 
+      <button
+        type="button"
+        onClick={() => setSizeGuideOpen(true)}
+        className="text-xs font-semibold underline text-black/70 hover:text-black"
+      >
+        Size Guide
+      </button>
+    </div>
+
+    {/* ✅ Sorted Size Buttons */}
     <div className="flex flex-wrap gap-2">
-      {product.sizes.map((s) => {
-        const active = selectedSize === s;
+      {(() => {
+        // ✅ predefined order
+        const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
 
-        return (
-          <button
-            key={s}
-            onClick={() => {
-  setSelectedSize(s);
-  const vid = normalized ? findVariantIdBySize(normalized, s) : null;
-  console.log("SIZE:", s, "VID:", vid, "VARIANTS:", normalized?.raw?.variants);
-  setSelectedVariantId(vid);
-}}
+        const sortedSizes = [...(product.sizes || [])]
+          .map((x) => str(x).trim().toUpperCase())
+          .filter(Boolean)
+          .sort((a, b) => {
+            const ia = sizeOrder.indexOf(a);
+            const ib = sizeOrder.indexOf(b);
 
-            className={`px-3 py-1.5 text-sm font-medium rounded-md border transition ${
-              active
-                ? "bg-black text-white border-black"
-                : "bg-white text-black border-black/20 hover:bg-black/5"
-            }`}
-          >
-            {str(s).toUpperCase()}
-          </button>
-        );
-      })}
+            // If both exist in order list
+            if (ia !== -1 && ib !== -1) return ia - ib;
+
+            // If only one exists, it comes first
+            if (ia !== -1) return -1;
+            if (ib !== -1) return 1;
+
+            // Otherwise fallback alphabetical
+            return a.localeCompare(b);
+          });
+
+        return sortedSizes.map((s) => {
+          const active = selectedSize === s;
+
+          return (
+            <button
+              key={s}
+              onClick={() => {
+                setSelectedSize(s);
+                const vid = normalized ? findVariantIdBySize(normalized, s) : null;
+                setSelectedVariantId(vid);
+              }}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md border transition ${
+                active
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-black border-black/20 hover:bg-black/5"
+              }`}
+            >
+              {s}
+            </button>
+          );
+        });
+      })()}
     </div>
   </div>
 )}
+
 
 
           {/* CTA row */}
@@ -529,7 +564,6 @@ export default function ProductPage({ params }) {
 
           {/* DETAILS */}
           <ProductDetailSection title="Product Details" content={product.description} />
-<SizeGuideAccordion categoryId={product?.raw?.categories?.[0]?._id} />
 
           <WashcareSection
             title="Washcare & Instructions"
@@ -547,6 +581,13 @@ export default function ProductPage({ params }) {
           <ReviewSection />
         </aside>
       </div>
+
+ {/* ✅ Size Guide Modal */}
+      <SizeGuideModal
+        open={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        categoryId={product?.raw?.categories?.[0]?._id}
+      />
 
       <div className="mt-2">
         <RelatedProducts productId={product.productId} />

@@ -4,11 +4,9 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useHomepageSettingsStore } from "@/store/homepageSettingsStore";
-// ✅ update path according to your project structure
 
 export default function HeroSection() {
-  const { settings, loading, fetchHomepageSettings } =
-    useHomepageSettingsStore();
+  const { settings, loading, fetchHomepageSettings } = useHomepageSettingsStore();
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -23,46 +21,50 @@ export default function HeroSection() {
     if (!settings) fetchHomepageSettings();
   }, [settings, fetchHomepageSettings]);
 
-  // ✅ Extract & prepare hero banners safely
+  // ✅ Extract banners safely
   const heroBanners = useMemo(() => {
     const banners = settings?.heroBanners || [];
-
     return banners
-      .filter((b) => b.isActive && b.image) // only active with images
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+      .filter((b) => b?.isActive && b?.image)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   }, [settings]);
 
-  // ✅ Reset slide when banners change
+  // ✅ Reset when banners change
   useEffect(() => {
     setCurrentSlide(0);
     setLoaded(false);
   }, [heroBanners.length]);
 
-  // ✅ Autoplay controls
-  const startAutoplay = () => {
-    stopAutoplay();
-    slideInterval.current = setInterval(nextSlide, 5000);
-  };
-
   const stopAutoplay = () => {
-    if (slideInterval.current) clearInterval(slideInterval.current);
+    if (slideInterval.current) {
+      clearInterval(slideInterval.current);
+      slideInterval.current = null;
+    }
   };
 
   const nextSlide = () => {
+    if (heroBanners.length <= 1) return;
     setCurrentSlide((prev) => (prev + 1) % heroBanners.length);
   };
 
   const prevSlide = () => {
-    setCurrentSlide(
-      (prev) => (prev - 1 + heroBanners.length) % heroBanners.length
-    );
+    if (heroBanners.length <= 1) return;
+    setCurrentSlide((prev) => (prev - 1 + heroBanners.length) % heroBanners.length);
   };
 
   const goToSlide = (index) => {
+    stopAutoplay();
     setCurrentSlide(index);
   };
 
-  // ✅ Touch swipe handlers
+  const startAutoplay = () => {
+    stopAutoplay();
+    if (heroBanners.length > 1) {
+      slideInterval.current = setInterval(nextSlide, 5000);
+    }
+  };
+
+  // ✅ Touch swipe
   const handleTouchStart = (e) => {
     stopAutoplay();
     startX.current = e.touches[0].clientX;
@@ -82,30 +84,43 @@ export default function HeroSection() {
   useEffect(() => {
     if (heroBanners.length > 1) {
       startAutoplay();
-      return () => stopAutoplay();
     }
+    return () => stopAutoplay();
   }, [heroBanners.length]);
 
-  // ✅ If loading OR no banners, don't render slider
-  if (loading && !settings) return null;
+  // ✅ Loading UI instead of returning null
+  if (loading && !settings) {
+    return (
+      <section
+        className="relative w-full overflow-hidden bg-gray-100"
+        style={{ paddingTop: "41.67%" }}
+      >
+        <div className="absolute inset-0 bg-gray-200 overflow-hidden">
+          <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
+        </div>
+      </section>
+    );
+  }
+
+  // ✅ If no banners, don’t crash — return nothing
   if (!heroBanners.length) return null;
 
   return (
     <section
       className="relative w-full overflow-hidden touch-pan-y select-none bg-gray-100"
-      style={{ paddingTop: "41.67%" }} // ✅ 1920 × 800 ratio
+      style={{ paddingTop: "41.67%" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* 🔥 SHIMMER */}
+      {/* ✅ Shimmer */}
       {!loaded && (
         <div className="absolute inset-0 bg-gray-200 overflow-hidden">
           <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
         </div>
       )}
 
-      {/* SLIDER */}
+      {/* ✅ Slider */}
       <div
         className={`absolute top-0 left-0 w-full h-full flex transition-transform duration-700 ease-in-out ${
           loaded ? "opacity-100" : "opacity-0"
@@ -121,18 +136,20 @@ export default function HeroSection() {
                 fill
                 priority={index === 0}
                 className="object-cover object-center"
-                onLoad={() => index === 0 && setLoaded(true)}
+                // ✅ More reliable than onLoad
+                onLoadingComplete={() => {
+                  if (index === 0) setLoaded(true);
+                }}
+                // ✅ If image fails, stop shimmer so UI doesn’t get stuck
+                onError={() => {
+                  if (index === 0) setLoaded(true);
+                }}
               />
             </div>
           );
 
-          // ✅ If banner has link, wrap in Link
           return banner.link ? (
-            <Link
-              key={index}
-              href={banner.link}
-              className="w-full h-full flex-shrink-0"
-            >
+            <Link key={index} href={banner.link} className="w-full h-full flex-shrink-0">
               {slideContent}
             </Link>
           ) : (
@@ -143,27 +160,26 @@ export default function HeroSection() {
         })}
       </div>
 
-      {/* LEFT ARROW */}
+      {/* ✅ Arrows */}
       {heroBanners.length > 1 && (
-        <button
-          onClick={prevSlide}
-          className="hidden sm:flex absolute top-1/2 left-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
-        >
-          &#10094;
-        </button>
+        <>
+          <button
+            onClick={prevSlide}
+            className="hidden sm:flex absolute top-1/2 left-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
+          >
+            &#10094;
+          </button>
+
+          <button
+            onClick={nextSlide}
+            className="hidden sm:flex absolute top-1/2 right-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
+          >
+            &#10095;
+          </button>
+        </>
       )}
 
-      {/* RIGHT ARROW */}
-      {heroBanners.length > 1 && (
-        <button
-          onClick={nextSlide}
-          className="hidden sm:flex absolute top-1/2 right-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
-        >
-          &#10095;
-        </button>
-      )}
-
-      {/* DOTS */}
+      {/* ✅ Dots */}
       {heroBanners.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-20">
           {heroBanners.map((_, index) => (

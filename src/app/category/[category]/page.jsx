@@ -23,32 +23,20 @@ const toNum = (v, fb = 0) => {
 
 const buildFacets = (products = []) => {
   const prices = [];
-  const tags = new Set();
-
   for (const p of products || []) {
     const pr = Number(p?.price);
-    if (Number.isFinite(pr)) prices.push(pr);
-
-    for (const t of Array.isArray(p?.tags) ? p.tags : []) {
-      const s = String(t || "").trim().toLowerCase();
-      if (s) tags.add(s);
-    }
+    if (Number.isFinite(pr) && pr > 0) prices.push(pr);
   }
-
   prices.sort((a, b) => a - b);
 
   return {
     priceMin: prices.length ? prices[0] : 0,
     priceMax: prices.length ? prices[prices.length - 1] : 0,
-    tags: Array.from(tags).sort(),
   };
 };
 
 const getStockCount = (p) => {
-  // product stock
   const productStock = toNum(p?.stock_quantity ?? p?.stock, 0);
-
-  // variant stock max
   const variantStock = Array.isArray(p?.variants)
     ? Math.max(...p.variants.map((v) => toNum(v?.stock, 0)))
     : 0;
@@ -56,17 +44,129 @@ const getStockCount = (p) => {
   return Math.max(productStock, variantStock);
 };
 
+const getTimeValue = (p) => {
+  const t =
+    p?.createdAt ||
+    p?.updatedAt ||
+    p?.created_at ||
+    p?.updated_at ||
+    p?.dateCreated ||   // ✅ ADD THIS
+    p?.date;
+
+  const ms = new Date(t).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+};
+
+
+/* ============================================================
+   WORKING PREMIUM PRICE RANGE SLIDER
+   - Both thumbs work ✅
+   - Manual entry ✅
+============================================================ */
+function PriceRangeSlider({
+  min,
+  max,
+  valueMin,
+  valueMax,
+  onChangeMin,
+  onChangeMax,
+}) {
+  const range = max - min || 1;
+
+  const left = ((valueMin - min) / range) * 100;
+  const right = ((valueMax - min) / range) * 100;
+
+  const handleMin = (v) => {
+    const val = clamp(Number(v), min, valueMax - 1);
+    onChangeMin(val);
+  };
+
+  const handleMax = (v) => {
+    const val = clamp(Number(v), valueMin + 1, max);
+    onChangeMax(val);
+  };
+
+  return (
+    <div className="mt-3">
+      {/* Manual Boxes */}
+      <div className="flex items-center justify-between gap-3">
+        <input
+          type="number"
+          value={valueMin}
+          min={min}
+          max={valueMax - 1}
+          onChange={(e) => handleMin(e.target.value)}
+          className="w-24 rounded-xl bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900 outline-none border border-zinc-200"
+        />
+
+        <input
+          type="number"
+          value={valueMax}
+          min={valueMin + 1}
+          max={max}
+          onChange={(e) => handleMax(e.target.value)}
+          className="w-24 rounded-xl bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900 text-right outline-none border border-zinc-200"
+        />
+      </div>
+
+      {/* Slider */}
+      <div className="relative mt-4 h-10">
+        {/* Track */}
+        <div className="absolute top-1/2 -translate-y-1/2 w-full h-2 rounded-full bg-zinc-200" />
+
+        {/* Filled Range */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full bg-blue-500"
+          style={{
+            left: `${left}%`,
+            width: `${right - left}%`,
+          }}
+        />
+
+        {/* Range Inputs (IMPORTANT FIX ✅) */}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={valueMin}
+          onChange={(e) => handleMin(e.target.value)}
+          className="absolute w-full top-0 left-0 h-10 cursor-pointer bg-transparent"
+          style={{ zIndex: valueMin > max - 100 ? 5 : 6 }}
+        />
+
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={valueMax}
+          onChange={(e) => handleMax(e.target.value)}
+          className="absolute w-full top-0 left-0 h-10 cursor-pointer bg-transparent"
+          style={{ zIndex: 7 }}
+        />
+
+        {/* Knobs */}
+        <div
+          className="pointer-events-none absolute top-1/2 -translate-y-1/2 size-5 rounded-full bg-blue-600 shadow-md"
+          style={{ left: `calc(${left}% - 10px)` }}
+        />
+        <div
+          className="pointer-events-none absolute top-1/2 -translate-y-1/2 size-5 rounded-full bg-blue-600 shadow-md"
+          style={{ left: `calc(${right}% - 10px)` }}
+        />
+      </div>
+
+      <div className="mt-2 text-xs text-zinc-500">
+        Range: ₹{valueMin} – ₹{valueMax}
+      </div>
+    </div>
+  );
+}
+
 export default function CategoryPage() {
-  /* ============================================================
-     PARAMS
-  ============================================================ */
   const params = useParams();
   const category = params?.category;
   const ready = Boolean(category);
 
-  /* ============================================================
-     STORE (Selectors Only ✅ stable subscriptions)
-  ============================================================ */
   const allProducts = useProductStore((s) => s.allProducts);
   const isLoading = useProductStore((s) => s.isLoading);
   const error = useProductStore((s) => s.error);
@@ -75,25 +175,23 @@ export default function CategoryPage() {
   const hasMore = useProductStore((s) => s.hasMore);
   const clearError = useProductStore((s) => s.clearError);
 
-  /* ============================================================
-     UI STATE
-  ============================================================ */
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest");
-  const [onlyInStock, setOnlyInStock] = useState(true);
-  const [selectedTags, setSelectedTags] = useState(() => new Set());
 
+  // Applied Filters
+  const [onlyInStock, setOnlyInStock] = useState(true);
   const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
 
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
 
-  // ✅ prevent duplicate fetch in dev StrictMode
+  // Draft Filters
+  const [draftOnlyInStock, setDraftOnlyInStock] = useState(true);
+  const [draftPriceMin, setDraftPriceMin] = useState(null);
+  const [draftPriceMax, setDraftPriceMax] = useState(null);
+
   const lastFetchRef = useRef("");
-const priceInitRef = useRef(false);
-  /* ============================================================
-     DRAWER SAFE AREA MEASUREMENTS
-  ============================================================ */
+
   const drawerTop = useMemo(
     () =>
       `calc(var(--app-topbar-h,0px) + var(--app-header-h,0px) + env(safe-area-inset-top,0px))`,
@@ -106,32 +204,28 @@ const priceInitRef = useRef(false);
     []
   );
 
-  /* ============================================================
-     INIT PRICE MIN/MAX
-  ============================================================ */
+  // Init price
   useEffect(() => {
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
+
+    setDraftPriceMin(facets.priceMin);
+    setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  /* ============================================================
-     FETCH PRODUCTS (✅ FIXED: waits for params + blocks duplicates)
-  ============================================================ */
+  // Fetch products
   useEffect(() => {
     if (!ready) return;
 
     const key = JSON.stringify({ category, sort });
-
-    // ✅ prevents duplicate fetch in dev StrictMode
     if (lastFetchRef.current === key) return;
     lastFetchRef.current = key;
 
     clearError?.();
-
-    // reset UI filters on category change
     setDrawerOpen(false);
+
     setOnlyInStock(true);
-    setSelectedTags(new Set());
+    setDraftOnlyInStock(true);
 
     fetchProducts({
       category,
@@ -142,92 +236,83 @@ const priceInitRef = useRef(false);
     });
   }, [ready, category, sort, fetchProducts, clearError]);
 
+  // Apply Filters
+  const applyFilters = () => {
+    setOnlyInStock(draftOnlyInStock);
+    setPriceMin(draftPriceMin);
+    setPriceMax(draftPriceMax);
+    setDrawerOpen(false);
+  };
+
+  // Reset
+  const resetFilters = useCallback(() => {
+    setOnlyInStock(true);
+    setPriceMin(facets.priceMin);
+    setPriceMax(facets.priceMax);
+
+    setDraftOnlyInStock(true);
+    setDraftPriceMin(facets.priceMin);
+    setDraftPriceMax(facets.priceMax);
+  }, [facets.priceMin, facets.priceMax]);
+
   /* ============================================================
-     FILTERED LIST (LOCAL FILTERS)
+     FILTER + SORT LIST ✅ (FIXED SORTING)
   ============================================================ */
-  const list = useMemo(() => {
-    let arr = Array.isArray(allProducts) ? [...allProducts] : [];
+ const list = useMemo(() => {
+  let arr = Array.isArray(allProducts) ? [...allProducts] : [];
 
-    // ✅ In stock filter
+  const getPrice = (p) =>
+    Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
+
+  // ✅ filter: stock
   if (onlyInStock) {
-  arr = arr.filter((p) => getStockCount(p) > 0);
-}
+    arr = arr.filter((p) => getStockCount(p) > 0);
+  }
+
+  // ✅ filter: price
+  const lo = priceMin ?? facets.priceMin;
+  const hi = priceMax ?? facets.priceMax;
+  const minV = Math.min(lo, hi);
+  const maxV = Math.max(lo, hi);
+
+  arr = arr.filter((p) => {
+    const pr = getPrice(p);
+    if (!Number.isFinite(pr) || pr === 0) return true;
+    return pr >= minV && pr <= maxV;
+  });
+
+  // ✅ SORTING
+  if (sort === "priceLowHigh") {
+    arr.sort((a, b) => getPrice(a) - getPrice(b));
+  } else if (sort === "priceHighLow") {
+    arr.sort((a, b) => getPrice(b) - getPrice(a));
+  } else if (sort === "newest") {
+    arr.sort((a, b) => getTimeValue(b) - getTimeValue(a)); // ✅ use global
+  }
+
+  return arr;
+}, [
+  allProducts,
+  onlyInStock,
+  priceMin,
+  priceMax,
+  facets.priceMin,
+  facets.priceMax,
+  sort,
+]);
 
 
-    // ✅ Price filter
-    const lo = priceMin ?? facets.priceMin;
-    const hi = priceMax ?? facets.priceMax;
-    const minV = Math.min(lo, hi);
-    const maxV = Math.max(lo, hi);
-
-arr = arr.filter((p) => {
-  const pr = Number(p?.price);
-
-  // allow products with 0 / missing price
-  if (!Number.isFinite(pr) || pr === 0) return true;
-
-  return pr >= minV && pr <= maxV;
-});
-
-
-    // ✅ Tags filter
-    if (selectedTags.size > 0) {
-      arr = arr.filter((p) => {
-        const tags = Array.isArray(p?.tags)
-          ? p.tags.map((t) => String(t).toLowerCase())
-          : [];
-
-        for (const need of selectedTags) {
-          if (!tags.includes(need)) return false;
-        }
-        return true;
-      });
-    }
-
-    return arr;
-  }, [
-    allProducts,
-    onlyInStock,
-    priceMin,
-    priceMax,
-    facets.priceMin,
-    facets.priceMax,
-    selectedTags,
-  ]);
-
-const totalLoaded = allProducts?.length || 0;
-const inStockCount =
-  allProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
-
+  const inStockCount =
+    allProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
     if (!onlyInStock) n++;
-    if (selectedTags.size) n++;
     if (priceMin !== facets.priceMin || priceMax !== facets.priceMax) n++;
     return n;
-  }, [onlyInStock, selectedTags, priceMin, priceMax, facets.priceMin, facets.priceMax]);
+  }, [onlyInStock, priceMin, priceMax, facets.priceMin, facets.priceMax]);
 
-  const resetFilters = useCallback(() => {
-    setOnlyInStock(true);
-    setSelectedTags(new Set());
-    setPriceMin(facets.priceMin);
-    setPriceMax(facets.priceMax);
-  }, [facets.priceMin, facets.priceMax]);
-
-  const toggleTag = (tag) => {
-    const t = String(tag || "").trim().toLowerCase();
-    if (!t) return;
-    setSelectedTags((prev) => {
-      const next = new Set(prev);
-      next.has(t) ? next.delete(t) : next.add(t);
-      return next;
-    });
-  };
-
-  /* ============================================================
-     INFINITE SCROLL (safer)
-  ============================================================ */
+  // Infinite scroll
   const sentinelRef = useRef(null);
   const loadingMoreRef = useRef(false);
 
@@ -256,9 +341,7 @@ const inStockCount =
     return () => io.disconnect();
   }, [hasMore, isLoading, loadMore]);
 
-  /* ============================================================
-     LOCK BODY SCROLL (drawer)
-  ============================================================ */
+  // Lock scroll
   useEffect(() => {
     if (!drawerOpen) return;
     const prev = document.body.style.overflow;
@@ -282,6 +365,23 @@ const inStockCount =
       sort,
     });
   }, [ready, category, sort, clearError, fetchProducts]);
+
+  // Slider limits
+  const sliderMin = facets.priceMin ?? 0;
+  const sliderMax = facets.priceMax ?? 0;
+
+  const safeDraftMin = draftPriceMin ?? sliderMin;
+  const safeDraftMax = draftPriceMax ?? sliderMax;
+
+  const changeMin = (v) => {
+    const val = clamp(v, sliderMin, safeDraftMax - 1);
+    setDraftPriceMin(val);
+  };
+
+  const changeMax = (v) => {
+    const val = clamp(v, safeDraftMin + 1, sliderMax);
+    setDraftPriceMax(val);
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -317,8 +417,12 @@ const inStockCount =
             <div className="h-full flex flex-col">
               <div className="px-4 py-4 border-b border-zinc-200 flex items-center justify-between">
                 <div>
-                  <div className="text-base font-semibold text-zinc-900">Filters</div>
-                  <div className="text-xs text-zinc-500">Real-time from API payload</div>
+                  <div className="text-base font-semibold text-zinc-900">
+                    Filters
+                  </div>
+                  <div className="text-xs text-zinc-500">
+                    Choose what you want to see
+                  </div>
                 </div>
                 <button
                   onClick={() => setDrawerOpen(false)}
@@ -331,96 +435,34 @@ const inStockCount =
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
                 {/* Availability */}
                 <div className="rounded-2xl border border-zinc-200 p-4">
-                  <div className="text-sm font-semibold text-zinc-900">Availability</div>
+                  <div className="text-sm font-semibold text-zinc-900">
+                    Availability
+                  </div>
                   <label className="mt-3 flex items-center gap-3 text-sm text-zinc-700">
                     <input
                       type="checkbox"
                       className="h-4 w-4"
-                      checked={onlyInStock}
-                      onChange={(e) => setOnlyInStock(e.target.checked)}
+                      checked={draftOnlyInStock}
+                      onChange={(e) => setDraftOnlyInStock(e.target.checked)}
                     />
-                    Show only in-stock products
+                    Show only available items
                   </label>
                 </div>
 
-                {/* Price */}
+                {/* Premium Price Slider */}
                 <div className="rounded-2xl border border-zinc-200 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-zinc-900">Price</div>
-                    <div className="text-xs text-zinc-500">
-                      {facets.priceMin} – {facets.priceMax}
-                    </div>
+                  <div className="text-sm font-semibold text-zinc-900">
+                    Filter by Price
                   </div>
 
-                  <div className="mt-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="text-xs text-zinc-500 w-10">Min</div>
-                      <input
-                        type="number"
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
-                        value={priceMin ?? facets.priceMin}
-                        min={facets.priceMin}
-                        max={facets.priceMax}
-                        onChange={(e) =>
-                          setPriceMin(
-                            clamp(toNum(e.target.value, facets.priceMin), facets.priceMin, facets.priceMax)
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="text-xs text-zinc-500 w-10">Max</div>
-                      <input
-                        type="number"
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
-                        value={priceMax ?? facets.priceMax}
-                        min={facets.priceMin}
-                        max={facets.priceMax}
-                        onChange={(e) =>
-                          setPriceMax(
-                            clamp(toNum(e.target.value, facets.priceMax), facets.priceMin, facets.priceMax)
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div className="text-[11px] text-zinc-500">Changes apply instantly.</div>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div className="rounded-2xl border border-zinc-200 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-zinc-900">Tags</div>
-                    <div className="text-xs text-zinc-500">
-                      {facets.tags.length ? `${facets.tags.length} total` : "None"}
-                    </div>
-                  </div>
-
-                  {!facets.tags.length ? (
-                    <div className="mt-3 text-sm text-zinc-600">No tags found for this category.</div>
-                  ) : (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {facets.tags.map((t) => {
-                        const active = selectedTags.has(t);
-                        return (
-                          <button
-                            key={t}
-                            onClick={() => toggleTag(t)}
-                            className={[
-                              "rounded-full px-3 py-1 text-xs font-semibold border transition",
-                              active
-                                ? "bg-zinc-900 text-white border-zinc-900"
-                                : "bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50",
-                            ].join(" ")}
-                          >
-                            {t}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <PriceRangeSlider
+                    min={sliderMin}
+                    max={sliderMax}
+                    valueMin={safeDraftMin}
+                    valueMax={safeDraftMax}
+                    onChangeMin={changeMin}
+                    onChangeMax={changeMax}
+                  />
                 </div>
               </div>
 
@@ -433,7 +475,7 @@ const inStockCount =
                   Reset
                 </button>
                 <button
-                  onClick={() => setDrawerOpen(false)}
+                  onClick={applyFilters}
                   className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white"
                 >
                   Apply
@@ -452,16 +494,18 @@ const inStockCount =
               {category || "Category"}
             </h1>
             <p className="text-sm text-zinc-600">
-{showInitialLoading
-  ? "Loading..."
-  : ` ${inStockCount} products`}
-
+              {showInitialLoading ? "Loading..." : `${inStockCount} products`}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setDrawerOpen(true)}
+              onClick={() => {
+                setDraftOnlyInStock(onlyInStock);
+                setDraftPriceMin(priceMin ?? facets.priceMin);
+                setDraftPriceMax(priceMax ?? facets.priceMax);
+                setDrawerOpen(true);
+              }}
               className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900"
             >
               Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
@@ -484,7 +528,7 @@ const inStockCount =
         {/* Error */}
         {error ? (
           <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
-            <div className="font-semibold">Error</div>
+            <div className="font-semibold">Something went wrong</div>
             <div className="text-sm mt-1">{error}</div>
             <button
               onClick={retry}
@@ -514,7 +558,9 @@ const inStockCount =
                 </button>
                 <div className="text-xs text-zinc-500">
                   Showing {list.length} items{" "}
-                  {hasMore() ? " — loading more as you scroll" : " — you’ve reached the end"}
+                  {hasMore()
+                    ? " — more items will load as you scroll"
+                    : " — end"}
                 </div>
               </>
             ) : (

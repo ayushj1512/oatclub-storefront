@@ -16,6 +16,11 @@ export const useCouponStore = create(
       error: null,
       message: null,
 
+      // ✅ Suggested Coupons
+      suggestedCoupons: [],
+      isLoadingSuggestions: false,
+      suggestionError: null,
+
       // internal lock (prevents double apply)
       _applyPromise: null,
 
@@ -24,7 +29,10 @@ export const useCouponStore = create(
       // --------------------
       isApplied: () => Boolean(get().coupon?.code),
 
-           fetchSuggestedCoupons: async ({ customerId, cartTotal }) => {
+      // --------------------
+      // FETCH SUGGESTED COUPONS
+      // --------------------
+      fetchSuggestedCoupons: async ({ customerId, cartTotal }) => {
         if (!API_BASE) {
           set({ suggestionError: "Backend not configured" });
           return;
@@ -38,13 +46,10 @@ export const useCouponStore = create(
             suggestionError: null,
           });
 
-          const res = await fetch(
-            `${API_BASE}/api/coupons`,
-            {
-              method: "GET",
-              headers: { "Content-Type": "application/json" },
-            }
-          );
+          const res = await fetch(`${API_BASE}/api/coupons`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
 
           const data = await res.json().catch(() => ({}));
 
@@ -52,8 +57,39 @@ export const useCouponStore = create(
             throw new Error(data.message || "Failed to fetch suggestions");
           }
 
+          // ✅ Fix: Backend returns coupons in data.data
+          const coupons = Array.isArray(data.data) ? data.data : [];
+
+          const now = new Date();
+
+          // ✅ Filter coupons (only valid + active + minPurchase + not already used by same customer)
+          const filtered = coupons.filter((c) => {
+            const isActive = c.isActive;
+            const validFrom = new Date(c.validFrom);
+            const validTill = new Date(c.validTill);
+
+            const isInDateRange = validFrom <= now && validTill >= now;
+
+            const meetsMinPurchase =
+              !c.minPurchase || Number(cartTotal) >= Number(c.minPurchase);
+
+            // ✅ Prevent showing if already used by customer & limit is 1
+            const alreadyUsed =
+              Array.isArray(c.usedBy) && c.usedBy.includes(customerId);
+
+            const limitPerCustomerOk =
+              c.usageLimitPerCustomer === 1 ? !alreadyUsed : true;
+
+            return (
+              isActive &&
+              isInDateRange &&
+              meetsMinPurchase &&
+              limitPerCustomerOk
+            );
+          });
+
           set({
-            suggestedCoupons: Array.isArray(data.coupons) ? data.coupons : [],
+            suggestedCoupons: filtered,
             isLoadingSuggestions: false,
             suggestionError: null,
           });
@@ -67,12 +103,8 @@ export const useCouponStore = create(
       },
 
       // --------------------
-      // ACTIONS
+      // APPLY COUPON
       // --------------------
-
-      /**
-       * Apply coupon
-       */
       applyCoupon: async ({ code, customerId, cartTotal }) => {
         if (!API_BASE) {
           set({ error: "Backend not configured" });
@@ -92,9 +124,13 @@ export const useCouponStore = create(
         const couponCode = String(code).trim().toUpperCase();
         const cid = String(customerId).trim();
 
-        // ✅ optional: if same coupon already applied, do nothing
+        // ✅ if same coupon already applied, do nothing
         if (get().coupon?.code === couponCode) {
-          return { message: "Coupon already applied", discount: get().discount, finalTotal: get().finalTotal };
+          return {
+            message: "Coupon already applied",
+            discount: get().discount,
+            finalTotal: get().finalTotal,
+          };
         }
 
         const p = (async () => {
@@ -104,7 +140,11 @@ export const useCouponStore = create(
             const res = await fetch(`${API_BASE}/api/coupons/apply`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ code: couponCode, customerId: cid, cartTotal }),
+              body: JSON.stringify({
+                code: couponCode,
+                customerId: cid,
+                cartTotal,
+              }),
             });
 
             const data = await res.json().catch(() => ({}));
@@ -114,7 +154,11 @@ export const useCouponStore = create(
             }
 
             set({
-              coupon: { code: couponCode, discount: data.discount, finalTotal: data.finalTotal },
+              coupon: {
+                code: couponCode,
+                discount: data.discount,
+                finalTotal: data.finalTotal,
+              },
               discount: data.discount,
               finalTotal: data.finalTotal,
               isApplying: false,
@@ -143,9 +187,9 @@ export const useCouponStore = create(
         return p;
       },
 
-      /**
-       * Remove applied coupon
-       */
+      // --------------------
+      // REMOVE COUPON
+      // --------------------
       removeCoupon: () => {
         set({
           coupon: null,
@@ -158,16 +202,16 @@ export const useCouponStore = create(
         });
       },
 
-      /**
-       * Clear message/error only
-       */
+      // --------------------
+      // CLEAR MESSAGE/ERROR
+      // --------------------
       clearCouponMessages: () => {
         set({ error: null, message: null });
       },
 
-      /**
-       * Reset everything (logout / order success)
-       */
+      // --------------------
+      // RESET STORE
+      // --------------------
       resetCouponStore: () => {
         set({
           coupon: null,
@@ -176,6 +220,11 @@ export const useCouponStore = create(
           isApplying: false,
           error: null,
           message: null,
+
+          suggestedCoupons: [],
+          isLoadingSuggestions: false,
+          suggestionError: null,
+
           _applyPromise: null,
         });
       },

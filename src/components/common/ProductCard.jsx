@@ -16,12 +16,12 @@ const ShimmerCard = () => (
       <div className="absolute inset-0 shimmer" />
     </div>
 
-    <div className="p-3 space-y-2">
-      <div className="relative h-3.5 w-4/5 bg-black/5 overflow-hidden rounded">
+    <div className="p-2 md:p-3 space-y-2">
+      <div className="relative h-3 w-4/5 bg-black/5 overflow-hidden rounded">
         <div className="absolute inset-0 shimmer" />
       </div>
 
-      <div className="relative h-4 w-2/5 bg-black/5 overflow-hidden rounded">
+      <div className="relative h-3.5 w-2/5 bg-black/5 overflow-hidden rounded">
         <div className="absolute inset-0 shimmer" />
       </div>
     </div>
@@ -52,10 +52,7 @@ function getSafeImage(product) {
 /* -------------------------- Hover image helper -------------------------- */
 function getSafeHoverImage(product) {
   try {
-    const img =
-      product?.images?.[1]?.src ||
-      product?.images?.[1] ||
-      "";
+    const img = product?.images?.[1]?.src || product?.images?.[1] || "";
 
     if (typeof img !== "string") return null;
     if (img.trim().length < 5) return null;
@@ -176,7 +173,7 @@ export default function ProductCard({
             alt={product?.name || "Product"}
             fill
             loading="lazy"
-            sizes="(max-width: 600px) 50vw, 220px"
+            sizes="(max-width: 600px) 45vw, 220px"
             className={`object-cover transition-opacity duration-300 ${
               isHovered ? "opacity-0" : "opacity-100"
             }`}
@@ -189,7 +186,7 @@ export default function ProductCard({
               alt={product?.name || "Product Hover"}
               fill
               loading="lazy"
-              sizes="(max-width: 600px) 50vw, 220px"
+              sizes="(max-width: 600px) 45vw, 220px"
               className={`object-cover transition-opacity duration-300 ${
                 isHovered ? "opacity-100" : "opacity-0"
               }`}
@@ -197,36 +194,35 @@ export default function ProductCard({
           )}
 
           {/* Wishlist */}
-      <motion.button
-  type="button"
-  onClick={toggleWishlist}
-  whileTap={{ scale: 0.9 }}
- className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-sm flex items-center justify-center z-10 transition hover:bg-white"
->
-  <Heart
-    className={
-      wishlisted
-        ? "w-5 h-5 text-[#800020] fill-[#800020]"
-        : "w-5 h-5 text-black/60"
-    }
-  />
-</motion.button>
-
+          <motion.button
+            type="button"
+            onClick={toggleWishlist}
+            whileTap={{ scale: 0.9 }}
+            className="absolute top-2 right-2 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-sm flex items-center justify-center z-10 transition hover:bg-white"
+          >
+            <Heart
+              className={
+                wishlisted
+                  ? "w-4 h-4 md:w-5 md:h-5 text-[#800020] fill-[#800020]"
+                  : "w-4 h-4 md:w-5 md:h-5 text-black/60"
+              }
+            />
+          </motion.button>
         </div>
 
         {/* CONTENT */}
-        <div className="p-3 flex flex-col gap-2">
-          <h3 className="text-[15px] font-semibold text-black leading-snug line-clamp-2">
+        <div className="p-2 md:p-3 flex flex-col gap-1.5 md:gap-2">
+          <h3 className="text-[13px] md:text-[15px] font-semibold text-black leading-snug line-clamp-2">
             {product?.name}
           </h3>
 
           <div className="flex items-baseline gap-2">
             {sale != null ? (
-              <span className="text-[16px] font-semibold text-black">
+              <span className="text-[14px] md:text-[16px] font-semibold text-black">
                 ₹{sale}
               </span>
             ) : (
-              <span className="text-[16px] font-semibold text-transparent">
+              <span className="text-[14px] md:text-[16px] font-semibold text-transparent">
                 ₹
               </span>
             )}

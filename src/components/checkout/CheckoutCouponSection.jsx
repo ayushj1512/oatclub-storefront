@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Tag, X, Loader2 } from "lucide-react";
 import { useCouponStore } from "@/store/couponStore";
 import { useAuthStore } from "@/store/authStore";
@@ -16,6 +16,7 @@ const couponLabel = (c) => {
 
 export default function CheckoutCouponSection({ cartTotal }) {
   const [code, setCode] = useState("");
+  const [clickedCode, setClickedCode] = useState(null);
 
   const user = useAuthStore((s) => s.user);
 
@@ -38,23 +39,51 @@ export default function CheckoutCouponSection({ cartTotal }) {
 
   const hasCoupon = Boolean(coupon?.code);
 
+  // ✅ Stable function to fetch suggestions (prevents useEffect re-run loops)
+  const loadSuggestions = useCallback(() => {
+    if (!user?.uid || cartTotal == null || cartTotal <= 0 || hasCoupon) return;
+    fetchSuggestedCoupons({ customerId: user.uid, cartTotal });
+  }, [user?.uid, cartTotal, fetchSuggestedCoupons, hasCoupon]);
+
   // ✅ Fetch suggestions when user/cartTotal changes
   useEffect(() => {
-    if (!user?.uid || cartTotal == null || cartTotal <= 0) return;
-    fetchSuggestedCoupons({ customerId: user.uid, cartTotal });
-  }, [user?.uid, cartTotal, fetchSuggestedCoupons]);
+    loadSuggestions();
+  }, [loadSuggestions]);
 
   const onApply = async (applyCode = code) => {
-    if (!applyCode.trim() || isApplying) return;
+    const finalCode = String(applyCode || "").trim();
+    if (!finalCode || isApplying) return;
     if (!user?.uid) return;
 
     try {
       clearCouponMessages?.();
-      await applyCoupon({ code: applyCode, customerId: user.uid, cartTotal });
+      const formatted = finalCode.toUpperCase();
+      setClickedCode(formatted);
+
+      await applyCoupon({
+        code: formatted,
+        customerId: user.uid,
+        cartTotal,
+      });
+
       setCode("");
+      setClickedCode(null);
+
+      // ✅ Optional: refresh suggestions after applying
+      // loadSuggestions();
     } catch {
+      setClickedCode(null);
       /* handled in store */
     }
+  };
+
+  const onRemove = () => {
+    removeCoupon();
+    clearCouponMessages?.();
+    setCode("");
+
+    // ✅ refresh suggestions after removing coupon
+    setTimeout(() => loadSuggestions(), 50);
   };
 
   const displayDiscount = useMemo(
@@ -71,9 +100,7 @@ export default function CheckoutCouponSection({ cartTotal }) {
         </span>
         <div>
           <p className="text-sm font-semibold text-gray-900">Apply Coupon</p>
-          <p className="text-xs text-gray-500">
-            Use a valid code to get discount
-          </p>
+          <p className="text-xs text-gray-500">Use a valid code to get discount</p>
         </div>
       </div>
 
@@ -97,7 +124,7 @@ export default function CheckoutCouponSection({ cartTotal }) {
 
           <button
             type="button"
-            onClick={removeCoupon}
+            onClick={onRemove}
             aria-label="Remove coupon"
             className="grid place-items-center w-9 h-9 rounded-full bg-black/5 hover:bg-black/10 transition"
           >
@@ -117,11 +144,11 @@ export default function CheckoutCouponSection({ cartTotal }) {
 
             <button
               type="button"
-              disabled={isApplying || !user?.uid}
+              disabled={isApplying || !user?.uid || !code.trim()}
               onClick={() => onApply()}
               className="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white bg-black hover:opacity-90 transition disabled:bg-black/20 disabled:text-black/40"
             >
-              {isApplying ? (
+              {isApplying && clickedCode === code.trim().toUpperCase() ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 "Apply"
@@ -132,9 +159,19 @@ export default function CheckoutCouponSection({ cartTotal }) {
           {/* ✅ Coupon Suggestions */}
           {user?.uid && (
             <div className="mt-4">
-              <p className="text-xs font-semibold text-gray-800 mb-2">
-                Suggested Coupons
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-gray-800">
+                  Suggested Coupons
+                </p>
+
+                <button
+                  type="button"
+                  onClick={loadSuggestions}
+                  className="text-[11px] font-semibold text-gray-600 hover:text-black transition"
+                >
+                  Refresh
+                </button>
+              </div>
 
               {isLoadingSuggestions ? (
                 <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -145,25 +182,37 @@ export default function CheckoutCouponSection({ cartTotal }) {
                 <p className="text-xs text-red-600">{suggestionError}</p>
               ) : suggestedCoupons?.length ? (
                 <div className="flex flex-wrap gap-2">
-                  {suggestedCoupons.map((c) => (
-                    <button
-                      key={c._id || c.code}
-                      type="button"
-                      onClick={() => onApply(c.code)}
-                      className="px-3 py-2 rounded-2xl bg-white/70 border border-black/10 shadow-[0_8px_22px_rgba(0,0,0,0.06)] text-xs font-semibold text-gray-900 hover:bg-black hover:text-white transition"
-                    >
-                      {c.code}
-                      <span className="ml-1 font-medium opacity-70">
-                        {couponLabel(c)}
-                      </span>
+                  {suggestedCoupons.map((c) => {
+                    const isThisApplying =
+                      isApplying && clickedCode === c.code;
 
-                      {c.minPurchase > 0 && (
-                        <span className="ml-2 text-[11px] opacity-60">
-                          Min ₹{money(c.minPurchase)}
+                    return (
+                      <button
+                        key={c._id || c.code}
+                        type="button"
+                        disabled={isApplying}
+                        onClick={() => onApply(c.code)}
+                        className="px-3 py-2 rounded-2xl bg-white/70 border border-black/10 shadow-[0_8px_22px_rgba(0,0,0,0.06)] text-xs font-semibold text-gray-900 hover:bg-black hover:text-white transition disabled:opacity-60"
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {isThisApplying ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : null}
+                          {c.code}
                         </span>
-                      )}
-                    </button>
-                  ))}
+
+                        <span className="ml-1 font-medium opacity-70">
+                          {couponLabel(c)}
+                        </span>
+
+                        {c.minPurchase > 0 && (
+                          <span className="ml-2 text-[11px] opacity-60">
+                            Min ₹{money(c.minPurchase)}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-xs text-gray-500">No coupons available</p>
@@ -173,9 +222,7 @@ export default function CheckoutCouponSection({ cartTotal }) {
 
           {/* Message */}
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-          {message && (
-            <p className="mt-2 text-xs text-green-700">{message}</p>
-          )}
+          {message && <p className="mt-2 text-xs text-green-700">{message}</p>}
         </>
       )}
     </div>
