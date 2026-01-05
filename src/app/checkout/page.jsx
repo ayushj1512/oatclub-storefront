@@ -403,10 +403,23 @@ if (!["cod", "razorpay"].includes(selectedPayment)) {
   return "Invalid payment method selected.";
 }
 
+
+
     const bad = items.find((it) => !resolveMongoProductId(it));
     if (bad) return `Cart item missing Mongo ObjectId. Found "${String(bad?.productId || bad?._id || "")}".`;
     return null;
   };
+
+
+  const checkoutError = useMemo(() => validate(), [
+  items?.length,
+  user?.uid,
+  customer?._id,
+  selectedAddressObj?._id,
+  selectedPayment,
+]);
+
+const canCheckout = !checkoutError && !placing;
 
 
 const [paymentRecovery, setPaymentRecovery] = useState({
@@ -827,8 +840,12 @@ useEffect(() => {
   /* ---------------- COD FLOW ---------------- */
  <button
   type="button"
-  onClick={() => setShowCodCaptcha(true)}
-  disabled={!items?.length || placing}
+onClick={() => {
+  const err = validate();
+  if (err) return toast.error(err);
+  setShowCodCaptcha(true);
+}}
+disabled={!canCheckout}
   className="mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white
              shadow-[0_16px_34px_rgba(0,0,0,0.24)]
              transition hover:opacity-90 active:scale-[0.99]
