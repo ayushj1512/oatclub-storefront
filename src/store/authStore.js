@@ -11,6 +11,7 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from "firebase/auth";
+import toast from "react-hot-toast";
 
 const COOKIE_KEY = "user_auth";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -652,55 +653,99 @@ registerWithEmail: async (email, password, name) => {
 
 // Guest checkout
 
-createGuestCustomer: async ({ name = "", email = "", phone = "" } = {}) => {
+createGuestCustomer: async ({ name = "", email = "", phone = "", password = "" } = {}) => {
   try {
-const payload = { firebaseUID: null, name, email, phone };
+    email = String(email || "").trim().toLowerCase();
+    password = String(password || "").trim();
+    phone = String(phone || "").trim();
 
-    const res = await fetch(`${BACKEND}/api/customers`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || !data?.customer?._id) {
-      console.error("❌ Guest create failed:", data?.message);
+    if (!email || !password || password.length < 4) {
+      toast.error("Email + Password required");
       return null;
     }
 
-    const customer = data.customer;
+    set({ loading: true });
 
-    // ✅ Update store without Firebase user
+    let firebaseUser = null;
+
+    // ✅ STEP 1: Firebase create OR login
+    try {
+      const signupRes = await createUserWithEmailAndPassword(auth, email, password);
+      firebaseUser = signupRes.user;
+    } catch (err) {
+      // ✅ Already exists → login
+      if (err?.code === "auth/email-already-in-use") {
+        const loginRes = await signInWithEmailAndPassword(auth, email, password);
+        firebaseUser = loginRes.user;
+      } else {
+        console.error("❌ Firebase signup/login failed:", err);
+        toast.error(err?.message || "Firebase error");
+        set({ loading: false });
+        return null;
+      }
+    }
+
+    if (!firebaseUser) {
+      toast.error("Firebase user missing");
+      set({ loading: false });
+      return null;
+    }
+
+    // ✅ STEP 2: Sync backend customer
+    const syncResult = await get().syncCustomer(firebaseUser);
+
+    if (!syncResult?.customer?._id) {
+      toast.error("Customer sync failed (backend)");
+      set({ loading: false });
+      return null;
+    }
+
+    const { customer, token, activeCartId, activeCartType } = syncResult;
+
+    const userData = {
+      uid: firebaseUser.uid,
+      name: firebaseUser.displayName || name || email.split("@")[0],
+      email: firebaseUser.email || email,
+      photoURL: firebaseUser.photoURL || "/profile/user-avatar.jpg",
+    };
+
+    // ✅ update store
     set({
+      user: userData,
       customer,
-      token: null,
-      user: null,
+      token,
+      activeCartId,
+      activeCartType,
       isAuthenticated: true,
-      activeCartId: customer?.cart?.activeCartId || null,
-      activeCartType: customer?.cart?.activeCartType || "cart",
+      loading: false,
     });
 
-    // 🍪 Save session (guest)
+    // ✅ persist cookie
     Cookies.set(
       COOKIE_KEY,
       JSON.stringify({
-        user: null,
+        user: userData,
         customer,
-        token: null,
-        activeCartId: customer?.cart?.activeCartId || null,
-        activeCartType: customer?.cart?.activeCartType || "cart",
-        isGuest: true,
+        token,
+        activeCartId,
+        activeCartType,
+        isGuest: false,
       }),
       { expires: 7 }
     );
 
+    toast.success("Account created ✅");
     return customer;
   } catch (err) {
     console.error("❌ createGuestCustomer exception:", err);
+    toast.error("Guest creation failed");
+    set({ loading: false });
     return null;
   }
 },
+
+
+
 
 
 
