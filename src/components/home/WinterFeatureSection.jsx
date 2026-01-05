@@ -73,7 +73,7 @@ export default function WinterDropSection() {
           </div>
 
           <Link
-            href="/winterdrops"
+            href="/category/winter-drops"
             className="hidden md:inline-flex text-sm font-semibold text-black hover:opacity-60 transition"
           >
             View All →
@@ -83,7 +83,7 @@ export default function WinterDropSection() {
         <div className="flex flex-col md:flex-row items-start justify-start gap-6 md:gap-6">
           {/* Main Feature Banner */}
           <Link
-            href="/winterdrops"
+            href="/category/winter-drops"
             className="block w-full md:w-[40%] lg:w-[38%] flex-none self-start"
           >
             <div className="relative w-full overflow-hidden aspect-[4/4] md:aspect-square rounded-2xl border border-gray-200 bg-gray-100">
@@ -161,7 +161,7 @@ export default function WinterDropSection() {
                 <p className="text-sm font-bold text-black">Featured Picks</p>
 
                 <Link
-                  href="/winterdrops"
+                  href="/category/winter-drops"
                   className="text-xs font-semibold text-black hover:opacity-60 transition"
                 >
                   View all →
