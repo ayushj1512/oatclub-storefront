@@ -24,7 +24,7 @@ const safeJson = async (r) => {
 const dedupeById = (items = []) => {
   const m = new Map();
   for (const it of items) {
-    const id = normalizeId(it?.id ?? it?._id);
+    const id = normalizeId(it?.id ?? it?._id ?? it?.productId);
     if (!id) continue;
     m.set(id, { ...it, id });
   }
@@ -82,27 +82,35 @@ export const useWishlistStore = create((set, get) => ({
      ✅ INIT
   ------------------------ */
   initialize: async () => {
-    if (typeof window === "undefined") return;
-    if (get().initialized) return;
-    if (get()._initPromise) return get()._initPromise;
+  if (typeof window === "undefined") return;
+  if (get()._initPromise) return get()._initPromise;
 
-    set({ initializing: true, error: null });
+  set({ initializing: true, error: null });
 
-    const p = (async () => {
-      const { user } = useAuthStore.getState();
-      if (user?.uid) await get().fetchFromBackend(user.uid, { force: true });
-      else set({ items: [] });
-      set({ initialized: true });
-    })()
-      .catch((e) => {
-        console.error("Wishlist init error:", e);
-        set({ error: "Wishlist init failed" });
-      })
-      .finally(() => set({ initializing: false, _initPromise: null }));
+  const p = (async () => {
+    const { user } = useAuthStore.getState();
 
-    set({ _initPromise: p });
-    return p;
-  },
+    // ✅ DO NOT mark initialized if user not ready
+    if (!user?.uid) {
+      set({ items: [], initialized: false });
+      return;
+    }
+
+    // ✅ fetch fresh for this user
+    await get().fetchFromBackend(user.uid, { force: true });
+
+    set({ initialized: true, _lastFetchUid: user.uid });
+  })()
+    .catch((e) => {
+      console.error("Wishlist init error:", e);
+      set({ error: "Wishlist init failed" });
+    })
+    .finally(() => set({ initializing: false, _initPromise: null }));
+
+  set({ _initPromise: p });
+  return p;
+},
+
 
   /* -----------------------
      ✅ FETCH

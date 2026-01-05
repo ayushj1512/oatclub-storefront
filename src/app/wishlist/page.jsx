@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Heart, ShoppingCart, Filter, Tag, X, Trash2 } from "lucide-react";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { useCartStore } from "@/store/cartStore";
+import { useAuthStore } from "@/store/authStore";
+import { useProductStore } from "@/store/productStore";
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ProductCard from "@/components/common/ProductCard";
@@ -22,10 +24,15 @@ function Toast({ message }) {
   );
 }
 
+const getPid = (x) =>
+  String(x?._id || x?.id || x?.productId || x || "").trim();
+
 export default function WishlistPage() {
-  const { items, loading, initialize, removeFromWishlist, clearWishlist } =
+  const { items, loading, fetchFromBackend, removeFromWishlist, clearWishlist } =
     useWishlistStore();
   const { addToCart } = useCartStore();
+  const user = useAuthStore((s) => s.user);
+  const { fetchProductDetails } = useProductStore();
 
   const [mounted, setMounted] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -34,13 +41,65 @@ export default function WishlistPage() {
   const [toast, setToast] = useState("");
   const [visibleCount, setVisibleCount] = useState(12);
 
-  useEffect(() => {
-    setMounted(true);
-    initialize?.();
-  }, [initialize]);
+  const [fullProducts, setFullProducts] = useState([]);
+  const [prodLoading, setProdLoading] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    setVisibleCount(12);
+  }, []);
+
+  // ✅ Fetch wishlist IDs fresh
+  useEffect(() => {
     if (!mounted) return;
+    if (!user?.uid) return;
+    fetchFromBackend(user.uid, { force: true });
+  }, [mounted, user?.uid, fetchFromBackend]);
+
+  // ✅ Fetch full product details
+  useEffect(() => {
+    if (!mounted) return;
+
+    if (!items?.length) {
+      setFullProducts([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setProdLoading(true);
+
+        const ids = (items || []).map(getPid).filter(Boolean);
+        const uniqueIds = Array.from(new Set(ids));
+
+        const results = await Promise.all(
+          uniqueIds.map(async (id) => {
+            try {
+              return await fetchProductDetails(id);
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        if (cancelled) return;
+        setFullProducts(results.filter(Boolean));
+      } finally {
+        if (!cancelled) setProdLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mounted, items, fetchProductDetails]);
+
+  // ✅ Infinite scroll
+  useEffect(() => {
+    if (!mounted) return;
+
     const onScroll = () => {
       if (
         window.innerHeight + window.scrollY >=
@@ -49,16 +108,20 @@ export default function WishlistPage() {
         setVisibleCount((c) => c + 8);
       }
     };
+
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, [mounted]);
 
-  const wishlist = mounted ? items || [] : [];
+  const wishlist = mounted ? fullProducts || [] : [];
 
   const categories = useMemo(() => {
     const set = new Set();
     wishlist.forEach((i) =>
-      (i.categories || []).forEach((c) => c?.slug && set.add(c.slug))
+      (i.categories || i.raw?.categories || []).forEach((c) => {
+        const slug = c?.slug || c;
+        if (slug) set.add(String(slug));
+      })
     );
     return Array.from(set);
   }, [wishlist]);
@@ -66,7 +129,10 @@ export default function WishlistPage() {
   const tags = useMemo(() => {
     const set = new Set();
     wishlist.forEach((i) =>
-      (i.tags || []).forEach((t) => t?.slug && set.add(t.slug))
+      (i.tags || i.raw?.tags || []).forEach((t) => {
+        const slug = t?.slug || t;
+        if (slug) set.add(String(slug));
+      })
     );
     return Array.from(set);
   }, [wishlist]);
@@ -84,10 +150,16 @@ export default function WishlistPage() {
     return sorted.filter((item) => {
       const catMatch =
         !selectedCategories.length ||
-        item.categories?.some((c) => selectedCategories.includes(c.slug));
+        (item.raw?.categories || item.categories || []).some((c) =>
+          selectedCategories.includes(c?.slug || c)
+        );
+
       const tagMatch =
         !selectedTags.length ||
-        item.tags?.some((t) => selectedTags.includes(t.slug));
+        (item.raw?.tags || item.tags || []).some((t) =>
+          selectedTags.includes(t?.slug || t)
+        );
+
       return catMatch && tagMatch;
     });
   }, [sorted, selectedCategories, selectedTags]);
@@ -101,7 +173,10 @@ export default function WishlistPage() {
     setTimeout(() => setToast(""), 1500);
   };
 
-  const isBusy = loading;
+  const idsCount = items?.length || 0;
+  const loadedCount = wishlist.length;
+  const showingCount = visibleItems.length;
+  const isBusy = loading || prodLoading;
 
   if (!mounted)
     return (
@@ -109,157 +184,116 @@ export default function WishlistPage() {
     );
 
   return (
-    <section className="w-full px-6 py-10 bg-gray-50 min-h-[85vh]">
+    <section className="w-full px-5 sm:px-6 lg:px-10 py-10 bg-gray-50 min-h-[85vh]">
       <AnimatePresence>{toast && <Toast message={toast} />}</AnimatePresence>
 
       {/* HEADER */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-black flex items-center gap-2">
-          <Heart className="w-6 h-6 text-black" />
-          Your Wishlist
-        </h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-black flex items-center gap-2">
+            <Heart className="w-6 h-6 text-black" />
+            Your Wishlist
+          </h2>
 
-        {wishlist.length > 0 && (
+          {/* ✅ COUNTS BAR */}
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
+              IDs: <b>{idsCount}</b>
+            </span>
+            <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
+              Loaded: <b>{loadedCount}</b>
+            </span>
+            <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
+              Showing: <b>{showingCount}</b>
+            </span>
+          </div>
+        </div>
+
+        {idsCount > 0 && (
           <button
             onClick={clearWishlist}
-            className="text-sm text-gray-500 hover:text-black transition"
+            className="px-4 py-2 rounded-full bg-white border border-gray-200 text-sm text-gray-700 hover:bg-black hover:text-white transition"
           >
             Clear All
           </button>
         )}
       </div>
 
+      {/* LOADING */}
       {isBusy && (
-        <p className="text-sm text-gray-500 mb-6">Loading wishlist...</p>
+        <div className="mb-6 text-sm text-gray-500 flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-black animate-pulse" />
+          Loading wishlist...
+        </div>
       )}
 
       {/* SORT */}
-      <div className="mb-6 flex items-center gap-3">
-        <span className="text-sm font-medium text-gray-700">Sort:</span>
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="px-3 py-1.5 border border-gray-300 bg-white rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-black"
-        >
-          <option value="default">Recommended</option>
-          <option value="low-high">Price: Low → High</option>
-          <option value="high-low">Price: High → Low</option>
-        </select>
-      </div>
-
-      {/* FILTERS */}
-      {categories.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Filter className="w-5 h-5 text-black" />
-          {categories.map((slug) => (
-            <button
-              key={slug}
-              onClick={() =>
-                setSelectedCategories((p) =>
-                  p.includes(slug) ? p.filter((c) => c !== slug) : [...p, slug]
-                )
-              }
-              className={`px-3 py-1 text-sm rounded-full border transition ${
-                selectedCategories.includes(slug)
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {slug.replace(/-/g, " ")}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tags.length > 0 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
-          <Tag className="w-5 h-5 text-black" />
-          {tags.map((slug) => (
-            <button
-              key={slug}
-              onClick={() =>
-                setSelectedTags((p) =>
-                  p.includes(slug) ? p.filter((t) => t !== slug) : [...p, slug]
-                )
-              }
-              className={`px-3 py-1 text-sm rounded-full border transition ${
-                selectedTags.includes(slug)
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {slug.replace(/-/g, " ")}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {(selectedCategories.length > 0 || selectedTags.length > 0) && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          {[...selectedCategories, ...selectedTags].map((slug) => (
-            <div
-              key={slug}
-              className="flex items-center gap-2 bg-black/10 text-black px-3 py-1 rounded-full text-xs"
-            >
-              {slug.replace(/-/g, " ")}
-              <X
-                size={14}
-                className="cursor-pointer"
-                onClick={() => {
-                  setSelectedCategories((p) => p.filter((c) => c !== slug));
-                  setSelectedTags((p) => p.filter((t) => t !== slug));
-                }}
-              />
-            </div>
-          ))}
+      {loadedCount > 0 && (
+        <div className="mb-6 flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-700">Sort:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 border border-gray-300 bg-white rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-black"
+          >
+            <option value="default">Recommended</option>
+            <option value="low-high">Price: Low → High</option>
+            <option value="high-low">Price: High → Low</option>
+          </select>
         </div>
       )}
 
       {/* EMPTY */}
-      {!isBusy && wishlist.length === 0 ? (
-        <div className="text-center py-20">
-          <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-lg mb-4">Your wishlist is empty.</p>
+      {!isBusy && loadedCount === 0 ? (
+        <div className="text-center py-24 bg-white rounded-3xl border border-gray-200 shadow-sm">
+          <Heart className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-600 text-lg mb-5">
+            Your wishlist is empty.
+          </p>
           <Link
             href="/collections"
-            className="inline-block bg-black text-white px-6 py-3 rounded-full hover:bg-black/90 transition"
+            className="inline-block bg-black text-white px-7 py-3 rounded-full hover:bg-black/90 transition"
           >
             Continue Shopping →
           </Link>
         </div>
       ) : (
         <>
+          {/* GRID */}
           <motion.div
             layout
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5"
           >
             <AnimatePresence>
               {visibleItems.map((item) => (
                 <motion.div
                   layout
                   key={item.id}
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  initial={{ opacity: 0, scale: 0.97, y: 12 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.25 }}
-                  className="bg-white rounded-2xl shadow-sm hover:shadow-md overflow-hidden"
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: 0.22 }}
+                  className="group bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all overflow-hidden"
                 >
-                  <ProductCard product={item} />
+                  {/* ✅ hide wishlist icon */}
+                  <ProductCard product={item} hideWishlistIcon />
 
-                  <div className="p-3 pt-0 flex gap-2">
+                  {/* ACTIONS */}
+                  <div className="p-3 pt-2 flex gap-2 items-center">
                     <button
                       onClick={() => moveToCart(item)}
-                      className="flex-1 bg-black text-white py-2 rounded-full text-sm hover:bg-black/90 transition"
+                      className="flex-1 bg-black text-white py-2.5 rounded-full text-sm font-medium hover:bg-black/90 transition"
                     >
                       <ShoppingCart className="inline w-4 h-4 mr-2" />
-                      Move to Cart
+                      Move
                     </button>
 
                     <button
                       onClick={() => removeFromWishlist(item.id)}
-                      className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-100 transition"
+                      className="w-11 h-11 flex items-center justify-center rounded-full border border-gray-200 hover:border-black hover:bg-gray-50 transition"
+                      title="Remove"
                     >
-                      <Trash2 className="w-4 h-4 text-gray-700" />
+                      <Trash2 className="w-4 h-4 text-gray-700 group-hover:text-black transition" />
                     </button>
                   </div>
                 </motion.div>
@@ -267,8 +301,9 @@ export default function WishlistPage() {
             </AnimatePresence>
           </motion.div>
 
+          {/* LOAD MORE */}
           {visibleItems.length < filtered.length && (
-            <p className="text-center text-sm text-gray-500 py-6">
+            <p className="text-center text-sm text-gray-500 py-8">
               Loading more...
             </p>
           )}

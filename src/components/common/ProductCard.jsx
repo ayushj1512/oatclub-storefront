@@ -81,7 +81,6 @@ function getSafeHoverImage(product) {
 
 /* --------------------- derive category slug robust --------------------- */
 function getCategorySlug(product) {
-  // ✅ API categories: ["all-clothing", "hoodies", ...]
   const arr = Array.isArray(product?.categories)
     ? product.categories
     : Array.isArray(product?.raw?.categories)
@@ -131,6 +130,7 @@ export default function ProductCard({
   product,
   loading = false,
   disableRecentlyViewed = false,
+  hideWishlistIcon = false, // ✅ NEW PROP
 }) {
   if (loading || !product) {
     return (
@@ -140,18 +140,14 @@ export default function ProductCard({
     );
   }
 
-  // ✅ normalize id
   const pid = product?._id || product?.id || product?.productId;
   if (!pid) return null;
 
-  // ✅ derive name (API gives title)
   const productName = product?.title || product?.name || "Product";
 
-  // ✅ strict filters
   const image = getSafeImage(product);
   const sale = getBestPrice(product);
 
-  // ❌ if image missing OR price 0 => never show
   if (!image) return null;
   if (!sale || sale <= 0) return null;
 
@@ -192,16 +188,13 @@ export default function ProductCard({
   }, [product, disableRecentlyViewed, addProduct]);
 
   const hoverImage = useMemo(() => getSafeHoverImage(product), [product]);
-
   const category = useMemo(() => getCategorySlug(product), [product]);
-
   const formattedName = useMemo(
     () => slugify(product?.slug || productName),
     [product?.slug, productName]
   );
 
   const productLink = `/category/${category}/${formattedName}/${pid}`;
-
   const wishlisted = isInWishlist?.(pid);
 
   const toggleWishlist = (e) => {
@@ -259,21 +252,23 @@ export default function ProductCard({
             />
           )}
 
-          {/* Wishlist */}
-          <motion.button
-            type="button"
-            onClick={toggleWishlist}
-            whileTap={{ scale: 0.9 }}
-            className="absolute top-2 right-2 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-sm flex items-center justify-center z-10 transition hover:bg-white"
-          >
-            <Heart
-              className={
-                wishlisted
-                  ? "w-4 h-4 md:w-5 md:h-5 text-[#800020] fill-[#800020]"
-                  : "w-4 h-4 md:w-5 md:h-5 text-black/60"
-              }
-            />
-          </motion.button>
+          {/* ✅ Wishlist Icon (hidden when requested) */}
+          {!hideWishlistIcon && (
+            <motion.button
+              type="button"
+              onClick={toggleWishlist}
+              whileTap={{ scale: 0.9 }}
+              className="absolute top-2 right-2 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-sm flex items-center justify-center z-10 transition hover:bg-white"
+            >
+              <Heart
+                className={
+                  wishlisted
+                    ? "w-4 h-4 md:w-5 md:h-5 text-[#800020] fill-[#800020]"
+                    : "w-4 h-4 md:w-5 md:h-5 text-black/60"
+                }
+              />
+            </motion.button>
+          )}
         </div>
 
         {/* CONTENT */}
@@ -287,14 +282,12 @@ export default function ProductCard({
               ₹{sale}
             </span>
 
-            {/* ✅ compareAtPrice show */}
             {showCompare && (
               <span className="text-[12px] md:text-[14px] text-gray-500 line-through">
                 ₹{compareAt}
               </span>
             )}
 
-            {/* ✅ optional discount badge */}
             {showCompare && (
               <span className="text-[11px] md:text-[12px] font-semibold text-green-700">
                 {Math.round(((compareAt - sale) / compareAt) * 100)}% OFF
