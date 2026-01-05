@@ -409,16 +409,26 @@ const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
         {/* RIGHT */}
         <aside className="space-y-4 w-full">
           {/* Breadcrumb */}
-          <div className="text-xs md:text-sm text-gray-500">
-            <a href="/" className="hover:underline">
-              Home
-            </a>{" "}
-            /{" "}
-            <a href={`/${category}`} className="hover:underline capitalize">
-              {category}
-            </a>{" "}
-            / <span className="text-gray-900">{product.name}</span>
-          </div>
+          {/* Breadcrumb */}
+<div className="text-xs md:text-sm text-gray-500">
+  <a href="/" className="hover:underline">
+    Home
+  </a>{" "}
+  /{" "}
+  <a
+    href={`/category/${category}`}
+    className="hover:underline capitalize"
+  >
+    {product?.raw?.categories?.[0]?.name
+      ? decodeURIComponent(product.raw.categories[0].name)
+          .replace(/-/g, " ")
+          .trim()
+      : decodeURIComponent(category || "")
+          .replace(/-/g, " ")
+          .trim()}
+  </a>{" "}
+  / <span className="text-gray-900">{product.name}</span>
+</div>
 
           <h1 className="text-2xl md:text-3xl font-semibold text-black leading-tight">{product.name}</h1>
 

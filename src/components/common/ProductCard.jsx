@@ -28,24 +28,40 @@ const ShimmerCard = () => (
   </div>
 );
 
+/* -------------------------- helpers -------------------------- */
+function toNum(v) {
+  const n = Number(String(v ?? "").replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function slugify(s = "") {
+  return String(s)
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 /* -------------------------- Safe image helper -------------------------- */
 function getSafeImage(product) {
   try {
     const img =
+      product?.thumbnail ||
       product?.images?.[0]?.src ||
       product?.images?.[0] ||
       product?.image ||
       product?.featured_image ||
       "";
 
-    if (typeof img !== "string") return "/placeholder.png";
-    if (img.trim().length < 5) return "/placeholder.png";
+    if (typeof img !== "string") return "";
+    if (img.trim().length < 8) return "";
     if (img.startsWith("data:")) return img;
     if (img.startsWith("http") || img.startsWith("/")) return img;
 
-    return "/placeholder.png";
+    return "";
   } catch {
-    return "/placeholder.png";
+    return "";
   }
 }
 
@@ -53,21 +69,62 @@ function getSafeImage(product) {
 function getSafeHoverImage(product) {
   try {
     const img = product?.images?.[1]?.src || product?.images?.[1] || "";
-
     if (typeof img !== "string") return null;
-    if (img.trim().length < 5) return null;
+    if (img.trim().length < 8) return null;
     if (img.startsWith("data:")) return img;
     if (img.startsWith("http") || img.startsWith("/")) return img;
-
     return null;
   } catch {
     return null;
   }
 }
 
-function toNum(v) {
-  const n = Number(String(v ?? "").replace(/[^\d.]/g, ""));
-  return Number.isFinite(n) ? n : null;
+/* --------------------- derive category slug robust --------------------- */
+function getCategorySlug(product) {
+  // ✅ API categories: ["all-clothing", "hoodies", ...]
+  const arr = Array.isArray(product?.categories)
+    ? product.categories
+    : Array.isArray(product?.raw?.categories)
+    ? product.raw.categories
+    : [];
+
+  const banned = ["all-clothing", "featured", "uncategorized"];
+
+  const preferred =
+    arr.find((c) => c && !banned.includes(String(c).toLowerCase())) ||
+    arr[0] ||
+    product?.category ||
+    "products";
+
+  return slugify(preferred);
+}
+
+/* --------------------- derive real sale price --------------------- */
+function getBestPrice(product) {
+  const base = toNum(product?.sale_price ?? product?.price);
+
+  const variantPrices = Array.isArray(product?.variants)
+    ? product.variants.map((v) => toNum(v?.price)).filter((x) => x > 0)
+    : [];
+
+  const variantMin = variantPrices.length ? Math.min(...variantPrices) : 0;
+
+  return base > 0 ? base : variantMin;
+}
+
+/* --------------------- derive compareAtPrice --------------------- */
+function getBestCompareAtPrice(product) {
+  const compareBase = toNum(product?.compareAtPrice ?? product?.compare_at_price);
+
+  const variantComparePrices = Array.isArray(product?.variants)
+    ? product.variants
+        .map((v) => toNum(v?.compareAtPrice ?? v?.compare_at_price))
+        .filter((x) => x > 0)
+    : [];
+
+  const variantMax = variantComparePrices.length ? Math.max(...variantComparePrices) : 0;
+
+  return compareBase > 0 ? compareBase : variantMax;
 }
 
 export default function ProductCard({
@@ -82,6 +139,24 @@ export default function ProductCard({
       </div>
     );
   }
+
+  // ✅ normalize id
+  const pid = product?._id || product?.id || product?.productId;
+  if (!pid) return null;
+
+  // ✅ derive name (API gives title)
+  const productName = product?.title || product?.name || "Product";
+
+  // ✅ strict filters
+  const image = getSafeImage(product);
+  const sale = getBestPrice(product);
+
+  // ❌ if image missing OR price 0 => never show
+  if (!image) return null;
+  if (!sale || sale <= 0) return null;
+
+  const compareAt = getBestCompareAtPrice(product);
+  const showCompare = compareAt > sale;
 
   const {
     addToWishlist,
@@ -99,7 +174,6 @@ export default function ProductCard({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
-
     setCanHover(mq.matches);
 
     const handler = (e) => setCanHover(e.matches);
@@ -113,39 +187,33 @@ export default function ProductCard({
   }, [initWishlist]);
 
   useEffect(() => {
-    if (!product?.id || disableRecentlyViewed) return;
-    addProduct(product);
+    if (disableRecentlyViewed) return;
+    addProduct?.(product);
   }, [product, disableRecentlyViewed, addProduct]);
 
-  const image = useMemo(() => getSafeImage(product), [product]);
   const hoverImage = useMemo(() => getSafeHoverImage(product), [product]);
 
-  const sale = toNum(product?.sale_price ?? product?.price);
+  const category = useMemo(() => getCategorySlug(product), [product]);
 
-  const category =
-    product?.categories?.[0]?.slug ||
-    product?.categories?.[0]?.name ||
-    "products";
+  const formattedName = useMemo(
+    () => slugify(product?.slug || productName),
+    [product?.slug, productName]
+  );
 
-  const formattedName = String(product?.name || "product")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const productLink = `/category/${category}/${formattedName}/${pid}`;
 
-  const productLink = `/category/${category}/${formattedName}/${product.id}`;
-  const wishlisted = isInWishlist(product.id);
+  const wishlisted = isInWishlist?.(pid);
 
   const toggleWishlist = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    wishlisted ? removeFromWishlist(product.id) : addToWishlist(product);
+    wishlisted ? removeFromWishlist(pid) : addToWishlist(product);
   };
 
   const handleProductClick = () => {
-    trackProductView(product.id);
+    trackProductView?.(pid);
   };
 
-  // ✅ Desktop only hover handlers
   const handleEnter = () => {
     if (canHover && hoverImage) setIsHovered(true);
   };
@@ -167,10 +235,9 @@ export default function ProductCard({
       >
         {/* IMAGE */}
         <div className="relative w-full aspect-[3/4] bg-white overflow-hidden">
-          {/* Primary image */}
           <Image
             src={image}
-            alt={product?.name || "Product"}
+            alt={productName}
             fill
             loading="lazy"
             sizes="(max-width: 600px) 45vw, 220px"
@@ -179,11 +246,10 @@ export default function ProductCard({
             }`}
           />
 
-          {/* Hover image */}
           {canHover && hoverImage && (
             <Image
               src={hoverImage}
-              alt={product?.name || "Product Hover"}
+              alt={`${productName} Hover`}
               fill
               loading="lazy"
               sizes="(max-width: 600px) 45vw, 220px"
@@ -213,17 +279,25 @@ export default function ProductCard({
         {/* CONTENT */}
         <div className="p-2 md:p-3 flex flex-col gap-1.5 md:gap-2">
           <h3 className="text-[13px] md:text-[15px] font-semibold text-black leading-snug line-clamp-2">
-            {product?.name}
+            {productName}
           </h3>
 
           <div className="flex items-baseline gap-2">
-            {sale != null ? (
-              <span className="text-[14px] md:text-[16px] font-semibold text-black">
-                ₹{sale}
+            <span className="text-[14px] md:text-[16px] font-semibold text-black">
+              ₹{sale}
+            </span>
+
+            {/* ✅ compareAtPrice show */}
+            {showCompare && (
+              <span className="text-[12px] md:text-[14px] text-gray-500 line-through">
+                ₹{compareAt}
               </span>
-            ) : (
-              <span className="text-[14px] md:text-[16px] font-semibold text-transparent">
-                ₹
+            )}
+
+            {/* ✅ optional discount badge */}
+            {showCompare && (
+              <span className="text-[11px] md:text-[12px] font-semibold text-green-700">
+                {Math.round(((compareAt - sale) / compareAt) * 100)}% OFF
               </span>
             )}
           </div>
