@@ -74,18 +74,17 @@ export default function CategoryPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest");
 
-  // Applied Filters
+  // ✅ Applied filters
   const [onlyInStock, setOnlyInStock] = useState(true);
-  const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
-
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
 
-  // Draft Filters
+  // ✅ Draft filters (drawer ke liye)
   const [draftOnlyInStock, setDraftOnlyInStock] = useState(true);
   const [draftPriceMin, setDraftPriceMin] = useState(null);
   const [draftPriceMax, setDraftPriceMax] = useState(null);
 
+  const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
   const lastFetchRef = useRef("");
 
   const drawerTop = useMemo(
@@ -100,16 +99,15 @@ export default function CategoryPage() {
     []
   );
 
-  // Init price
+  // ✅ Init price once facets update
   useEffect(() => {
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
-
     setDraftPriceMin(facets.priceMin);
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  // Fetch products
+  // ✅ Fetch products when category/sort changes
   useEffect(() => {
     if (!ready) return;
 
@@ -132,7 +130,7 @@ export default function CategoryPage() {
     });
   }, [ready, category, sort, fetchProducts, clearError]);
 
-  // Apply Filters
+  // ✅ Apply filters
   const applyFilters = () => {
     setOnlyInStock(draftOnlyInStock);
     setPriceMin(draftPriceMin);
@@ -140,32 +138,25 @@ export default function CategoryPage() {
     setDrawerOpen(false);
   };
 
-  // Reset
+  // ✅ Reset filters
   const resetFilters = useCallback(() => {
     setOnlyInStock(true);
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
-
     setDraftOnlyInStock(true);
     setDraftPriceMin(facets.priceMin);
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  /* ============================================================
-     FILTER + SORT LIST ✅
-  ============================================================ */
+  // ✅ Filter + sort list
   const list = useMemo(() => {
     let arr = Array.isArray(allProducts) ? [...allProducts] : [];
 
     const getPrice = (p) =>
       Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
 
-    // filter: stock
-    if (onlyInStock) {
-      arr = arr.filter((p) => getStockCount(p) > 0);
-    }
+    if (onlyInStock) arr = arr.filter((p) => getStockCount(p) > 0);
 
-    // filter: price
     const lo = priceMin ?? facets.priceMin;
     const hi = priceMax ?? facets.priceMax;
     const minV = Math.min(lo, hi);
@@ -177,14 +168,11 @@ export default function CategoryPage() {
       return pr >= minV && pr <= maxV;
     });
 
-    // sorting
-    if (sort === "priceLowHigh") {
-      arr.sort((a, b) => getPrice(a) - getPrice(b));
-    } else if (sort === "priceHighLow") {
+    if (sort === "priceLowHigh") arr.sort((a, b) => getPrice(a) - getPrice(b));
+    else if (sort === "priceHighLow")
       arr.sort((a, b) => getPrice(b) - getPrice(a));
-    } else if (sort === "newest") {
+    else if (sort === "newest")
       arr.sort((a, b) => getTimeValue(b) - getTimeValue(a));
-    }
 
     return arr;
   }, [
@@ -200,14 +188,7 @@ export default function CategoryPage() {
   const inStockCount =
     allProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
 
-  const activeFilterCount = useMemo(() => {
-    let n = 0;
-    if (!onlyInStock) n++;
-    if (priceMin !== facets.priceMin || priceMax !== facets.priceMax) n++;
-    return n;
-  }, [onlyInStock, priceMin, priceMax, facets.priceMin, facets.priceMax]);
-
-  // Infinite scroll
+  // ✅ Infinite scroll
   const sentinelRef = useRef(null);
   const loadingMoreRef = useRef(false);
 
@@ -217,17 +198,10 @@ export default function CategoryPage() {
 
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (!entry?.isIntersecting) return;
-        if (isLoading) return;
-        if (loadingMoreRef.current) return;
-        if (!hasMore()) return;
-
+        if (!entry.isIntersecting || isLoading || loadingMoreRef.current || !hasMore()) return;
         loadingMoreRef.current = true;
         loadMore();
-
-        setTimeout(() => {
-          loadingMoreRef.current = false;
-        }, 350);
+        setTimeout(() => (loadingMoreRef.current = false), 350);
       },
       { rootMargin: "900px 0px" }
     );
@@ -236,22 +210,12 @@ export default function CategoryPage() {
     return () => io.disconnect();
   }, [hasMore, isLoading, loadMore]);
 
-  // Lock scroll
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => (document.body.style.overflow = prev);
-  }, [drawerOpen]);
-
   const showInitialLoading = isLoading && (allProducts?.length || 0) === 0;
 
   const retry = useCallback(() => {
     if (!ready) return;
-
     clearError?.();
     lastFetchRef.current = "";
-
     fetchProducts({
       category,
       isActive: true,
@@ -263,7 +227,7 @@ export default function CategoryPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* ✅ FILTER DRAWER COMPONENT */}
+      {/* ✅ Drawer (still there but button hidden) */}
       <FiltersDrawer
         open={drawerOpen}
         setOpen={setDrawerOpen}
@@ -280,9 +244,8 @@ export default function CategoryPage() {
         resetFilters={resetFilters}
       />
 
-      {/* MAIN */}
       <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-8">
-        {/* ✅ FILTER SORT BAR COMPONENT */}
+        {/* ✅ Bar (FILTER BUTTON HIDDEN) */}
         <FilterSortBar
           category={category}
           inStockCount={inStockCount}
@@ -290,17 +253,11 @@ export default function CategoryPage() {
           sort={sort}
           setSort={setSort}
           sortOptions={SORT_OPTIONS}
-          activeFilterCount={activeFilterCount}
-          onOpenFilters={() => {
-            setDraftOnlyInStock(onlyInStock);
-            setDraftPriceMin(priceMin ?? facets.priceMin);
-            setDraftPriceMax(priceMax ?? facets.priceMax);
-            setDrawerOpen(true);
-          }}
+          hideFilterButton={true}   // ✅ IMPORTANT: hides filter button
         />
 
         {/* Error */}
-        {error ? (
+        {error && (
           <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
             <div className="font-semibold">Something went wrong</div>
             <div className="text-sm mt-1">{error}</div>
@@ -311,7 +268,7 @@ export default function CategoryPage() {
               Retry
             </button>
           </div>
-        ) : null}
+        )}
 
         {/* Products */}
         <div className="mt-6">
@@ -319,31 +276,26 @@ export default function CategoryPage() {
         </div>
 
         {/* Load More */}
-        {!error && (allProducts?.length || 0) > 0 ? (
+        {!error && (allProducts?.length || 0) > 0 && (
           <div className="mt-8 flex flex-col items-center gap-3">
             {hasMore() ? (
               <>
                 <button
-                  onClick={() => loadMore()}
+                  onClick={loadMore}
                   disabled={isLoading}
                   className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:opacity-50"
                 >
                   {isLoading ? "Loading..." : "Load more"}
                 </button>
                 <div className="text-xs text-zinc-500">
-                  Showing {list.length} items{" "}
-                  {hasMore()
-                    ? " — more items will load as you scroll"
-                    : " — end"}
+                  Showing {list.length} items — {hasMore() ? "more items will load as you scroll" : "end"}
                 </div>
               </>
             ) : (
-              <div className="text-sm text-zinc-600">
-                You’ve reached the end.
-              </div>
+              <div className="text-sm text-zinc-600">You’ve reached the end.</div>
             )}
           </div>
-        ) : null}
+        )}
 
         <div ref={sentinelRef} className="h-1 w-full" />
       </div>

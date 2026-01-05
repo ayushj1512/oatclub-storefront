@@ -30,7 +30,33 @@ export default function RecentlyViewedProducts() {
   }, [initialize]);
 
   /* -------------------------------------------------------
-     REMOVE DUPLICATES + REMOVE TOPMOST PRODUCT
+     HELPERS: FILTER OUT BAD PRODUCTS
+     - No image
+     - Price = 0 / invalid
+  ------------------------------------------------------- */
+  const isValidProduct = (p) => {
+    // ✅ image check
+    const img =
+      p?.image ||
+      p?.thumbnail ||
+      p?.images?.[0] ||
+      "";
+
+    const hasValidImage =
+      typeof img === "string" &&
+      img.trim().length > 0 &&
+      !img.includes("placeholder") &&
+      img !== "/placeholder.png";
+
+    // ✅ price check
+    const price = Number(p?.price || 0);
+    const hasValidPrice = Number.isFinite(price) && price > 0;
+
+    return hasValidImage && hasValidPrice;
+  };
+
+  /* -------------------------------------------------------
+     REMOVE DUPLICATES + REMOVE TOPMOST PRODUCT + FILTER INVALID
   ------------------------------------------------------- */
   const uniqueItems = useMemo(() => {
     if (!items?.length) return [];
@@ -38,16 +64,20 @@ export default function RecentlyViewedProducts() {
     const seen = new Set();
 
     const deduped = items.filter((p) => {
-      const key = String(p?.id || p?.slug);
+      const key = String(p?.id || p?.productId || p?.slug);
       if (!key) return false;
 
       if (seen.has(key)) return false;
       seen.add(key);
+
       return true;
     });
 
     // ✅ Remove the topmost product (current product)
-    return deduped.slice(1);
+    const withoutTop = deduped.slice(1);
+
+    // ✅ Remove products with missing image or zero price
+    return withoutTop.filter(isValidProduct);
   }, [items]);
 
   /* -------------------------------------------------------
@@ -154,7 +184,7 @@ export default function RecentlyViewedProducts() {
       >
         {uniqueItems.map((p) => (
           <div
-            key={String(p?.id || p?.slug)}
+            key={String(p?.id || p?.productId || p?.slug)}
             className={`${CARD_WRAP} ${CARD_HEIGHT} snap-start`}
           >
             <ProductCard product={p} disableRecentlyViewed />

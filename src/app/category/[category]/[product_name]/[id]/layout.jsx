@@ -1,7 +1,7 @@
 // src/app/category/[category]/[product_name]/[id]/layout.jsx
 
 export async function generateMetadata({ params }) {
-  const { id, category } = params; // ✅ removed product_name
+  const { id, category, product_name } = await params;
 
   try {
     const res = await fetch(
@@ -9,24 +9,33 @@ export async function generateMetadata({ params }) {
       { cache: "no-store" }
     );
 
-    if (!res.ok) {
-      return fallbackMetadata();
-    }
+    if (!res.ok) return fallbackMetadata(category, product_name, id);
 
     const product = await res.json();
 
-    const title = `${product.name} | Miray Fashions`;
+    // ✅ Safe Product Name (No undefined)
+    const safeName =
+      product?.name ||
+      product?.title ||
+      product?.productName ||
+      (product?.slug ? slugToTitle(product.slug) : "") ||
+      (product_name ? slugToTitle(product_name) : "") ||
+      "Product";
+
+    const title = `${safeName} | Miray Fashions`;
+
     const description =
-      product.shortDescription ||
-      product.description?.slice(0, 160) ||
-      "Shop premium fashion at Miray Fashions";
+      product?.shortDescription ||
+      product?.description?.slice(0, 160) ||
+      `Shop ${safeName} online at Miray Fashions.`;
 
     const image =
-      product.thumbnail ||
-      product.images?.[0] ||
+      product?.thumbnail ||
+      product?.images?.[0] ||
       "https://mirayfashions.com/og-default.jpg";
 
-    const url = `https://mirayfashions.com/${category}/${product.slug}/${id}`;
+    // ✅ Canonical URL (same as your folder route)
+    const url = `https://mirayfashions.com/category/${category}/${product?.slug || product_name}/${id}`;
 
     return {
       title,
@@ -37,53 +46,87 @@ export async function generateMetadata({ params }) {
       },
 
       openGraph: {
-        title,
+        title, // ✅ safe title
         description,
         url,
         siteName: "Miray Fashions",
+        type: "website",
+        locale: "en_IN",
         images: [
           {
             url: image,
             width: 1200,
             height: 630,
-            alt: product.name,
+            alt: safeName,
           },
         ],
-        locale: "en_IN",
-        type: "product",
       },
 
       twitter: {
         card: "summary_large_image",
-        title,
+        title, // ✅ safe title
         description,
         images: [image],
       },
 
       robots: {
-        index: product.isActive !== false,
+        index: product?.isActive !== false,
         follow: true,
         googleBot: {
-          index: product.isActive !== false,
+          index: product?.isActive !== false,
           follow: true,
         },
       },
     };
   } catch {
-    // ✅ removed unused err
-    return fallbackMetadata();
+    return fallbackMetadata(category, product_name, id);
   }
 }
 
-function fallbackMetadata() {
+// ✅ Fallback metadata should also NOT show undefined
+function fallbackMetadata(category, product_name, id) {
+  const safeCategory = category ? slugToTitle(category) : "Category";
+  const safeProduct = product_name ? slugToTitle(product_name) : "Product";
+
+  const title = `${safeProduct} | Miray Fashions`;
+  const description = `Shop ${safeProduct} in ${safeCategory} online at Miray Fashions.`;
+
+  const url = `https://mirayfashions.com/category/${category || ""}/${product_name || ""}/${id || ""}`;
+
   return {
-    title: "Miray Fashions",
-    description: "Shop premium fashion online at Miray Fashions",
+    title,
+    description,
+    alternates: {
+      canonical: url,
+    },
     robots: {
       index: true,
       follow: true,
     },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "Miray Fashions",
+      type: "website",
+      images: [
+        {
+          url: "https://mirayfashions.com/og-default.jpg",
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
+    },
   };
+}
+
+// ✅ Converts: "blue-saree" -> "Blue Saree"
+function slugToTitle(slug = "") {
+  return decodeURIComponent(String(slug))
+    .replace(/-/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function ProductLayout({ children }) {

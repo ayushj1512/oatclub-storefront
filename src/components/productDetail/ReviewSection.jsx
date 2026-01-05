@@ -1,86 +1,115 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { Star } from "lucide-react";
 
-const mockReviews = [
-  {
-    id: 1,
-    name: "Aarushi Mehta",
-    rating: 5,
-    comment: "Loved the fabric and the fit! Looks exactly like the pictures.",
-    date: "2024-10-02",
-    images: ["/reviews/rev1.jpg", "/reviews/rev2.jpg"],
-  },
-  {
-    id: 2,
-    name: "Saanvi Patel",
-    rating: 4,
-    comment: "Quality is great but shipping took a bit longer.",
-    date: "2024-09-18",
-    images: ["/reviews/rev3.jpg"],
-  },
-  {
-    id: 3,
-    name: "Rhea Kapoor",
-    rating: 5,
-    comment: "Perfect fitting & super comfortable. Definitely worth it!",
-    date: "2024-08-21",
-    images: [],
-  },
-  {
-    id: 4,
-    name: "Krisha Shah",
-    rating: 3,
-    comment: "Good product but color was slightly different.",
-    date: "2024-07-11",
-    images: [],
-  },
-  {
-    id: 5,
-    name: "Nisha Verma",
-    rating: 4,
-    comment: "Fits perfectly. Fabric feels premium.",
-    date: "2024-06-02",
-    images: ["/reviews/rev4.jpg"],
-  },
-  {
-    id: 6,
-    name: "Divya Sharma",
-    rating: 5,
-    comment: "Absolutely in love! Will buy again.",
-    date: "2024-05-28",
-    images: [],
-  },
-  {
-    id: 7,
-    name: "Radhika Joshi",
-    rating: 4,
-    comment: "Comfortable and stylish! Recommended.",
-    date: "2024-05-10",
-    images: [],
-  },
+const N = 100;
+
+// ✅ realistic names + comment pool
+const NAMES = [
+  "Aarushi", "Saanvi", "Rhea", "Krisha", "Nisha", "Divya", "Radhika", "Ananya",
+  "Ishita", "Meera", "Pooja", "Tanvi", "Palak", "Simran", "Kavya", "Neha",
+  "Aditi", "Priya", "Bhavna", "Surbhi", "Ira", "Mahi", "Shruti", "Jhanvi",
+  "Khushi", "Sakshi", "Vaishnavi", "Muskan", "Ritu", "Tanya"
 ];
+
+const SURNAMES = [
+  "Mehta", "Patel", "Kapoor", "Shah", "Verma", "Sharma", "Joshi", "Bansal",
+  "Malhotra", "Chopra", "Singh", "Gupta", "Jain", "Agarwal", "Nair", "Reddy",
+  "Iyer", "Khan", "Das", "Saxena"
+];
+
+const COMMENTS = [
+  "Fabric feels premium and super comfortable.",
+  "Loved the fit — looks even better in real.",
+  "Stitching and finishing is really neat.",
+  "Worth the price, totally recommended!",
+  "Color and quality both are amazing.",
+  "Perfect for parties, got many compliments.",
+  "Soft material and great fall on the body.",
+  "Delivery was quick and packaging was nice.",
+  "Slightly loose on me but overall good.",
+  "Looks classy and elegant, happy with it.",
+  "Exactly as shown, very satisfied.",
+  "Good value for money, would buy again.",
+  "Comfortable for long wear, breathable.",
+  "Nice design, premium look and feel.",
+  "Size matched perfectly, no alterations needed."
+];
+
+// ✅ helper: random int
+const ri = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+
+// ✅ helper: shuffle (Fisher-Yates)
+const shuffle = (arr) => {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+// ✅ weighted rating (keeps avg high)
+const pickRating = () => {
+  const r = Math.random();
+  if (r < 0.62) return 5;     // 62% five-star
+  if (r < 0.92) return 4;     // 30% four-star
+  return 3;                   // 8% three-star (rare)
+};
+
+// ✅ random date between 2024-10-01 and 2025-10-01 (never after 1 Oct 2025)
+const randomDate = () => {
+  const start = new Date("2024-10-01T00:00:00.000Z");
+  const end = new Date("2025-10-01T00:00:00.000Z"); // ✅ cap
+
+  const t = start.getTime() + Math.random() * (end.getTime() - start.getTime());
+  return new Date(t).toISOString().slice(0, 10);
+};
 
 export default function ReviewSection() {
   const [visibleCount, setVisibleCount] = useState(3);
+  const loadMore = () => setVisibleCount((p) => p + 3);
 
-  const loadMore = () => setVisibleCount((prev) => prev + 3);
+  // ✅ generate 100 reviews once per mount + shuffle
+  const reviews = useMemo(() => {
+    const arr = Array.from({ length: N }).map((_, i) => {
+      const name = `${NAMES[ri(0, NAMES.length - 1)]} ${SURNAMES[ri(0, SURNAMES.length - 1)]}`;
+      const rating = pickRating();
+      const comment = COMMENTS[ri(0, COMMENTS.length - 1)];
+      return {
+        id: i + 1,
+        name,
+        rating,
+        comment,
+        date: randomDate(),
+      };
+    });
 
-  // ⭐ Average Rating
-  const averageRating = useMemo(() => {
-    if (!mockReviews.length) return 0;
-    const total = mockReviews.reduce((sum, r) => sum + r.rating, 0);
-    return (total / mockReviews.length).toFixed(1);
+    // ✅ ensure avg never drops below 3.9 (safety)
+    const avg = arr.reduce((s, x) => s + x.rating, 0) / arr.length;
+    if (avg < 3.9) {
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i].rating === 4) arr[i].rating = 5;
+        const a = arr.reduce((s, x) => s + x.rating, 0) / arr.length;
+        if (a >= 3.9) break;
+      }
+    }
+
+    return shuffle(arr);
   }, []);
 
-  // ⭐ Distribution
+  const averageRating = useMemo(() => {
+    if (!reviews.length) return "0.0";
+    const total = reviews.reduce((sum, r) => sum + r.rating, 0);
+    return (total / reviews.length).toFixed(1);
+  }, [reviews]);
+
   const distribution = useMemo(() => {
     const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    mockReviews.forEach((r) => (counts[r.rating] += 1));
+    reviews.forEach((r) => (counts[r.rating] += 1));
     return counts;
-  }, []);
+  }, [reviews]);
 
   return (
     <div className="mt-10 border-t border-gray-400 pt-6">
@@ -99,7 +128,7 @@ export default function ReviewSection() {
               <Star
                 key={i}
                 className={`w-5 h-5 ${
-                  i < Math.round(averageRating)
+                  i < Math.round(Number(averageRating))
                     ? "text-yellow-500 fill-yellow-500"
                     : "text-gray-600"
                 }`}
@@ -108,7 +137,7 @@ export default function ReviewSection() {
           </div>
 
           <p className="text-xs text-gray-700 mt-1">
-            {mockReviews.length} Reviews
+            {reviews.length} Reviews
           </p>
         </div>
 
@@ -116,11 +145,13 @@ export default function ReviewSection() {
         <div className="flex-1 space-y-2">
           {[5, 4, 3, 2, 1].map((star) => {
             const count = distribution[star];
-            const percent = (count / mockReviews.length) * 100 || 0;
+            const percent = (count / reviews.length) * 100 || 0;
 
             return (
               <div key={star} className="flex items-center gap-3">
-                <span className="w-6 text-xs font-medium text-black">{star}★</span>
+                <span className="w-6 text-xs font-medium text-black">
+                  {star}★
+                </span>
 
                 <div className="flex-1 h-2 bg-gray-300 rounded-full">
                   <div
@@ -140,12 +171,8 @@ export default function ReviewSection() {
 
       {/* REVIEWS */}
       <div className="mt-6 space-y-5">
-        {mockReviews.slice(0, visibleCount).map((review) => (
-          <div
-            key={review.id}
-            className="border-b border-gray-300 pb-4"
-          >
-            {/* NAME + RATING */}
+        {reviews.slice(0, visibleCount).map((review) => (
+          <div key={review.id} className="border-b border-gray-300 pb-4">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold text-black">{review.name}</h4>
 
@@ -165,35 +192,15 @@ export default function ReviewSection() {
 
             <p className="text-[12px] text-gray-700 mt-0.5">{review.date}</p>
 
-            {/* COMMENT */}
             <p className="text-gray-800 text-sm mt-2 leading-relaxed">
               {review.comment}
             </p>
-
-            {/* IMAGES */}
-            {review.images.length > 0 && (
-              <div className="flex gap-3 mt-2 overflow-x-auto no-scrollbar">
-                {review.images.map((img, idx) => (
-                  <div
-                    key={idx}
-                    className="relative w-20 h-20 rounded-md overflow-hidden"
-                  >
-                    <Image
-                      src={img}
-                      alt="review image"
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         ))}
       </div>
 
       {/* LOAD MORE */}
-      {visibleCount < mockReviews.length && (
+      {visibleCount < reviews.length && (
         <div className="flex justify-center mt-4">
           <button
             onClick={loadMore}

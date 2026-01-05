@@ -13,29 +13,17 @@ export default function FilterSortBar({
   activeFilterCount = 0,
   sort,
   setSort,
-  onlyInStock,
-  priceMin,
-  priceMax,
-  facets,
-  setDraftOnlyInStock,
-  setDraftPriceMin,
-  setDraftPriceMax,
-  setDrawerOpen,
+  onOpenFilters,
 }) {
   return (
     <div className="flex items-center gap-2">
       {/* ✅ Filters Button */}
-      <button
-        onClick={() => {
-          setDraftOnlyInStock(onlyInStock);
-          setDraftPriceMin(priceMin ?? facets.priceMin);
-          setDraftPriceMax(priceMax ?? facets.priceMax);
-          setDrawerOpen(true);
-        }}
+      {/* <button
+        onClick={onOpenFilters}
         className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900"
       >
         Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
-      </button>
+      </button> */}
 
       {/* ✅ Sort Dropdown */}
       <select

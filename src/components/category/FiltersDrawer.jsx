@@ -3,66 +3,58 @@
 import React, { useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-/* ---------------- helpers ---------------- */
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 
+function formatINR(n) {
+  const x = Number(n || 0);
+  return x.toLocaleString("en-IN");
+}
+
 /* ============================================================
-   PRICE RANGE SLIDER (same as your original)
+   PREMIUM PRICE RANGE SLIDER (Tailwind version)
 ============================================================ */
-function PriceRangeSlider({
-  min,
-  max,
-  valueMin,
-  valueMax,
-  onChangeMin,
-  onChangeMax,
-}) {
+function PriceRangeCard({ min, max, valueMin, valueMax, onMin, onMax }) {
   const range = max - min || 1;
 
   const left = ((valueMin - min) / range) * 100;
   const right = ((valueMax - min) / range) * 100;
 
-  const handleMin = (v) => {
-    const val = clamp(Number(v), min, valueMax - 1);
-    onChangeMin(val);
-  };
-
-  const handleMax = (v) => {
-    const val = clamp(Number(v), valueMin + 1, max);
-    onChangeMax(val);
-  };
-
   return (
-    <div className="mt-3">
-      {/* Manual Boxes */}
-      <div className="flex items-center justify-between gap-3">
-        <input
-          type="number"
-          value={valueMin}
-          min={min}
-          max={valueMax - 1}
-          onChange={(e) => handleMin(e.target.value)}
-          className="w-24 rounded-xl bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900 outline-none border border-zinc-200"
-        />
-
-        <input
-          type="number"
-          value={valueMax}
-          min={valueMin + 1}
-          max={max}
-          onChange={(e) => handleMax(e.target.value)}
-          className="w-24 rounded-xl bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900 text-right outline-none border border-zinc-200"
-        />
+    <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+      {/* Title */}
+      <div className="text-lg font-bold text-zinc-900">
+        Price <span className="font-medium">Range</span>
       </div>
 
-      {/* Slider */}
-      <div className="relative mt-4 h-10">
-        {/* Track */}
-        <div className="absolute top-1/2 -translate-y-1/2 w-full h-2 rounded-full bg-zinc-200" />
+      {/* Values */}
+      <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-blue-600">
+        <div>₹{formatINR(valueMin)}</div>
+        <div className="text-zinc-400">—</div>
+        <div>₹{formatINR(valueMax)}</div>
+      </div>
 
-        {/* Filled Range */}
+      {/* Current Range */}
+      <div className="mt-2 text-xs text-zinc-500">
+        Current Range:{" "}
+        <span className="font-semibold text-zinc-800">
+          ₹{formatINR(valueMax - valueMin)}
+        </span>
+      </div>
+
+      {/* Labels */}
+      <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500">
+        <span>₹{formatINR(min)}</span>
+        <span>₹{formatINR(max)}</span>
+      </div>
+
+      {/* Slider Area */}
+      <div className="relative mt-3 h-10">
+        {/* Base Track */}
+        <div className="absolute top-1/2 h-[2px] w-full -translate-y-1/2 rounded-full bg-zinc-300" />
+
+        {/* Active Track */}
         <div
-          className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full bg-blue-500"
+          className="absolute top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-blue-600"
           style={{
             left: `${left}%`,
             width: `${right - left}%`,
@@ -75,9 +67,9 @@ function PriceRangeSlider({
           min={min}
           max={max}
           value={valueMin}
-          onChange={(e) => handleMin(e.target.value)}
-          className="absolute w-full top-0 left-0 h-10 cursor-pointer bg-transparent"
-          style={{ zIndex: valueMin > max - 100 ? 5 : 6 }}
+          onChange={(e) => onMin(e.target.value)}
+          className="absolute left-0 top-0 h-10 w-full cursor-pointer bg-transparent appearance-none"
+          style={{ zIndex: valueMin > max - 50 ? 5 : 6 }}
         />
 
         <input
@@ -85,76 +77,81 @@ function PriceRangeSlider({
           min={min}
           max={max}
           value={valueMax}
-          onChange={(e) => handleMax(e.target.value)}
-          className="absolute w-full top-0 left-0 h-10 cursor-pointer bg-transparent"
+          onChange={(e) => onMax(e.target.value)}
+          className="absolute left-0 top-0 h-10 w-full cursor-pointer bg-transparent appearance-none"
           style={{ zIndex: 7 }}
         />
 
         {/* Knobs */}
         <div
-          className="pointer-events-none absolute top-1/2 -translate-y-1/2 size-5 rounded-full bg-blue-600 shadow-md"
-          style={{ left: `calc(${left}% - 10px)` }}
+          className="pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 rounded-full border border-zinc-700 bg-white shadow-md"
+          style={{ left: `calc(${left}% - 8px)` }}
         />
         <div
-          className="pointer-events-none absolute top-1/2 -translate-y-1/2 size-5 rounded-full bg-blue-600 shadow-md"
-          style={{ left: `calc(${right}% - 10px)` }}
+          className="pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 rounded-full border border-zinc-700 bg-white shadow-md"
+          style={{ left: `calc(${right}% - 8px)` }}
         />
       </div>
 
-      <div className="mt-2 text-xs text-zinc-500">
-        Range: ₹{valueMin} – ₹{valueMax}
+      {/* Manual Inputs */}
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <input
+          type="number"
+          value={valueMin}
+          min={min}
+          max={valueMax - 1}
+          onChange={(e) => onMin(e.target.value)}
+          className="w-28 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-900 outline-none focus:border-blue-500"
+        />
+
+        <input
+          type="number"
+          value={valueMax}
+          min={valueMin + 1}
+          max={max}
+          onChange={(e) => onMax(e.target.value)}
+          className="w-28 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-right text-sm font-semibold text-zinc-900 outline-none focus:border-blue-500"
+        />
       </div>
     </div>
   );
 }
 
 /* ============================================================
-   FILTERS DRAWER COMPONENT ✅
+   FILTER DRAWER COMPONENT ✅
 ============================================================ */
 export default function FiltersDrawer({
   open,
   setOpen,
-
   drawerTop,
   drawerHeight,
-
-  // facets
   facets,
-
-  // draft filter states
   draftOnlyInStock,
   setDraftOnlyInStock,
   draftPriceMin,
   setDraftPriceMin,
   draftPriceMax,
   setDraftPriceMax,
-
-  // actions
   applyFilters,
   resetFilters,
 }) {
-  // slider limits
-  const sliderMin = facets?.priceMin ?? 0;
-  const sliderMax = facets?.priceMax ?? 0;
+  const min = facets?.priceMin ?? 0;
+  const max = facets?.priceMax ?? 0;
 
-  const safeDraftMin = draftPriceMin ?? sliderMin;
-  const safeDraftMax = draftPriceMax ?? sliderMax;
+  const safeMin = draftPriceMin ?? min;
+  const safeMax = draftPriceMax ?? max;
 
-  const changeMin = (v) => {
-    const val = clamp(v, sliderMin, safeDraftMax - 1);
-    setDraftPriceMin(val);
-  };
+  const onMin = (v) =>
+    setDraftPriceMin(clamp(Number(v), min, safeMax - 1));
 
-  const changeMax = (v) => {
-    const val = clamp(v, safeDraftMin + 1, sliderMax);
-    setDraftPriceMax(val);
-  };
+  const onMax = (v) =>
+    setDraftPriceMax(clamp(Number(v), safeMin + 1, max));
 
   return (
     <>
-      {/* BACKDROP */}
+      {/* Backdrop */}
       <AnimatePresence>
-        {open ? (
+        {open && (
           <motion.button
             aria-label="Close filters"
             className="fixed left-0 right-0 bottom-0 z-40 bg-black/40"
@@ -164,14 +161,14 @@ export default function FiltersDrawer({
             exit={{ opacity: 0 }}
             onClick={() => setOpen(false)}
           />
-        ) : null}
+        )}
       </AnimatePresence>
 
-      {/* DRAWER */}
+      {/* Drawer */}
       <AnimatePresence>
-        {open ? (
+        {open && (
           <motion.aside
-            className="fixed left-0 z-50 w-[320px] max-w-[85vw] bg-white shadow-2xl border-r border-zinc-200"
+            className="fixed left-0 z-50 w-[340px] max-w-[90vw] bg-white shadow-2xl border-r border-zinc-200"
             style={{ top: drawerTop, height: drawerHeight }}
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
@@ -179,11 +176,10 @@ export default function FiltersDrawer({
             transition={{ type: "spring", stiffness: 320, damping: 36 }}
             role="dialog"
             aria-modal="true"
-            aria-label="Filters"
           >
             <div className="h-full flex flex-col">
               {/* Header */}
-              <div className="px-4 py-4 border-b border-zinc-200 flex items-center justify-between">
+              <div className="px-4 py-4 border-b border-zinc-200 flex justify-between">
                 <div>
                   <div className="text-base font-semibold text-zinc-900">
                     Filters
@@ -202,7 +198,7 @@ export default function FiltersDrawer({
 
               {/* Body */}
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-                {/* Availability */}
+                {/* Stock */}
                 <div className="rounded-2xl border border-zinc-200 p-4">
                   <div className="text-sm font-semibold text-zinc-900">
                     Availability
@@ -218,25 +214,19 @@ export default function FiltersDrawer({
                   </label>
                 </div>
 
-                {/* Price Slider */}
-                <div className="rounded-2xl border border-zinc-200 p-4">
-                  <div className="text-sm font-semibold text-zinc-900">
-                    Filter by Price
-                  </div>
-
-                  <PriceRangeSlider
-                    min={sliderMin}
-                    max={sliderMax}
-                    valueMin={safeDraftMin}
-                    valueMax={safeDraftMax}
-                    onChangeMin={changeMin}
-                    onChangeMax={changeMax}
-                  />
-                </div>
+                {/* Price */}
+                <PriceRangeCard
+                  min={min}
+                  max={max}
+                  valueMin={safeMin}
+                  valueMax={safeMax}
+                  onMin={onMin}
+                  onMax={onMax}
+                />
               </div>
 
               {/* Footer */}
-              <div className="px-4 py-4 border-t border-zinc-200 flex items-center justify-between gap-3">
+              <div className="px-4 py-4 border-t border-zinc-200 flex justify-between gap-3">
                 <button
                   onClick={resetFilters}
                   className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900"
@@ -252,7 +242,7 @@ export default function FiltersDrawer({
               </div>
             </div>
           </motion.aside>
-        ) : null}
+        )}
       </AnimatePresence>
     </>
   );

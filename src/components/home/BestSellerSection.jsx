@@ -14,10 +14,30 @@ function ShimmerBlock({ className = "" }) {
   );
 }
 
+// ✅ Fisher-Yates Shuffle (robust)
+function shuffleArray(arr, seed = Math.random()) {
+  const a = [...arr];
+
+  // ✅ seeded randomness (stable per mount)
+  let t = seed * 1e9;
+
+  for (let i = a.length - 1; i > 0; i--) {
+    t = (t * 9301 + 49297) % 233280; // pseudo random
+    const r = t / 233280;
+    const j = Math.floor(r * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+
+  return a;
+}
+
 export default function BestSellerSection() {
   const { allProducts, isLoading, error, fetchProducts } = useProductStore();
   const fetchedRef = useRef(false);
   const scrollRef = useRef(null);
+
+  // ✅ keeps shuffle stable for this mount
+  const seedRef = useRef(Math.random());
 
   // 🔁 Fetch once only (StrictMode safe)
   useEffect(() => {
@@ -33,11 +53,10 @@ export default function BestSellerSection() {
     });
   }, [fetchProducts]);
 
-  const products = useMemo(
-    () =>
+  const products = useMemo(() => {
+    const mapped =
       (allProducts || [])
         .filter((p) => p?.isInStock !== false)
-        .slice(0, 12)
         .map((p) => ({
           id: p.id,
           productId: p.productId,
@@ -49,14 +68,19 @@ export default function BestSellerSection() {
           on_sale: p.compareAtPrice && Number(p.compareAtPrice) > Number(p.price || 0),
           category: p.category,
           currency: p.currency,
-        })),
-    [allProducts]
-  );
+        }));
+
+    // ✅ shuffle full list then pick top 12
+    return shuffleArray(mapped, seedRef.current).slice(0, 12);
+  }, [allProducts]);
 
   // ✅ scroll helper
   const scrollRow = (dir) => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollBy({ left: dir === "left" ? -360 : 360, behavior: "smooth" });
+    scrollRef.current.scrollBy({
+      left: dir === "left" ? -360 : 360,
+      behavior: "smooth",
+    });
   };
 
   const showArrows = (products?.length || 0) > 2 || isLoading;
@@ -73,12 +97,22 @@ export default function BestSellerSection() {
         {/* Slider wrapper */}
         <div className="relative">
           {/* ✅ LEFT ARROW */}
-          <button type="button" onClick={() => scrollRow("left")} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition" aria-label="Scroll left">
+          <button
+            type="button"
+            onClick={() => scrollRow("left")}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition"
+            aria-label="Scroll left"
+          >
             ←
           </button>
 
           {/* ✅ RIGHT ARROW */}
-          <button type="button" onClick={() => scrollRow("right")} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition" aria-label="Scroll right">
+          <button
+            type="button"
+            onClick={() => scrollRow("right")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition"
+            aria-label="Scroll right"
+          >
             →
           </button>
 
@@ -87,9 +121,15 @@ export default function BestSellerSection() {
           <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white to-transparent z-10" />
 
           {/* Product shimmer row */}
-          <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-2 no-scrollbar scroll-smooth snap-x snap-mandatory px-1">
+          <div
+            ref={scrollRef}
+            className="flex gap-4 overflow-x-auto pb-2 no-scrollbar scroll-smooth snap-x snap-mandatory px-1"
+          >
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]">
+              <div
+                key={i}
+                className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]"
+              >
                 <ProductCard loading />
               </div>
             ))}
@@ -102,26 +142,45 @@ export default function BestSellerSection() {
   if (!products.length) return null;
 
   return (
-    <motion.section className="pt-10  bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+    <motion.section
+      className="pt-10 bg-white"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       {/* Heading */}
       <div className="w-full bg-black text-center mb-6">
-        <h2 className="text-white py-3 text-lg md:text-2xl font-semibold uppercase tracking-[0.25em]">Best Sellers</h2>
+        <h2 className="text-white py-3 text-lg md:text-2xl font-semibold uppercase tracking-[0.25em]">
+          Best Sellers
+        </h2>
       </div>
 
-      {error && <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p>}
+      {error && (
+        <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p>
+      )}
 
       {/* ✅ Slider wrapper */}
       <div className="relative">
         {/* ✅ LEFT ARROW */}
         {showArrows && (
-          <button type="button" onClick={() => scrollRow("left")} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition" aria-label="Scroll left">
+          <button
+            type="button"
+            onClick={() => scrollRow("left")}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition"
+            aria-label="Scroll left"
+          >
             ←
           </button>
         )}
 
         {/* ✅ RIGHT ARROW */}
         {showArrows && (
-          <button type="button" onClick={() => scrollRow("right")} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition" aria-label="Scroll right">
+          <button
+            type="button"
+            onClick={() => scrollRow("right")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition"
+            aria-label="Scroll right"
+          >
             →
           </button>
         )}
@@ -135,9 +194,15 @@ export default function BestSellerSection() {
         )}
 
         {/* Products */}
-        <div ref={scrollRef} className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 no-scrollbar scroll-smooth px-1">
+        <div
+          ref={scrollRef}
+          className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 no-scrollbar scroll-smooth px-1"
+        >
           {products.map((p) => (
-            <div key={p.id} className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]">
+            <div
+              key={p.id}
+              className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]"
+            >
               <ProductCard product={p} />
             </div>
           ))}
