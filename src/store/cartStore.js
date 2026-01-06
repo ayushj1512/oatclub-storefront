@@ -399,6 +399,29 @@ addToCart: async ({ product, qty = 1, variantId = null, selectedSize = null }) =
   }
 },
 
+decreaseQty: (idOrKey, variantId = null) => {
+  const curr = get().items || [];
+
+  const key = str(idOrKey).includes("__")
+    ? str(idOrKey)
+    : `${str(idOrKey)}__${str(variantId || "")}`;
+
+  const item = curr.find((p) => (p.__key || cartKey(p)) === key);
+  if (!item) return;
+
+  const prevQty = toNum(item.quantity || 1);
+  const nextQty = prevQty - 1;
+
+  // ✅ qty 1 -> remove
+  if (nextQty <= 0) {
+    get().removeFromCart(key);
+    return;
+  }
+
+  // ✅ otherwise update
+  get().updateQty(key, nextQty);
+},
+
 
 
   /* ---------------- UPDATE QTY ---------------- */

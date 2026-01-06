@@ -66,6 +66,7 @@ export default function CartPage() {
   const pathname = usePathname();
   const lastViewCartRef = useRef({ key: null, at: 0 });
   const skipAbandonRef = useRef(false);
+const { decreaseQty, updateQty, removeFromCart } = useCartStore();
 
   const items = useCartStore((s) => s.items) || [];
   const initialize = useCartStore((s) => s.initialize);
@@ -299,8 +300,11 @@ const removeSafe = (item) => {
                         </div>
 
                         <div className="hidden sm:flex items-center justify-end gap-4 ml-auto">
-                          <QtyStepper value={qty} onDec={() => updateQtySafe(item, qty - 1)} onInc={() => updateQtySafe(item, qty + 1)} />
-                          <div className="text-right min-w-[120px]">
+<QtyStepper
+  value={qty}
+  onDec={() => decreaseQty(itemKey(item))}
+  onInc={() => updateQtySafe(item, qty + 1)}
+/>                          <div className="text-right min-w-[120px]">
                             <div className="text-xs text-gray-500">Total</div>
                             <div className="text-lg font-semibold tabular-nums" style={{ color: BRAND }}>₹{money(price * qty)}</div>
                           </div>

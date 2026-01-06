@@ -166,10 +166,8 @@ export default function PaymentOptions({
               setShowCodCaptcha(true);
             }}
             disabled={!canCheckout}
-            className="mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white
-                     shadow-[0_16px_34px_rgba(0,0,0,0.24)]
-                     transition hover:opacity-90 active:scale-[0.99]
-                     disabled:bg-black/20 disabled:text-black/40"
+           className={`mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(0,0,0,0.24)] transition hover:opacity-90 active:scale-[0.99] disabled:bg-black/20 disabled:text-black/40`}
+
           >
             {placing ? "Placing order..." : "Place Order (COD)"}
             <ArrowRight className="inline-block w-4 h-4 ml-2" />

@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useProductStore } from "@/store/productStore";
 import ProductCard from "@/components/common/ProductCard";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const FEATURE_IMAGE =
   "https://res.cloudinary.com/djtva6hec/image/upload/v1765956745/miray/media/nhzqroykgtmg1modqikj.jpg";
@@ -24,6 +25,15 @@ export default function WinterDropSection() {
   const fetchProductsByCategory = useProductStore(
     (s) => s.fetchProductsByCategory
   );
+
+  // ✅ Refs for desktop rows
+  const row1Ref = useRef(null);
+  const row2Ref = useRef(null);
+
+  const scrollRow = (ref, dir = 1) => {
+    if (!ref?.current) return;
+    ref.current.scrollBy({ left: dir * 340, behavior: "smooth" });
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -46,17 +56,14 @@ export default function WinterDropSection() {
     };
   }, [fetchProductsByCategory]);
 
-  // ✅ Desktop 2 rows
   const desktopRow1 = products.slice(0, 10);
   const desktopRow2 = products.slice(10, 20);
-
-  // ✅ Mobile only 1 row
   const mobileRow = products.slice(0, 12);
 
   return (
     <section className="w-full bg-white">
-      <div className="w-full px-4 md:px-8 py-8 md:py-10">
-        {/* Header Section */}
+      <div className="w-full   py-8 md:py-10">
+        {/* Header */}
         <div className="flex items-end justify-between gap-4 mb-5 md:mb-6">
           <div>
             <p className="text-xs font-semibold text-gray-500 tracking-[0.22em] uppercase">
@@ -81,7 +88,7 @@ export default function WinterDropSection() {
         </div>
 
         <div className="flex flex-col md:flex-row items-start justify-start gap-6 md:gap-6">
-          {/* Main Feature Banner */}
+          {/* Feature Banner */}
           <Link
             href="/category/winter-drops"
             className="block w-full md:w-[40%] lg:w-[38%] flex-none self-start"
@@ -104,9 +111,9 @@ export default function WinterDropSection() {
             </div>
           </Link>
 
-          {/* Product Grid Area */}
+          {/* Products Area */}
           <div className="w-full md:flex-1 min-w-0">
-            {/* =================== ✅ DESKTOP VIEW (2 ROWS) =================== */}
+            {/* ================= DESKTOP (2 ROWS) ================= */}
             <div className="hidden md:flex flex-col gap-4">
               {localLoading ? (
                 <div className="space-y-4">
@@ -128,23 +135,81 @@ export default function WinterDropSection() {
                 </div>
               ) : products.length ? (
                 <div className="space-y-4">
-                  {/* Row 1 */}
-                  <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 touch-pan-y overscroll-x-contain">
-                    {desktopRow1.map((p) => (
-                      <div key={p.id} className="flex-shrink-0 w-[240px]">
-                        <ProductCard product={p} disableRecentlyViewed />
-                      </div>
-                    ))}
-                  </div>
+                  {/* ================= ROW 1 ================= */}
+                  <div className="relative group">
+                    {/* LEFT */}
+                    <button
+                      type="button"
+                      aria-label="Scroll left"
+                      onClick={() => scrollRow(row1Ref, -1)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 z-20 hidden group-hover:flex items-center justify-center w-10 h-10 rounded-full bg-white/90 border border-black/10 shadow hover:bg-white transition"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
 
-                  {/* Row 2 */}
-                  {desktopRow2.length > 0 && (
-                    <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 touch-pan-y overscroll-x-contain">
-                      {desktopRow2.map((p) => (
+                    {/* RIGHT */}
+                    <button
+                      type="button"
+                      aria-label="Scroll right"
+                      onClick={() => scrollRow(row1Ref, 1)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 z-20 hidden group-hover:flex items-center justify-center w-10 h-10 rounded-full bg-white/90 border border-black/10 shadow hover:bg-white transition"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+
+                    <div
+                      ref={row1Ref}
+                      className="flex gap-4 overflow-x-auto no-scrollbar pb-2 overscroll-x-contain"
+                      style={{
+                        WebkitOverflowScrolling: "touch",
+                        touchAction: "pan-x",
+                      }}
+                    >
+                      {desktopRow1.map((p) => (
                         <div key={p.id} className="flex-shrink-0 w-[240px]">
                           <ProductCard product={p} disableRecentlyViewed />
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* ================= ROW 2 ================= */}
+                  {desktopRow2.length > 0 && (
+                    <div className="relative group">
+                      {/* LEFT */}
+                      <button
+                        type="button"
+                        aria-label="Scroll left"
+                        onClick={() => scrollRow(row2Ref, -1)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 hidden group-hover:flex items-center justify-center w-10 h-10 rounded-full bg-white/90 border border-black/10 shadow hover:bg-white transition"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+
+                      {/* RIGHT */}
+                      <button
+                        type="button"
+                        aria-label="Scroll right"
+                        onClick={() => scrollRow(row2Ref, 1)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 hidden group-hover:flex items-center justify-center w-10 h-10 rounded-full bg-white/90 border border-black/10 shadow hover:bg-white transition"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+
+                      <div
+                        ref={row2Ref}
+                        className="flex gap-4 overflow-x-auto no-scrollbar pb-2 overscroll-x-contain"
+                        style={{
+                          WebkitOverflowScrolling: "touch",
+                          touchAction: "pan-x",
+                        }}
+                      >
+                        {desktopRow2.map((p) => (
+                          <div key={p.id} className="flex-shrink-0 w-[240px]">
+                            <ProductCard product={p} disableRecentlyViewed />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -155,7 +220,7 @@ export default function WinterDropSection() {
               )}
             </div>
 
-            {/* =================== ✅ MOBILE VIEW (SINGLE ROW) =================== */}
+            {/* ================= MOBILE (SINGLE ROW) ================= */}
             <div className="md:hidden">
               <div className="flex items-center justify-between mb-3 mt-4">
                 <p className="text-sm font-bold text-black">Featured Picks</p>
@@ -177,7 +242,13 @@ export default function WinterDropSection() {
                   ))}
                 </div>
               ) : products.length ? (
-                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 touch-pan-y overscroll-x-contain">
+                <div
+                  className="flex gap-3 overflow-x-auto pb-2 overscroll-x-contain"
+                  style={{
+                    WebkitOverflowScrolling: "touch",
+                    touchAction: "pan-x",
+                  }}
+                >
                   {mobileRow.map((p) => (
                     <div key={`mob-${p.id}`} className="flex-shrink-0 w-[180px]">
                       <ProductCard product={p} disableRecentlyViewed />
