@@ -112,22 +112,23 @@ export default function CheckoutPage() {
 
   /* ---------------- GA4 ITEMS ---------------- */
   const ga4Items = useMemo(() => {
-    return (items || []).map((it) =>
-      mapItem(
-        {
-          _id: it?.productId,
-          id: it?.productId,
-          name: it?.name,
-          title: it?.name,
-          price: Number(it?.price || 0),
-          category: it?.productSnapshot?.category || "",
-          variant: it?.selectedSize || "",
-          sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
-        },
-        Number(it?.quantity ?? it?.qty ?? 1)
-      )
-    );
-  }, [items]);
+  return (items || []).map((it) =>
+    mapItem(
+      {
+        _id: it?.productId,
+        id: it?.productId,
+        name: it?.name,
+        title: it?.name,
+        price: Number(it?.price || 0),
+        category: it?.productSnapshot?.category || "",
+        variant: [it?.selectedSize, it?.selectedColor].filter(Boolean).join(" / "),
+        sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
+      },
+      Number(it?.quantity ?? it?.qty ?? 1)
+    )
+  );
+}, [items]);
+
 
   
   /* ---------------- TRACK SHIPPING INFO ---------------- */
@@ -394,18 +395,29 @@ const resolveVariantId = (item) => {
   if (isObjectId(String(vid || ""))) return String(vid);
 
   const size = String(item?.selectedSize || item?.size || "").toLowerCase().trim();
-  const variants = item?.productSnapshot?.variants || item?.product?.variants || [];
+  const color = String(item?.selectedColor || item?.color || "").toLowerCase().trim();
 
-  if (!size || !variants.length) return null;
+  const variants = item?.productSnapshot?.variants || item?.product?.variants || [];
+  if ((!size && !color) || !variants.length) return null;
 
   const matched = variants.find((v) => {
     const attrs = Array.isArray(v?.attributes) ? v.attributes : [];
+
     const sizeAttr = attrs.find((a) => String(a?.key || "").toLowerCase() === "size");
-    return String(sizeAttr?.value || "").toLowerCase() === size;
+    const colorAttr = attrs.find((a) => String(a?.key || "").toLowerCase() === "color");
+
+    const vs = String(sizeAttr?.value || "").toLowerCase().trim();
+    const vc = String(colorAttr?.value || "").toLowerCase().trim();
+
+    if (size && vs !== size) return false;
+    if (color && vc !== color) return false;
+
+    return true;
   });
 
   return matched?._id ? String(matched._id) : null;
 };
+
 
 
   /* ---------------- VALIDATE CHECKOUT ---------------- */
@@ -484,24 +496,34 @@ const handlePlaceOrder = async () => {
     null;
 
   // ✅ fallback: match variant by selectedSize
-  if (!variantId && isVariable) {
-    const size = String(it?.selectedSize || it?.size || "")
-      .toLowerCase()
-      .trim();
+ if (!variantId && isVariable) {
+  const size = String(it?.selectedSize || it?.size || "").toLowerCase().trim();
+  const color = String(it?.selectedColor || it?.color || "").toLowerCase().trim();
 
-    const variants = snapshot?.variants || [];
+  const variants = snapshot?.variants || [];
 
-    const matched = variants.find((v) => {
-      const attrs = Array.isArray(v?.attributes) ? v.attributes : [];
-      const sizeAttr = attrs.find(
-        (a) => String(a?.key || "").toLowerCase() === "size"
-      );
+  const matched = variants.find((v) => {
+    const attrs = Array.isArray(v?.attributes) ? v.attributes : [];
 
-      return String(sizeAttr?.value || "").toLowerCase() === size;
-    });
+    const sizeAttr = attrs.find(
+      (a) => String(a?.key || "").toLowerCase() === "size"
+    );
+    const colorAttr = attrs.find(
+      (a) => String(a?.key || "").toLowerCase() === "color"
+    );
 
-    variantId = matched?._id || null;
-  }
+    const vs = String(sizeAttr?.value || "").toLowerCase().trim();
+    const vc = String(colorAttr?.value || "").toLowerCase().trim();
+
+    if (size && vs !== size) return false;
+    if (color && vc !== color) return false;
+
+    return true;
+  });
+
+  variantId = matched?._id || null;
+}
+
 
   // ✅ guard rails
   if (!productId) throw new Error("Product ID missing in cart item.");

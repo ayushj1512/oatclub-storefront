@@ -25,6 +25,13 @@ const extractSize = (variant) => {
   return size ? str(size) : "";
 };
 
+const extractColor = (variant) => {
+  const attrs = Array.isArray(variant?.attributes) ? variant.attributes : [];
+  const color = attrs.find((a) => str(a?.key).toLowerCase() === "color")?.value;
+  return color ? str(color) : "";
+};
+
+
 const cartKey = (item) => {
   const pid = str(item?.productId || item?.id || item?._id);
   const vid = str(item?.variantId || item?.variant?._id || "");
@@ -44,36 +51,70 @@ const toAbandonedItems = (items = []) =>
  * ✅ Build a stable cart item from backend product + selected variantId/size
  * Input `product` should be the normalized product from productStore.
  */
-const buildCartItem = ({ product, qty = 1, variantId = null, selectedSize = null }) => {
+const buildCartItem = ({
+  product,
+  qty = 1,
+  variantId = null,
+  selectedSize = null,
+  selectedColor = null,
+}) => {
   if (!product) return null;
 
   const productId = str(product.productId || product.id || product._id);
   if (!productId) return null;
 
-  const productType = product.productType || (Array.isArray(product.variants) && product.variants.length ? "variable" : "simple");
+  const productType =
+    product.productType ||
+    (Array.isArray(product.variants) && product.variants.length
+      ? "variable"
+      : "simple");
 
-  // find variant (by id OR by selectedSize)
   let variant = null;
   const variants = Array.isArray(product.variants) ? product.variants : [];
 
+  // ✅ 1) If variantId passed → direct match
   if (variantId) {
     variant = variants.find((v) => str(v?._id) === str(variantId)) || null;
-  } else if (selectedSize) {
-    const s = str(selectedSize).toLowerCase();
-    variant = variants.find((v) => extractSize(v).toLowerCase() === s) || null;
+  }
+
+  // ✅ 2) Else match using size + color
+  else if (selectedSize || selectedColor) {
+    const s = str(selectedSize).trim().toLowerCase();
+    const c = str(selectedColor).trim().toLowerCase();
+
+    variant =
+      variants.find((v) => {
+        const vs = extractSize(v).trim().toLowerCase();
+        const vc = extractColor(v).trim().toLowerCase();
+
+        if (selectedSize && vs !== s) return false;
+        if (selectedColor && vc !== c) return false;
+
+        return true;
+      }) || null;
+
     variantId = variant?._id ? str(variant._id) : null;
   }
 
-  // enforce: variable => must have variantId
-  if (productType === "variable" && !variantId) return { __error: "variant_required" };
+  // ✅ enforce: variable must have variantId
+  if (productType === "variable" && !variantId)
+    return { __error: "variant_required" };
 
-  const unitPrice = variant && toNum(variant.price) > 0 ? toNum(variant.price) : toNum(product.price);
+  const unitPrice =
+    variant && toNum(variant.price) > 0
+      ? toNum(variant.price)
+      : toNum(product.price);
+
   const compareAtPrice =
-    variant?.compareAtPrice != null ? toNum(variant.compareAtPrice) : product.compareAtPrice != null ? toNum(product.compareAtPrice) : null;
+    variant?.compareAtPrice != null
+      ? toNum(variant.compareAtPrice)
+      : product.compareAtPrice != null
+      ? toNum(product.compareAtPrice)
+      : null;
 
   const safeQty = Math.max(1, toNum(qty) || 1);
 
-  // ✅ snapshot fields to send in createOrder (optional but helpful)
+  // ✅ snapshot (for order / debug)
   const snapshot = {
     productCode: str(product.productCode),
     title: str(product.name || product.title),
@@ -103,38 +144,41 @@ const buildCartItem = ({ product, qty = 1, variantId = null, selectedSize = null
       }
     : null;
 
- const item = {
-  // ✅ REQUIRED FOR BACKEND ORDER
-  productId,
-  productType, // 🔥 IMPORTANT: used to validate variable products at checkout
-  variantId: variantSnapshot?.variantId || null,
-  quantity: safeQty,
+  const item = {
+    productId,
+    productType,
+    variantId: variantSnapshot?.variantId || null,
+    quantity: safeQty,
 
-  // ✅ UI convenience
-  name: snapshot.title,
-  slug: snapshot.slug,
-  image: snapshot.thumbnail,
-  price: unitPrice,
-  compareAtPrice,
+    name: snapshot.title,
+    slug: snapshot.slug,
+    image: snapshot.thumbnail,
+    price: unitPrice,
+    compareAtPrice,
 
-  // ✅ selection info (used in UI + debug)
-  selectedSize: selectedSize
-    ? str(selectedSize)
-    : variant
-    ? extractSize(variant)
-    : "",
+    // ✅ store both selections
+    selectedSize: selectedSize
+      ? str(selectedSize)
+      : variant
+      ? extractSize(variant)
+      : "",
 
-  // ✅ snapshots (used by backend Order schema)
-  productSnapshot: snapshot,
-  variant: variantSnapshot,
+    selectedColor: selectedColor
+      ? str(selectedColor)
+      : variant
+      ? extractColor(variant)
+      : "",
 
-  __key: "", // filled below
-};
+    productSnapshot: snapshot,
+    variant: variantSnapshot,
 
+    __key: "",
+  };
 
   item.__key = cartKey(item);
   return item;
 };
+
 
 const getCartCurrency = (item, fallback = "INR") =>
   str(item?.productSnapshot?.currency || item?.currency || fallback) || "INR";
@@ -142,7 +186,10 @@ const getCartCurrency = (item, fallback = "INR") =>
 const getItemPrice = (item) => toNum(item?.price || item?.productSnapshot?.price || 0);
 
 const toGa4Item = (item, qtyOverride = null) => {
-  // mapItem expects "product-like" object
+  const variantText = [item?.selectedSize, item?.selectedColor]
+    .filter(Boolean)
+    .join(" / ");
+
   const p = {
     _id: item?.productId,
     id: item?.productId,
@@ -151,7 +198,7 @@ const toGa4Item = (item, qtyOverride = null) => {
     price: item?.price,
     sku: item?.variant?.sku || item?.productSnapshot?.sku || "",
     category: item?.productSnapshot?.category || "",
-    variant: item?.selectedSize || "",
+    variant: variantText, // ✅ "M / black"
   };
 
   return mapItem(p, qtyOverride ?? toNum(item?.quantity || 1));
@@ -161,45 +208,66 @@ export const useCartStore = create((set, get) => ({
   items: [],
 
   /* ---------------- INIT ---------------- */
-  initialize: () => {
-    if (typeof window === "undefined") return;
+ initialize: () => {
+  if (typeof window === "undefined") return;
 
-    const stored = Cookies.get(KEY);
-    if (!stored) return;
+  const stored = Cookies.get(KEY);
+  if (!stored) return;
 
-    try {
-      const data = JSON.parse(stored);
-      if (!Array.isArray(data)) return;
+  try {
+    const data = JSON.parse(stored);
+    if (!Array.isArray(data)) return;
 
-      const normalized = data
-        .map((it) => ({
+    const normalized = data
+      .map((it) => {
+        const productId = str(it.productId || it.id || it._id);
+        const variantId = it.variantId ? str(it.variantId) : null;
+
+        return {
           ...it,
-          productId: str(it.productId || it.id || it._id),
-          variantId: it.variantId ? str(it.variantId) : null,
+
+          // ✅ normalize ids + qty
+          productId,
+          variantId,
           quantity: Math.max(1, toNum(it.quantity || it.qty || 1)),
-        }))
-        .map((it) => ({
-          ...it,
-          qty: undefined, // remove old field
-          __key: it.__key || cartKey(it),
-        }));
 
-      set({ items: normalized });
-    } catch (e) {
-      console.error("❌ Cart cookie parse error:", e);
-    }
-  },
+          // ✅ normalize selections
+          selectedSize: str(it.selectedSize || ""),
+          selectedColor: str(it.selectedColor || ""),
+
+          // ✅ ensure key always exists
+          __key: it.__key || `${productId}__${variantId || ""}`,
+        };
+      })
+      .map((it) => ({
+        ...it,
+        qty: undefined, // ✅ remove old field
+      }));
+
+    set({ items: normalized });
+  } catch (e) {
+    console.error("❌ Cart cookie parse error:", e);
+  }
+},
+
 
   /* ---------------- ADD ----------------
      Call like:
      addToCart({ product, qty: 1, variantId, selectedSize })
   */
-addToCart: async ({ product, qty = 1, variantId = null, selectedSize = null }) => {
-  const built = buildCartItem({ product, qty, variantId, selectedSize });
+addToCart: async ({
+  product,
+  qty = 1,
+  variantId = null,
+  selectedSize = null,
+  selectedColor = null,
+}) => {
+  const built = buildCartItem({ product, qty, variantId, selectedSize, selectedColor });
+
 
   if (!built) return;
   if (built.__error === "variant_required") {
-    notify?.error?.("Please select a size first");
+    notify?.error?.("Please select size & color");
     return;
   }
 
@@ -283,12 +351,14 @@ addToCart: async ({ product, qty = 1, variantId = null, selectedSize = null }) =
     const price = Number(built?.price ?? product?.price ?? 0) || 0;
     const value = price * addQty;
 
-    const currency = getCurrency(built, product);
+   const currency = getCartCurrency(built, product?.currency || "INR");
+
 
     pushEcomEvent("add_to_cart", {
       currency,
       value,
-      items: [toGA4ItemFromBuilt(built, product, addQty)],
+      items: [toGa4Item(built, addQty)],
+
     });
   } catch (e) {
     console.warn("📈 GA4 add_to_cart failed", e);

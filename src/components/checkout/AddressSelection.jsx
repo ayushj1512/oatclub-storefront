@@ -235,6 +235,15 @@ export default function AddressSelection({
       setCheckingEmail(false);
     }
   };
+useEffect(() => {
+  if (showAddressForm) {
+    resetFormUI();
+  }
+}, [showAddressForm]);
+
+useEffect(() => {
+  resetFormUI();
+}, [showAddressForm]);
 
   // ✅ Debounce: runs only when emailToCheck changes
   useEffect(() => {
@@ -325,19 +334,14 @@ export default function AddressSelection({
           )}
 
           {/* ADD NEW ADDRESS BUTTON */}
-          <button
-            type="button"
-            onClick={() =>
-              setShowAddressForm((s) => {
-                const next = !s;
-                resetFormUI();
-                return next;
-              })
-            }
-            className="inline-flex items-center gap-2 rounded-2xl bg-black text-white px-4 py-2 text-sm font-semibold shadow-[0_14px_28px_rgba(0,0,0,0.18)] active:scale-[0.99] transition"
-          >
-            <Plus size={16} /> Add New Address
-          </button>
+         <button
+  type="button"
+  onClick={() => setShowAddressForm((s) => !s)}
+  className="inline-flex items-center gap-2 rounded-2xl bg-black text-white px-4 py-2 text-sm font-semibold shadow-[0_14px_28px_rgba(0,0,0,0.18)] active:scale-[0.99] transition"
+>
+  <Plus size={16} /> Add New Address
+</button>
+
 
           {/* ADDRESS FORM */}
           {showAddressForm && (

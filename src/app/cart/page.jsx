@@ -37,7 +37,7 @@ const ga4CartItem = (it) =>
       title: it?.name,
       price: Number(it?.price ?? 0) || 0,
       category: it?.productSnapshot?.category || "",
-      variant: it?.selectedSize || "",
+      variant: [it?.selectedSize, it?.selectedColor].filter(Boolean).join(" / "),
       sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
     },
     Number(it?.qty ?? it?.quantity ?? 1)
@@ -170,7 +170,7 @@ const removeSafe = (item) => {
 
       const contents = items
         .map((it) => {
-          const id = it?.productId || it?.id || it?._id;
+         const id = itemKey(it); // ✅ productId__variantId unique
           if (!id) return null;
           const quantity = Number(it?.qty ?? it?.quantity ?? 1) || 1;
           const item_price = Number(it?.price ?? 0) || 0;
@@ -280,6 +280,16 @@ const removeSafe = (item) => {
     Size: {String(item?.selectedSize || item?.variant?.size).toUpperCase()}
   </span>
 )}
+{item?.selectedColor && (
+  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700 flex items-center gap-1">
+    <span
+      className="h-3 w-3 rounded-full border border-black/10"
+      style={{ backgroundColor: item.selectedColor }}
+    />
+    Color: {String(item.selectedColor).replace(/-/g, " ")}
+  </span>
+)}
+
                                   <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">₹{money(price)} each</span>
                                 </div>
                               </div>

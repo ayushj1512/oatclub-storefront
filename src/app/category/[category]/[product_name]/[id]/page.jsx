@@ -18,6 +18,7 @@ import ProductDetailSection from "@/components/productDetail/ProductDetailSectio
 import ReviewSection from "@/components/productDetail/ReviewSection";
 import SupportSection from "@/components/productDetail/SupportSection";
 import RecentlyViewedProducts from "@/components/productDetail/RecentlyViewedProducts"
+import ColorSelector from "@/components/productDetail/ColorSelector";
 
 const BRAND = {  black: "#111111" };
 
@@ -165,6 +166,41 @@ const deriveSizesFromBackend = (normalized) => {
   return Array.from(new Set(sizes));
 };
 
+const deriveColorsFromBackend = (normalized) => {
+  if (!normalized) return [];
+
+  const raw = normalized.raw || normalized;
+  const attrs = Array.isArray(raw?.attributes) ? raw.attributes : [];
+
+  const colorAttr = attrs.find(
+    (a) =>
+      str(a?.key).toLowerCase() === "color" ||
+      str(a?.attribute?.slug).toLowerCase() === "color" ||
+      str(a?.slug).toLowerCase() === "color"
+  );
+
+  if (Array.isArray(colorAttr?.values) && colorAttr.values.length) {
+    return colorAttr.values
+      .map((c) => {
+        // ✅ supports both: "black" OR {label,value}
+        if (typeof c === "string") return c;
+        return c?.value || c?.label || "";
+      })
+      .map((c) => str(c).trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  // fallback: derive from variants
+  const vars = Array.isArray(raw?.variants) ? raw.variants : [];
+  const colors = vars
+    .map((v) => getAttrValue(v?.attributes, "Color"))
+    .map((c) => str(c).trim().toLowerCase())
+    .filter(Boolean);
+
+  return Array.from(new Set(colors));
+};
+
+
 
 const deriveImageList = (normalized) => {
   const images = Array.isArray(normalized?.images) ? normalized.images : [];
@@ -173,27 +209,29 @@ const deriveImageList = (normalized) => {
   return Array.from(new Set(merged));
 };
 
-const findVariantIdBySize = (normalized, size) => {
+const findVariantIdByAttributes = (normalized, picked = {}) => {
   const raw = normalized?.raw || normalized;
+  const vars = Array.isArray(raw?.variants) ? raw.variants : [];
 
-  const vars = Array.isArray(raw?.variants)
-    ? raw.variants
-    : Array.isArray(normalized?.variants)
-      ? normalized.variants
-      : [];
+  const wantedSize = str(picked.size).trim().toUpperCase();
+  const wantedColor = str(picked.color).trim().toLowerCase();
 
-  const wanted = String(size).trim().toUpperCase();
+  const match = vars.find((v) => {
+    const size = str(getAttrValue(v?.attributes, "Size")).trim().toUpperCase();
+    const color = str(getAttrValue(v?.attributes, "Color")).trim().toLowerCase();
 
-  const v = vars.find((x) => {
-    const sku = String(x?.sku || "").toUpperCase();
+    // if size required, match size
+    if (wantedSize && size !== wantedSize) return false;
 
-    // ✅ Works for:
-    // ...-XS-... and ...--XS-...
-    return sku.includes(`-${wanted}-`) || sku.includes(`--${wanted}-`);
+    // if color selected, match color
+    if (wantedColor && color !== wantedColor) return false;
+
+    return true;
   });
 
-  return v?._id || v?.id || null;
+  return match?._id || match?.id || null;
 };
+
 
 
 
@@ -227,6 +265,7 @@ export default function ProductPage({ params }) {
   const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [loading, setLoading] = useState(true);
 const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+const [selectedColor, setSelectedColor] = useState(null);
 
   useEffect(() => {
     cartInitialize?.();
@@ -238,59 +277,82 @@ const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
     let mounted = true;
 
     async function load() {
-      if (!id) return;
-      setLoading(true);
+  if (!id) return;
+  setLoading(true);
 
-      try {
-        const p = await fetchProductDetails(id);
-        if (!mounted) return;
+  try {
+    const p = await fetchProductDetails(id);
+    if (!mounted) return;
 
-        setNormalized(p);
+    setNormalized(p);
 
-        const sizes = deriveSizesFromBackend(p);
-        const images = deriveImageList(p);
+    const sizes = deriveSizesFromBackend(p);
+    const colors = deriveColorsFromBackend(p);
+    const images = deriveImageList(p);
 
-        const mapped = {
-          id: p.productId,
-          productId: p.productId,
-          productCode: p.productCode,
-          name: p.name,
-          slug: p.slug,
-          price: Number(p.price || 0),
-          regularPrice: Number(p.compareAtPrice ?? p.price ?? 0),
-          onSale: Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
-          images,
-          description: p.raw?.description || p.description || "",
-          shortDescription: p.raw?.shortDescription || "",
-          sizes,
-          isInStock: Boolean(p.isInStock ?? true),
-          stock: Number(p.stock ?? 0),
-          productType: p.productType,
-          raw: p.raw || p,
-        };
+    const mapped = {
+      id: p.productId,
+      productId: p.productId,
+      productCode: p.productCode,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price || 0),
+      regularPrice: Number(p.compareAtPrice ?? p.price ?? 0),
+      onSale: Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
+      images,
+      description: p.raw?.description || p.description || "",
+      shortDescription: p.raw?.shortDescription || "",
+      sizes,
+      colors,
+      isInStock: Boolean(p.isInStock ?? true),
+      stock: Number(p.stock ?? 0),
+      productType: p.productType,
+      raw: p.raw || p,
+    };
 
-        setProduct(mapped);
+    setProduct(mapped);
 
-        // auto-select only size if single size
-        if (sizes.length === 1) {
-          const s0 = sizes[0];
-          setSelectedSize(s0);
-          setSelectedVariantId(findVariantIdBySize(p, s0));
-        } else {
-          setSelectedSize(null);
-          setSelectedVariantId(null);
-        }
-      } catch (e) {
-        console.error("[ProductPage] load failed", e);
-        notify.error(e?.message || "Failed to load product");
-        if (mounted) {
-          setProduct(null);
-          setNormalized(null);
-        }
-      } finally {
-        if (mounted) setLoading(false);
-      }
+    // ✅ reset default
+    let nextSize = null;
+    let nextColor = null;
+
+    // ✅ auto-select if single
+    if (sizes.length === 1) nextSize = sizes[0];
+    if (colors.length === 1) nextColor = colors[0];
+
+    setSelectedSize(nextSize);
+    setSelectedColor(nextColor);
+
+    // ✅ auto variant only if both selected (or if only size exists and no colors)
+    let vid = null;
+
+    // case 1: size + color both exist
+    if (nextSize && nextColor) {
+      vid = findVariantIdByAttributes(p, { size: nextSize, color: nextColor });
     }
+
+    // case 2: only size exists (no colors in product)
+    if (nextSize && colors.length === 0) {
+      vid = findVariantIdByAttributes(p, { size: nextSize });
+    }
+
+    setSelectedVariantId(vid);
+
+  } catch (e) {
+    console.error("[ProductPage] load failed", e);
+    notify.error(e?.message || "Failed to load product");
+    if (mounted) {
+      setProduct(null);
+      setNormalized(null);
+      setSelectedSize(null);
+      setSelectedColor(null);
+      setSelectedVariantId(null);
+    }
+  } finally {
+    if (mounted) setLoading(false);
+  }
+}
+
 
     load();
     return () => {
@@ -302,6 +364,7 @@ const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
     if (!product) return;
     recentlyViewedStore.addProduct?.(product);
   }, [product, recentlyViewedStore]);
+const requireColor = (product?.colors?.length || 0) > 0;
 
   const requireSize = (product?.sizes?.length || 0) > 0;
   const wishlisted = isInWishlist?.(product?.productId || product?.id);
@@ -326,31 +389,42 @@ const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const handleAddToCart = useCallback(() => {
     if (!normalized || !product) return;
 
-    if (requireSize && !selectedSize) return notify.error("Please select a size");
-    if (product.productType === "variable" && !selectedVariantId) {
-  return notify.error("Please select a size");
+if (requireSize && !selectedSize) return notify.error("Please select a size");
+if (requireColor && !selectedColor) return notify.error("Please select a color");
+
+if (product.productType === "variable" && !selectedVariantId) {
+  return notify.error("Please select size & color");
 }
 
+addToCart({
+  product: normalized,
+  qty: 1,
+  selectedSize,
+  selectedColor,
+  variantId: product.productType === "variable" || requireSize ? selectedVariantId : null,
+});
 
-    addToCart({
-      product: normalized,
-      qty: 1,
-      selectedSize,
-      variantId: product.productType === "variable" || requireSize ? selectedVariantId : null,
-    });
 
     // cartStore also calls notify.cartAdded, but this is OK to keep minimal feedback:
     // If you see double toasts, remove this line.
     // notify.cartAdded({ name: product.name, selectedSize });
 
     // no timer state: buttons stay because selectionInCart is derived from store
-  }, [addToCart, normalized, product, requireSize, selectedSize, selectedVariantId]);
+  }, [
+  addToCart,
+  normalized,
+  product,
+  requireSize,
+  requireColor,
+  selectedSize,
+  selectedColor,
+  selectedVariantId,
+]);
 
   const handleViewCart = () => router.push("/cart");
 
   // ✅ Your request: Buy Now button should become "View Cart"
   const handleBuyNowOrViewCart = async () => {
-  // ✅ if already added → just go cart/checkout
   if (selectionInCart) {
     router.push("/checkout");
     return;
@@ -363,25 +437,28 @@ const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
     return;
   }
 
-  if ((product.productType === "variable" || requireSize) && !selectedVariantId) {
-    notify.error("Please select a size");
+  if (requireColor && !selectedColor) {
+    notify.error("Please select a color");
     return;
   }
 
-  // ✅ add to cart
+  if ((product.productType === "variable" || requireSize || requireColor) && !selectedVariantId) {
+    notify.error("Please select size & color");
+    return;
+  }
+
   addToCart({
     product: normalized,
     qty: 1,
     selectedSize,
-    variantId: product.productType === "variable" || requireSize ? selectedVariantId : null,
+    selectedColor,
+    variantId: product.productType === "variable" || requireSize || requireColor ? selectedVariantId : null,
   });
 
-  // ✅ wait next tick so zustand/persist can update
   await new Promise((r) => setTimeout(r, 250));
-
-  // ✅ push instead of window.location (better for next)
   router.push("/checkout");
 };
+
 
 
   const handleToggleWishlist = () => {
@@ -401,8 +478,11 @@ const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const shareMessage = useMemo(() => {
     if (!product) return "";
 const link = typeof window !== "undefined" ? window.location.href : "";
-    return `✨ ${product.name}\n₹${money(product.price)}${selectedSize ? ` • Size: ${selectedSize}` : ""}\n${link}`;
-  }, [product, selectedSize]);
+    return `✨ ${product.name}\n₹${money(product.price)}${
+  selectedSize ? ` • Size: ${selectedSize}` : ""
+}${selectedColor ? ` • Color: ${selectedColor}` : ""}\n${link}`;
+
+  }, [product, selectedSize, selectedColor]);
 
   const handleShare = async () => {
     if (!product) return;
@@ -534,8 +614,11 @@ const link = typeof window !== "undefined" ? window.location.href : "";
               key={s}
               onClick={() => {
                 setSelectedSize(s);
-                const vid = normalized ? findVariantIdBySize(normalized, s) : null;
-                setSelectedVariantId(vid);
+               const vid = normalized
+  ? findVariantIdByAttributes(normalized, { size: s, color: selectedColor })
+  : null;
+setSelectedVariantId(vid);
+
               }}
               className={`px-3 py-1.5 text-sm font-medium rounded-md border transition ${
                 active
@@ -551,6 +634,20 @@ const link = typeof window !== "undefined" ? window.location.href : "";
     </div>
   </div>
 )}
+
+{/* COLOR SELECTOR */}
+<ColorSelector
+  colors={product.colors}
+  selectedColor={selectedColor}
+  onSelect={(c) => {
+    setSelectedColor(c);
+    const vid = normalized
+      ? findVariantIdByAttributes(normalized, { size: selectedSize, color: c })
+      : null;
+    setSelectedVariantId(vid);
+  }}
+/>
+
 
 
 

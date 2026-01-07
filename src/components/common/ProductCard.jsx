@@ -34,6 +34,11 @@ function toNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function formatMoney(n) {
+  const num = toNum(n);
+  return num.toLocaleString("en-IN");
+}
+
 function slugify(s = "") {
   return String(s)
     .toLowerCase()
@@ -100,7 +105,7 @@ function getCategorySlug(product) {
 
 /* --------------------- derive real sale price --------------------- */
 function getBestPrice(product) {
-  const base = toNum(product?.sale_price ?? product?.price);
+  const base = toNum(product?.sale_price ?? product?.price ?? product?.currentPrice);
 
   const variantPrices = Array.isArray(product?.variants)
     ? product.variants.map((v) => toNum(v?.price)).filter((x) => x > 0)
@@ -111,9 +116,16 @@ function getBestPrice(product) {
   return base > 0 ? base : variantMin;
 }
 
-/* --------------------- derive compareAtPrice --------------------- */
+/* --------------------- derive compareAtPrice (ROBUST) --------------------- */
 function getBestCompareAtPrice(product) {
-  const compareBase = toNum(product?.compareAtPrice ?? product?.compare_at_price);
+  const compareBase = toNum(
+    product?.compareAtPrice ??
+      product?.compare_at_price ??
+      product?.mrp ??
+      product?.regular_price ??
+      product?.originalPrice ??
+      product?.compare_price
+  );
 
   const variantComparePrices = Array.isArray(product?.variants)
     ? product.variants
@@ -130,7 +142,7 @@ export default function ProductCard({
   product,
   loading = false,
   disableRecentlyViewed = false,
-  hideWishlistIcon = false, // ✅ NEW PROP
+  hideWishlistIcon = false,
 }) {
   if (loading || !product) {
     return (
@@ -152,7 +164,10 @@ export default function ProductCard({
   if (!sale || sale <= 0) return null;
 
   const compareAt = getBestCompareAtPrice(product);
-  const showCompare = compareAt > sale;
+
+  // ✅ safer showCompare + discount calc
+  const showCompare = compareAt > 0 && sale > 0 && compareAt > sale;
+  const discount = showCompare ? Math.round(((compareAt - sale) / compareAt) * 100) : 0;
 
   const {
     addToWishlist,
@@ -252,10 +267,10 @@ export default function ProductCard({
             />
           )}
 
-          {/* ✅ Wishlist Icon (hidden when requested) */}
           {!hideWishlistIcon && (
             <motion.button
               type="button"
+              onMouseDown={(e) => e.preventDefault()} // ✅ prevent focus weirdness
               onClick={toggleWishlist}
               whileTap={{ scale: 0.9 }}
               className="absolute top-2 right-2 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-sm flex items-center justify-center z-10 transition hover:bg-white"
@@ -279,18 +294,18 @@ export default function ProductCard({
 
           <div className="flex items-baseline gap-2">
             <span className="text-[14px] md:text-[16px] font-semibold text-black">
-              ₹{sale}
+              ₹{formatMoney(sale)}
             </span>
 
             {showCompare && (
               <span className="text-[12px] md:text-[14px] text-gray-500 line-through">
-                ₹{compareAt}
+                ₹{formatMoney(compareAt)}
               </span>
             )}
 
-            {showCompare && (
+            {discount > 0 && (
               <span className="text-[11px] md:text-[12px] font-semibold text-green-700">
-                {Math.round(((compareAt - sale) / compareAt) * 100)}% OFF
+                {discount}% OFF
               </span>
             )}
           </div>
