@@ -14,7 +14,6 @@ import Footer from "@/components/layout/Footer";
 import ScrollToTop from "@/components/layout/ScrollToTop";
 import ClientProviders from "@/components/layout/ClientProviders";
 
-import SignupModal from "@/components/auth/SignupModal";
 import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
 
 import { useAuthStore } from "@/store/authStore";
@@ -37,7 +36,6 @@ export default function LayoutClient({
 }: {
   children: React.ReactNode;
 }) {
-  const closeAll = useCallback(() => {}, []);
 
   return (
     <>

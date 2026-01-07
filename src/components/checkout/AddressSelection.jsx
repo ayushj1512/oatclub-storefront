@@ -1,7 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
-import { Plus, ChevronDown, ChevronUp, CheckCircle2, Loader2 } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import {
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 
 /* ---------- UI bits ---------- */
 const GlassCard = ({ children, className = "" }) => (
@@ -17,6 +23,7 @@ function FormField({
   name,
   value,
   onChange,
+  onBlur,
   rightNode,
   inputMode,
   placeholder,
@@ -33,14 +40,21 @@ function FormField({
           type={type}
           value={value}
           onChange={onChange}
+          onBlur={onBlur}
           inputMode={inputMode}
           placeholder={placeholder}
           className={`w-full rounded-2xl bg-white/80 px-4 py-3 pr-12 text-sm outline-none shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] transition 
-          ${error ? "shadow-[inset_0_0_0_2px_rgba(220,38,38,0.45)]" : "focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.22)]"}
+          ${
+            error
+              ? "shadow-[inset_0_0_0_2px_rgba(220,38,38,0.45)]"
+              : "focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.22)]"
+          }
           `}
         />
         {rightNode ? (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">{rightNode}</div>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            {rightNode}
+          </div>
         ) : null}
       </div>
 
@@ -64,12 +78,23 @@ function PremiumPinLoader() {
 
       <style jsx global>{`
         @keyframes pinShimmer {
-          0% { transform: translateX(-120%); }
-          100% { transform: translateX(120%); }
+          0% {
+            transform: translateX(-120%);
+          }
+          100% {
+            transform: translateX(120%);
+          }
         }
         @keyframes pinDot {
-          0%, 100% { transform: translateY(0); opacity: 0.55; }
-          50% { transform: translateY(-2px); opacity: 1; }
+          0%,
+          100% {
+            transform: translateY(0);
+            opacity: 0.55;
+          }
+          50% {
+            transform: translateY(-2px);
+            opacity: 1;
+          }
         }
       `}</style>
     </div>
@@ -116,11 +141,26 @@ export default function AddressSelection({
 }) {
   const isLoggedIn = !!user?.uid;
 
-  /* ---------- Live Errors ---------- */
+  /* ============================================================
+     ✅ Local UI states
+  ============================================================ */
+  const [touched, setTouched] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [existingCustomer, setExistingCustomer] = useState(false);
+  const [emailToCheck, setEmailToCheck] = useState("");
+
+  const emailAbortRef = useRef(null);
+
+  const showErr = (field) => submitted || touched[field];
+
+  /* ============================================================
+     ✅ Live Errors
+  ============================================================ */
   const errors = useMemo(() => {
     const e = {};
 
-    // ✅ Required fields
     if (!addressForm.fullName || addressForm.fullName.trim().length < 2)
       e.fullName = "Enter full name";
 
@@ -134,7 +174,6 @@ export default function AddressSelection({
     if (!addressForm.state) e.state = "State required";
     if (!addressForm.addressLine1) e.addressLine1 = "Address line 1 required";
 
-    // ✅ Guest validations
     if (!isLoggedIn) {
       if (!isValidEmail(addressForm.email)) e.email = "Enter valid email";
 
@@ -147,7 +186,9 @@ export default function AddressSelection({
 
   const isFormValid = useMemo(() => Object.keys(errors).length === 0, [errors]);
 
-  /* ---------- Email Suggestions ---------- */
+  /* ============================================================
+     ✅ Email Suggestions
+  ============================================================ */
   const domains = ["@gmail.com", "@yahoo.com", "@outlook.com"];
   const emailValue = String(addressForm.email || "");
 
@@ -155,6 +196,72 @@ export default function AddressSelection({
     if (!emailValue || emailValue.includes("@")) return [];
     return domains.map((d) => emailValue + d);
   }, [emailValue]);
+
+  /* ============================================================
+     ✅ Check Customer by Email (Abort + Debounce Safe)
+  ============================================================ */
+  const checkCustomerByEmail = async (email) => {
+    try {
+      const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+      if (!BACKEND) return;
+
+      // ✅ Abort previous request if any
+      if (emailAbortRef.current) {
+        emailAbortRef.current.abort();
+      }
+
+      const controller = new AbortController();
+      emailAbortRef.current = controller;
+
+      setCheckingEmail(true);
+
+      const res = await fetch(
+        `${BACKEND}/api/customers?email=${encodeURIComponent(email)}`,
+        { signal: controller.signal }
+      );
+
+      const data = await res.json();
+
+      if (res.ok && data?.items?.length > 0) {
+        setExistingCustomer(true);
+      } else {
+        setExistingCustomer(false);
+      }
+    } catch (err) {
+      if (err?.name === "AbortError") return; // ✅ ignore abort
+      console.log("❌ Email check failed", err);
+      setExistingCustomer(false);
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
+  // ✅ Debounce: runs only when emailToCheck changes
+  useEffect(() => {
+    if (!emailToCheck || !isValidEmail(emailToCheck)) return;
+
+    const timer = setTimeout(() => {
+      checkCustomerByEmail(emailToCheck);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [emailToCheck]);
+
+  /* ============================================================
+     ✅ Reset helper
+  ============================================================ */
+  const resetFormUI = () => {
+    setTouched({});
+    setSubmitted(false);
+    setCheckingEmail(false);
+    setExistingCustomer(false);
+    setEmailToCheck("");
+
+    if (emailAbortRef.current) {
+      emailAbortRef.current.abort();
+      emailAbortRef.current = null;
+    }
+  };
 
   return (
     <GlassCard className="p-4 sm:p-5">
@@ -166,7 +273,9 @@ export default function AddressSelection({
       >
         <div className="min-w-0">
           <div className="text-sm text-gray-500">Step 2</div>
-          <div className="text-lg font-semibold text-gray-900">Delivery Address</div>
+          <div className="text-lg font-semibold text-gray-900">
+            Delivery Address
+          </div>
         </div>
         {showAddress ? <ChevronUp /> : <ChevronDown />}
       </button>
@@ -196,7 +305,9 @@ export default function AddressSelection({
                         className="mt-1 w-5 h-5 accent-black"
                       />
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900">{addr.fullName}</p>
+                        <p className="font-semibold text-gray-900">
+                          {addr.fullName}
+                        </p>
                         <p className="text-xs text-gray-600">{addr.phone}</p>
                         <p className="text-sm text-gray-700 mt-1 leading-5">
                           {addr.addressLine1}
@@ -216,7 +327,13 @@ export default function AddressSelection({
           {/* ADD NEW ADDRESS BUTTON */}
           <button
             type="button"
-            onClick={() => setShowAddressForm((s) => !s)}
+            onClick={() =>
+              setShowAddressForm((s) => {
+                const next = !s;
+                resetFormUI();
+                return next;
+              })
+            }
             className="inline-flex items-center gap-2 rounded-2xl bg-black text-white px-4 py-2 text-sm font-semibold shadow-[0_14px_28px_rgba(0,0,0,0.18)] active:scale-[0.99] transition"
           >
             <Plus size={16} /> Add New Address
@@ -228,15 +345,15 @@ export default function AddressSelection({
               <h3 className="font-semibold text-gray-900 mb-3">New Address</h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* PINCODE */}
                 <FormField
                   label="PIN Code (enter first)"
                   name="postalCode"
                   value={addressForm.postalCode}
                   onChange={updateAddressField}
+                  onBlur={() => setTouched((p) => ({ ...p, postalCode: true }))}
                   inputMode="numeric"
                   placeholder="6-digit pincode"
-                  error={errors.postalCode}
+                  error={showErr("postalCode") ? errors.postalCode : ""}
                   rightNode={
                     addressForm.postalCode?.length === 6 ? (
                       pinLoading ? (
@@ -253,10 +370,10 @@ export default function AddressSelection({
                   name="fullName"
                   value={addressForm.fullName}
                   onChange={updateAddressField}
-                  error={errors.fullName}
+                  onBlur={() => setTouched((p) => ({ ...p, fullName: true }))}
+                  error={showErr("fullName") ? errors.fullName : ""}
                 />
 
-                {/* Guest Email + Password */}
                 {!isLoggedIn && (
                   <>
                     <div>
@@ -264,11 +381,59 @@ export default function AddressSelection({
                         label="Email"
                         name="email"
                         value={addressForm.email}
-                        onChange={updateAddressField}
+                        onChange={(e) => {
+                          updateAddressField(e);
+
+                          const val = String(e.target.value || "")
+                            .trim()
+                            .toLowerCase();
+
+                          if (isValidEmail(val)) {
+                            setEmailToCheck(val); // ✅ debounce trigger
+                          } else {
+                            setEmailToCheck("");
+                            setExistingCustomer(false);
+                          }
+                        }}
+                        onBlur={() => setTouched((p) => ({ ...p, email: true }))}
                         placeholder="Enter email"
                         inputMode="email"
-                        error={errors.email}
+                        error={showErr("email") ? errors.email : ""}
+                        rightNode={
+                          checkingEmail ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                          ) : existingCustomer ? (
+                            <span className="text-[11px] font-semibold text-red-600">
+                              Exists
+                            </span>
+                          ) : isValidEmail(addressForm.email) ? (
+                            <CheckCircle2 className="w-4 h-4 text-black" />
+                          ) : null
+                        }
                       />
+
+                      {existingCustomer && (
+                        <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3">
+                          <p className="text-xs font-semibold text-red-700">
+                            You are already registered.
+                          </p>
+                          <p className="text-[11px] text-red-600 mt-1">
+                            Please login to continue checkout.
+                          </p>
+
+                          <button
+                            type="button"
+                            className="mt-3 w-full rounded-lg bg-black text-white py-2 text-sm font-semibold hover:bg-black/90 transition"
+                            onClick={() => {
+                              window.location.href = `/auth/login?email=${encodeURIComponent(
+                                addressForm.email
+                              )}`;
+                            }}
+                          >
+                            Login Now
+                          </button>
+                        </div>
+                      )}
 
                       {suggestedEmails.length ? (
                         <div className="flex flex-wrap gap-2 mt-2">
@@ -276,11 +441,15 @@ export default function AddressSelection({
                             <button
                               key={em}
                               type="button"
-                              onClick={() =>
+                              onClick={() => {
                                 updateAddressField({
-                                  target: { name: "email", value: em.toLowerCase() },
-                                })
-                              }
+                                  target: {
+                                    name: "email",
+                                    value: em.toLowerCase(),
+                                  },
+                                });
+                                setEmailToCheck(em.toLowerCase());
+                              }}
                               className="text-[11px] px-3 py-1 rounded-full bg-black/5 hover:bg-black hover:text-white transition"
                             >
                               {em}
@@ -296,25 +465,31 @@ export default function AddressSelection({
                       type="password"
                       value={guestInfo.password}
                       onChange={updateGuestField}
+                      onBlur={() =>
+                        setTouched((p) => ({ ...p, password: true }))
+                      }
                       placeholder="Create password"
-                      error={errors.password}
+                      error={showErr("password") ? errors.password : ""}
                     />
                   </>
                 )}
 
-                {/* PHONE */}
                 <FormField
                   label="Phone"
                   name="phone"
                   value={addressForm.phone}
                   onChange={(e) => {
-                    // ✅ only digits + max 10
-                    const cleaned = String(e.target.value || "").replace(/\D/g, "").slice(0, 10);
-                    updateAddressField({ target: { name: "phone", value: cleaned } });
+                    const cleaned = String(e.target.value || "")
+                      .replace(/\D/g, "")
+                      .slice(0, 10);
+                    updateAddressField({
+                      target: { name: "phone", value: cleaned },
+                    });
                   }}
+                  onBlur={() => setTouched((p) => ({ ...p, phone: true }))}
                   inputMode="numeric"
                   placeholder="10-digit mobile"
-                  error={errors.phone}
+                  error={showErr("phone") ? errors.phone : ""}
                 />
 
                 <FormField
@@ -322,8 +497,9 @@ export default function AddressSelection({
                   name="city"
                   value={addressForm.city}
                   onChange={updateAddressField}
+                  onBlur={() => setTouched((p) => ({ ...p, city: true }))}
                   placeholder={pinLoading ? "Auto-filling…" : "City"}
-                  error={errors.city}
+                  error={showErr("city") ? errors.city : ""}
                 />
 
                 <FormField
@@ -331,8 +507,9 @@ export default function AddressSelection({
                   name="state"
                   value={addressForm.state}
                   onChange={updateAddressField}
+                  onBlur={() => setTouched((p) => ({ ...p, state: true }))}
                   placeholder={pinLoading ? "Auto-filling…" : "State"}
-                  error={errors.state}
+                  error={showErr("state") ? errors.state : ""}
                 />
 
                 <FormField
@@ -340,7 +517,10 @@ export default function AddressSelection({
                   name="addressLine1"
                   value={addressForm.addressLine1}
                   onChange={updateAddressField}
-                  error={errors.addressLine1}
+                  onBlur={() =>
+                    setTouched((p) => ({ ...p, addressLine1: true }))
+                  }
+                  error={showErr("addressLine1") ? errors.addressLine1 : ""}
                 />
 
                 <FormField
@@ -354,17 +534,37 @@ export default function AddressSelection({
               {/* SAVE BUTTON */}
               <button
                 type="button"
-                disabled={!isFormValid || savingAddress || creatingGuest}
+                disabled={
+                  savingAddress ||
+                  creatingGuest ||
+                  existingCustomer ||
+                  checkingEmail
+                }
                 onClick={async () => {
+                  setSubmitted(true);
+
+                  if (existingCustomer) {
+                    window.location.href = `/auth/login?email=${encodeURIComponent(
+                      addressForm.email || ""
+                    )}`;
+                    return;
+                  }
+
                   if (!isFormValid) return;
                   await saveNewAddress();
                 }}
                 className="mt-4 w-full rounded-2xl bg-black py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(0,0,0,0.22)] transition hover:opacity-90 disabled:bg-black/20 disabled:text-black/40 active:scale-[0.99]"
               >
-                {savingAddress || creatingGuest ? "Saving..." : "Save Address"}
+                {checkingEmail
+                  ? "Checking..."
+                  : savingAddress || creatingGuest
+                  ? "Saving..."
+                  : existingCustomer
+                  ? "Already registered — Login"
+                  : "Save Address"}
               </button>
 
-              {!isFormValid && (
+              {!isFormValid && submitted && (
                 <p className="mt-3 text-[11px] text-gray-500">
                   Please fill all required fields correctly to continue.
                 </p>

@@ -62,7 +62,7 @@ export default function WinterDropSection() {
 
   return (
     <section className="w-full bg-white">
-      <div className="w-full   py-8 md:py-10">
+      <div className="w-full px-4 py-8 md:py-10">
         {/* Header */}
         <div className="flex items-end justify-between gap-4 mb-5 md:mb-6">
           <div>
@@ -112,7 +112,7 @@ export default function WinterDropSection() {
           </Link>
 
           {/* Products Area */}
-          <div className="w-full md:flex-1 min-w-0">
+          <div className="w-full  md:flex-1 min-w-0">
             {/* ================= DESKTOP (2 ROWS) ================= */}
             <div className="hidden md:flex flex-col gap-4">
               {localLoading ? (

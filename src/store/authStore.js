@@ -40,6 +40,8 @@ export const useAuthStore = create((set, get) => ({
 activeCartId: null,
 activeCartType: "cart", // cart | abandoned
   modalDismissed: false,
+  _lastSyncedUid: null,
+
   setModalDismissed: () => set({ modalDismissed: true }),
 
   /* ---------------------------------------------
@@ -141,7 +143,7 @@ setActiveCart: (cartId, type = "cart") => {
   /* ---------------------------------------------
      SYNC FIREBASE USER → BACKEND (UPSERT)
   --------------------------------------------- */
-  syncCustomer: async (firebaseUser) => {
+ syncCustomer: async (firebaseUser, overrides = {}) => {
   try {
     if (!firebaseUser) {
       console.warn("⚠️ syncCustomer called without firebaseUser");
@@ -154,16 +156,32 @@ setActiveCart: (cartId, type = "cart") => {
       return null;
     }
 
-    // 🔐 Always refresh token to avoid 401s
+    // 🔐 Always refresh token
     const token = await firebaseUser.getIdToken(true);
+
+    // ✅ Clean overrides properly
+    const clean = (v) => String(v || "").trim();
+
+    const overrideName = clean(overrides?.name);
+    const overrideEmail = clean(overrides?.email).toLowerCase();
+    const overridePhone = clean(overrides?.phone);
+    const overrideImage = clean(overrides?.profileImage);
 
     const payload = {
       firebaseUID: firebaseUser.uid,
-      name: firebaseUser.displayName || "",
-      email: firebaseUser.email || "",
-      phone: firebaseUser.phoneNumber || "",
-      profileImage: firebaseUser.photoURL || "",
+
+      // ✅ Override priority (but only if not empty)
+      name: overrideName || clean(firebaseUser.displayName),
+      email: overrideEmail || clean(firebaseUser.email).toLowerCase(),
+      phone: overridePhone || clean(firebaseUser.phoneNumber),
+      profileImage: overrideImage || clean(firebaseUser.photoURL),
     };
+
+    console.log("📦 syncCustomer payload =>", payload);
+
+    // ⚠️ warn if still blank
+    if (!payload.name) console.warn("⚠️ syncCustomer: name is empty");
+    if (!payload.phone) console.warn("⚠️ syncCustomer: phone is empty");
 
     const res = await fetch(`${BACKEND}/api/customers`, {
       method: "POST",
@@ -174,7 +192,6 @@ setActiveCart: (cartId, type = "cart") => {
       body: JSON.stringify(payload),
     });
 
-    // ❌ Backend / auth failure
     if (!res.ok) {
       const text = await res.text();
       console.error("❌ Customer API error:", res.status, text);
@@ -183,13 +200,18 @@ setActiveCart: (cartId, type = "cart") => {
 
     const data = await res.json();
 
-    // ❌ Invalid shape protection
-    if (!data || !data.customer || !data.customer._id) {
+    console.log("📩 syncCustomer response =>", data);
+
+    if (!data?.customer?._id) {
       console.error("❌ Invalid customer response:", data);
       return null;
     }
 
     const customer = data.customer;
+
+    // ✅ Warn if backend still returns blank name/phone
+    if (!customer?.name) console.warn("⚠️ Backend returned blank name");
+    if (!customer?.phone) console.warn("⚠️ Backend returned blank phone");
 
     return {
       customer,
@@ -202,6 +224,9 @@ setActiveCart: (cartId, type = "cart") => {
     return null;
   }
 },
+
+
+
 
 
 
@@ -268,10 +293,20 @@ setActiveCart: (cartId, type = "cart") => {
   /* ---------------------------------------------
      FIREBASE SESSION LISTENER
   --------------------------------------------- */
- initialize: () => {
+initialize: () => {
   if (typeof window === "undefined") return;
 
-  // ✅ Restore session from cookie (Guest + Auth)
+  /* ======================================================
+     ✅ 0) Prevent attaching multiple firebase listeners
+  ====================================================== */
+  if (get()._authUnsubscribe) {
+    console.log("⚠️ Auth listener already attached, skipping...");
+    return;
+  }
+
+  /* ======================================================
+     ✅ 1) Restore session from cookie (Guest + Auth)
+  ====================================================== */
   const cached = Cookies.get(COOKIE_KEY);
   if (cached) {
     try {
@@ -286,15 +321,23 @@ setActiveCart: (cartId, type = "cart") => {
           activeCartType: parsed.activeCartType || "cart",
           isAuthenticated: true,
           loading: false,
+
+          // ✅ avoid immediate re-sync
+          _lastSyncedUid: parsed?.user?.uid || null,
         });
+
+        console.log("✅ Restored auth session from cookie");
       }
     } catch (e) {
       console.warn("⚠️ Invalid auth cookie");
     }
   }
 
-  // ✅ Continue Firebase listener
-  onAuthStateChanged(auth, async (firebaseUser) => {
+  /* ======================================================
+     ✅ 2) Firebase Listener
+  ====================================================== */
+  const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    // ✅ If no firebaseUser
     if (!firebaseUser) {
       // ✅ If guest exists, DON'T wipe it
       const cookie = Cookies.get(COOKIE_KEY);
@@ -308,7 +351,7 @@ setActiveCart: (cartId, type = "cart") => {
         } catch {}
       }
 
-      // Normal logout cleanup
+      // ✅ Normal logout cleanup
       set({
         user: null,
         customer: null,
@@ -317,13 +360,41 @@ setActiveCart: (cartId, type = "cart") => {
         activeCartType: "cart",
         isAuthenticated: false,
         loading: false,
+        _lastSyncedUid: null,
       });
 
       Cookies.remove(COOKIE_KEY);
       return;
     }
 
-    // ✅ Normal auth flow stays same
+    /* ======================================================
+       ✅ 3) Prevent duplicate syncCustomer calls
+    ====================================================== */
+    const uid = firebaseUser.uid;
+    const lastUid = get()._lastSyncedUid;
+
+    if (lastUid === uid && get().customer?._id) {
+      console.log("✅ Skipping duplicate syncCustomer for UID:", uid);
+
+      set({
+        user: {
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || "",
+          email: firebaseUser.email || "",
+          photoURL: firebaseUser.photoURL || "",
+        },
+        loading: false,
+      });
+
+      return;
+    }
+
+    // ✅ mark synced uid
+    set({ _lastSyncedUid: uid });
+
+    /* ======================================================
+       ✅ 4) Normal auth flow
+    ====================================================== */
     const userData = {
       uid: firebaseUser.uid,
       name: firebaseUser.displayName || "",
@@ -331,7 +402,24 @@ setActiveCart: (cartId, type = "cart") => {
       photoURL: firebaseUser.photoURL || "",
     };
 
-    const syncResult = await get().syncCustomer(firebaseUser);
+    /* ======================================================
+       ✅ 5) Guest Overrides (name + phone) from localStorage
+    ====================================================== */
+    let overrides = {};
+    try {
+      const pending = localStorage.getItem("pending_guest_profile");
+      if (pending) {
+        overrides = JSON.parse(pending);
+        localStorage.removeItem("pending_guest_profile");
+        console.log("✅ Using overrides from pending_guest_profile:", overrides);
+      }
+    } catch (e) {
+      console.warn("⚠️ Failed to parse pending_guest_profile");
+    }
+
+    console.log("🔄 syncCustomer running for UID:", uid);
+
+    const syncResult = await get().syncCustomer(firebaseUser, overrides);
 
     if (!syncResult) {
       set({
@@ -371,7 +459,12 @@ setActiveCart: (cartId, type = "cart") => {
       { expires: 7 }
     );
   });
+
+  // ✅ store unsubscribe so it won't attach again
+  set({ _authUnsubscribe: unsubscribe });
 },
+
+
 
 
 
@@ -655,12 +748,22 @@ registerWithEmail: async (email, password, name) => {
 
 createGuestCustomer: async ({ name = "", email = "", phone = "", password = "" } = {}) => {
   try {
+    // ✅ sanitize
+    name = String(name || "").trim();
     email = String(email || "").trim().toLowerCase();
-    password = String(password || "").trim();
     phone = String(phone || "").trim();
+    password = String(password || "").trim();
 
+    console.log("🟡 createGuestCustomer called:", { name, email, phone });
+
+    // ✅ validations
     if (!email || !password || password.length < 4) {
       toast.error("Email + Password required");
+      return null;
+    }
+
+    if (!name || !phone) {
+      toast.error("Name + Phone required");
       return null;
     }
 
@@ -668,15 +771,26 @@ createGuestCustomer: async ({ name = "", email = "", phone = "", password = "" }
 
     let firebaseUser = null;
 
-    // ✅ STEP 1: Firebase create OR login
+    /* -------------------------------------------------------
+       ✅ STEP 1: Firebase create OR login
+    ------------------------------------------------------- */
     try {
       const signupRes = await createUserWithEmailAndPassword(auth, email, password);
       firebaseUser = signupRes.user;
+
+      console.log("✅ Firebase signup success:", {
+        uid: firebaseUser?.uid,
+        email: firebaseUser?.email,
+      });
     } catch (err) {
-      // ✅ Already exists → login
       if (err?.code === "auth/email-already-in-use") {
         const loginRes = await signInWithEmailAndPassword(auth, email, password);
         firebaseUser = loginRes.user;
+
+        console.log("✅ Firebase login success:", {
+          uid: firebaseUser?.uid,
+          email: firebaseUser?.email,
+        });
       } else {
         console.error("❌ Firebase signup/login failed:", err);
         toast.error(err?.message || "Firebase error");
@@ -691,51 +805,44 @@ createGuestCustomer: async ({ name = "", email = "", phone = "", password = "" }
       return null;
     }
 
-    // ✅ STEP 2: Sync backend customer
-    const syncResult = await get().syncCustomer(firebaseUser);
+    /* -------------------------------------------------------
+       ✅ STEP 2: Always update Firebase profile immediately
+       (so initialize() syncCustomer will get correct name)
+    ------------------------------------------------------- */
+    try {
+      await updateProfile(firebaseUser, {
+        displayName: name,
+        photoURL: firebaseUser.photoURL || "/profile/user-avatar.jpg",
+      });
 
-    if (!syncResult?.customer?._id) {
-      toast.error("Customer sync failed (backend)");
-      set({ loading: false });
-      return null;
+      console.log("✅ Firebase profile updated:", {
+        displayName: name,
+      });
+    } catch (err) {
+      console.warn("⚠️ Firebase updateProfile failed:", err);
     }
 
-    const { customer, token, activeCartId, activeCartType } = syncResult;
-
-    const userData = {
-      uid: firebaseUser.uid,
-      name: firebaseUser.displayName || name || email.split("@")[0],
-      email: firebaseUser.email || email,
-      photoURL: firebaseUser.photoURL || "/profile/user-avatar.jpg",
-    };
-
-    // ✅ update store
-    set({
-      user: userData,
-      customer,
-      token,
-      activeCartId,
-      activeCartType,
-      isAuthenticated: true,
-      loading: false,
-    });
-
-    // ✅ persist cookie
-    Cookies.set(
-      COOKIE_KEY,
-      JSON.stringify({
-        user: userData,
-        customer,
-        token,
-        activeCartId,
-        activeCartType,
-        isGuest: false,
-      }),
-      { expires: 7 }
+    /* -------------------------------------------------------
+       ✅ STEP 3: SAVE data temporarily (for initialize sync)
+       (Because firebaseUser.phoneNumber is empty in email signup)
+    ------------------------------------------------------- */
+    localStorage.setItem(
+      "pending_guest_profile",
+      JSON.stringify({ name, phone, email })
     );
 
+    console.log("✅ pending_guest_profile saved in localStorage");
+
+    /* -------------------------------------------------------
+       ✅ FINAL: DO NOT call syncCustomer here!
+       ✅ initialize() will run syncCustomer ONCE via onAuthStateChanged
+    ------------------------------------------------------- */
+
     toast.success("Account created ✅");
-    return customer;
+
+    set({ loading: false });
+
+    return { uid: firebaseUser.uid, email: firebaseUser.email };
   } catch (err) {
     console.error("❌ createGuestCustomer exception:", err);
     toast.error("Guest creation failed");
@@ -743,6 +850,9 @@ createGuestCustomer: async ({ name = "", email = "", phone = "", password = "" }
     return null;
   }
 },
+
+
+
 
 
 
