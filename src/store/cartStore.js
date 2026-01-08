@@ -19,17 +19,22 @@ const toNum = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const extractSize = (variant) => {
+const pickAttr = (variant, keys = []) => {
   const attrs = Array.isArray(variant?.attributes) ? variant.attributes : [];
-  const size = attrs.find((a) => str(a?.key).toLowerCase() === "size")?.value;
-  return size ? str(size) : "";
+  const keySet = keys.map((k) => str(k).trim().toLowerCase());
+
+  const found = attrs.find((a) =>
+    keySet.includes(str(a?.key).trim().toLowerCase())
+  );
+
+  return found?.value ? str(found.value) : "";
 };
 
-const extractColor = (variant) => {
-  const attrs = Array.isArray(variant?.attributes) ? variant.attributes : [];
-  const color = attrs.find((a) => str(a?.key).toLowerCase() === "color")?.value;
-  return color ? str(color) : "";
-};
+const extractSize = (variant) =>
+  pickAttr(variant, ["size", "sizes", "shirt_size"]);
+
+const extractColor = (variant) =>
+  pickAttr(variant, ["color", "colour", "color_name"]);
 
 
 const cartKey = (item) => {
@@ -99,6 +104,16 @@ const buildCartItem = ({
   // ✅ enforce: variable must have variantId
   if (productType === "variable" && !variantId)
     return { __error: "variant_required" };
+
+  // ✅ enforce: variable must match a real variant
+if (productType === "variable" && !variant) {
+  return { __error: "variant_not_found" };
+}
+
+// ✅ enforce: variable must have variantId
+if (productType === "variable" && !variantId) {
+  return { __error: "variant_required" };
+}
 
   const unitPrice =
     variant && toNum(variant.price) > 0
@@ -203,53 +218,124 @@ const toGa4Item = (item, qtyOverride = null) => {
 
   return mapItem(p, qtyOverride ?? toNum(item?.quantity || 1));
 };
+const toGA4ItemFromBuilt = (built, _snapshot, qtyOverride = null) =>
+  toGa4Item(built, qtyOverride);
 
 export const useCartStore = create((set, get) => ({
   items: [],
+  buyNowItem: null,   // ✅ NEW
 
   /* ---------------- INIT ---------------- */
- initialize: () => {
+initialize: () => {
   if (typeof window === "undefined") return;
 
+  /* ---------------- RESTORE CART ITEMS ---------------- */
   const stored = Cookies.get(KEY);
-  if (!stored) return;
 
-  try {
-    const data = JSON.parse(stored);
-    if (!Array.isArray(data)) return;
+  if (stored) {
+    try {
+      const data = JSON.parse(stored);
+      if (Array.isArray(data)) {
+        const normalized = data
+          .map((it) => {
+            const productId = str(it.productId || it.id || it._id);
+           const variantId =
+  it.variantId
+    ? str(it.variantId)
+    : it?.variant?.variantId
+    ? str(it.variant.variantId)
+    : null;
 
-    const normalized = data
-      .map((it) => {
-        const productId = str(it.productId || it.id || it._id);
-        const variantId = it.variantId ? str(it.variantId) : null;
+            return {
+              ...it,
 
-        return {
-          ...it,
+              // ✅ normalize ids + qty
+              productId,
+              variantId,
+              quantity: Math.max(1, toNum(it.quantity || it.qty || 1)),
 
-          // ✅ normalize ids + qty
-          productId,
-          variantId,
-          quantity: Math.max(1, toNum(it.quantity || it.qty || 1)),
+              // ✅ normalize selections
+              selectedSize: str(it.selectedSize || ""),
+              selectedColor: str(it.selectedColor || ""),
 
-          // ✅ normalize selections
-          selectedSize: str(it.selectedSize || ""),
-          selectedColor: str(it.selectedColor || ""),
+              // ✅ ensure key always exists
+              __key: it.__key || `${productId}__${variantId || ""}`,
+            };
+          })
+          .map((it) => ({
+            ...it,
+            qty: undefined, // ✅ remove old field
+          }));
 
-          // ✅ ensure key always exists
-          __key: it.__key || `${productId}__${variantId || ""}`,
-        };
-      })
-      .map((it) => ({
-        ...it,
-        qty: undefined, // ✅ remove old field
-      }));
-
-    set({ items: normalized });
-  } catch (e) {
-    console.error("❌ Cart cookie parse error:", e);
+        set({ items: normalized });
+      }
+    } catch (e) {
+      console.error("❌ Cart cookie parse error:", e);
+    }
   }
+
+  /* ---------------- RESTORE BUY NOW ITEM ---------------- */
+  const buyNowStored = Cookies.get("buy_now_item");
+
+ if (buyNowStored) {
+  try {
+    const buyNowItem = JSON.parse(buyNowStored);
+
+    if (buyNowItem && typeof buyNowItem === "object") {
+      const productId = str(buyNowItem.productId || buyNowItem.id || buyNowItem._id);
+      const variantId =
+  buyNowItem.variantId
+    ? str(buyNowItem.variantId)
+    : buyNowItem?.variant?.variantId
+    ? str(buyNowItem.variant.variantId)
+    : null;
+
+
+      const normalizedBuyNow = {
+        ...buyNowItem,
+        productId,
+        variantId,
+        quantity: Math.max(1, toNum(buyNowItem.quantity || buyNowItem.qty || 1)),
+        selectedSize: str(buyNowItem.selectedSize || ""),
+        selectedColor: str(buyNowItem.selectedColor || ""),
+        __key: buyNowItem.__key || `${productId}__${variantId || ""}`,
+      };
+
+      set({ buyNowItem: normalizedBuyNow });
+    }
+  } catch (e) {
+    console.error("❌ BuyNow cookie parse error:", e);
+    Cookies.remove("buy_now_item");
+  }
+}
+
 },
 
+
+setBuyNow: ({ product, qty = 1, variantId = null, selectedSize = null, selectedColor = null }) => {
+  const built = buildCartItem({ product, qty, variantId, selectedSize, selectedColor });
+
+  if (!built) return;
+
+  if (built.__error === "variant_required") {
+    notify?.error?.("Please select size & color");
+    return;
+  }
+
+  if (built.__error === "variant_not_found") {
+    notify?.error?.("Selected variant not available");
+    return;
+  }
+
+  set({ buyNowItem: { ...built, __originalProduct: product } });
+  Cookies.set("buy_now_item", JSON.stringify(built), { expires: 1 });
+},
+
+
+clearBuyNow: () => {
+  set({ buyNowItem: null });
+  Cookies.remove("buy_now_item");
+},
 
   /* ---------------- ADD ----------------
      Call like:
@@ -264,12 +350,17 @@ addToCart: async ({
 }) => {
   const built = buildCartItem({ product, qty, variantId, selectedSize, selectedColor });
 
+if (!built) return;
 
-  if (!built) return;
-  if (built.__error === "variant_required") {
-    notify?.error?.("Please select size & color");
-    return;
-  }
+if (built.__error === "variant_required") {
+  notify?.error?.("Please select size & color");
+  return;
+}
+
+if (built.__error === "variant_not_found") {
+  notify?.error?.("Selected variant not available");
+  return;
+}
 
   const key = built.__key;
   const curr = get().items || [];
@@ -306,10 +397,17 @@ addToCart: async ({
 
     /* ---------------- ANALYTICS ---------------- */
     try {
-      useAnalyticsStore.getState().trackAddToCart(product?._id);
-    } catch (e) {
-      console.warn("📊 Analytics cart_add failed", e);
-    }
+  const pid =
+    product?._id ||
+    product?.id ||
+    product?.productId ||
+    built?.productId;
+
+  if (pid) useAnalyticsStore.getState().trackAddToCart(pid);
+} catch (e) {
+  console.warn("📊 Analytics cart_add failed", e);
+}
+
 
     /* ---------------- META (PIXEL + CAPI) ---------------- */
     try {
@@ -389,6 +487,30 @@ addToCart: async ({
 },
 
 
+// tocheckout items for buy now,
+
+getCheckoutPayload: () => {
+  const buyNow = get().buyNowItem;
+
+  // ✅ if buyNow exists → checkout only that
+  if (buyNow) {
+    return [
+      {
+        productId: buyNow.productId,
+        quantity: toNum(buyNow.quantity || 1),
+        ...(buyNow.variantId ? { variantId: buyNow.variantId } : {}),
+      },
+    ];
+  }
+
+  // ✅ else normal cart items
+  return (get().items || []).map((it) => ({
+    productId: it.productId,
+    quantity: toNum(it.quantity || 1),
+    ...(it.variantId ? { variantId: it.variantId } : {}),
+  }));
+},
+
 
 
 
@@ -428,13 +550,18 @@ addToCart: async ({
 
   /* ---------- Analytics ---------- */
   try {
-    const a = useAnalyticsStore.getState();
-    a.trackRemoveFromCart
-      ? a.trackRemoveFromCart(removed?.productId || idOrKey)
-      : a.trackProductEvent?.({ productId: removed?.productId || idOrKey, event: "cart_remove" });
-  } catch (e) {
-    console.warn("📊 Analytics cart_remove failed", e);
-  }
+  const a = useAnalyticsStore.getState();
+
+  const productId = removed?.productId || str(idOrKey).split("__")[0];
+
+  a.trackRemoveFromCart
+    ? a.trackRemoveFromCart(productId)
+    : a.trackProductEvent?.({ productId, event: "cart_remove" });
+
+} catch (e) {
+  console.warn("📊 Analytics cart_remove failed", e);
+}
+
 
   /* ---------- Meta ---------- */
   try {
@@ -594,10 +721,19 @@ decreaseQty: (idOrKey, variantId = null) => {
 
   /* ---------------- CLEAR ---------------- */
   clearCart: () => {
-    set({ items: [] });
-    Cookies.remove(KEY);
-    notify.cartCleared?.();
-  },
+  set({ items: [] });
+  Cookies.remove(KEY);
+  notify.cartCleared?.();
+
+  // ✅ DON'T touch buyNowItem here
+
+  
+},
+
+completeCheckout: () => {
+  set({ buyNowItem: null });
+  Cookies.remove("buy_now_item");
+},
 
   /* ---------------- TOTALS ---------------- */
   totalCount: () => (get().items || []).reduce((s, i) => s + toNum(i.quantity || 0), 0),

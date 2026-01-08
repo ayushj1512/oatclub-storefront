@@ -85,11 +85,12 @@ const { decreaseQty, updateQty, removeFromCart } = useCartStore();
 
   const hasCoupon = Boolean(coupon?.code);
 
-  useEffect(() => {
-    initialize?.();
-    initAuth?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+useEffect(() => {
+  // ✅ only hydrate if items are empty (avoid overwrite after addToCart)
+  if (!items?.length) initialize?.();
+  initAuth?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   const subtotal = useMemo(() => (typeof totalPriceFn === "function" ? totalPriceFn() : 0), [totalPriceFn, items?.length]);
 
@@ -385,7 +386,7 @@ const removeSafe = (item) => {
             </div>
           </div>
         </div>
-      </div>
+      </div>r
     </section>
   );
 }

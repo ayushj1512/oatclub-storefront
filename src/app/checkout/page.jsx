@@ -42,8 +42,12 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   /* ---------------- CART ---------------- */
-  const items = useCartStore((s) => s.items) || [];
-  const totalPrice = useCartStore((s) => s.totalPrice);
+const cartItems = useCartStore((s) => s.items) || [];
+const buyNowItem = useCartStore((s) => s.buyNowItem);
+const getCheckoutPayload = useCartStore((s) => s.getCheckoutPayload);
+const completeCheckout = useCartStore((s) => s.completeCheckout);
+
+const items = buyNowItem ? [buyNowItem] : cartItems; // ✅ UI + Summary uses this
   const initCart = useCartStore((s) => s.initialize);
   const clearCart = useCartStore((s) => s.clearCart);
 
@@ -95,10 +99,14 @@ export default function CheckoutPage() {
   const [showCodCaptcha, setShowCodCaptcha] = useState(false);
 
   /* ---------------- TOTALS ---------------- */
-  const subtotal = useMemo(
-    () => (typeof totalPrice === "function" ? totalPrice() : 0),
-    [items, totalPrice]
-  );
+  const subtotal = useMemo(() => {
+  return (items || []).reduce((sum, it) => {
+    const price = Number(it?.price || 0);
+    const qty = Number(it?.quantity ?? it?.qty ?? 1);
+    return sum + price * qty;
+  }, 0);
+}, [items]);
+
 
   const payable = useMemo(() => {
     const d = Math.max(0, Number(discount || 0));
@@ -243,7 +251,7 @@ const ensureGuestCustomer = async () => {
 
   /* ---------------- INIT ---------------- */
   useEffect(() => {
-    initCart?.();
+    // initCart?.();
     initializeAuth?.();
   }, []);
 
@@ -390,49 +398,33 @@ const ensureGuestCustomer = async () => {
   }
 };
 
-const resolveVariantId = (item) => {
-  const vid = item?.variantId || item?.variant?._id;
-  if (isObjectId(String(vid || ""))) return String(vid);
-
-  const size = String(item?.selectedSize || item?.size || "").toLowerCase().trim();
-  const color = String(item?.selectedColor || item?.color || "").toLowerCase().trim();
-
-  const variants = item?.productSnapshot?.variants || item?.product?.variants || [];
-  if ((!size && !color) || !variants.length) return null;
-
-  const matched = variants.find((v) => {
-    const attrs = Array.isArray(v?.attributes) ? v.attributes : [];
-
-    const sizeAttr = attrs.find((a) => String(a?.key || "").toLowerCase() === "size");
-    const colorAttr = attrs.find((a) => String(a?.key || "").toLowerCase() === "color");
-
-    const vs = String(sizeAttr?.value || "").toLowerCase().trim();
-    const vc = String(colorAttr?.value || "").toLowerCase().trim();
-
-    if (size && vs !== size) return false;
-    if (color && vc !== color) return false;
-
-    return true;
-  });
-
-  return matched?._id ? String(matched._id) : null;
-};
 
 
 
   /* ---------------- VALIDATE CHECKOUT ---------------- */
-  const validate = () => {
-    if (!items?.length) return "Your cart is empty.";
-    if (!user?.uid && !customer?._id) return "Please login or continue as guest.";
-    if (!selectedAddressObj) return "Please select an address.";
-    if (!["cod", "razorpay"].includes(selectedPayment))
-      return "Invalid payment method selected.";
+const validate = () => {
+  const payload = getCheckoutPayload(); // ✅ cartStore decides buyNow/cart
 
-    const bad = items.find((it) => !resolveMongoProductId(it));
-    if (bad) return `Cart item missing Mongo ObjectId.`;
+  if (!payload.length) return "Your cart is empty.";
+  if (!user?.uid && !customer?._id) return "Please login or continue as guest.";
+  if (!selectedAddressObj) return "Please select an address.";
+  if (!["cod", "razorpay"].includes(selectedPayment))
+    return "Invalid payment method selected.";
 
-    return null;
-  };
+  // ✅ ObjectId check
+  const bad = payload.find((it) => !isObjectId(it.productId));
+  if (bad) return "Cart item missing Mongo ObjectId.";
+
+  // ✅ VariantId safety check (if present but empty)
+  const badVariant = payload.find((it) => ("variantId" in it) && !it.variantId);
+  if (badVariant) return "Please select size/color for one item.";
+
+  return null;
+};
+
+
+
+
 
   const checkoutError = useMemo(() => validate(), [
     items?.length,
@@ -473,86 +465,37 @@ const handlePlaceOrder = async () => {
   const toastId = toast.loading("Placing your order...");
 
   try {
-   const order = await createOrder({
-  customerId: finalCustomer._id,
-  shippingAddressId: selectedAddressObj._id,
-  billingAddressId: selectedAddressObj._id,
-  paymentMethod: selectedPayment,
+    // ✅ ✅ ✅ THIS IS THE ONLY SOURCE OF TRUTH
+    const orderItems = getCheckoutPayload(); // 🔥 cartStore handles buyNow/cart + variantIds
 
-  items: items.map((it) => {
-  const productId = resolveMongoProductId(it);
-  const qty = Number(it?.qty ?? it?.quantity ?? 1);
+    if (!orderItems?.length) {
+      throw new Error("Checkout items missing.");
+    }
 
-  const snapshot = it?.productSnapshot || it?.product || null;
+    const order = await createOrder({
+      customerId: finalCustomer._id,
+      shippingAddressId: selectedAddressObj._id,
+      billingAddressId: selectedAddressObj._id,
+      paymentMethod: selectedPayment,
+      items: orderItems,
+      source: "website",
 
-  const isVariable =
-    snapshot?.productType === "variable" ||
-    (Array.isArray(snapshot?.variants) && snapshot.variants.length > 0);
+      coupon: coupon
+        ? {
+            code: coupon.code,
+            discount,
+            finalTotal: payable,
+          }
+        : null,
+    });
 
-  let variantId =
-    it?.variantId ||
-    it?.variant?._id ||
-    it?.variantIdMongo ||
-    null;
+    // ✅ Clear based on flow
+    if (buyNowItem) {
+      completeCheckout?.(); // ✅ clears buyNow cookie + state
+    } else {
+      clearCart?.(); // ✅ normal cart clear
+    }
 
-  // ✅ fallback: match variant by selectedSize
- if (!variantId && isVariable) {
-  const size = String(it?.selectedSize || it?.size || "").toLowerCase().trim();
-  const color = String(it?.selectedColor || it?.color || "").toLowerCase().trim();
-
-  const variants = snapshot?.variants || [];
-
-  const matched = variants.find((v) => {
-    const attrs = Array.isArray(v?.attributes) ? v.attributes : [];
-
-    const sizeAttr = attrs.find(
-      (a) => String(a?.key || "").toLowerCase() === "size"
-    );
-    const colorAttr = attrs.find(
-      (a) => String(a?.key || "").toLowerCase() === "color"
-    );
-
-    const vs = String(sizeAttr?.value || "").toLowerCase().trim();
-    const vc = String(colorAttr?.value || "").toLowerCase().trim();
-
-    if (size && vs !== size) return false;
-    if (color && vc !== color) return false;
-
-    return true;
-  });
-
-  variantId = matched?._id || null;
-}
-
-
-  // ✅ guard rails
-  if (!productId) throw new Error("Product ID missing in cart item.");
-
-  if (isVariable && !variantId) {
-    throw new Error(`Variant ID missing for ${snapshot?.title || it?.name || "product"}`);
-  }
-
-  return {
-    productId,
-    quantity: qty,
-    ...(variantId ? { variantId } : {}),
-  };
-}),
-
-
-  source: "website",
-
-  coupon: coupon
-    ? {
-        code: coupon.code,
-        discount,
-        finalTotal: payable,
-      }
-    : null,
-});
-
-
-    clearCart?.();
     toast.success("Order placed successfully!", { id: toastId });
 
     router.push(
@@ -564,6 +507,8 @@ const handlePlaceOrder = async () => {
     toast.error(e?.message || "Failed to place order.", { id: toastId });
   }
 };
+
+
 
 
   /* ---------------- BEGIN CHECKOUT TRACK EVENT ---------------- */

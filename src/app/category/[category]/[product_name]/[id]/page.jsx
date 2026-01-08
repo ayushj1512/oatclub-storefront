@@ -121,14 +121,46 @@ function SizeGuideSection() {
   );
 }
 
+const SIZE_ORDER = ["XXS","XS","S","M","L","XL","XXL","3XL","4XL","5XL"];
+
+const getSizeFromSku = (sku) => {
+  const parts = str(sku).toUpperCase().split("-").filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (SIZE_ORDER.includes(parts[i])) return parts[i];
+  }
+  return "";
+};
+
+const getColorFromSku = (sku) => {
+  const parts = str(sku).toLowerCase().split("-").filter(Boolean);
+  if (parts.length < 2) return "";
+
+  // usually color is 2nd last token
+  const candidate = parts[parts.length - 2];
+
+  // avoid returning size accidentally
+  if (SIZE_ORDER.includes(candidate.toUpperCase())) return "";
+
+  return candidate;
+};
+
+
+
 /* -------- variant helpers ---------- */
 const str = (v) => (v == null ? "" : String(v));
 
 const getAttrValue = (attrs, key) => {
-  const k = str(key).toLowerCase();
+  const k = str(key).trim().toLowerCase();
   const arr = Array.isArray(attrs) ? attrs : [];
-  return arr.find((a) => str(a?.key).toLowerCase() === k)?.value || "";
+
+  const found = arr.find((a) => {
+    const ak = str(a?.key || a?.name || a?.slug).trim().toLowerCase();
+    return ak === k;
+  });
+
+  return found?.value != null ? str(found.value) : "";
 };
+
 
 const deriveSizesFromBackend = (normalized) => {
   if (!normalized) return [];
@@ -200,6 +232,54 @@ const deriveColorsFromBackend = (normalized) => {
   return Array.from(new Set(colors));
 };
 
+const hasColorForSize = (normalized, size) => {
+  const raw = normalized?.raw || normalized;
+  const vars = Array.isArray(raw?.variants) ? raw.variants : [];
+  const wantedSize = str(size).trim().toUpperCase();
+
+  const variantsForSize = vars.filter((v) => {
+    const s =
+      str(getAttrValue(v?.attributes, "Size")).trim().toUpperCase() ||
+      getSizeFromSku(v?.sku);
+
+    return wantedSize ? s === wantedSize : true;
+  });
+
+  return variantsForSize.some((v) => {
+    const c =
+      str(getAttrValue(v?.attributes, "Color")).trim().toLowerCase() ||
+      getColorFromSku(v?.sku);
+
+    return Boolean(c);
+  });
+};
+
+
+
+const getColorsForSize = (normalized, size) => {
+  const raw = normalized?.raw || normalized;
+  const vars = Array.isArray(raw?.variants) ? raw.variants : [];
+  const wantedSize = str(size).trim().toUpperCase();
+
+  const colors = vars
+    .filter((v) => {
+      const s =
+        str(getAttrValue(v?.attributes, "size")).trim().toUpperCase() ||
+        getSizeFromSku(v?.sku);
+
+      return wantedSize ? s === wantedSize : true;
+    })
+    .map((v) => {
+      return (
+        str(getAttrValue(v?.attributes, "color")).trim().toLowerCase() ||
+        getColorFromSku(v?.sku)
+      );
+    })
+    .filter(Boolean);
+
+  return Array.from(new Set(colors));
+};
+
 
 
 const deriveImageList = (normalized) => {
@@ -216,21 +296,35 @@ const findVariantIdByAttributes = (normalized, picked = {}) => {
   const wantedSize = str(picked.size).trim().toUpperCase();
   const wantedColor = str(picked.color).trim().toLowerCase();
 
-  const match = vars.find((v) => {
-    const size = str(getAttrValue(v?.attributes, "Size")).trim().toUpperCase();
-    const color = str(getAttrValue(v?.attributes, "Color")).trim().toLowerCase();
+  if (!wantedSize && !wantedColor) return null;
 
-    // if size required, match size
+  // ✅ check if this size actually has color variants
+  const colorNeeded = wantedSize ? hasColorForSize(normalized, wantedSize) : false;
+
+  // ✅ if color needed but not selected, stop
+  if (colorNeeded && !wantedColor) return null;
+
+  const match = vars.find((v) => {
+    const size =
+      str(getAttrValue(v?.attributes, "size")).trim().toUpperCase() ||
+      getSizeFromSku(v?.sku);
+
+    const color =
+      str(getAttrValue(v?.attributes, "color")).trim().toLowerCase() ||
+      getColorFromSku(v?.sku);
+
     if (wantedSize && size !== wantedSize) return false;
 
-    // if color selected, match color
-    if (wantedColor && color !== wantedColor) return false;
+    // ✅ match color only if needed
+    if (colorNeeded && wantedColor && color !== wantedColor) return false;
 
     return true;
   });
 
   return match?._id || match?.id || null;
 };
+
+
 
 
 
@@ -250,6 +344,7 @@ export default function ProductPage({ params }) {
   const cartInitialize = useCartStore((s) => s.initialize);
   const cartItems = useCartStore((s) => s.items);
   const addToCart = useCartStore((s) => s.addToCart);
+const setBuyNow = useCartStore((s) => s.setBuyNow);
 
   const wishlistStore = useWishlistStore();
   const { addToWishlist, removeFromWishlist, isInWishlist, initialize: initWishlist } = wishlistStore;
@@ -276,7 +371,7 @@ const [selectedColor, setSelectedColor] = useState(null);
   useEffect(() => {
     let mounted = true;
 
-    async function load() {
+  async function load() {
   if (!id) return;
   setLoading(true);
 
@@ -312,28 +407,40 @@ const [selectedColor, setSelectedColor] = useState(null);
 
     setProduct(mapped);
 
-    // ✅ reset default
+    // ✅ reset default selection
     let nextSize = null;
     let nextColor = null;
 
-    // ✅ auto-select if single
+    // ✅ auto-select size if single
     if (sizes.length === 1) nextSize = sizes[0];
-    if (colors.length === 1) nextColor = colors[0];
+
+    // ✅ auto-select color ONLY if size exists AND that size actually needs color AND color list single
+    if (nextSize) {
+      const needsColor = hasColorForSize(p, nextSize);
+      if (needsColor && colors.length === 1) nextColor = colors[0];
+    }
 
     setSelectedSize(nextSize);
     setSelectedColor(nextColor);
 
-    // ✅ auto variant only if both selected (or if only size exists and no colors)
+    // ✅ auto resolve variantId properly
     let vid = null;
 
-    // case 1: size + color both exist
-    if (nextSize && nextColor) {
-      vid = findVariantIdByAttributes(p, { size: nextSize, color: nextColor });
-    }
+    if (nextSize) {
+      const needsColor = hasColorForSize(p, nextSize);
 
-    // case 2: only size exists (no colors in product)
-    if (nextSize && colors.length === 0) {
-      vid = findVariantIdByAttributes(p, { size: nextSize });
+      // size requires color
+      if (needsColor) {
+        if (nextColor) {
+          vid = findVariantIdByAttributes(p, { size: nextSize, color: nextColor });
+        } else {
+          // needs color but none selected yet
+          vid = null;
+        }
+      } else {
+        // size does NOT require color
+        vid = findVariantIdByAttributes(p, { size: nextSize });
+      }
     }
 
     setSelectedVariantId(vid);
@@ -354,6 +461,7 @@ const [selectedColor, setSelectedColor] = useState(null);
 }
 
 
+
     load();
     return () => {
       mounted = false;
@@ -364,7 +472,12 @@ const [selectedColor, setSelectedColor] = useState(null);
     if (!product) return;
     recentlyViewedStore.addProduct?.(product);
   }, [product, recentlyViewedStore]);
-const requireColor = (product?.colors?.length || 0) > 0;
+const requireColor = useMemo(() => {
+  if (!normalized) return false;
+  if (selectedSize) return hasColorForSize(normalized, selectedSize);
+  return (product?.colors?.length || 0) > 0;
+}, [normalized, selectedSize, product]);
+
 
   const requireSize = (product?.sizes?.length || 0) > 0;
   const wishlisted = isInWishlist?.(product?.productId || product?.id);
@@ -387,14 +500,24 @@ const requireColor = (product?.colors?.length || 0) > 0;
   }, [cartItems, selectedCartKey]);
 
   const handleAddToCart = useCallback(() => {
+      console.log("🛒 [ADD TO CART CLICK]");
+  console.log("productType:", product?.productType);
+  console.log("requireSize:", requireSize, "requireColor:", requireColor);
+  console.log("selectedSize:", selectedSize);
+  console.log("selectedColor:", selectedColor);
+  console.log("selectedVariantId:", selectedVariantId);
+
+  console.log("normalized.raw?.variants len:", normalized?.raw?.variants?.length);
+  console.log("normalized?.variants len:", normalized?.variants?.length);
     if (!normalized || !product) return;
 
 if (requireSize && !selectedSize) return notify.error("Please select a size");
 if (requireColor && !selectedColor) return notify.error("Please select a color");
 
 if (product.productType === "variable" && !selectedVariantId) {
-  return notify.error("Please select size & color");
+  return notify.error(requireColor ? "Please select size & color" : "Please select a size");
 }
+
 
 addToCart({
   product: normalized,
@@ -425,8 +548,9 @@ addToCart({
 
   // ✅ Your request: Buy Now button should become "View Cart"
   const handleBuyNowOrViewCart = async () => {
+  // ✅ If already in cart -> go cart
   if (selectionInCart) {
-    router.push("/checkout");
+    router.push("/cart");
     return;
   }
 
@@ -443,23 +567,25 @@ addToCart({
   }
 
   if ((product.productType === "variable" || requireSize || requireColor) && !selectedVariantId) {
-    notify.error("Please select size & color");
+    notify.error(requireColor ? "Please select size & color" : "Please select a size");
     return;
   }
 
-  addToCart({
+  // ✅ BUY NOW SHOULD NOT TOUCH CART
+  setBuyNow({
     product: normalized,
     qty: 1,
     selectedSize,
     selectedColor,
-    variantId: product.productType === "variable" || requireSize || requireColor ? selectedVariantId : null,
+    variantId:
+      product.productType === "variable" || requireSize || requireColor
+        ? selectedVariantId
+        : null,
   });
 
-  await new Promise((r) => setTimeout(r, 250));
+  await new Promise((r) => setTimeout(r, 150));
   router.push("/checkout");
 };
-
-
 
   const handleToggleWishlist = () => {
     if (!product) return;
@@ -612,14 +738,44 @@ const link = typeof window !== "undefined" ? window.location.href : "";
           return (
             <button
               key={s}
-              onClick={() => {
-                setSelectedSize(s);
-               const vid = normalized
-  ? findVariantIdByAttributes(normalized, { size: s, color: selectedColor })
-  : null;
-setSelectedVariantId(vid);
+             onClick={() => {
+  setSelectedSize(s);
 
-              }}
+  const needsColor = normalized ? hasColorForSize(normalized, s) : false;
+
+  // ✅ Size doesn't need color => reset color + resolve variant by size only
+  if (!needsColor) {
+    setSelectedColor(null);
+
+    const vid = normalized
+      ? findVariantIdByAttributes(normalized, { size: s })
+      : null;
+
+    setSelectedVariantId(vid);
+    return;
+  }
+
+  // ✅ Size needs color => check if existing selectedColor is valid for this size
+  const validColors = normalized ? getColorsForSize(normalized, s) : [];
+  const current = str(selectedColor).trim().toLowerCase();
+  const stillValid = current && validColors.includes(current);
+
+  // ❌ current color is not valid for this size -> reset and wait for user to select
+  if (!stillValid) {
+    setSelectedColor(null);
+    setSelectedVariantId(null);
+    return;
+  }
+
+  // ✅ current color is valid -> resolve variant
+  const vid = normalized
+    ? findVariantIdByAttributes(normalized, { size: s, color: selectedColor })
+    : null;
+
+  setSelectedVariantId(vid);
+}}
+
+
               className={`px-3 py-1.5 text-sm font-medium rounded-md border transition ${
                 active
                   ? "bg-black text-white border-black"
@@ -636,17 +792,22 @@ setSelectedVariantId(vid);
 )}
 
 {/* COLOR SELECTOR */}
-<ColorSelector
-  colors={product.colors}
-  selectedColor={selectedColor}
-  onSelect={(c) => {
-    setSelectedColor(c);
-    const vid = normalized
-      ? findVariantIdByAttributes(normalized, { size: selectedSize, color: c })
-      : null;
-    setSelectedVariantId(vid);
-  }}
-/>
+{requireColor && (
+  <ColorSelector
+    colors={product.colors}
+    selectedColor={selectedColor}
+    onSelect={(c) => {
+      setSelectedColor(c);
+
+      const vid = normalized
+        ? findVariantIdByAttributes(normalized, { size: selectedSize, color: c })
+        : null;
+
+      setSelectedVariantId(vid);
+    }}
+  />
+)}
+
 
 
 

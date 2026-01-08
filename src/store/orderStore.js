@@ -91,44 +91,85 @@ createOrder: async ({
     if (!items?.length) throw new Error("Order items missing");
 
     const pm = String(paymentMethod).toLowerCase();
-    if (!["cod", "razorpay"].includes(pm)) throw new Error("Invalid payment method");
+    if (!["cod", "razorpay"].includes(pm))
+      throw new Error("Invalid payment method");
+
+    /* ✅ coupon safe normalize */
+    const couponCode =
+      coupon && typeof coupon === "object"
+        ? String(coupon.code || "").trim()
+        : coupon
+        ? String(coupon).trim()
+        : null;
 
     /* ✅ normalize items for backend */
     const normalizedItems = items.map((it) => {
       const productId = it?.productId || it?.id;
       const quantity = Number(it?.quantity ?? it?.qty ?? 0);
       const variantId = it?.variantId || null;
+
       if (!productId) throw new Error("Each item must have productId");
-      if (!Number.isFinite(quantity) || quantity < 1) throw new Error("Invalid item quantity");
+      if (!Number.isFinite(quantity) || quantity < 1)
+        throw new Error("Invalid item quantity");
+
       return { productId, quantity, ...(variantId ? { variantId } : {}) };
     });
 
-    /* ✅ build contents for tracking */
+    /* ✅ build contents for tracking (GA4/Meta) */
     const contents = (items || [])
       .map((it) => {
-        const id = it?.productId || it?.id;
-        if (!id) return null;
+        const productId = it?.productId || it?.id;
+        if (!productId) return null;
+
+        const quantity = Number(it?.quantity ?? it?.qty ?? 1) || 1;
+        const price =
+          Number(it?.price ?? it?.item_price ?? it?.salePrice ?? 0) || 0;
+
+        const variantId = it?.variantId || it?.variant?._id || null;
+        const variantText = [it?.selectedSize, it?.selectedColor]
+          .filter(Boolean)
+          .join(" / ");
+
         return {
-          id: String(id),
-          quantity: Number(it?.quantity ?? it?.qty ?? 1) || 1,
-          item_price: Number(it?.price ?? it?.item_price ?? it?.salePrice ?? 0) || 0,
+          id: String(productId),
+          variantId: variantId ? String(variantId) : null,
+          variant: variantText || undefined,
+          quantity,
+          item_price: price,
         };
       })
       .filter(Boolean);
 
-    const itemsTotal = contents.reduce((s, c) => s + c.item_price * c.quantity, 0);
-    const orderValue = Math.max(0, itemsTotal + Number(shippingFee || 0) + Number(tax || 0) - Number(discount || 0));
+    const itemsTotal = contents.reduce(
+      (s, c) => s + c.item_price * c.quantity,
+      0
+    );
 
-    /* ✅ Meta: InitiateCheckout + AddPaymentInfo (safe to fire here) */
+    const orderValue = Math.max(
+      0,
+      itemsTotal +
+        Number(shippingFee || 0) +
+        Number(tax || 0) -
+        Number(discount || 0)
+    );
+
+    /* ✅ Meta needs only id/qty/price (best practice) */
+    const metaContents = contents.map((c) => ({
+      id: c.id,
+      quantity: c.quantity,
+      item_price: c.item_price,
+    }));
+
+    /* ✅ Meta: InitiateCheckout + AddPaymentInfo */
     try {
       await trackMeta("InitiateCheckout", {
         currency,
         value: orderValue,
         content_type: "product",
         content_ids: contents.map((c) => c.id),
-        contents,
-        num_items: contents.reduce((s, c) => s + c.quantity, 0),
-        ...(coupon ? { coupon: String(coupon) } : {}),
+        contents: metaContents,
+        num_items: metaContents.reduce((s, c) => s + c.quantity, 0),
+        ...(couponCode ? { coupon: couponCode } : {}),
       });
     } catch (e) {
       console.warn("🧾 Meta InitiateCheckout failed", e);
@@ -140,7 +181,7 @@ createOrder: async ({
         value: orderValue,
         content_type: "product",
         content_ids: contents.map((c) => c.id),
-        contents,
+        contents: metaContents,
         payment_method: pm,
       });
     } catch (e) {
@@ -149,40 +190,52 @@ createOrder: async ({
 
     /* ✅ create order on backend */
     const payload = {
-      customerId,
-      shippingAddressId,
-      billingAddressId: billingAddressId || shippingAddressId,
-      items: normalizedItems,
-      discount,
-      coupon,
-      shippingFee,
-      tax,
-      currency,
-      paymentMethod: pm,
-      source,
-      isGiftOrder,
-      customerMessage,
-    };
+  customerId,
+  shippingAddressId,
+  billingAddressId: billingAddressId || shippingAddressId,
+  items: normalizedItems,
+  discount,
+  coupon:
+    coupon && typeof coupon === "object"
+      ? coupon
+      : couponCode
+      ? { code: couponCode, discount, finalTotal: orderValue }
+      : null,
+  shippingFee,
+  tax,
+  currency,
+  paymentMethod: pm,
+  source,
+  isGiftOrder,
+  customerMessage,
+};
 
-    const data = await api("/api/orders", { method: "POST", body: JSON.stringify(payload) });
+
+    const data = await api("/api/orders", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
     const order = data?.order;
 
-    /* ✅ COD ONLY: Purchase tracking here */
+    /* ✅ COD ONLY: Purchase tracking */
     if (pm === "cod") {
       await get().trackPurchaseSuccess({
         orderId: order?._id || order?.orderNumber || customerId,
         currency,
         value: orderValue,
-        contents,
-        coupon,
-        paymentMethod: "cod",
+        contents, // ✅ keep full contents for GA4
+         coupon: couponCode,
+
       });
     }
 
-    /* ✅ Internal analytics: checkout events only (not purchase for razorpay) */
+    /* ✅ Internal analytics checkout */
     try {
       const analytics = useAnalyticsStore.getState();
-      normalizedItems.forEach((it) => analytics.trackInitiateCheckout?.(it.productId));
+      normalizedItems.forEach((it) =>
+        analytics.trackInitiateCheckout?.(it.productId)
+      );
     } catch (e) {
       console.warn("📊 Analytics checkout tracking failed", e);
     }
@@ -197,6 +250,7 @@ createOrder: async ({
 
 
 
+
 trackPurchaseSuccess: async ({
   orderId,
   currency = "INR",
@@ -207,7 +261,7 @@ trackPurchaseSuccess: async ({
 } = {}) => {
   try {
     const now = Date.now();
-    const key = `purchase_${paymentMethod}_${orderId}_${value}`;
+    const key = `purchase_${paymentMethod}_${orderId}_${Number(value || 0)}`;
 
     const { _lastPurchaseKey, _lastPurchaseAt } = get();
     const sameKey = _lastPurchaseKey === key;
@@ -216,45 +270,65 @@ trackPurchaseSuccess: async ({
 
     set({ _lastPurchaseKey: key, _lastPurchaseAt: now });
 
-    /* ✅✅✅ GA4 PURCHASE EVENT (FIX) */
+    // ✅ Ensure coupon is string only
+    const couponCode = coupon ? String(coupon).trim() : null;
+
+    // ✅ Meta contents strict format
+    const metaContents = (contents || [])
+      .map((c) => ({
+        id: String(c?.id || ""),
+        quantity: Number(c?.quantity || 1),
+        item_price: Number(c?.item_price || 0),
+      }))
+      .filter((c) => c.id);
+
+    // ✅ GA4 items format
+    const ga4Items = (contents || [])
+      .map((c) => ({
+        item_id: String(c?.id || ""),
+        item_name: c?.name ? String(c.name) : undefined, // ✅ GA4 recommended
+        item_variant: c?.variant ? String(c.variant) : undefined, // ✅ "M / Black"
+        variant_id: c?.variantId ? String(c.variantId) : undefined, // ✅ custom param
+        quantity: Number(c?.quantity || 1),
+        price: Number(c?.item_price || 0),
+      }))
+      .filter((x) => x.item_id);
+
+    /* ✅✅✅ GA4 PURCHASE EVENT */
     try {
       pushEcomEvent("purchase", {
         transaction_id: String(orderId),
         currency,
         value: Number(value || 0),
         payment_type: paymentMethod,
-        coupon: coupon ? String(coupon) : undefined,
-        items: (contents || []).map((c) => ({
-          item_id: String(c.id),
-          quantity: Number(c.quantity || 1),
-          price: Number(c.item_price || 0),
-        })),
+        coupon: couponCode || undefined,
+        items: ga4Items,
       });
     } catch (e) {
       console.warn("📈 GA4 Purchase failed", e);
     }
 
-    /* ✅ META Purchase */
+    /* ✅ META PURCHASE */
     try {
       await trackMeta("Purchase", {
         currency,
         value: Number(value || 0),
         content_type: "product",
-        content_ids: contents.map((c) => c.id),
-        contents,
-        num_items: contents.reduce((s, c) => s + (c.quantity || 0), 0),
-        order_id: orderId,
+        content_ids: metaContents.map((c) => c.id),
+        contents: metaContents,
+        num_items: metaContents.reduce((s, c) => s + c.quantity, 0),
+        order_id: String(orderId),
         payment_method: paymentMethod,
-        ...(coupon ? { coupon: String(coupon) } : {}),
+        ...(couponCode ? { coupon: couponCode } : {}),
       });
     } catch (e) {
       console.warn("🧾 Meta Purchase failed", e);
     }
 
-    /* ✅ INTERNAL ANALYTICS Purchase */
+    /* ✅ INTERNAL ANALYTICS PURCHASE */
     try {
       const analytics = useAnalyticsStore.getState();
-      contents.forEach((c) => {
+      metaContents.forEach((c) => {
         analytics.trackPurchase?.(c.id);
       });
     } catch (e) {
@@ -264,6 +338,8 @@ trackPurchaseSuccess: async ({
     console.warn("Purchase tracking failed", e);
   }
 },
+
+
 
 
 

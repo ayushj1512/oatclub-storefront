@@ -16,7 +16,7 @@ import {
   Mail,
 } from "lucide-react";
 
-const BRAND = "#16a34a"; // emerald green (success)
+const BRAND = "#16a34a";
 const API =
   process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
 
@@ -42,6 +42,14 @@ const sumQty = (items = []) =>
 // Supports both: Mongo ObjectId (24 hex) OR "MIRAY-000005"
 const isObjectIdLike = (v) => /^[a-f\d]{24}$/i.test(String(v || "").trim());
 
+/* ✅ Safe slug maker (for product_name param) */
+const toSlug = (s = "") =>
+  String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+
 const Section = ({ title, Icon, children }) => (
   <div className="rounded-2xl border border-black/10 bg-white p-4 sm:p-5 shadow-[0_18px_40px_rgba(0,0,0,0.06)]">
     <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
@@ -61,6 +69,12 @@ export default function OrderSuccessClient() {
   const [order, setOrder] = useState(null);
   const [copied, setCopied] = useState(false);
 
+  // ✅ New: store product details fetched by productId
+  const [productMap, setProductMap] = useState({});
+
+  /* =========================================================
+     ✅ 1) FETCH ORDER (by id OR by orderNumber)
+  ========================================================= */
   useEffect(() => {
     let mounted = true;
 
@@ -76,8 +90,6 @@ export default function OrderSuccessClient() {
           );
         if (!orderParam) throw new Error("Missing ?order= in URL");
 
-        // If user comes with MIRAY-000005 -> /by-number/:orderNumber
-        // If user comes with MongoId -> /:id
         const path = isObjectIdLike(orderParam)
           ? `/api/orders/${encodeURIComponent(orderParam)}`
           : `/api/orders/by-number/${encodeURIComponent(orderParam)}`;
@@ -99,6 +111,58 @@ export default function OrderSuccessClient() {
     };
   }, [orderParam]);
 
+  /* =========================================================
+     ✅ 2) FETCH PRODUCTS USING productId FROM ORDER ITEMS
+     - fixes missing images/title/category/slug etc.
+  ========================================================= */
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        if (!order?.items?.length) return;
+
+        const ids = order.items
+          .map((it) => String(it?.productId?._id || it?.productId || ""))
+          .filter(Boolean);
+
+        const uniq = [...new Set(ids)];
+
+        const results = await Promise.all(
+          uniq.map(async (id) => {
+            try {
+              const r = await fetch(`${API}/api/products/${id}`, {
+                cache: "no-store",
+              });
+              const j = await safeJson(r);
+              if (!r.ok) return null;
+
+              // backend may return {product} OR direct doc
+              const prod = j?.product || j?.data || j;
+              return prod ? { id, prod } : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const map = {};
+        results.filter(Boolean).forEach(({ id, prod }) => {
+          map[id] = prod;
+        });
+
+        if (mounted) setProductMap(map);
+      } catch (e) {
+        console.warn("❌ productMap fetch failed", e);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [order]);
+
+  /* ✅ Copy Order Number */
   const onCopy = async () => {
     const txt = order?.orderNumber || orderParam;
     if (!txt) return;
@@ -124,12 +188,13 @@ export default function OrderSuccessClient() {
     <section className="min-h-[85vh] bg-[#F6F6F8]">
       <div className="w-full px-4 sm:px-6 lg:px-10 py-7 sm:py-10">
         <div className="w-full rounded-[22px] overflow-hidden border border-black/5 bg-white shadow-[0_18px_50px_rgba(0,0,0,0.08)] os-fade">
-          {/* ✅ Burgundy header + highlighted tick */}
+          {/* ✅ Header */}
           <header
             className="relative w-full px-4 sm:px-7 py-6 sm:py-9"
             style={{ backgroundColor: BRAND }}
           >
             <div className="absolute inset-0 opacity-[0.18] bg-[radial-gradient(circle_at_20%_20%,white_0,transparent_45%),radial-gradient(circle_at_80%_30%,white_0,transparent_42%)]" />
+
             <div className="relative flex flex-col items-center text-center gap-2 sm:gap-3">
               <div className="grid place-items-center rounded-3xl border border-white/25 bg-white/15 shadow-[0_22px_60px_rgba(0,0,0,0.22)] os-pop size-14 sm:size-18">
                 <div className="grid place-items-center rounded-2xl bg-white shadow-[0_18px_45px_rgba(0,0,0,0.20)] size-11 sm:size-14">
@@ -152,6 +217,7 @@ export default function OrderSuccessClient() {
                 </p>
               </div>
 
+              {/* ✅ Order Number + Copy */}
               <div className="mt-1 sm:mt-2 flex flex-wrap items-center justify-center gap-2">
                 <span className="text-[11px] sm:text-xs font-semibold text-white/80">
                   Order:
@@ -166,16 +232,12 @@ export default function OrderSuccessClient() {
                   onClick={onCopy}
                   className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold border border-white/25 bg-white/10 text-white hover:bg-white/15 active:scale-[0.99] transition"
                 >
-                  {copied ? (
-                    <Check className="w-4 h-4" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   {copied ? "Copied" : "Copy"}
                 </button>
               </div>
 
-              {/* ✅ Email confirmation note */}
+              {/* ✅ Email Confirmation */}
               <div className="mt-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-[11px] sm:text-xs text-white/90">
                 <Mail className="w-4 h-4" />
                 <span className="font-medium">
@@ -185,20 +247,10 @@ export default function OrderSuccessClient() {
                   </span>
                 </span>
               </div>
-
-              <div className="mt-1 text-[11px] text-white/80">
-                Status:{" "}
-                <span className="font-semibold text-white">
-                  {String(order?.fulfillmentStatus || "processing").replaceAll(
-                    "_",
-                    " "
-                  )}
-                </span>
-              </div>
             </div>
           </header>
 
-          {/* Body (horizontal layout) */}
+          {/* ✅ Body */}
           <div className="p-4 sm:p-7">
             {loading ? (
               <div className="text-center text-gray-500 text-sm py-10">
@@ -211,18 +263,6 @@ export default function OrderSuccessClient() {
                   <div className="min-w-0">
                     <div className="font-semibold">Couldn’t load order</div>
                     <div className="mt-1">{err}</div>
-                    <div className="mt-3 text-xs text-red-600">
-                      Tip: This page supports both{" "}
-                      <span className="font-mono">
-                        ?order=&lt;mongo_id&gt;
-                      </span>{" "}
-                      and <span className="font-mono">?order=MIRAY-000005</span>{" "}
-                      (via{" "}
-                      <span className="font-mono">
-                        /api/orders/by-number
-                      </span>
-                      ).
-                    </div>
                   </div>
                 </div>
               </div>
@@ -232,106 +272,116 @@ export default function OrderSuccessClient() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
-                {/* Left: Items */}
+                {/* ✅ LEFT: Items */}
                 <div className="lg:col-span-8 space-y-3 sm:space-y-4">
-                  <Section
-                    title={`Items (${qty} ${qty === 1 ? "item" : "items"})`}
-                    Icon={Package}
-                  >
+                  <Section title={`Items (${qty} ${qty === 1 ? "item" : "items"})`} Icon={Package}>
                     <div className="space-y-3">
                       {items.map((it, idx) => {
-                        const snap = it?.productSnapshot || {};
-                        const v = it?.variant || {};
-                        const title = snap?.title || "Item";
-                        const thumb =
-                          v?.image ||
-                          snap?.thumbnail ||
-                          (Array.isArray(snap?.images) ? snap.images[0] : "") ||
-                          "";
-                        const attrs = Array.isArray(v?.attributes)
-                          ? v.attributes
+                        /* ✅ 1) get product from map */
+                        const pid = String(it?.productId?._id || it?.productId || "");
+                        const prod = productMap?.[pid] || {};
+
+                        /* ✅ 2) extract name + image */
+                        const title = prod?.name || prod?.title || "Item";
+                        const images = Array.isArray(prod?.images) ? prod.images : [];
+                        const thumb = prod?.thumbnail || images?.[0] || "/placeholder.png";
+
+                        /* ✅ 3) ORDER totals always correct */
+                        const unit = Number(it?.price || prod?.price || 0);
+                        const q = Number(it?.quantity || 0);
+                        const sub = Number(it?.subtotal ?? unit * q);
+
+                        /* ✅ 4) Size / Variant attributes (from order item) */
+                        const attrs = Array.isArray(it?.variant?.attributes)
+                          ? it.variant.attributes
                           : [];
                         const attrText = attrs.length
                           ? attrs.map((a) => `${a.key}: ${a.value}`).join(" • ")
                           : "";
-                        const unit = Number(it?.price || 0);
-                        const q = Number(it?.quantity || 0);
-                        const sub = Number(it?.subtotal ?? unit * q);
+
+                        /* ✅ 5) Build product page path for navigation */
+                        const category = prod?.category?.slug || prod?.categorySlug || "all";
+                        const productName = prod?.slug || toSlug(title);
+                        const href = `/category/${encodeURIComponent(category)}/${encodeURIComponent(
+                          productName
+                        )}/${encodeURIComponent(pid)}`;
 
                         return (
-                          <div
-                            key={`${String(it?.productId || idx)}-${idx}`}
-                            className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-2xl border border-black/10 bg-white p-3 sm:p-4 hover:bg-black/[0.01] transition"
+                          <Link
+                            key={`${pid || idx}-${idx}`}
+                            href={href}
+                            className="block"
                           >
-                            {/* ✅ photo: contain (not cover) */}
-                            <div className="w-full sm:w-[92px] h-[116px] sm:h-[120px] rounded-2xl overflow-hidden bg-black/[0.03] border border-black/5 shrink-0">
-                              {thumb ? (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-2xl border border-black/10 bg-white p-3 sm:p-4 hover:bg-black/[0.02] transition cursor-pointer">
+                              {/* ✅ image */}
+                              <div className="w-full sm:w-[92px] h-[116px] sm:h-[120px] rounded-2xl overflow-hidden bg-black/[0.03] border border-black/5 shrink-0">
                                 <img
                                   src={thumb}
                                   alt={title}
                                   className="w-full h-full object-contain p-2"
                                 />
-                              ) : (
-                                <div className="w-full h-full grid place-items-center text-[11px] text-gray-500">
-                                  No image
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="text-sm sm:text-base font-semibold text-gray-900 truncate">
-                                    {title}
-                                  </div>
-                                  {attrText ? (
-                                    <div className="mt-1 text-xs text-gray-600">
-                                      {attrText}
-                                    </div>
-                                  ) : null}
-                                  {v?.sku || snap?.sku ? (
-                                    <div className="mt-1 text-[11px] text-gray-500">
-                                      SKU: {v?.sku || snap?.sku}
-                                    </div>
-                                  ) : null}
-                                </div>
-
-                                <div className="text-right">
-                                  <div className="text-[11px] text-gray-500">
-                                    Subtotal
-                                  </div>
-                                  <div
-                                    className="text-sm sm:text-base font-semibold tabular-nums"
-                                    style={{ color: BRAND }}
-                                  >
-                                    {money(sub, cur)}
-                                  </div>
-                                </div>
                               </div>
 
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
-                                  Qty: {q}
-                                </span>
-                                <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
-                                  {money(unit, cur)} each
-                                </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-sm sm:text-base font-semibold text-gray-900 truncate">
+                                      {title}
+                                    </div>
+
+                                    {/* ✅ show Size/Variant */}
+                                    {attrText ? (
+                                      <div className="mt-1 text-xs text-gray-600">
+                                        {attrText}
+                                      </div>
+                                    ) : null}
+
+                                    {/* ✅ sku from product */}
+                                    {prod?.sku ? (
+                                      <div className="mt-1 text-[11px] text-gray-500">
+                                        SKU: {prod.sku}
+                                      </div>
+                                    ) : null}
+                                  </div>
+
+                                  <div className="text-right">
+                                    <div className="text-[11px] text-gray-500">
+                                      Subtotal
+                                    </div>
+                                    <div
+                                      className="text-sm sm:text-base font-semibold tabular-nums"
+                                      style={{ color: BRAND }}
+                                    >
+                                      {money(sub, cur)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
+                                    Qty: {q}
+                                  </span>
+                                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
+                                    {money(unit, cur)} each
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          </Link>
                         );
                       })}
                     </div>
                   </Section>
 
+                  {/* ✅ Buttons */}
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Link
                       href="/shop"
                       className="flex-1 inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold border border-black/10 bg-white hover:bg-black/[0.02] transition"
                     >
-                      Continue Shopping{" "}
-                      <ArrowRight className="w-4 h-4 ml-2" />
+                      Continue Shopping <ArrowRight className="w-4 h-4 ml-2" />
                     </Link>
+
                     <Link
                       href="/profile/orders"
                       className="flex-1 inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white active:scale-[0.99] transition"
@@ -342,7 +392,7 @@ export default function OrderSuccessClient() {
                   </div>
                 </div>
 
-                {/* Right: Summary + Address */}
+                {/* ✅ RIGHT: Payment + Address (same) */}
                 <div className="lg:col-span-4 space-y-3 sm:space-y-4">
                   <Section title="Payment Summary" Icon={ReceiptText}>
                     <div className="space-y-2">
@@ -352,25 +402,25 @@ export default function OrderSuccessClient() {
                           {money(order?.subtotal ?? 0, cur)}
                         </span>
                       </div>
+
                       <div className="flex items-center justify-between gap-4 text-sm">
                         <span className="text-gray-600">Shipping</span>
-                        <span className="font-semibold tabular-nums text-gray-900">
-                          {money(order?.shippingFee ?? 0, cur)}
+                        <span className="font-semibold tabular-nums text-green-700">
+                          FREE
                         </span>
                       </div>
-                      <div className="flex items-center justify-between gap-4 text-sm">
-                        <span className="text-gray-600">Tax</span>
-                        <span className="font-semibold tabular-nums text-gray-900">
-                          {money(order?.tax ?? 0, cur)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4 text-sm">
-                        <span className="text-gray-600">Discount</span>
-                        <span className="font-semibold tabular-nums text-gray-900">
-                          {`- ${money(order?.discount ?? 0, cur)}`}
-                        </span>
-                      </div>
+
+                      {(order?.discount ?? 0) > 0 && (
+                        <div className="flex items-center justify-between gap-4 text-sm">
+                          <span className="text-gray-600">Discount</span>
+                          <span className="font-semibold tabular-nums text-gray-900">
+                            - {money(order?.discount ?? 0, cur)}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="h-px bg-black/5 my-2" />
+
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-sm font-semibold text-gray-900">
                           Payable
@@ -382,20 +432,6 @@ export default function OrderSuccessClient() {
                           {money(order?.finalPayable ?? 0, cur)}
                         </span>
                       </div>
-
-                    <div className="mt-3 rounded-2xl border border-black/10 bg-black/[0.02] p-3 text-xs text-gray-700">
-  <div className="flex items-center justify-between gap-3">
-    <span className="text-gray-600">Payment</span>
-    <span className="font-semibold text-gray-900">
-      {order?.paymentMethod === "cod"
-        ? "COD • Pay at delivery"
-        : `${String(order?.paymentMethod).toUpperCase()} • ${String(
-            order?.paymentStatus
-          ).toUpperCase()}`}
-    </span>
-  </div>
-</div>
-
                     </div>
                   </Section>
 
@@ -404,23 +440,15 @@ export default function OrderSuccessClient() {
                       <div className="font-semibold text-gray-900">
                         {ship?.fullName || "—"}
                       </div>
+
                       <div className="mt-1">
-                        {[
-                          ship?.phone ? `📞 ${ship.phone}` : "",
-                          orderEmail ? `✉️ ${orderEmail}` : "",
-                        ]
+                        {[ship?.phone ? `📞 ${ship.phone}` : "", orderEmail ? `✉️ ${orderEmail}` : ""]
                           .filter(Boolean)
                           .join(" • ")}
                       </div>
+
                       <div className="mt-2">
-                        {[
-                          ship?.line1,
-                          ship?.line2,
-                          ship?.city,
-                          ship?.state,
-                          ship?.country,
-                          ship?.pincode,
-                        ]
+                        {[ship?.line1, ship?.line2, ship?.city, ship?.state, ship?.country, ship?.pincode]
                           .filter(Boolean)
                           .join(", ") || "—"}
                       </div>
@@ -431,23 +459,15 @@ export default function OrderSuccessClient() {
             )}
           </div>
 
-          {/* Minimal footer */}
+          {/* ✅ Footer */}
           <div className="px-4 sm:px-7 py-4 border-t border-black/5 bg-white">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
-              <div className="inline-flex items-center gap-2">
-                <span
-                  className="size-2 rounded-full"
-                  style={{ backgroundColor: "rgba(128,0,32,0.45)" }}
-                />
-                Packed with care
-              </div>
-              
+            <div className="text-xs text-gray-500 flex items-center gap-2">
+              <span className="size-2 rounded-full bg-black/30" />
+              Packed with care
             </div>
           </div>
         </div>
       </div>
-
-    
     </section>
   );
 }
