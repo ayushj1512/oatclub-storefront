@@ -8,7 +8,7 @@ export const metadata = {
   description:
     "Learn about Miray Fashion’s shipping policy, delivery timelines, order processing, and important shipping information for a smooth shopping experience.",
   alternates: {
-    canonical: "https://www.mirayfashions.in/shipping-policy",
+    canonical: "https://www.mirayfashions.com/shipping-policy",
   },
 };
 

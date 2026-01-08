@@ -8,7 +8,7 @@ export const metadata = {
   description:
     "Read Miray Fashion’s Exchange & Return Policy. Enjoy a simple 7-day exchange and return policy with no questions asked on unused products.",
   alternates: {
-    canonical: "https://www.mirayfashions.in/exchange-and-return",
+    canonical: "https://www.mirayfashions.com/exchange-and-return",
   },
 };
 

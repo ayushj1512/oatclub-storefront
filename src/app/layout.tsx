@@ -22,11 +22,15 @@ const bebas = Bebas_Neue({
 });
 
 /* ------------------------------
-   SEO Metadata
+   SEO Metadata + Favicons
 ------------------------------ */
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mirayfashions.com"),
+
+  alternates: {
+    canonical: "https://mirayfashions.com",
+  },
 
   title: {
     default: "Miray Fashions | Premium Women’s Fashion Online",
@@ -36,16 +40,10 @@ export const metadata: Metadata = {
   description:
     "Shop premium women’s fashion at Miray Fashions. Discover kurtis, western wear, trendy outfits, and Gen-Z styles with fast delivery across India.",
 
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-    },
-  },
-
   openGraph: {
+    title: "Miray Fashions | Premium Women’s Fashion Online",
+    description:
+      "Shop premium women’s fashion at Miray Fashions. Discover kurtis, western wear, trendy outfits, and Gen-Z styles with fast delivery across India.",
     type: "website",
     siteName: "Miray Fashions",
     locale: "en_IN",
@@ -67,7 +65,19 @@ export const metadata: Metadata = {
       "Discover premium women’s fashion and Gen-Z styles at Miray Fashions.",
     images: ["https://mirayfashions.com/og-default.jpg"],
   },
+
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+
+  manifest: "/site.webmanifest",
 };
+
 
 /* ------------------------------
    Root Layout
@@ -79,10 +89,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={`${poppins.variable} ${bebas.variable}`}
-    >
+    <html lang="en" className={`${poppins.variable} ${bebas.variable}`}>
       <body>
         <LayoutClient>{children}</LayoutClient>
       </body>

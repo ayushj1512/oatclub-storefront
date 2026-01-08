@@ -8,7 +8,7 @@ export const metadata = {
   description:
     "Read Miray Fashion’s Cancellation & Refund Policy. Enjoy instant order cancellation with no questions asked and a 7-day refund policy for eligible orders.",
   alternates: {
-    canonical: "https://www.mirayfashions.in/cancellation-and-refund",
+    canonical: "https://www.mirayfashions.com/cancellation-and-refund",
   },
 };
 
