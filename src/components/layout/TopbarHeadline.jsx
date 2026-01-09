@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
 export default function TopbarHeadline({ interval = 2800 }) {
-  const items = useMemo(() => ["New arrivals just dropped — shop now", "Use code WELCOME5 for 5% off", "Gen-Z fits • Western vibes • Premium picks", "Use code FIRST10 for 10% off"], []);
+  const items = useMemo(() => ["New arrivals just dropped — shop now", "Gen-Z fits • Western vibes • Premium picks", "Use code FIRST10 for 10% off"], []);
 
   const [active, setActive] = useState(0);
 
@@ -33,3 +33,5 @@ export default function TopbarHeadline({ interval = 2800 }) {
     </div>
   );
 }
+
+//welcome5 

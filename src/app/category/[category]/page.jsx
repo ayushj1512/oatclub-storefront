@@ -58,10 +58,20 @@ const getTimeValue = (p) => {
   return Number.isFinite(ms) ? ms : 0;
 };
 
+// ✅ slug -> Proper Category Name
+const prettyCategory = (slug = "") =>
+  decodeURIComponent(String(slug))
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
 export default function CategoryPage() {
   const params = useParams();
   const category = params?.category;
   const ready = Boolean(category);
+
+  const categoryName = useMemo(() => prettyCategory(category), [category]);
 
   const allProducts = useProductStore((s) => s.allProducts);
   const isLoading = useProductStore((s) => s.isLoading);
@@ -227,7 +237,7 @@ export default function CategoryPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* ✅ Drawer (still there but button hidden) */}
+      {/* ✅ Drawer */}
       <FiltersDrawer
         open={drawerOpen}
         setOpen={setDrawerOpen}
@@ -244,16 +254,25 @@ export default function CategoryPage() {
         resetFilters={resetFilters}
       />
 
-      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-8">
-        {/* ✅ Bar (FILTER BUTTON HIDDEN) */}
+      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8">
+        
+        {/* ✅ Category Heading (Mobile + Desktop both) */}
+        <div className="mb-2 sm:mb-2">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-zinc-900">
+            {categoryName}
+          </h1>
+        
+        </div>
+
+        {/* ✅ Sort Bar */}
         <FilterSortBar
-          category={category}
+          category={categoryName} // ✅ pass readable name
           inStockCount={inStockCount}
           showInitialLoading={showInitialLoading}
           sort={sort}
           setSort={setSort}
           sortOptions={SORT_OPTIONS}
-          hideFilterButton={true}   // ✅ IMPORTANT: hides filter button
+          hideFilterButton={true}
         />
 
         {/* Error */}
@@ -272,7 +291,7 @@ export default function CategoryPage() {
 
         {/* Products */}
         <div className="mt-6">
-          <ProductGrid title="" products={list} loading={showInitialLoading} />
+          <ProductGrid  products={list} loading={showInitialLoading} />
         </div>
 
         {/* Load More */}

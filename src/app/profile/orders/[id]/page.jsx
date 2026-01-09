@@ -289,7 +289,7 @@ export default function OrderDetailsPage() {
         adminRemarks: reasonText,
       });
 
-      toast.success("✅ Order cancelled successfully!", { id: toastId });
+      toast.success("Order cancelled successfully!", { id: toastId });
       setShowCancelModal(false);
 
       await fetchOrderById(order._id);
@@ -473,20 +473,28 @@ export default function OrderDetailsPage() {
         </div>
 
         {/* CANCEL ORDER */}
-        {canCancel ? (
-          <div className="pt-4">
-            <button
-              onClick={() => setShowCancelModal(true)}
-              className="w-full py-4 rounded-3xl font-semibold text-sm bg-red-600 text-white hover:bg-red-700 transition"
-            >
-              Cancel Entire Order
-            </button>
+    {canCancel ? (
+  <div className="pt-4">
+    <button
+      onClick={() => setShowCancelModal(true)}
+      className="
+        w-full py-3.5 rounded-2xl text-sm font-semibold
+        bg-red-500/10 text-red-700
+        hover:bg-red-500/15
+        active:scale-[0.99]
+        transition
+      "
+    >
+      Cancel Entire Order
+    </button>
 
-            <p className="text-xs text-gray-500 mt-3 text-center">
-              You can cancel only before Out for Delivery.
-            </p>
-          </div>
-        ) : null}
+    <p className="mt-2.5 text-center text-xs text-black/45">
+      You can cancel only before{" "}
+      <span className="font-medium text-black/70">Out for Delivery</span>.
+    </p>
+  </div>
+) : null}
+
       </div>
 
       {/* Cancel Modal */}
