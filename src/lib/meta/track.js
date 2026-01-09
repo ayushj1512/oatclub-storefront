@@ -21,17 +21,17 @@ function getCookie(name) {
 export async function trackMeta(eventName, customData = {}, userData = {}, opts = {}) {
   const event_id = opts.event_id || eventId();
 
-  // ✅ 1) Pixel
+  // ✅ 1) Pixel (browser)
   if (typeof window !== "undefined" && typeof window.fbq === "function") {
     window.fbq("track", eventName, customData, { eventID: event_id });
   }
 
-  // ✅ 2) CAPI (server)
+  // ✅ 2) CAPI (server via Next API route)
   const payload = {
     event_name: eventName,
     event_id,
     custom_data: customData,
-    event_source_url: typeof window !== "undefined" ? window.location.href : undefined, // ✅ helps Meta
+    event_source_url: typeof window !== "undefined" ? window.location.href : undefined,
     user_data: {
       fbp: getCookie("_fbp"),
       fbc: getCookie("_fbc"),
@@ -40,15 +40,12 @@ export async function trackMeta(eventName, customData = {}, userData = {}, opts 
   };
 
   try {
-    // ✅ Base URL fix:
-    // Priority:
-    // 1) NEXT_PUBLIC_SITE_URL from env (best)
-    // 2) current origin fallback
-    const BASE_URL =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (typeof window !== "undefined" ? window.location.origin : "");
-
-    await fetch(`${BASE_URL}/api/meta/capi`, {
+    /**
+     * ✅ IMPORTANT FIX:
+     * Always call relative URL so request goes to SAME domain where Next.js runs.
+     * This prevents accidental calls to Render backend.
+     */
+    await fetch("/api/meta/capi", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
