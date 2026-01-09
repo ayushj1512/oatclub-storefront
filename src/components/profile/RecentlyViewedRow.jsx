@@ -18,7 +18,7 @@ export default function RecentlyViewedRow() {
   if (!items?.length) return null;
 
   return (
-   <section className="w-full bg-white px-4 py-6 rounded-2xl border border-black/10 shadow-sm">
+   <section className="w-full bg-white px-4 py-6 rounded-2xl ">
 
   {/* ================= HEADER ================= */}
   <div className="mb-3 flex items-center justify-between">

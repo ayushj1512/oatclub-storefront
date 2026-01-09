@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useParams } from "next/navigation";
 import ProductGrid from "@/components/common/ProductGrid";
 import { useProductStore } from "@/store/productStore";
@@ -94,6 +101,10 @@ export default function CategoryPage() {
   const [draftPriceMin, setDraftPriceMin] = useState(null);
   const [draftPriceMax, setDraftPriceMax] = useState(null);
 
+  // ✅ IMPORTANT: local list which prevents flashing
+  const [displayProducts, setDisplayProducts] = useState([]);
+  const [isInitialFetching, setIsInitialFetching] = useState(false);
+
   const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
   const lastFetchRef = useRef("");
 
@@ -116,6 +127,18 @@ export default function CategoryPage() {
     setDraftPriceMin(facets.priceMin);
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
+
+  /**
+   * ✅ FIX #1 (MAIN FIX): Clear UI BEFORE PAINT
+   * useLayoutEffect runs before browser paints, so old products never show.
+   */
+  useLayoutEffect(() => {
+    if (!ready) return;
+
+    // category/sort change = clear immediately before paint
+    setDisplayProducts([]);
+    setIsInitialFetching(true);
+  }, [ready, category, sort]);
 
   // ✅ Fetch products when category/sort changes
   useEffect(() => {
@@ -140,6 +163,14 @@ export default function CategoryPage() {
     });
   }, [ready, category, sort, fetchProducts, clearError]);
 
+  // ✅ Sync store -> displayProducts only after loading ends
+  useEffect(() => {
+    if (isLoading) return;
+
+    setDisplayProducts(Array.isArray(allProducts) ? allProducts : []);
+    setIsInitialFetching(false);
+  }, [isLoading, allProducts]);
+
   // ✅ Apply filters
   const applyFilters = () => {
     setOnlyInStock(draftOnlyInStock);
@@ -158,9 +189,9 @@ export default function CategoryPage() {
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  // ✅ Filter + sort list
+  // ✅ Filter + sort list (use displayProducts)
   const list = useMemo(() => {
-    let arr = Array.isArray(allProducts) ? [...allProducts] : [];
+    let arr = Array.isArray(displayProducts) ? [...displayProducts] : [];
 
     const getPrice = (p) =>
       Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
@@ -186,7 +217,7 @@ export default function CategoryPage() {
 
     return arr;
   }, [
-    allProducts,
+    displayProducts,
     onlyInStock,
     priceMin,
     priceMax,
@@ -196,7 +227,7 @@ export default function CategoryPage() {
   ]);
 
   const inStockCount =
-    allProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
+    displayProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
 
   // ✅ Infinite scroll
   const sentinelRef = useRef(null);
@@ -208,7 +239,13 @@ export default function CategoryPage() {
 
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting || isLoading || loadingMoreRef.current || !hasMore()) return;
+        if (
+          !entry.isIntersecting ||
+          isLoading ||
+          loadingMoreRef.current ||
+          !hasMore()
+        )
+          return;
         loadingMoreRef.current = true;
         loadMore();
         setTimeout(() => (loadingMoreRef.current = false), 350);
@@ -220,12 +257,19 @@ export default function CategoryPage() {
     return () => io.disconnect();
   }, [hasMore, isLoading, loadMore]);
 
-  const showInitialLoading = isLoading && (allProducts?.length || 0) === 0;
+  // ✅ show shimmer only if displayProducts empty
+  const showInitialLoading =
+    (isLoading || isInitialFetching) && (displayProducts?.length || 0) === 0;
 
   const retry = useCallback(() => {
     if (!ready) return;
     clearError?.();
     lastFetchRef.current = "";
+
+    // ✅ clear BEFORE paint on retry too
+    setDisplayProducts([]);
+    setIsInitialFetching(true);
+
     fetchProducts({
       category,
       isActive: true,
@@ -255,18 +299,16 @@ export default function CategoryPage() {
       />
 
       <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8">
-        
-        {/* ✅ Category Heading (Mobile + Desktop both) */}
+        {/* ✅ Category Heading */}
         <div className="mb-2 sm:mb-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-zinc-900">
             {categoryName}
           </h1>
-        
         </div>
 
         {/* ✅ Sort Bar */}
         <FilterSortBar
-          category={categoryName} // ✅ pass readable name
+          category={categoryName}
           inStockCount={inStockCount}
           showInitialLoading={showInitialLoading}
           sort={sort}
@@ -291,11 +333,16 @@ export default function CategoryPage() {
 
         {/* Products */}
         <div className="mt-6">
-          <ProductGrid  products={list} loading={showInitialLoading} />
+          {/* ✅ FIX #2: key makes ProductGrid remount on category/sort change */}
+          <ProductGrid
+            key={`${category}-${sort}`}
+            products={list}
+            loading={showInitialLoading}
+          />
         </div>
 
         {/* Load More */}
-        {!error && (allProducts?.length || 0) > 0 && (
+        {!error && (displayProducts?.length || 0) > 0 && (
           <div className="mt-8 flex flex-col items-center gap-3">
             {hasMore() ? (
               <>
@@ -307,7 +354,8 @@ export default function CategoryPage() {
                   {isLoading ? "Loading..." : "Load more"}
                 </button>
                 <div className="text-xs text-zinc-500">
-                  Showing {list.length} items — {hasMore() ? "more items will load as you scroll" : "end"}
+                  Showing {list.length} items —{" "}
+                  {hasMore() ? "more items will load as you scroll" : "end"}
                 </div>
               </>
             ) : (

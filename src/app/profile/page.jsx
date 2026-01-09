@@ -1,7 +1,7 @@
 // src/app/profile/page.jsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
@@ -50,20 +50,20 @@ function formatDate(d) {
 
 function statusPill(status) {
   const s = String(status || "").toLowerCase();
-  if (s === "delivered") return { label: "Delivered", cls: "text-green-600" };
+  if (s === "delivered") return { label: "Delivered", cls: "text-green-600 bg-green-50 border-green-200" };
   if (s === "shipped" || s === "out_for_delivery")
     return {
       label: s === "out_for_delivery" ? "Out for delivery" : "Shipped",
-      cls: "text-blue-600",
+      cls: "text-blue-600 bg-blue-50 border-blue-200",
     };
   if (s === "packed" || s === "processing")
     return {
       label: s === "packed" ? "Packed" : "Processing",
-      cls: "text-yellow-600",
+      cls: "text-yellow-700 bg-yellow-50 border-yellow-200",
     };
-  if (s === "returned") return { label: "Returned", cls: "text-purple-600" };
-  if (s === "cancelled") return { label: "Cancelled", cls: "text-red-600" };
-  return { label: status || "Pending", cls: "text-gray-700" };
+  if (s === "returned") return { label: "Returned", cls: "text-purple-700 bg-purple-50 border-purple-200" };
+  if (s === "cancelled") return { label: "Cancelled", cls: "text-red-700 bg-red-50 border-red-200" };
+  return { label: status || "Pending", cls: "text-gray-700 bg-gray-50 border-gray-200" };
 }
 
 function buildSafePhotoURL(customer, user) {
@@ -156,144 +156,102 @@ function calcProfileCompleteness({ user, customer, addresses }) {
   const total = items.reduce((s, i) => s + i.weight, 0);
   const score = items.reduce((s, i) => s + (i.ok ? i.weight : 0), 0);
   const pct = total ? Math.round((score / total) * 100) : 0;
-
   const missing = items.filter((i) => !i.ok);
-  return { pct, items, missing };
+
+  return { pct, missing };
 }
 
 function progressTone(pct) {
-  // Burgundy palette (Tailwind default: burgundy-ish = rose/red/wine)
-  // If you have a custom brand color like `bg-burgundy-600`, replace below easily.
   if (pct >= 90) {
-    return {
-      bar: "bg-black",
-      ring: "text-black",
-      badge: "bg-white text-black border-black/20",
-      msg: "All set!",
-      banner: "from-white to-white",
-      border: "border-black/10",
-    };
+    return { bar: "bg-black", badge: "bg-white text-black border-black/20", msg: "All set!", border: "border-black/10" };
   }
-
-  // ✅ Replace blue with burgundy
   if (pct >= 60) {
-    return {
-      bar: "bg-rose-800", // burgundy tone
-      ring: "text-rose-800",
-      badge: "bg-rose-50 text-rose-900 border-rose-200",
-      msg: "Almost there",
-      banner: "from-rose-50 to-white",
-      border: "border-rose-200",
-    };
+    return { bar: "bg-rose-800", badge: "bg-rose-50 text-rose-900 border-rose-200", msg: "Almost there", border: "border-rose-200" };
   }
-
   if (pct >= 30) {
-    return {
-      bar: "bg-rose-700",
-      ring: "text-rose-700",
-      badge: "bg-rose-50 text-rose-900 border-rose-200",
-      msg: "Let’s complete it",
-      banner: "from-rose-50 to-white",
-      border: "border-rose-200",
-    };
+    return { bar: "bg-rose-700", badge: "bg-rose-50 text-rose-900 border-rose-200", msg: "Complete it", border: "border-rose-200" };
   }
-
-  return {
-    bar: "bg-red-700", // deeper red for low completion
-    ring: "text-red-700",
-    badge: "bg-red-50 text-red-800 border-red-200",
-    msg: "Add a few details",
-    banner: "from-red-50 to-white",
-    border: "border-red-200",
-  };
+  return { bar: "bg-red-700", badge: "bg-red-50 text-red-800 border-red-200", msg: "Add details", border: "border-red-200" };
 }
 
-
+/* ------------------------------ */
+/* ✅ Compact Banner Progress      */
+/* ------------------------------ */
 function BannerProgress({ completeness, tone, primaryAction, onClose, onCta }) {
-  // if complete, you can still show it; but usually hide automatically
-  const showMissing = completeness?.missing?.length > 0;
+  if (!completeness) return null;
 
   return (
-    <div
-      className={`bg-gradient-to-r ${tone.banner} shadow-lg border ${tone.border} p-5 sm:p-6 relative`}
-    >
-      {/* Close */}
+    <div className={`bg-white border ${tone.border} rounded-2xl p-4 sm:p-5 shadow-sm relative`}>
+      {/* close */}
       <button
         onClick={onClose}
-        className="absolute right-3 top-3 p-2 hover:bg-black/5 transition"
+        className="absolute right-2 top-2 p-2 rounded-xl hover:bg-black/5 transition"
         aria-label="Close"
         title="Close"
       >
         <X size={18} className="text-gray-700" />
       </button>
 
-      <div className="flex items-start justify-between gap-4 flex-wrap pr-10">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-white border border-gray-200 shadow-sm">
-              <ShieldCheck size={18} className="text-gray-900" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900">Complete your profile</h3>
-            <span className={`text-xs px-3 py-1.5 border ${tone.badge}`}>{tone.msg}</span>
+      <div className="flex items-start gap-3 pr-10">
+        <div className="p-2 bg-gray-50 border border-gray-200 rounded-xl">
+          <ShieldCheck size={18} className="text-gray-900" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900">
+              Complete your profile
+            </h3>
+            <span className={`text-[11px] px-2 py-1 rounded-full border ${tone.badge}`}>
+              {tone.msg}
+            </span>
           </div>
 
-          <p className="text-sm text-gray-500 mt-2">
-            Faster checkout, smoother deliveries, and quick support—just a few details away.
+          <p className="text-xs text-gray-500 mt-1">
+            Faster checkout & smoother deliveries with complete details.
           </p>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <div className="text-3xl font-semibold text-gray-900 leading-none">
-              {completeness.pct}%
+          {/* ✅ progress bar (stable) */}
+          <div className="mt-3">
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className={`h-2 ${tone.bar}`} style={{ width: `${completeness.pct}%` }} />
             </div>
-            <div className="text-xs text-gray-600 flex items-center justify-end gap-1 mt-1">
-              <Sparkles size={14} className={tone.ring} />
-              Profile progress
-            </div>
-          </div>
+            <div className="flex justify-between mt-2 items-center">
+              <div className="text-xs text-gray-600 flex items-center gap-1">
+                <Sparkles size={13} className="text-gray-700" />
+                {completeness.pct}% done
+              </div>
 
-          <button
-            onClick={onCta}
-            className="bg-black text-white px-4 py-2 text-sm shadow-md hover:bg-gray-900 transition"
-          >
-            {primaryAction.label}
-          </button>
-        </div>
-      </div>
-
-      {/* Progress bar (color changes with pct via tone.bar) */}
-      <div className="mt-4">
-        <div className="w-full h-2 bg-white/70 border border-gray-200 overflow-hidden">
-          <div className={`h-2 ${tone.bar}`} style={{ width: `${completeness.pct}%` }} />
-        </div>
-      </div>
-
-      {/* Missing chips */}
-      {showMissing ? (
-        <div className="mt-4">
-          <div className="text-sm font-medium text-gray-900">Missing</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {completeness.missing.slice(0, 7).map((m) => (
-              <Link
-                key={m.key}
-                href={m.action?.href || "/profile/edit"}
-                className="text-xs bg-white border border-gray-200 px-2 py-1 hover:shadow-sm transition"
-                title="Tap to update"
+              <button
+                onClick={onCta}
+                className="bg-black text-white px-3 py-1.5 text-xs rounded-xl shadow-sm hover:bg-gray-900 transition"
               >
-                {m.label}
-              </Link>
-            ))}
-            {completeness.missing.length > 7 ? (
-              <span className="text-xs text-gray-600">
-                +{completeness.missing.length - 7} more
-              </span>
-            ) : null}
+                {primaryAction.label}
+              </button>
+            </div>
           </div>
+
+          {/* missing chips (compact, mobile friendly) */}
+          {completeness?.missing?.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {completeness.missing.slice(0, 4).map((m) => (
+                <Link
+                  key={m.key}
+                  href={m.action?.href || "/profile/edit"}
+                  className="text-[11px] bg-gray-50 border border-gray-200 px-2 py-1 rounded-full hover:bg-white transition"
+                >
+                  {m.label}
+                </Link>
+              ))}
+              {completeness.missing.length > 4 && (
+                <span className="text-[11px] text-gray-500">
+                  +{completeness.missing.length - 4} more
+                </span>
+              )}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="mt-4 text-sm text-gray-700">✅ Your profile looks complete.</div>
-      )}
+      </div>
     </div>
   );
 }
@@ -308,14 +266,10 @@ export default function ProfilePage() {
   const [quote, setQuote] = useState("");
   const [photoSrc, setPhotoSrc] = useState(FALLBACK_IMG);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-  });
+  const [formData, setFormData] = useState({ name: "", email: "", phone: "" });
 
-  // Banner dismiss state (persist per browser)
   const [hideBanner, setHideBanner] = useState(false);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
     setQuote(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
@@ -335,7 +289,7 @@ export default function ProfilePage() {
     } catch {}
   };
 
-  // Redirect if not logged in + load profile basics
+  // Redirect + load basics
   useEffect(() => {
     if (loading) return;
 
@@ -352,23 +306,47 @@ export default function ProfilePage() {
 
     setPhotoSrc(buildSafePhotoURL(customer, user));
     fetchAddresses(user.uid);
-  }, [loading, isAuthenticated, user?.uid, customer?._id, fetchAddresses, router]);
+  }, [loading, isAuthenticated, user?.uid, customer?._id, fetchAddresses, router, user, customer]);
 
-  // Update photo if customer/user changes
+  // Update photo if changes
   useEffect(() => {
     if (!isAuthenticated) return;
     setPhotoSrc(buildSafePhotoURL(customer, user));
-  }, [isAuthenticated, customer?.profileImage, user?.photoURL]);
+  }, [isAuthenticated, customer?.profileImage, user?.photoURL, customer, user]);
 
-  // Orders polling
+  // ✅ Orders polling optimized: only when tab visible (prevents lag on mobile)
   useEffect(() => {
-    if (loading) return;
-    if (!isAuthenticated) return;
-    if (!customer?._id) return;
+    if (loading || !isAuthenticated || !customer?._id) return;
 
-    fetchMyOrders(customer._id);
-    const interval = setInterval(() => fetchMyOrders(customer._id), 15000);
-    return () => clearInterval(interval);
+    const run = () => fetchMyOrders(customer._id);
+    run();
+
+    const startPolling = () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(run, 30000); // ✅ 30 sec (lighter)
+    };
+
+    const stopPolling = () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    };
+
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        run();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    onVis();
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [loading, isAuthenticated, customer?._id, fetchMyOrders]);
 
   const handleLogout = () => requestLogout();
@@ -401,13 +379,13 @@ export default function ProfilePage() {
 
   const primaryAction = useMemo(() => {
     const first = completeness.missing?.[0];
-    return first?.action || { label: "Update profile", href: "/profile/edit" };
+    return first?.action || { label: "Update", href: "/profile/edit" };
   }, [completeness.missing]);
 
   return (
-    <section className="min-h-screen w-full bg-[#F5F6FA] px-4 py-10">
-      <div className="w-full max-w-7xl mx-auto space-y-10">
-        {/* ✅ Banner Section */}
+    <section className="min-h-screen w-full bg-[#F5F6FA] px-3 sm:px-4 py-6 sm:py-10">
+      <div className="w-full max-w-4xl mx-auto space-y-6">
+        {/* ✅ Banner */}
         {!hideBanner ? (
           <BannerProgress
             completeness={completeness}
@@ -418,173 +396,161 @@ export default function ProfilePage() {
           />
         ) : null}
 
-        {/* PROFILE HEADER */}
-       <div className="bg-white shadow-xl p-8 text-center border border-gray-200 rounded-3xl">
-  {/* Profile Image */}
-  <div className="w-32 h-32 overflow-hidden border border-gray-200 shadow-inner mx-auto relative mb-4 bg-gray-50 rounded-full">
-    <Image
-      src={photoSrc}
-      alt="Profile Photo"
-      fill
-      unoptimized
-      onError={() => setPhotoSrc(FALLBACK_IMG)}
-      className="object-cover"
-      priority
-    />
-  </div>
+        {/* ✅ Profile header (compact) */}
+       <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+  <div className="flex flex-col items-center text-center gap-4">
+    {/* ✅ Profile Image (Center) */}
+    <div className="w-20 h-20 sm:w-24 sm:h-24 overflow-hidden border border-gray-200 bg-gray-50 rounded-full relative">
+      <Image
+        src={photoSrc}
+        alt="Profile Photo"
+        fill
+        unoptimized
+        onError={() => setPhotoSrc(FALLBACK_IMG)}
+        className="object-cover"
+        priority
+      />
+    </div>
 
-  {/* Name */}
-  <h2 className="text-2xl font-semibold text-gray-900">
-    {safeName}
-  </h2>
+    {/* ✅ Name / Email / Quote (Center) */}
+    <div className="w-full">
+      <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+        {safeName}
+      </h2>
+      <p className="text-gray-500 text-sm mt-1">{formData.email}</p>
 
-  {/* Email */}
-  <p className="text-gray-500 text-sm mt-1">
-    {formData.email}
-  </p>
+      <p className="text-gray-400 text-xs mt-2 italic line-clamp-2 px-2">
+        {quote}
+      </p>
 
-  {/* Quote */}
-  <p className="text-gray-400 text-xs mt-3 italic px-4">
-    {quote}
-  </p>
+      {/* ✅ Buttons (Center) */}
+      <div className="flex justify-center gap-3 mt-4 flex-wrap">
+        <button
+          onClick={() => router.push("/profile/edit")}
+          className="flex items-center gap-2 bg-black text-white px-4 py-2 text-sm rounded-xl hover:bg-gray-900 transition"
+        >
+          <Edit3 size={16} />
+          Edit
+        </button>
 
-  {/* Actions */}
-  <div className="flex justify-center gap-4 mt-6 flex-wrap">
-    <button
-      onClick={() => router.push("/profile/edit")}
-      className="flex items-center gap-2 bg-black text-white px-5 py-2.5 text-sm
-                 rounded-xl shadow-md hover:bg-gray-900 transition"
-    >
-      <Edit3 size={16} />
-      Edit Profile
-    </button>
-
-    <button
-      onClick={handleLogout}
-      className="flex items-center gap-2 bg-red-600 text-white px-5 py-2.5 text-sm
-                 rounded-xl shadow-md hover:bg-red-700 transition"
-    >
-      <LogOut size={16} />
-      Logout
-    </button>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 text-sm rounded-xl hover:bg-red-700 transition"
+        >
+          <LogOut size={16} />
+          Logout
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
 
-        {/* ✅ SUPPORT TICKETS ROW */}
+        {/* ✅ Support Tickets */}
         <SupportTicketsRow email={formData.email} />
 
-        {/* RECENT ORDERS */}
-     <div className="bg-white p-6 shadow-lg border border-gray-200 rounded-3xl">
-  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-    <ShoppingBag size={18} />
-    Recent Orders
-  </h3>
-
-  {ordersLoading ? (
-    <div className="text-sm text-gray-500">Loading orders...</div>
-  ) : ordersError ? (
-    <div className="text-sm text-red-600">
-      Failed to load orders: {ordersError}
-    </div>
-  ) : recentOrders.length === 0 ? (
-    <div className="text-sm text-gray-500">No orders yet.</div>
-  ) : (
-    <div className="space-y-4">
-      {recentOrders.map((o) => {
-        const pill = statusPill(o.fulfillmentStatus);
-
-        return (
-          <Link
-            href={`/profile/orders/${o._id}`}
-            key={o._id}
-            className="p-4 bg-gray-50 border border-gray-200 rounded-2xl shadow-sm
-                       flex justify-between items-center
-                       hover:shadow-md hover:bg-white transition"
-          >
-            <div>
-              <p className="font-medium text-gray-900">
-                Order{" "}
-                {o.orderNumber
-                  ? `#${o.orderNumber}`
-                  : `#${o._id?.slice(-6)}`}
-              </p>
-              <p className="text-xs text-gray-500">
-                {formatDate(o.orderDate || o.createdAt)} • ₹
-                {o.finalPayable ?? o.totalAmount ?? 0}
-              </p>
-            </div>
-
-            <span
-              className={`text-sm font-semibold rounded-full px-3 py-1 ${pill.cls}`}
+        {/* ✅ Recent Orders */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+              <ShoppingBag size={18} />
+              Recent Orders
+            </h3>
+            <Link
+              href="/profile/orders"
+              className="text-sm text-black hover:underline flex items-center gap-1"
             >
-              {pill.label}
-            </span>
-          </Link>
-        );
-      })}
-    </div>
-  )}
+              View all <ChevronRight size={14} />
+            </Link>
+          </div>
 
-  <Link
-    href="/profile/orders"
-    className="text-black flex items-center gap-1 text-sm mt-4
-               hover:underline"
-  >
-    View All <ChevronRight size={14} />
-  </Link>
-</div>
+          {ordersLoading ? (
+            <div className="text-sm text-gray-500">Loading orders...</div>
+          ) : ordersError ? (
+            <div className="text-sm text-red-600">
+              Failed to load orders: {ordersError}
+            </div>
+          ) : recentOrders.length === 0 ? (
+            <div className="text-sm text-gray-500">No orders yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {recentOrders.map((o) => {
+                const pill = statusPill(o.fulfillmentStatus);
 
+                return (
+                  <Link
+                    href={`/profile/orders/${o._id}`}
+                    key={o._id}
+                    className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between hover:bg-white transition"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">
+                        Order{" "}
+                        {o.orderNumber ? `#${o.orderNumber}` : `#${o._id?.slice(-6)}`}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatDate(o.orderDate || o.createdAt)} • ₹
+                        {o.finalPayable ?? o.totalAmount ?? 0}
+                      </p>
+                    </div>
 
-        {/* SAVED ADDRESSES */}
-       <div className="bg-white p-6 shadow-lg border border-gray-200 rounded-3xl">
-  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-    <MapPin size={18} />
-    Saved Addresses
-  </h3>
-
-  {addresses.length > 0 ? (
-    <div className="space-y-4">
-      {addresses.map((addr) => (
-        <div
-          key={addr._id}
-          className="bg-gray-50 border border-gray-200 shadow-sm p-4 text-sm rounded-2xl
-                     hover:bg-white hover:shadow-md transition"
-        >
-          <p className="font-semibold text-gray-900">{addr.fullName}</p>
-          <p className="text-gray-700">{addr.phone}</p>
-          <p className="text-gray-600 mt-1">
-            {addr.addressLine1},{" "}
-            {addr.addressLine2 && `${addr.addressLine2}, `}
-            {addr.city}, {addr.state}, {addr.postalCode}
-          </p>
-
-          {addr.isDefaultShipping && (
-            <span className="inline-block mt-3 text-[10px]
-                             bg-green-100 text-green-700
-                             px-2.5 py-1 rounded-full font-semibold">
-              Default Shipping
-            </span>
+                    <span className={`text-xs font-semibold border px-2 py-1 rounded-full ${pill.cls}`}>
+                      {pill.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
           )}
         </div>
-      ))}
-    </div>
-  ) : (
-    <p className="text-gray-500 text-sm">No saved addresses yet.</p>
-  )}
 
-  <button
-    onClick={() => router.push("/profile/address")}
-    className="flex items-center gap-1 text-black text-sm mt-4 hover:underline"
-  >
-    <Plus size={14} />
-    Add New Address
-  </button>
-</div>
+        {/* ✅ Saved Addresses */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+              <MapPin size={18} />
+              Saved Addresses
+            </h3>
 
+            <button
+              onClick={() => router.push("/profile/address")}
+              className="text-sm text-black hover:underline flex items-center gap-1"
+            >
+              <Plus size={14} />
+              Add
+            </button>
+          </div>
 
-        {/* RECENTLY VIEWED */}
-        <div className=" shadow-lg ">
+          {addresses?.length > 0 ? (
+            <div className="space-y-3">
+              {addresses.map((addr) => (
+                <div
+                  key={addr._id}
+                  className="bg-gray-50 border border-gray-200 p-3 text-sm rounded-2xl"
+                >
+                  <p className="font-semibold text-gray-900">{addr.fullName}</p>
+                  <p className="text-gray-700 text-xs">{addr.phone}</p>
+                  <p className="text-gray-600 text-xs mt-1">
+                    {addr.addressLine1},{" "}
+                    {addr.addressLine2 && `${addr.addressLine2}, `}
+                    {addr.city}, {addr.state}, {addr.postalCode}
+                  </p>
+
+                  {addr.isDefaultShipping && (
+                    <span className="inline-block mt-2 text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+                      Default Shipping
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No saved addresses yet.</p>
+          )}
+        </div>
+
+        {/* ✅ Recently Viewed */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-3 sm:p-5 shadow-sm">
           <RecentlyViewedRow />
         </div>
       </div>
