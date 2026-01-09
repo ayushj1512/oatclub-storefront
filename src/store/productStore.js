@@ -852,6 +852,56 @@ fetchProductDetailsPerfect: async (idOrSlugOrObj, opts = {}) => {
 },
 
 
+/* =====================================================
+   ✅ NEW: FETCH MULTIPLE PRODUCTS BY IDS (single fetch)
+   POST /api/products/by-ids
+   body: { ids: ["id1","id2"] } OR { ids: "id1,id2" }
+===================================================== */
+fetchProductsByIds: async (ids = [], opts = {}) => {
+  if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+
+  // ✅ normalize ids input
+  const list = Array.isArray(ids)
+    ? ids
+    : typeof ids === "string"
+      ? ids.split(",").map((x) => x.trim()).filter(Boolean)
+      : [];
+
+  if (!list.length) return [];
+
+  const { mergeIntoAllProducts = true } = opts;
+
+  // ❗ NOTE: DO NOT abort global ctrl here, because it may cancel other list fetches
+  const controller = new AbortController();
+
+  try {
+    const res = await fetch(`${BACKEND}/api/products/by-ids`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: list }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    const data = await safeJson(res);
+    if (!res.ok) throw new Error(data?.message || "Failed to load products by ids");
+
+    const incoming = Array.isArray(data?.products) ? data.products : [];
+    const normalized = incoming.map(normalize);
+
+    // ✅ update cache
+    if (mergeIntoAllProducts) {
+      normalized.forEach((p) => get().upsertProduct(p));
+    }
+
+    return normalized;
+  } catch (err) {
+    if (err?.name === "AbortError") return [];
+    console.error("❌ fetchProductsByIds error:", err);
+    set({ error: err.message || "Failed to load products by ids" });
+    return [];
+  }
+},
 
 
         upsertProduct: (product) => {
