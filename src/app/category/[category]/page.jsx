@@ -83,10 +83,18 @@ export default function CategoryPage() {
   const allProducts = useProductStore((s) => s.allProducts);
   const isLoading = useProductStore((s) => s.isLoading);
   const error = useProductStore((s) => s.error);
-  const fetchProducts = useProductStore((s) => s.fetchProducts);
-  const loadMore = useProductStore((s) => s.loadMore);
+
+  // ✅ NEW: use category fetch
+  const fetchProductsByCategory = useProductStore(
+    (s) => s.fetchProductsByCategory
+  );
+
   const hasMore = useProductStore((s) => s.hasMore);
   const clearError = useProductStore((s) => s.clearError);
+
+  // ✅ needed for proper loadMore
+  const page = useProductStore((s) => s.page);
+  const lastParams = useProductStore((s) => s.lastParams);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest");
@@ -140,7 +148,7 @@ export default function CategoryPage() {
     setIsInitialFetching(true);
   }, [ready, category, sort]);
 
-  // ✅ Fetch products when category/sort changes
+  // ✅ Fetch products when category/sort changes (NEW: category route)
   useEffect(() => {
     if (!ready) return;
 
@@ -154,14 +162,13 @@ export default function CategoryPage() {
     setOnlyInStock(true);
     setDraftOnlyInStock(true);
 
-    fetchProducts({
-      category,
+    fetchProductsByCategory(category, {
       isActive: true,
       page: 1,
       limit: PAGE_SIZE,
       sort,
     });
-  }, [ready, category, sort, fetchProducts, clearError]);
+  }, [ready, category, sort, fetchProductsByCategory, clearError]);
 
   // ✅ Sync store -> displayProducts only after loading ends
   useEffect(() => {
@@ -229,9 +236,37 @@ export default function CategoryPage() {
   const inStockCount =
     displayProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
 
+  // ✅ NEW: category load more handler
+  const loadingMoreRef = useRef(false);
+
+  const loadMoreCategory = useCallback(() => {
+    if (!ready) return;
+    if (isLoading || loadingMoreRef.current || !hasMore()) return;
+
+    loadingMoreRef.current = true;
+
+    fetchProductsByCategory(category, {
+      ...(lastParams || {}),
+      page: (page || 1) + 1,
+      limit: PAGE_SIZE,
+      sort,
+      isActive: true,
+    });
+
+    setTimeout(() => (loadingMoreRef.current = false), 350);
+  }, [
+    ready,
+    isLoading,
+    hasMore,
+    fetchProductsByCategory,
+    category,
+    lastParams,
+    page,
+    sort,
+  ]);
+
   // ✅ Infinite scroll
   const sentinelRef = useRef(null);
-  const loadingMoreRef = useRef(false);
 
   useEffect(() => {
     const node = sentinelRef.current;
@@ -239,23 +274,15 @@ export default function CategoryPage() {
 
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (
-          !entry.isIntersecting ||
-          isLoading ||
-          loadingMoreRef.current ||
-          !hasMore()
-        )
-          return;
-        loadingMoreRef.current = true;
-        loadMore();
-        setTimeout(() => (loadingMoreRef.current = false), 350);
+        if (!entry.isIntersecting) return;
+        loadMoreCategory();
       },
       { rootMargin: "900px 0px" }
     );
 
     io.observe(node);
     return () => io.disconnect();
-  }, [hasMore, isLoading, loadMore]);
+  }, [loadMoreCategory]);
 
   // ✅ show shimmer only if displayProducts empty
   const showInitialLoading =
@@ -270,14 +297,13 @@ export default function CategoryPage() {
     setDisplayProducts([]);
     setIsInitialFetching(true);
 
-    fetchProducts({
-      category,
+    fetchProductsByCategory(category, {
       isActive: true,
       page: 1,
       limit: PAGE_SIZE,
       sort,
     });
-  }, [ready, category, sort, clearError, fetchProducts]);
+  }, [ready, category, sort, clearError, fetchProductsByCategory]);
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -347,7 +373,7 @@ export default function CategoryPage() {
             {hasMore() ? (
               <>
                 <button
-                  onClick={loadMore}
+                  onClick={loadMoreCategory}
                   disabled={isLoading}
                   className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:opacity-50"
                 >
