@@ -198,6 +198,49 @@
     const q = qs.toString();
     return `${BACKEND}/api/products/by-tag${q ? `?${q}` : ""}`;
   };
+// ✅ NEW: build url for category route
+const buildCategoryUrl = (category, p = {}) => {
+  const qs = new URLSearchParams();
+  const setIf = (k, v) => {
+    if (v === undefined || v === null) return;
+    const s = String(v).trim();
+    if (!s) return;
+    qs.set(k, s);
+  };
+
+  setIf("page", p.page);
+  setIf("limit", p.limit);
+  setIf("search", p.search);
+
+  setIf("collection", p.collection);
+
+  if (Array.isArray(p.tags)) setIf("tags", p.tags.join(","));
+  else setIf("tags", p.tags);
+
+  setIf("minPrice", p.minPrice);
+  setIf("maxPrice", p.maxPrice);
+
+  const sortMap = {
+    default: "",
+    priceLowHigh: "price_asc",
+    priceHighLow: "price_desc",
+    newest: "newest",
+    rating: "rating",
+    popularity: "popularity",
+  };
+
+  if (p.sort) setIf("sort", sortMap[p.sort] || p.sort);
+  else if (p.sortOption && sortMap[p.sortOption])
+    setIf("sort", sortMap[p.sortOption]);
+
+  if (p.isActive != null) setIf("isActive", p.isActive);
+  if (p.sku) setIf("sku", p.sku);
+
+  const q = qs.toString();
+  return `${BACKEND}/api/products/by-category/${encodeURIComponent(
+    String(category || "")
+  )}${q ? `?${q}` : ""}`;
+};
 
 
   const isCastCategoryErr = (m = "") =>
@@ -520,24 +563,115 @@
 
 
         // Add this inside your zustand create store:
-      fetchProductsByCategory: async (categorySlug, opts = {}) => {
-    const slug = String(categorySlug || "").trim();
-    if (!slug) return;
+      fetchProductsByCategory: async (categorySlugOrId, params = {}) => {
+  if (!BACKEND)
+    return set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
 
-    const { activeCategory, isLoading } = get();
+  const category = String(categorySlugOrId || "").trim();
+  if (!category) return;
 
-    // ✅ prevent duplicate request if same category already loaded
-    if (!opts.force && String(activeCategory || "") === slug && !isLoading) {
-      return;
+  const { page = 1, limit = get().limit } = params;
+
+  const url = buildCategoryUrl(category, { ...params, page, limit });
+
+  if (ctrl) ctrl.abort();
+  ctrl = new AbortController();
+  const myId = ++reqId;
+
+  // ✅ reset logic same like tag/category
+  const prevActiveCategory = get().activeCategory;
+  const categoryChanged = String(prevActiveCategory || "") !== category;
+
+  const prevParams = get().lastParams || {};
+  const sortChanged =
+    String(params.sort || "") !== String(prevParams.sort || "");
+
+  const shouldReset = page === 1 || categoryChanged || sortChanged;
+
+  set(() => ({
+    isLoading: true,
+    error: null,
+    activeCategory: category,
+    lastParams: params,
+    ...(shouldReset ? { allProducts: [], page: 1, hasMoreFlag: true } : {}),
+  }));
+
+  try {
+    const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+    const data = await safeJson(res);
+
+    if (!res.ok) throw new Error(data?.message || "Failed to load products");
+    if (myId !== reqId) return;
+
+    const incoming = uniqBySlug((data?.products || []).map(normalize));
+
+    /* ✅ GA4 view_item_list */
+    try {
+      if (page === 1 && incoming.length) {
+        const listId = `cat_${category}`;
+        const key = `vil_${listId}_${incoming
+          .slice(0, 15)
+          .map((p) => p.id)
+          .join("_")}`;
+
+        if (!shouldSkipGA4(get, set, key, 1500)) {
+          pushEcomEvent("view_item_list", {
+            item_list_id: listId,
+            item_list_name: String(category),
+            items: incoming.slice(0, 50).map((p) => ga4Item(p, 1)),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("📈 GA4 category view_item_list failed", e);
     }
 
-    // ✅ Reset pagination + fetch first page
-    return get().fetchProducts({
-      category: slug,
-      page: 1,
-      isActive: true,
-    });
-  },
+    /* 🧾 META category view */
+    try {
+      if (category && page === 1 && categoryChanged) {
+        const now = Date.now();
+        const key = `view_category_${category.toLowerCase()}`;
+
+        const { _lastMetaCategoryKey, _lastMetaCategoryAt } = get();
+        const tooSoon =
+          _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
+        const sameKey = _lastMetaCategoryKey === key;
+
+        if (!(sameKey && tooSoon)) {
+          await trackMeta("ViewContent", {
+            content_type: "product_group",
+            content_ids: [category],
+            content_name: category,
+            currency: "INR",
+            content_ids_product: incoming
+              .slice(0, 10)
+              .map((p) => String(p?.id))
+              .filter(Boolean),
+          });
+
+          set({ _lastMetaCategoryKey: key, _lastMetaCategoryAt: now });
+        }
+      }
+    } catch (e) {
+      console.warn("🧾 Meta Category View failed", e);
+    }
+
+    set((state) => ({
+      allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
+      page,
+      hasMoreFlag: incoming.length === limit,
+      isLoading: false,
+    }));
+  } catch (e) {
+    if (e?.name !== "AbortError")
+      set({ error: e.message || "Failed to load products" });
+
+    set({ isLoading: false });
+  }
+},
+
+
+
 
 
         fetchProductBySKU: async (sku) => {

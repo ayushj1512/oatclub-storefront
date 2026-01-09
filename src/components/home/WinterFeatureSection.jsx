@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { useProductStore } from "@/store/productStore";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ProductCard from "@/components/common/ProductCard";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import { useProductStore } from "@/store/productStore"; // ✅ use updated store (fetchProductsByCategory)
 
 const FEATURE_IMAGE =
   "https://res.cloudinary.com/djtva6hec/image/upload/v1765956745/miray/media/nhzqroykgtmg1modqikj.jpg";
@@ -20,11 +21,10 @@ function ShimmerBlock({ className = "" }) {
 
 export default function WinterDropSection() {
   const [localLoading, setLocalLoading] = useState(true);
+  const [localProducts, setLocalProducts] = useState([]);
 
-  const products = useProductStore((s) => s.allProducts);
-  const fetchProductsByCategory = useProductStore(
-    (s) => s.fetchProductsByCategory
-  );
+  // ✅ use new store function
+  const fetchProductsByCategory = useProductStore((s) => s.fetchProductsByCategory);
 
   // ✅ Refs for desktop rows
   const row1Ref = useRef(null);
@@ -35,26 +35,56 @@ export default function WinterDropSection() {
     ref.current.scrollBy({ left: dir * 340, behavior: "smooth" });
   };
 
+  const products = useMemo(
+    () => (Array.isArray(localProducts) ? localProducts : []),
+    [localProducts]
+  );
+
   useEffect(() => {
     let isMounted = true;
 
-    const loadProducts = async () => {
+    const loadWinterDrops = async () => {
       try {
         setLocalLoading(true);
-        await fetchProductsByCategory("winter-drops");
+
+        // ✅ Use new route: /api/products/by-category/winter-drops
+        const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+        if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+
+        // ✅ call store fetcher (optional - keeps analytics, cache, etc.)
+        await fetchProductsByCategory("winter-drops", {
+          page: 1,
+          limit: 20,
+          isActive: true,
+        });
+
+        // ✅ direct fetch to get clean array (because store returns no products sometimes)
+        const url = `${BACKEND}/api/products/by-category/winter-drops?page=1&limit=20&isActive=true`;
+        const res = await fetch(url, { cache: "no-store" });
+        const data = await res.json();
+
+        const incoming = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.products)
+          ? data.products
+          : [];
+
+        if (isMounted) setLocalProducts(incoming);
       } catch (err) {
-        console.error("Error loading winter drops:", err);
+        console.error("❌ Error loading winter drops:", err);
+        if (isMounted) setLocalProducts([]);
       } finally {
         if (isMounted) setLocalLoading(false);
       }
     };
 
-    loadProducts();
+    loadWinterDrops();
 
     return () => {
       isMounted = false;
     };
-  }, [fetchProductsByCategory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const desktopRow1 = products.slice(0, 10);
   const desktopRow2 = products.slice(10, 20);
@@ -81,7 +111,7 @@ export default function WinterDropSection() {
 
           <Link
             href="/category/winter-drops"
-            className="hidden md:inline-flex text-sm font-semibold text-black hover:opacity-60 transition"
+            className="text-sm font-semibold text-black hover:opacity-60 transition"
           >
             View All →
           </Link>
@@ -112,7 +142,7 @@ export default function WinterDropSection() {
           </Link>
 
           {/* Products Area */}
-          <div className="w-full  md:flex-1 min-w-0">
+          <div className="w-full md:flex-1 min-w-0">
             {/* ================= DESKTOP (2 ROWS) ================= */}
             <div className="hidden md:flex flex-col gap-4">
               {localLoading ? (
@@ -135,9 +165,8 @@ export default function WinterDropSection() {
                 </div>
               ) : products.length ? (
                 <div className="space-y-4">
-                  {/* ================= ROW 1 ================= */}
+                  {/* ROW 1 */}
                   <div className="relative group">
-                    {/* LEFT */}
                     <button
                       type="button"
                       aria-label="Scroll left"
@@ -147,7 +176,6 @@ export default function WinterDropSection() {
                       <ChevronLeft size={20} />
                     </button>
 
-                    {/* RIGHT */}
                     <button
                       type="button"
                       aria-label="Scroll right"
@@ -166,17 +194,19 @@ export default function WinterDropSection() {
                       }}
                     >
                       {desktopRow1.map((p) => (
-                        <div key={p.id} className="flex-shrink-0 w-[240px]">
+                        <div
+                          key={p._id || p.id}
+                          className="flex-shrink-0 w-[240px]"
+                        >
                           <ProductCard product={p} disableRecentlyViewed />
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* ================= ROW 2 ================= */}
+                  {/* ROW 2 */}
                   {desktopRow2.length > 0 && (
                     <div className="relative group">
-                      {/* LEFT */}
                       <button
                         type="button"
                         aria-label="Scroll left"
@@ -186,7 +216,6 @@ export default function WinterDropSection() {
                         <ChevronLeft size={20} />
                       </button>
 
-                      {/* RIGHT */}
                       <button
                         type="button"
                         aria-label="Scroll right"
@@ -205,7 +234,10 @@ export default function WinterDropSection() {
                         }}
                       >
                         {desktopRow2.map((p) => (
-                          <div key={p.id} className="flex-shrink-0 w-[240px]">
+                          <div
+                            key={p._id || p.id}
+                            className="flex-shrink-0 w-[240px]"
+                          >
                             <ProductCard product={p} disableRecentlyViewed />
                           </div>
                         ))}
@@ -215,12 +247,12 @@ export default function WinterDropSection() {
                 </div>
               ) : (
                 <div className="text-sm text-gray-500 border border-gray-200 rounded-xl p-10 text-center bg-gray-50">
-                  Check back soon! Our Winter Drops are coming your way.
+                  No products found in Winter Drops.
                 </div>
               )}
             </div>
 
-            {/* ================= MOBILE (SINGLE ROW) ================= */}
+            {/* ================= MOBILE ================= */}
             <div className="md:hidden">
               <div className="flex items-center justify-between mb-3 mt-4">
                 <p className="text-sm font-bold text-black">Featured Picks</p>
@@ -250,14 +282,14 @@ export default function WinterDropSection() {
                   }}
                 >
                   {mobileRow.map((p) => (
-                    <div key={`mob-${p.id}`} className="flex-shrink-0 w-[180px]">
+                    <div key={p._id || p.id} className="flex-shrink-0 w-[180px]">
                       <ProductCard product={p} disableRecentlyViewed />
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-sm text-gray-500 border border-gray-200 rounded-xl p-8 text-center bg-gray-50 rounded-xl">
-                  Check back soon! Our Winter Drops are coming your way.
+                  No products found in Winter Drops.
                 </div>
               )}
             </div>
