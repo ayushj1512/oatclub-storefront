@@ -28,10 +28,29 @@ const shouldSkipAuthMetaEvent  = (get, set, key, windowMs = 4000) => {
   return false; // ✅ allow tracking
 };
 
+const initialAuthState = {
+  user: null,
+  customer: null,
+  token: null,
+  loading: true,
+  isAuthenticated: false,
+  activeCartId: null,
+  activeCartType: "cart",
+  modalDismissed: false,
+  _lastSyncedUid: null,
+  showLogoutConfirm: false,
+  _authUnsubscribe: null,
+  _lastAuthEvent: null,
+  _lastAuthEventAt: 0,
+};
+
+
 /* =====================================================================
    ⚡ UNIFIED AUTH STORE – + REALTIME PROFILE UPDATE
 ===================================================================== */
 export const useAuthStore = create((set, get) => ({
+  reset: () => set(initialAuthState),
+
   user: null, // Firebase user
   customer: null, // MongoDB customer
   token: null,
@@ -869,18 +888,33 @@ createGuestCustomer: async ({ name = "", email = "", phone = "", password = "" }
   cancelLogout: () => set({ showLogoutConfirm: false }),
 
  confirmLogout: async () => {
-  await signOut(auth);
+  try {
+    // ✅ Firebase Signout
+    await signOut(auth);
+  } catch (e) {
+    console.warn("⚠️ Firebase signOut failed:", e);
+  }
 
-  set({
-    user: null,
-    customer: null,
-    token: null,
-    activeCartId: null,
-    activeCartType: "cart",
-    isAuthenticated: false, 
-    showLogoutConfirm: false,
-  });
+  try {
+    // ✅ Remove cookie
+    Cookies.remove(COOKIE_KEY);
 
-  Cookies.remove(COOKIE_KEY);
+    // ✅ Clear storages
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // ✅ Reset this store
+    set(initialAuthState);
+
+    // ✅ Reset other Zustand stores (global helper approach)
+    // 🔥 Make this file once and import it here
+    // resetAllStores();
+
+    // ✅ Hard redirect + refresh (clears in-memory state 100%)
+    window.location.href = "/";
+  } catch (e) {
+    console.error("❌ Logout cleanup failed:", e);
+  }
 },
+
 }));
