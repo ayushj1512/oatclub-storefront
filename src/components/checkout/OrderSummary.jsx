@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Image from "next/image";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import CheckoutCouponSection from "@/components/checkout/CheckoutCouponSection";
+import { useCouponStore } from "@/store/couponStore";
 
 /* ---------- utils ---------- */
 const money = (n) =>
@@ -39,12 +40,12 @@ const GlassCard = ({ children, className = "" }) => (
 export default function OrderSummary({
   items = [],
   subtotal = 0,
-  coupon,
-  discount = 0,
-  payable = 0,
   showSummary,
   setShowSummary,
 }) {
+  // ✅ pull coupon state inside OrderSummary
+  const { coupon, discount } = useCouponStore();
+
   /* ---------- totals (MRP + savings) ---------- */
   const totalMrp = useMemo(() => {
     return (items || []).reduce((sum, it) => {
@@ -54,7 +55,7 @@ export default function OrderSummary({
         it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0
       );
 
-      const use = mrp > price ? mrp : price; // fallback if compare missing
+      const use = mrp > price ? mrp : price;
       return sum + use * qty;
     }, 0);
   }, [items]);
@@ -71,6 +72,11 @@ export default function OrderSummary({
     }, 0);
   }, [items]);
 
+  // ✅ payable derived automatically
+  const payable = useMemo(() => {
+    return Math.max(0, Number(subtotal || 0) - Number(discount || 0));
+  }, [subtotal, discount]);
+
   return (
     <>
       <GlassCard className="p-4 sm:p-5">
@@ -81,7 +87,7 @@ export default function OrderSummary({
           className="w-full flex items-center justify-between"
         >
           <div className="min-w-0">
-            <div className="text-sm text-gray-500">Step 1</div>
+            <div className="text-sm text-gray-500">Step 2</div>
             <div className="text-lg font-semibold text-gray-900">
               Order Summary
             </div>
@@ -118,7 +124,6 @@ export default function OrderSummary({
                       ? Math.round(((mrp - price) / mrp) * 100)
                       : 0;
 
-                    // ✅ stable key
                     const key = String(
                       item?.__key ||
                         `${String(item?.productId || item?._id || item?.id || "")}__${String(
@@ -153,7 +158,6 @@ export default function OrderSummary({
                               {item?.name || "Product"}
                             </p>
 
-                            {/* ✅ variant info */}
                             <div className="mt-0.5 flex flex-wrap items-center gap-2">
                               {item?.selectedSize && (
                                 <span className="text-[11px] rounded-xl bg-black/5 px-2 py-0.5 text-black/70">
@@ -172,7 +176,6 @@ export default function OrderSummary({
                               Qty: {qty}
                             </p>
 
-                            {/* ✅ savings line */}
                             {showMrp && (
                               <p className="text-[12px] text-green-700 mt-0.5">
                                 You save ₹{money((mrp - price) * qty)}
@@ -181,7 +184,6 @@ export default function OrderSummary({
                           </div>
                         </div>
 
-                        {/* ✅ pricing block */}
                         <div className="shrink-0 text-right">
                           {showMrp && (
                             <div className="text-[11px] text-black/50 line-through tabular-nums">
@@ -206,7 +208,6 @@ export default function OrderSummary({
 
                 {/* TOTALS */}
                 <div className="mt-4 rounded-2xl bg-white/70 p-4 shadow-[0_10px_25px_rgba(0,0,0,0.06)] space-y-2">
-                  {/* ✅ MRP Total */}
                   {totalMrp > subtotal && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">MRP Total</span>
@@ -216,7 +217,6 @@ export default function OrderSummary({
                     </div>
                   )}
 
-                  {/* Subtotal */}
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Subtotal</span>
                     <span className="font-semibold tabular-nums text-gray-900">
@@ -224,7 +224,6 @@ export default function OrderSummary({
                     </span>
                   </div>
 
-                  {/* ✅ Savings */}
                   {totalSavings > 0 && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">You Saved</span>
@@ -234,10 +233,10 @@ export default function OrderSummary({
                     </div>
                   )}
 
-                  {/* ✅ COUPON SECTION */}
-                  {/* <CheckoutCouponSection cartTotal={subtotal} /> */}
+                  {/* ✅ COUPON SECTION INSIDE SUMMARY */}
+                  <CheckoutCouponSection cartTotal={subtotal} />
 
-                  {/* ✅ COUPON LINE */}
+                  {/* ✅ COUPON LINE (from store) */}
                   {coupon?.code && Number(discount || 0) > 0 && (
                     <div className="flex items-center justify-between text-sm text-green-700">
                       <span>

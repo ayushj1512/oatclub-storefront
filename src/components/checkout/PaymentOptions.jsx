@@ -2,14 +2,13 @@
 
 import toast from "react-hot-toast";
 import { ChevronDown, ChevronUp, IndianRupee, Wallet, ArrowRight } from "lucide-react";
+
 import RazorpayCheckoutButton from "@/components/checkout/RazorpayCheckoutButton";
 import PaymentCard from "@/components/checkout/OnlinePaymentButton";
 
-/* ---------- UI bits ---------- */
+/* ---------- UI ---------- */
 const GlassCard = ({ children, className = "" }) => (
-  <div
-    className={`rounded-[22px] bg-white/75 backdrop-blur-xl shadow-[0_18px_45px_rgba(0,0,0,0.08)] ${className}`}
-  >
+  <div className={`rounded-[22px] bg-white/75 backdrop-blur-xl shadow-[0_18px_45px_rgba(0,0,0,0.08)] ${className}`}>
     {children}
   </div>
 );
@@ -34,29 +33,21 @@ function PayCard({ label, value, icon, sub, selected, setSelected }) {
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="grid place-items-center size-10 rounded-2xl bg-black/4 text-gray-800 shrink-0">
-            {icon}
-          </span>
-
+          <span className="grid place-items-center size-10 rounded-2xl bg-black/4 text-gray-800 shrink-0">{icon}</span>
           <div className="min-w-0">
             <div className="text-sm font-semibold text-gray-900">{label}</div>
             <div className="text-xs text-gray-500 truncate">{sub}</div>
           </div>
         </div>
 
-        <span
-          className={`size-5 rounded-full border-2 transition shrink-0 ${
-            active ? "border-black bg-black" : "border-black/20"
-          }`}
-        />
+        <span className={`size-5 rounded-full border-2 transition shrink-0 ${active ? "border-black bg-black" : "border-black/20"}`} />
       </div>
     </button>
   );
 }
 
 /* ---------- utils ---------- */
-const money = (n) =>
-  Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0";
+const money = (n) => (Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0");
 
 export default function PaymentOptions({
   showPayment,
@@ -70,18 +61,70 @@ export default function PaymentOptions({
   discount,
 
   placing,
-  canCheckout,
   validate,
-
   setShowCodCaptcha,
 
-  items,
   selectedAddressObj,
   user,
   customer,
+
   ensureGuestCustomer,
   createOrder,
+  getCheckoutPayload,
 }) {
+  // ✅ Single source of truth for disable state
+  const validationError = validate?.() || null;
+  const disabledCTA = placing || !!validationError;
+
+  /* ---------------- Razorpay Order Builder ---------------- */
+  const createRazorpayOrder = async () => {
+    const err = validate();
+    if (err) {
+      toast.error(err);
+      return null;
+    }
+
+    // ✅ logged-in must have customer
+    if (user?.uid && !customer?._id) {
+      toast.error("Customer profile missing. Refresh & retry.");
+      return null;
+    }
+
+    // ✅ resolve customer id (guest create if missing)
+    let customerId = customer?._id;
+
+    if (!user?.uid && !customerId) {
+      const created = await ensureGuestCustomer();
+      customerId = created?._id;
+    }
+
+    if (!customerId) {
+      toast.error("Customer missing. Please try again.");
+      return null;
+    }
+
+    if (!selectedAddressObj?._id) {
+      toast.error("Please select/save an address first.");
+      return null;
+    }
+
+    const orderItems = getCheckoutPayload?.();
+    if (!orderItems?.length) {
+      toast.error("Cart items missing.");
+      return null;
+    }
+
+    return await createOrder({
+      customerId,
+      shippingAddressId: selectedAddressObj._id,
+      billingAddressId: selectedAddressObj._id,
+      items: orderItems,
+      paymentMethod: "razorpay",
+      source: "website",
+      coupon: coupon ? { code: coupon.code, discount, finalTotal: payable } : null,
+    });
+  };
+
   return (
     <>
       {/* STEP 3 PAYMENT SELECTION */}
@@ -165,76 +208,29 @@ export default function PaymentOptions({
               if (err) return toast.error(err);
               setShowCodCaptcha(true);
             }}
-            disabled={!canCheckout}
-           className={`mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(0,0,0,0.24)] transition hover:opacity-90 active:scale-[0.99] disabled:bg-black/20 disabled:text-black/40`}
-
+            disabled={disabledCTA}
+            className="mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(0,0,0,0.24)] transition hover:opacity-90 active:scale-[0.99] disabled:bg-black/20 disabled:text-black/40"
           >
-            {placing ? "Placing order..." : "Place Order (COD)"}
+            {placing ? "Placing..." : "Place Order (COD)"}
             <ArrowRight className="inline-block w-4 h-4 ml-2" />
           </button>
         ) : (
           <RazorpayCheckoutButton
-            disabled={!items?.length || placing}
-            createOrder={async () => {
-              // ✅ basic guards
-              if (!items?.length) {
-                toast.error("Your cart is empty.");
-                return null;
-              }
-              if (!selectedAddressObj?._id) {
-                toast.error("Please select an address first.");
-                return null;
-              }
-
-              // ✅ logged-in must have customer
-              if (user?.uid && !customer?._id) {
-                toast.error("Customer profile missing. Refresh & retry.");
-                return null;
-              }
-
-              // ✅ resolve customerId safely
-              let customerId = customer?._id;
-
-              // ✅ guest flow only
-              if (!user?.uid && !customerId) {
-                const created = await ensureGuestCustomer();
-                customerId = created?._id;
-              }
-
-              if (!customerId) {
-                toast.error("Customer profile missing. Please try again.");
-                return null;
-              }
-
-              return await createOrder({
-                customerId,
-
-                shippingAddressId: selectedAddressObj._id,
-                billingAddressId: selectedAddressObj._id,
-
-                items: items.map((it) => ({
-                  productId: it.productIdMongo || it.productId || it._id,
-                  quantity: Number(it?.qty ?? it?.quantity ?? 1),
-                })),
-
-                paymentMethod: "razorpay",
-                source: "website",
-
-                coupon: coupon
-                  ? {
-                      code: coupon.code,
-                      discount,
-                      finalTotal: payable,
-                    }
-                  : null,
-              });
-            }}
+            disabled={disabledCTA}
+            createOrder={createRazorpayOrder}
           />
         )}
 
-        <p className="mt-2 text-[11px] text-gray-500 leading-relaxed text-center">
-          You’ll pay when the order is delivered.
-        </p>
+        {/* ✅ show reason why disabled (debug + better UX) */}
+        {validationError ? (
+          <p className="mt-2 text-[11px] text-red-600 text-center">{validationError}</p>
+        ) : (
+          <p className="mt-2 text-[11px] text-gray-500 leading-relaxed text-center">
+            {selectedPayment === "cod"
+              ? "You’ll pay when the order is delivered."
+              : "Your payment is secured via Razorpay."}
+          </p>
+        )}
       </GlassCard>
     </>
   );

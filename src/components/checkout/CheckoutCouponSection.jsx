@@ -26,9 +26,8 @@ export default function CheckoutCouponSection({ cartTotal }) {
     applyCoupon,
     clearCouponMessages,
     rehydrateCoupon,
-    clearPersistedCoupon, // ✅ NEW (from updated store)
+    clearPersistedCoupon,
 
-    // ✅ Suggestions
     suggestedCoupons,
     isLoadingSuggestions,
     suggestionError,
@@ -36,29 +35,23 @@ export default function CheckoutCouponSection({ cartTotal }) {
   } = useCouponStore();
 
   const hasCoupon = Boolean(coupon?.code);
-
-  // ✅ Guest friendly customerId
   const customerId = "guest";
 
-  // ✅ Stable function to fetch suggestions
   const loadSuggestions = useCallback(() => {
     if (cartTotal == null || cartTotal <= 0 || hasCoupon) return;
     fetchSuggestedCoupons({ customerId, cartTotal });
   }, [cartTotal, fetchSuggestedCoupons, hasCoupon]);
 
-  // ✅ Fetch suggestions
   useEffect(() => {
     loadSuggestions();
   }, [loadSuggestions]);
 
-  // ✅ 1) If cart becomes invalid/empty -> clear coupon + storage
   useEffect(() => {
     if (hasCoupon && (!cartTotal || cartTotal <= 0)) {
       clearPersistedCoupon?.();
     }
   }, [hasCoupon, cartTotal, clearPersistedCoupon]);
 
-  // ✅ 2) If coupon exists but discount is 0 -> rehydrate
   useEffect(() => {
     if (hasCoupon && cartTotal > 0 && Number(discount || 0) === 0) {
       rehydrateCoupon?.({ customerId, cartTotal });
@@ -90,7 +83,7 @@ export default function CheckoutCouponSection({ cartTotal }) {
   const onRemove = async () => {
     clearCouponMessages?.();
     setCode("");
-    await clearPersistedCoupon?.(); // ✅ state + localStorage both clear
+    await clearPersistedCoupon?.();
     setTimeout(() => loadSuggestions(), 50);
   };
 
@@ -100,29 +93,41 @@ export default function CheckoutCouponSection({ cartTotal }) {
   );
 
   return (
-    <div className="mt-4 rounded-[22px] bg-white/75 backdrop-blur-xl shadow-[0_18px_45px_rgba(0,0,0,0.08)] p-4 sm:p-5">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="grid place-items-center size-9 rounded-2xl bg-black/4 text-gray-800">
-          <Tag className="w-4 h-4" />
-        </span>
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Apply Coupon</p>
-          <p className="text-xs text-gray-500">
-            Use a valid code to get discount
-          </p>
+    <div className="mt-3 space-y-2">
+      {/* Header - compact */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="grid place-items-center size-8 rounded-xl bg-black/5 text-gray-800">
+            <Tag className="w-4 h-4" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-gray-900">Coupons</p>
+            <p className="text-[11px] text-gray-500">
+              Apply code to get discount
+            </p>
+          </div>
         </div>
+
+        {!hasCoupon && (
+          <button
+            type="button"
+            onClick={loadSuggestions}
+            className="text-[11px] font-semibold text-gray-600 hover:text-black transition"
+          >
+            Refresh
+          </button>
+        )}
       </div>
 
-      {/* Applied Coupon */}
+      {/* Applied Coupon - looks like totals row */}
       {hasCoupon ? (
-        <div className="flex items-center justify-between rounded-2xl bg-white/70 border border-black/10 px-4 py-3 shadow-[0_10px_25px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center justify-between rounded-xl bg-green-50 border border-green-200 px-3 py-2">
           <div>
-            <p className="text-sm font-semibold text-gray-900">
+            <p className="text-xs font-semibold text-green-800">
               {coupon.code} applied ✅
             </p>
-            <p className="text-xs text-gray-600">
-              You saved <b>₹{money(displayDiscount)}</b>
+            <p className="text-[11px] text-green-700">
+              Saved <b>₹{money(displayDiscount)}</b>
             </p>
           </div>
 
@@ -130,27 +135,27 @@ export default function CheckoutCouponSection({ cartTotal }) {
             type="button"
             onClick={onRemove}
             aria-label="Remove coupon"
-            className="grid place-items-center w-9 h-9 rounded-full bg-black/5 hover:bg-black/10 transition"
+            className="grid place-items-center w-8 h-8 rounded-full bg-black/5 hover:bg-black/10 transition"
           >
             <X className="w-4 h-4 text-gray-900" />
           </button>
         </div>
       ) : (
         <>
-          {/* Input + Apply */}
+          {/* Input row - matches summary */}
           <div className="flex items-center gap-2">
             <input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="Enter coupon code"
-              className="flex-1 rounded-2xl bg-white/80 px-4 py-3 text-sm outline-none shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.22)] transition"
+              placeholder="Enter code"
+              className="flex-1 rounded-xl bg-white px-3 py-2 text-xs outline-none shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.18)] transition"
             />
 
             <button
               type="button"
               disabled={isApplying || !code.trim()}
               onClick={() => onApply()}
-              className="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white bg-black hover:opacity-90 transition disabled:bg-black/20 disabled:text-black/40"
+              className="inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-semibold text-white bg-black hover:opacity-90 transition disabled:bg-black/20 disabled:text-black/40"
             >
               {isApplying && clickedCode === code.trim().toUpperCase() ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -160,26 +165,12 @@ export default function CheckoutCouponSection({ cartTotal }) {
             </button>
           </div>
 
-          {/* Suggested Coupons */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-gray-800">
-                Suggested Coupons
-              </p>
-
-              <button
-                type="button"
-                onClick={loadSuggestions}
-                className="text-[11px] font-semibold text-gray-600 hover:text-black transition"
-              >
-                Refresh
-              </button>
-            </div>
-
+          {/* Suggested Coupons - compact pills */}
+          <div className="space-y-2">
             {isLoadingSuggestions ? (
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Loading suggestions...
+                Loading...
               </div>
             ) : suggestionError ? (
               <p className="text-xs text-red-600">{suggestionError}</p>
@@ -194,7 +185,7 @@ export default function CheckoutCouponSection({ cartTotal }) {
                       type="button"
                       disabled={isApplying}
                       onClick={() => onApply(c.code)}
-                      className="px-3 py-2 rounded-2xl bg-white/70 border border-black/10 shadow-[0_8px_22px_rgba(0,0,0,0.06)] text-xs font-semibold text-gray-900 hover:bg-black hover:text-white transition disabled:opacity-60"
+                      className="px-3 py-2 rounded-xl bg-white border border-black/10 text-[11px] font-semibold text-gray-900 hover:bg-black hover:text-white transition disabled:opacity-60"
                     >
                       <span className="inline-flex items-center gap-1">
                         {isThisApplying ? (
@@ -208,7 +199,7 @@ export default function CheckoutCouponSection({ cartTotal }) {
                       </span>
 
                       {c.minPurchase > 0 && (
-                        <span className="ml-2 text-[11px] opacity-60">
+                        <span className="ml-2 opacity-60">
                           Min ₹{money(c.minPurchase)}
                         </span>
                       )}
@@ -217,13 +208,13 @@ export default function CheckoutCouponSection({ cartTotal }) {
                 })}
               </div>
             ) : (
-              <p className="text-xs text-gray-500">No coupons available</p>
+              <p className="text-[11px] text-gray-500">No coupons available</p>
             )}
-          </div>
 
-          {/* Message */}
-          {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-          {message && <p className="mt-2 text-xs text-green-700">{message}</p>}
+            {/* Messages */}
+            {error && <p className="text-[11px] text-red-600">{error}</p>}
+            {message && <p className="text-[11px] text-green-700">{message}</p>}
+          </div>
         </>
       )}
     </div>

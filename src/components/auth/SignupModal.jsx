@@ -7,21 +7,25 @@ import GoogleSignInButton from "@/components/auth/GoogleSignIn";
 import { useAuthStore } from "@/store/authStore";
 
 const LOCK_ATTR = "data-miray-scroll-lock";
-const API = process.env.NEXT_PUBLIC_BACKEND_URL; // ✅ your backend
+const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-export default function SignupModal({ closeAll }) {
+export default function SignupModal({
+  closeAll,
+  forceOpen = false,
+  prefillEmail = "",
+  onClose,
+}) {
   const router = useRouter();
-  const { modalDismissed, setModalDismissed, isAuthenticated } = useAuthStore();
+  const { setModalDismissed } = useAuthStore();
 
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState(1);
-
   const modalRef = useRef(null);
 
-  // ✅ Email check state
   const [emailCheck, setEmailCheck] = useState("");
   const [checkingEmail, setCheckingEmail] = useState(false);
-  const [existingCustomer, setExistingCustomer] = useState(false);
+
+  const [password, setPassword] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false);
 
   const scrollYRef = useRef(0);
   const prevStyleRef = useRef({
@@ -32,18 +36,10 @@ export default function SignupModal({ closeAll }) {
   });
 
   /* ======================================================
-     ✅ FORCE UNLOCK SCROLL
+     ✅ BODY SCROLL LOCK
   ====================================================== */
   const forceUnlockBodyScroll = useCallback(() => {
     const body = document.body;
-
-    const isLocked =
-      body.getAttribute(LOCK_ATTR) === "signup" ||
-      body.style.position === "fixed" ||
-      body.style.overflow === "hidden";
-
-    if (!isLocked) return;
-
     const top = body.style.top || "";
     const y = top ? Math.abs(parseInt(top, 10)) || 0 : 0;
 
@@ -56,26 +52,8 @@ export default function SignupModal({ closeAll }) {
     if (y) window.scrollTo(0, y);
   }, []);
 
-  /* ======================================================
-     ✅ AUTO OPEN AFTER 10 SEC
-  ====================================================== */
-  useEffect(() => {
-    if (isAuthenticated || modalDismissed) return;
-
-    const timer = setTimeout(() => setOpen(true), 10000);
-    return () => clearTimeout(timer);
-  }, [isAuthenticated, modalDismissed]);
-
-  /* ======================================================
-     ✅ LOCK BODY SCROLL
-  ====================================================== */
   const lockBodyScroll = useCallback(() => {
     const body = document.body;
-
-    if (body.getAttribute(LOCK_ATTR) && body.getAttribute(LOCK_ATTR) !== "signup") {
-      return;
-    }
-
     scrollYRef.current = window.scrollY || 0;
 
     prevStyleRef.current = {
@@ -86,7 +64,6 @@ export default function SignupModal({ closeAll }) {
     };
 
     body.setAttribute(LOCK_ATTR, "signup");
-
     body.style.overflow = "hidden";
     body.style.position = "fixed";
     body.style.top = `-${scrollYRef.current}px`;
@@ -95,34 +72,34 @@ export default function SignupModal({ closeAll }) {
 
   const unlockBodyScroll = useCallback(() => {
     const body = document.body;
-
-    if (body.getAttribute(LOCK_ATTR) && body.getAttribute(LOCK_ATTR) !== "signup") {
-      return;
-    }
-
     const { overflow, position, top, width } = prevStyleRef.current;
 
     body.style.overflow = overflow;
     body.style.position = position;
     body.style.top = top;
     body.style.width = width;
-
     body.removeAttribute(LOCK_ATTR);
 
     window.scrollTo(0, scrollYRef.current);
   }, []);
 
+  /* ======================================================
+     ✅ OPEN MODAL
+  ====================================================== */
   useEffect(() => {
-    forceUnlockBodyScroll();
-    return () => forceUnlockBodyScroll();
-  }, [forceUnlockBodyScroll]);
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
 
   useEffect(() => {
-    if (!open) {
-      forceUnlockBodyScroll();
-      return;
-    }
+    const em = String(prefillEmail || "").trim().toLowerCase();
+    if (!em) return;
 
+    setEmailCheck(em);
+    setOpen(true);
+  }, [prefillEmail]);
+
+  useEffect(() => {
+    if (!open) return forceUnlockBodyScroll();
     lockBodyScroll();
     return () => unlockBodyScroll();
   }, [open, lockBodyScroll, unlockBodyScroll, forceUnlockBodyScroll]);
@@ -131,61 +108,43 @@ export default function SignupModal({ closeAll }) {
      ✅ CLOSE MODAL
   ====================================================== */
   const closeModal = useCallback(() => {
-    setModalDismissed();
+    setModalDismissed?.();
     setOpen(false);
     closeAll?.();
-  }, [setModalDismissed, closeAll]);
+    onClose?.();
+  }, [setModalDismissed, closeAll, onClose]);
 
   /* ======================================================
      ✅ CLICK OUTSIDE
   ====================================================== */
   const handlePointerDown = useCallback(
     (e) => {
-      if (modalRef.current && !modalRef.current.contains(e.target)) {
-        closeModal();
-      }
+      if (modalRef.current && !modalRef.current.contains(e.target)) closeModal();
     },
     [closeModal]
   );
 
   useEffect(() => {
     if (!open) return;
-
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [open, handlePointerDown]);
 
   /* ======================================================
-     ✅ EMAIL EXISTENCE CHECK (DEBOUNCED)
+     ✅ EMAIL CHECK (Loader Only)
   ====================================================== */
   useEffect(() => {
-    if (!emailCheck || !emailCheck.includes("@")) {
-      setExistingCustomer(false);
-      return;
-    }
+    if (!emailCheck || !emailCheck.includes("@")) return;
 
     const timer = setTimeout(async () => {
       try {
         if (!API) return;
-
         setCheckingEmail(true);
-
-        const res = await fetch(
+        await fetch(
           `${API}/api/customers?search=${encodeURIComponent(emailCheck)}`,
           { cache: "no-store" }
         );
-
-        const data = await res.json();
-
-        // ✅ if found any customer
-        if (res.ok && data?.items?.length > 0) {
-          setExistingCustomer(true);
-        } else {
-          setExistingCustomer(false);
-        }
-      } catch (e) {
-        console.error("❌ Email check failed:", e);
-        setExistingCustomer(false);
+      } catch {
       } finally {
         setCheckingEmail(false);
       }
@@ -194,134 +153,131 @@ export default function SignupModal({ closeAll }) {
     return () => clearTimeout(timer);
   }, [emailCheck]);
 
+  /* ======================================================
+     ✅ LOGIN CLICK
+  ====================================================== */
+  const handleLogin = async () => {
+    if (!emailCheck || !password) return;
+
+    setLoggingIn(true);
+    try {
+      closeModal();
+      router.push(`/auth/login?email=${encodeURIComponent(emailCheck)}`);
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
   if (!open) return null;
 
+  /* ======================================================
+     ✅ UI CLASSES (SOFT PREMIUM)
+  ====================================================== */
+  const inputClass =
+    "w-full rounded-2xl bg-gray-50/70 px-4 py-3 text-sm outline-none " +
+    "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.10)] transition " +
+    "focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.18)]";
+
   return (
-    <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-[99999] flex justify-center items-center px-4 animate-fadeIn">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/30 backdrop-blur-[2px] px-4">
       <div
         ref={modalRef}
-        className="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 animate-fadeIn relative max-h-[90vh] overflow-y-auto [-webkit-overflow-scrolling:touch]"
+        className="relative w-full max-w-sm overflow-hidden rounded-[22px] bg-white shadow-[0_30px_80px_rgba(0,0,0,0.18)]"
       >
-        {/* CLOSE */}
-        <button
-          onClick={closeModal}
-          aria-label="Close"
-          className="absolute top-3 right-3 p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition"
-        >
-          <X size={20} />
-        </button>
+        {/* subtle top gradient */}
+        <div className="h-16 bg-gradient-to-b from-black/[0.06] to-transparent" />
 
-        {/* STEP 1 */}
-        {step === 1 && (
-          <>
-            <h2 className="text-2xl font-bold text-center text-black">
-              Welcome to Miray Fashions
-            </h2>
+        <div className="px-5 pb-6 -mt-10">
+          {/* CLOSE */}
+          <button
+            onClick={closeModal}
+            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/70 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] hover:bg-white transition"
+          >
+            <X size={16} />
+          </button>
 
-            <p className="text-sm text-gray-600 text-center mt-2 mb-4">
-              We’re glad you’re here — let’s get started.
-            </p>
+          {/* TITLE */}
+          <h2 className="text-lg font-bold text-center text-black">
+            Login / Sign up
+          </h2>
+          <p className="text-xs text-gray-500 text-center mt-1 mb-5">
+            Enter your email to continue.
+          </p>
 
-            <p className="text-xs text-gray-500 text-center mb-6">
-              Already a customer?{" "}
-              <button
-                onClick={() => {
-                  closeModal();
-                  router.push("/auth/login");
-                }}
-                className="text-black font-semibold underline underline-offset-2"
-              >
-                Login here
-              </button>
-            </p>
-
-            <button
-              onClick={() => setStep(2)}
-              className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-black/90 transition"
-            >
-              Login / Sign Up
-            </button>
-          </>
-        )}
-
-        {/* STEP 2 */}
-        {step === 2 && (
-          <>
-            <h2 className="text-xl font-bold text-center text-black">
-              Continue Your Journey
-            </h2>
-
-            <p className="text-xs text-gray-500 text-center mt-1 mb-4">
-              Choose a sign-in method.
-            </p>
-
-            {/* ✅ EMAIL CHECK INPUT */}
-            <div className="mb-4">
-              <label className="text-xs text-gray-600">Email</label>
-              <div className="relative mt-1">
-                <input
-                  value={emailCheck}
-                  onChange={(e) => setEmailCheck(e.target.value.trim().toLowerCase())}
-                  placeholder="Enter your email"
-                  className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-black"
+          {/* EMAIL */}
+          <div className="mb-4">
+            <label className="text-[11px] text-gray-600 block mb-1">
+              Email
+            </label>
+            <div className="relative">
+              <input
+                value={emailCheck}
+                onChange={(e) =>
+                  setEmailCheck(e.target.value.trim().toLowerCase())
+                }
+                placeholder="Enter your email"
+                className={inputClass}
+              />
+              {checkingEmail && (
+                <Loader2
+                  className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400"
+                  size={16}
                 />
-
-                {checkingEmail && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-500" size={18} />
-                )}
-              </div>
+              )}
             </div>
+          </div>
 
-            {/* ✅ EXISTING CUSTOMER WARNING */}
-            {existingCustomer && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center mb-4">
-                <p className="text-xs text-red-700 font-semibold">
-                  You already have an account.
-                </p>
-                <p className="text-[11px] text-red-600 mt-1">
-                  Please login instead of signing up again.
-                </p>
+          {/* PASSWORD */}
+          <div className="mb-5">
+            <label className="text-[11px] text-gray-600 block mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              className={inputClass}
+            />
+          </div>
 
-                <button
-                  onClick={() => {
-                    closeModal();
-                    router.push("/auth/login");
-                  }}
-                  className="mt-3 w-full bg-black text-white py-2 rounded-lg text-sm font-semibold hover:bg-black/90 transition"
-                >
-                  Login Now
-                </button>
-              </div>
-            )}
-
-            {/* ✅ Google */}
-            <div className={existingCustomer ? "opacity-40 pointer-events-none" : ""}>
-              <GoogleSignInButton />
-            </div>
-
-            <div className="flex items-center gap-3 my-5">
-              <span className="flex-1 h-px bg-gray-300"></span>
-              <span className="text-xs text-gray-500">OR</span>
-              <span className="flex-1 h-px bg-gray-300"></span>
-            </div>
-
-            {/* ✅ Continue with Email */}
-            <button
-              disabled={existingCustomer}
-              onClick={() => {
-                closeModal();
-                router.push("/auth/login");
-              }}
-              className={`w-full py-3 rounded-lg text-sm font-medium transition ${
-                existingCustomer
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+          {/* LOGIN */}
+          <button
+            disabled={!emailCheck || !password || loggingIn}
+            onClick={handleLogin}
+            className={`w-full rounded-2xl py-3 text-sm font-semibold transition shadow-[0_18px_35px_rgba(0,0,0,0.18)] active:scale-[0.99]
+              ${
+                !emailCheck || !password
+                  ? "bg-black/20 text-black/40 cursor-not-allowed shadow-none"
+                  : "bg-black text-white hover:opacity-95"
               }`}
-            >
-              Continue with Email
-            </button>
-          </>
-        )}
+          >
+            {loggingIn ? "Logging in..." : "Login"}
+          </button>
+
+          {/* FORGOT */}
+          <button
+            onClick={() => {
+              closeModal();
+              router.push(
+                `/auth/forgot-password?email=${encodeURIComponent(emailCheck || "")}`
+              );
+            }}
+            className="mt-4 text-xs text-gray-600 underline underline-offset-4 w-full text-center hover:text-black transition"
+          >
+            Forgot Password?
+          </button>
+
+          {/* OR */}
+          <div className="flex items-center gap-3 my-5">
+            <span className="flex-1 h-px bg-gray-200" />
+            <span className="text-[11px] text-gray-400">OR</span>
+            <span className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          {/* GOOGLE */}
+          <GoogleSignInButton />
+        </div>
       </div>
     </div>
   );
