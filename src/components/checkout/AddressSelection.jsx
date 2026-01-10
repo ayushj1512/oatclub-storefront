@@ -201,40 +201,45 @@ export default function AddressSelection({
      ✅ Check Customer by Email (Abort + Debounce Safe)
   ============================================================ */
   const checkCustomerByEmail = async (email) => {
-    try {
-      const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
-      if (!BACKEND) return;
+  try {
+    const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+    if (!BACKEND) return;
 
-      // ✅ Abort previous request if any
-      if (emailAbortRef.current) {
-        emailAbortRef.current.abort();
-      }
-
-      const controller = new AbortController();
-      emailAbortRef.current = controller;
-
-      setCheckingEmail(true);
-
-      const res = await fetch(
-        `${BACKEND}/api/customers?email=${encodeURIComponent(email)}`,
-        { signal: controller.signal }
-      );
-
-      const data = await res.json();
-
-      if (res.ok && data?.items?.length > 0) {
-        setExistingCustomer(true);
-      } else {
-        setExistingCustomer(false);
-      }
-    } catch (err) {
-      if (err?.name === "AbortError") return; // ✅ ignore abort
-      console.log("❌ Email check failed", err);
-      setExistingCustomer(false);
-    } finally {
-      setCheckingEmail(false);
+    // ✅ Abort previous request if any
+    if (emailAbortRef.current) {
+      emailAbortRef.current.abort();
     }
-  };
+
+    const controller = new AbortController();
+    emailAbortRef.current = controller;
+
+    setCheckingEmail(true);
+
+    // ✅ FIXED: hit correct endpoint
+    const res = await fetch(
+      `${BACKEND}/api/customers/exists?email=${encodeURIComponent(email)}`,
+      { signal: controller.signal }
+    );
+
+    const data = await res.json();
+
+    // ✅ FIXED: exists boolean based
+    if (res.ok && data?.exists) {
+      setExistingCustomer(true);
+    } else {
+      setExistingCustomer(false);
+    }
+  } catch (err) {
+    if (err?.name === "AbortError") return;
+    console.log("❌ Email check failed", err);
+    setExistingCustomer(false);
+  } finally {
+    setCheckingEmail(false);
+  }
+};
+
+
+
 useEffect(() => {
   if (showAddressForm) {
     resetFormUI();
