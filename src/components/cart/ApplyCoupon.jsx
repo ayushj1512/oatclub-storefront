@@ -26,8 +26,9 @@ export default function ApplyCoupon({ cartTotal }) {
     applyCoupon,
     removeCoupon,
     clearCouponMessages,
+    rehydrateCoupon, // ✅ IMPORTANT
 
-    // ✅ Suggestions (now works for guest too)
+    // ✅ Suggestions
     suggestedCoupons,
     isLoadingSuggestions,
     suggestionError,
@@ -36,10 +37,10 @@ export default function ApplyCoupon({ cartTotal }) {
 
   const hasCoupon = Boolean(coupon?.code);
 
-  // ✅ Always treat as guest (no auth dependency)
+  // ✅ Always treat as guest
   const customerId = "guest";
 
-  // ✅ Load suggestions for everyone (guest-friendly)
+  // ✅ Load suggestions
   const loadSuggestions = useCallback(() => {
     if (cartTotal == null || cartTotal <= 0 || hasCoupon) return;
     fetchSuggestedCoupons({ customerId, cartTotal });
@@ -48,6 +49,21 @@ export default function ApplyCoupon({ cartTotal }) {
   useEffect(() => {
     loadSuggestions();
   }, [loadSuggestions]);
+
+  // ✅ 1) If cart total becomes invalid -> reset coupon + clear localStorage
+  useEffect(() => {
+    if (hasCoupon && (!cartTotal || cartTotal <= 0)) {
+      removeCoupon();
+      useCouponStore.persist.clearStorage(); // ✅ clear persisted coupon code
+    }
+  }, [hasCoupon, cartTotal, removeCoupon]);
+
+  // ✅ 2) If coupon exists (persisted) but discount is 0 -> rehydrate
+  useEffect(() => {
+    if (hasCoupon && cartTotal > 0 && Number(discount || 0) === 0) {
+      rehydrateCoupon?.({ customerId, cartTotal });
+    }
+  }, [hasCoupon, cartTotal, discount, rehydrateCoupon]);
 
   const onApply = async (applyCode = code) => {
     const finalCode = String(applyCode || "").trim();
@@ -59,7 +75,7 @@ export default function ApplyCoupon({ cartTotal }) {
 
       await applyCoupon({
         code: finalCode,
-        customerId, // ✅ guest
+        customerId,
         cartTotal,
       });
 
@@ -70,12 +86,15 @@ export default function ApplyCoupon({ cartTotal }) {
     }
   };
 
-  const onRemove = () => {
+  const onRemove = async () => {
     removeCoupon();
     clearCouponMessages?.();
     setCode("");
 
-    // ✅ refresh suggestions after removing coupon
+    // ✅ Clear persisted coupon too
+    await useCouponStore.persist.clearStorage();
+
+    // ✅ Refresh suggestions after removing
     setTimeout(() => loadSuggestions(), 50);
   };
 
@@ -136,7 +155,7 @@ export default function ApplyCoupon({ cartTotal }) {
             </button>
           </div>
 
-          {/* ✅ Suggested Coupons (Guest + Logged-in) */}
+          {/* ✅ Suggested Coupons */}
           <div className="mt-3">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-semibold text-gray-700">

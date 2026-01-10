@@ -16,6 +16,7 @@ import {
 import { useBlogStore } from "@/store/blogStore";
 import RecommendedProducts from "@/components/blog/RecommendedProducts";
 import RelatedBlogs from "@/components/blog/RelatedBlogs";
+import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 
 /* -------------------------------------------------------
    BLOG CONTENT SANITIZER
@@ -50,7 +51,6 @@ const getPid = (p) => {
   if (typeof id === "object") return "";
 
   return String(id || "").trim();
-  
 };
 
 export default function BlogDetailPage({ params }) {
@@ -100,8 +100,8 @@ export default function BlogDetailPage({ params }) {
   /* ---------------- LOADING ---------------- */
   if (loading && !currentBlog) {
     return (
-      <div className="py-32 text-center text-gray-600 text-lg">
-        Loading blog...
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <UniversalLuxuryLoader />
       </div>
     );
   }
@@ -109,7 +109,7 @@ export default function BlogDetailPage({ params }) {
   /* ---------------- ERROR ---------------- */
   if (error && !currentBlog) {
     return (
-      <div className="py-32 text-center text-red-600 text-lg">
+      <div className="min-h-screen flex items-center justify-center text-red-600 text-lg bg-white">
         Failed to load blog.
       </div>
     );
@@ -118,7 +118,7 @@ export default function BlogDetailPage({ params }) {
   /* ---------------- NOT FOUND ---------------- */
   if (!loading && !currentBlog) {
     return (
-      <div className="py-32 text-center text-gray-700 text-xl">
+      <div className="min-h-screen flex items-center justify-center text-gray-700 text-xl bg-white">
         Blog not found.
       </div>
     );
@@ -254,12 +254,11 @@ export default function BlogDetailPage({ params }) {
       {/* ================= RECOMMENDED PRODUCTS ================= */}
       <div className="mt-20">
         <RecommendedProducts
-  productIds={productIds}
-  tags={blog.tags}
-  category={blog.category}
-  limit={10}
-/>
-
+          productIds={productIds}
+          tags={blog.tags}
+          category={blog.category}
+          limit={10}
+        />
       </div>
 
       {/* ================= RELATED BLOGS ================= */}

@@ -10,9 +10,21 @@ const money = (n) =>
   Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0";
 
 const getImageSrc = (item) => {
-  const c = [item?.image, item?.thumbnail, item?.images?.[0]?.src, item?.images?.[0]];
+  const c = [
+    item?.image,
+    item?.thumbnail,
+    item?.images?.[0]?.src,
+    item?.images?.[0],
+    item?.productSnapshot?.thumbnail,
+    item?.productSnapshot?.images?.[0],
+  ];
   const src = c.find((v) => typeof v === "string" && v.trim());
   return src || null;
+};
+
+const toNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 };
 
 /* ---------- UI bits ---------- */
@@ -33,6 +45,32 @@ export default function OrderSummary({
   showSummary,
   setShowSummary,
 }) {
+  /* ---------- totals (MRP + savings) ---------- */
+  const totalMrp = useMemo(() => {
+    return (items || []).reduce((sum, it) => {
+      const qty = Math.max(1, toNum(it?.qty ?? it?.quantity ?? 1));
+      const price = toNum(it?.price ?? it?.productSnapshot?.price ?? 0);
+      const mrp = toNum(
+        it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0
+      );
+
+      const use = mrp > price ? mrp : price; // fallback if compare missing
+      return sum + use * qty;
+    }, 0);
+  }, [items]);
+
+  const totalSavings = useMemo(() => {
+    return (items || []).reduce((sum, it) => {
+      const qty = Math.max(1, toNum(it?.qty ?? it?.quantity ?? 1));
+      const price = toNum(it?.price ?? it?.productSnapshot?.price ?? 0);
+      const mrp = toNum(
+        it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0
+      );
+
+      return sum + (mrp > price ? (mrp - price) * qty : 0);
+    }, 0);
+  }, [items]);
+
   return (
     <>
       <GlassCard className="p-4 sm:p-5">
@@ -44,7 +82,9 @@ export default function OrderSummary({
         >
           <div className="min-w-0">
             <div className="text-sm text-gray-500">Step 1</div>
-            <div className="text-lg font-semibold text-gray-900">Order Summary</div>
+            <div className="text-lg font-semibold text-gray-900">
+              Order Summary
+            </div>
           </div>
           {showSummary ? <ChevronUp /> : <ChevronDown />}
         </button>
@@ -58,12 +98,33 @@ export default function OrderSummary({
                 <div className="space-y-3">
                   {items.map((item) => {
                     const src = getImageSrc(item);
-                    const qty = Number(item?.qty ?? item?.quantity ?? 1);
-                    const price = Number(item?.price ?? 0);
 
-                    const key = `${String(
-                      item?.productId || item?._id || item?.id || ""
-                    )}__${String(item?.variantId || "")}`;
+                    const qty = Math.max(
+                      1,
+                      toNum(item?.qty ?? item?.quantity ?? 1)
+                    );
+                    const price = toNum(
+                      item?.price ?? item?.productSnapshot?.price ?? 0
+                    );
+
+                    const mrp = toNum(
+                      item?.compareAtPrice ??
+                        item?.productSnapshot?.compareAtPrice ??
+                        0
+                    );
+
+                    const showMrp = mrp > price;
+                    const discountPercent = showMrp
+                      ? Math.round(((mrp - price) / mrp) * 100)
+                      : 0;
+
+                    // ✅ stable key
+                    const key = String(
+                      item?.__key ||
+                        `${String(item?.productId || item?._id || item?.id || "")}__${String(
+                          item?.variantId || ""
+                        )}`
+                    );
 
                     return (
                       <div
@@ -91,13 +152,53 @@ export default function OrderSummary({
                             <p className="truncate text-sm font-semibold text-black">
                               {item?.name || "Product"}
                             </p>
-                            <p className="text-xs text-black/60">Qty: {qty}</p>
+
+                            {/* ✅ variant info */}
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                              {item?.selectedSize && (
+                                <span className="text-[11px] rounded-xl bg-black/5 px-2 py-0.5 text-black/70">
+                                  Size: {String(item.selectedSize).toUpperCase()}
+                                </span>
+                              )}
+                              {item?.selectedColor && (
+                                <span className="text-[11px] rounded-xl bg-black/5 px-2 py-0.5 text-black/70">
+                                  Color:{" "}
+                                  {String(item.selectedColor).replace(/-/g, " ")}
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-black/60 mt-1">
+                              Qty: {qty}
+                            </p>
+
+                            {/* ✅ savings line */}
+                            {showMrp && (
+                              <p className="text-[12px] text-green-700 mt-0.5">
+                                You save ₹{money((mrp - price) * qty)}
+                              </p>
+                            )}
                           </div>
                         </div>
 
-                        <p className="shrink-0 tabular-nums text-sm font-semibold text-black">
-                          ₹{money(price * qty)}
-                        </p>
+                        {/* ✅ pricing block */}
+                        <div className="shrink-0 text-right">
+                          {showMrp && (
+                            <div className="text-[11px] text-black/50 line-through tabular-nums">
+                              ₹{money(mrp * qty)}
+                            </div>
+                          )}
+
+                          <div className="tabular-nums text-sm font-semibold text-black">
+                            ₹{money(price * qty)}
+                          </div>
+
+                          {discountPercent > 0 && (
+                            <div className="text-[11px] text-green-700 font-semibold">
+                              {discountPercent}% OFF
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -105,12 +206,33 @@ export default function OrderSummary({
 
                 {/* TOTALS */}
                 <div className="mt-4 rounded-2xl bg-white/70 p-4 shadow-[0_10px_25px_rgba(0,0,0,0.06)] space-y-2">
+                  {/* ✅ MRP Total */}
+                  {totalMrp > subtotal && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">MRP Total</span>
+                      <span className="font-semibold tabular-nums text-gray-900 line-through">
+                        ₹{money(totalMrp)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Subtotal */}
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Subtotal</span>
                     <span className="font-semibold tabular-nums text-gray-900">
                       ₹{money(subtotal)}
                     </span>
                   </div>
+
+                  {/* ✅ Savings */}
+                  {totalSavings > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">You Saved</span>
+                      <span className="font-semibold tabular-nums text-green-700">
+                        ₹{money(totalSavings)}
+                      </span>
+                    </div>
+                  )}
 
                   {/* ✅ COUPON SECTION */}
                   {/* <CheckoutCouponSection cartTotal={subtotal} /> */}

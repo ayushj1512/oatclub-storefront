@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/authStore";
 import { trackMeta } from "@/lib/meta/track.js"; // adjust path based on your project
 import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
+import { useCouponStore } from "@/store/couponStore"; // ✅ adjust path
 
 const KEY = "cart_products";
 
@@ -39,8 +40,27 @@ const extractColor = (variant) =>
 
 const cartKey = (item) => {
   const pid = str(item?.productId || item?.id || item?._id);
-  const vid = str(item?.variantId || item?.variant?._id || "");
-  return `${pid}__${vid}`; // ✅ variants separate in cart automatically
+
+  const vid = str(
+    item?.variantId ||
+    item?.variant?.variantId ||     // ✅ ADD THIS
+    item?.variant?._id || 
+    ""
+  );
+
+  return `${pid}__${vid}`;
+};
+
+const handleCouponOnCartUpdate = async () => {
+  try {
+    const couponStore = useCouponStore.getState();
+    if (couponStore?.isApplied?.()) {
+      await couponStore.clearPersistedCoupon(); 
+      // ✅ removes coupon + clears localStorage so reload pe rehydrate bhi nahi hoga
+    }
+  } catch (e) {
+    console.warn("⚠️ Failed to clear coupon after cart update", e);
+  }
 };
 
 const getDisplayName = (p) => p?.name || p?.title || "Item";
@@ -77,9 +97,15 @@ const buildCartItem = ({
   let variant = null;
   const variants = Array.isArray(product.variants) ? product.variants : [];
 
+  /* ---------------- FIND VARIANT ---------------- */
+
   // ✅ 1) If variantId passed → direct match
   if (variantId) {
-    variant = variants.find((v) => str(v?._id) === str(variantId)) || null;
+    variant =
+      variants.find((v) => str(v?._id) === str(variantId)) || null;
+
+    // ✅ normalize variantId if variant found
+    variantId = variant?._id ? str(variant._id) : str(variantId);
   }
 
   // ✅ 2) Else match using size + color
@@ -101,35 +127,45 @@ const buildCartItem = ({
     variantId = variant?._id ? str(variant._id) : null;
   }
 
-  // ✅ enforce: variable must have variantId
-  if (productType === "variable" && !variantId)
-    return { __error: "variant_required" };
+  /* ---------------- ENFORCE RULES ---------------- */
 
   // ✅ enforce: variable must match a real variant
-if (productType === "variable" && !variant) {
-  return { __error: "variant_not_found" };
-}
+  if (productType === "variable" && !variant) {
+    return { __error: "variant_not_found" };
+  }
 
-// ✅ enforce: variable must have variantId
-if (productType === "variable" && !variantId) {
-  return { __error: "variant_required" };
-}
+  // ✅ enforce: variable must have variantId
+  if (productType === "variable" && !variantId) {
+    return { __error: "variant_required" };
+  }
+
+  /* ---------------- PRICING ---------------- */
 
   const unitPrice =
     variant && toNum(variant.price) > 0
       ? toNum(variant.price)
       : toNum(product.price);
 
+  // ✅ compareAtPrice with smart fallback
   const compareAtPrice =
     variant?.compareAtPrice != null
       ? toNum(variant.compareAtPrice)
-      : product.compareAtPrice != null
+      : variant?.mrp != null
+      ? toNum(variant.mrp)
+      : variant?.regularPrice != null
+      ? toNum(variant.regularPrice)
+      : product?.compareAtPrice != null
       ? toNum(product.compareAtPrice)
+      : product?.mrp != null
+      ? toNum(product.mrp)
+      : product?.regularPrice != null
+      ? toNum(product.regularPrice)
       : null;
 
   const safeQty = Math.max(1, toNum(qty) || 1);
 
-  // ✅ snapshot (for order / debug)
+  /* ---------------- SNAPSHOT ---------------- */
+
   const snapshot = {
     productCode: str(product.productCode),
     title: str(product.name || product.title),
@@ -143,6 +179,10 @@ if (productType === "variable" && !variantId) {
     tags: Array.isArray(product.tags) ? product.tags : [],
     weight: toNum(product.weight),
     currency: str(product.currency || "INR"),
+
+    // ✅ store these for easy cart UI rendering
+    price: unitPrice,
+    compareAtPrice,
   };
 
   const variantSnapshot = variantId
@@ -156,18 +196,31 @@ if (productType === "variable" && !variantId) {
           : [],
         image: str(variant?.image || snapshot.thumbnail || ""),
         weight: toNum(variant?.weight),
+
+        // ✅ optional store for variant-level UI/debug
+        price: variant?.price != null ? toNum(variant.price) : null,
+        compareAtPrice:
+          variant?.compareAtPrice != null
+            ? toNum(variant.compareAtPrice)
+            : variant?.mrp != null
+            ? toNum(variant.mrp)
+            : null,
       }
     : null;
+
+  /* ---------------- FINAL ITEM ---------------- */
 
   const item = {
     productId,
     productType,
+
     variantId: variantSnapshot?.variantId || null,
     quantity: safeQty,
 
     name: snapshot.title,
     slug: snapshot.slug,
     image: snapshot.thumbnail,
+
     price: unitPrice,
     compareAtPrice,
 
@@ -190,9 +243,12 @@ if (productType === "variable" && !variantId) {
     __key: "",
   };
 
-  item.__key = cartKey(item);
+  // ✅ IMPORTANT: key must always be productId__variantId
+  item.__key = `${productId}__${str(item.variantId || "")}`;
+
   return item;
 };
+
 
 
 const getCartCurrency = (item, fallback = "INR") =>
@@ -235,31 +291,65 @@ initialize: () => {
   if (stored) {
     try {
       const data = JSON.parse(stored);
+
       if (Array.isArray(data)) {
         const normalized = data
           .map((it) => {
             const productId = str(it.productId || it.id || it._id);
-           const variantId =
-  it.variantId
-    ? str(it.variantId)
-    : it?.variant?.variantId
-    ? str(it.variant.variantId)
-    : null;
+
+            // ✅ normalize variantId with more fallbacks
+            const variantId =
+              it.variantId
+                ? str(it.variantId)
+                : it?.variant?.variantId
+                ? str(it.variant.variantId)
+                : it?.variant?._id
+                ? str(it.variant._id)
+                : null;
+
+            const quantity = Math.max(1, toNum(it.quantity || it.qty || 1));
+
+            // ✅ normalize prices (fallbacks)
+            const price = toNum(
+              it.price ??
+                it?.productSnapshot?.price ??
+                it?.variant?.price ??
+                it?.product?.price ??
+                0
+            );
+
+            const compareAtPrice =
+              it.compareAtPrice != null
+                ? toNum(it.compareAtPrice)
+                : it?.productSnapshot?.compareAtPrice != null
+                ? toNum(it.productSnapshot.compareAtPrice)
+                : it?.variant?.compareAtPrice != null
+                ? toNum(it.variant.compareAtPrice)
+                : it?.variant?.mrp != null
+                ? toNum(it.variant.mrp)
+                : it?.product?.compareAtPrice != null
+                ? toNum(it.product.compareAtPrice)
+                : it?.product?.mrp != null
+                ? toNum(it.product.mrp)
+                : null;
+
+            // ✅ always regenerate correct key
+            const __key = `${productId}__${variantId || ""}`;
 
             return {
               ...it,
 
-              // ✅ normalize ids + qty
               productId,
               variantId,
-              quantity: Math.max(1, toNum(it.quantity || it.qty || 1)),
+              quantity,
 
-              // ✅ normalize selections
+              price,
+              compareAtPrice,
+
               selectedSize: str(it.selectedSize || ""),
               selectedColor: str(it.selectedColor || ""),
 
-              // ✅ ensure key always exists
-              __key: it.__key || `${productId}__${variantId || ""}`,
+              __key,
             };
           })
           .map((it) => ({
@@ -268,6 +358,8 @@ initialize: () => {
           }));
 
         set({ items: normalized });
+Cookies.set(KEY, JSON.stringify(normalized), { expires: 7 }); // ✅ rewrite clean cookie
+
       }
     } catch (e) {
       console.error("❌ Cart cookie parse error:", e);
@@ -277,39 +369,75 @@ initialize: () => {
   /* ---------------- RESTORE BUY NOW ITEM ---------------- */
   const buyNowStored = Cookies.get("buy_now_item");
 
- if (buyNowStored) {
-  try {
-    const buyNowItem = JSON.parse(buyNowStored);
+  if (buyNowStored) {
+    try {
+      const buyNowItem = JSON.parse(buyNowStored);
 
-    if (buyNowItem && typeof buyNowItem === "object") {
-      const productId = str(buyNowItem.productId || buyNowItem.id || buyNowItem._id);
-      const variantId =
-  buyNowItem.variantId
-    ? str(buyNowItem.variantId)
-    : buyNowItem?.variant?.variantId
-    ? str(buyNowItem.variant.variantId)
-    : null;
+      if (buyNowItem && typeof buyNowItem === "object") {
+        const productId = str(
+          buyNowItem.productId || buyNowItem.id || buyNowItem._id
+        );
 
+        const variantId =
+          buyNowItem.variantId
+            ? str(buyNowItem.variantId)
+            : buyNowItem?.variant?.variantId
+            ? str(buyNowItem.variant.variantId)
+            : buyNowItem?.variant?._id
+            ? str(buyNowItem.variant._id)
+            : null;
 
-      const normalizedBuyNow = {
-        ...buyNowItem,
-        productId,
-        variantId,
-        quantity: Math.max(1, toNum(buyNowItem.quantity || buyNowItem.qty || 1)),
-        selectedSize: str(buyNowItem.selectedSize || ""),
-        selectedColor: str(buyNowItem.selectedColor || ""),
-        __key: buyNowItem.__key || `${productId}__${variantId || ""}`,
-      };
+        const quantity = Math.max(
+          1,
+          toNum(buyNowItem.quantity || buyNowItem.qty || 1)
+        );
 
-      set({ buyNowItem: normalizedBuyNow });
+        const price = toNum(
+          buyNowItem.price ??
+            buyNowItem?.productSnapshot?.price ??
+            buyNowItem?.variant?.price ??
+            0
+        );
+
+        const compareAtPrice =
+          buyNowItem.compareAtPrice != null
+            ? toNum(buyNowItem.compareAtPrice)
+            : buyNowItem?.productSnapshot?.compareAtPrice != null
+            ? toNum(buyNowItem.productSnapshot.compareAtPrice)
+            : buyNowItem?.variant?.compareAtPrice != null
+            ? toNum(buyNowItem.variant.compareAtPrice)
+            : buyNowItem?.variant?.mrp != null
+            ? toNum(buyNowItem.variant.mrp)
+            : null;
+
+        const normalizedBuyNow = {
+          ...buyNowItem,
+
+          productId,
+          variantId,
+          quantity,
+
+          price,
+          compareAtPrice,
+
+          selectedSize: str(buyNowItem.selectedSize || ""),
+          selectedColor: str(buyNowItem.selectedColor || ""),
+
+          __key: `${productId}__${variantId || ""}`,
+        };
+
+       set({ buyNowItem: normalizedBuyNow });
+Cookies.set("buy_now_item", JSON.stringify(normalizedBuyNow), { expires: 1 }); // ✅ rewrite clean cookie
+
+      }
+    } catch (e) {
+      console.error("❌ BuyNow cookie parse error:", e);
+      Cookies.remove("buy_now_item");
     }
-  } catch (e) {
-    console.error("❌ BuyNow cookie parse error:", e);
-    Cookies.remove("buy_now_item");
   }
-}
-
 },
+
+
 
 
 setBuyNow: ({ product, qty = 1, variantId = null, selectedSize = null, selectedColor = null }) => {
@@ -377,13 +505,30 @@ if (built.__error === "variant_not_found") {
           toNum(p.quantity || 1) + toNum(built.quantity || 1)
         );
 
-        return { ...p, ...built, quantity: nextQty, __key: pk };
+        return {
+  ...p,
+  ...built,
+
+  // ✅ preserve old compareAtPrice if new one missing
+  compareAtPrice:
+    built.compareAtPrice != null ? built.compareAtPrice : p.compareAtPrice,
+
+  // ✅ preserve old price if new one missing
+  price: built.price != null ? built.price : p.price,
+
+  quantity: nextQty,
+  __key: pk,
+};
+
       })
     : [{ ...built }, ...curr];
 
   /* ---------------- SAVE CART ---------------- */
   set({ items: updated });
-  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+await handleCouponOnCartUpdate();
+
 
   const newQty =
     updated.find((p) => (p.__key || cartKey(p)) === key)?.quantity ||
@@ -528,6 +673,7 @@ getCheckoutPayload: () => {
 
   set({ items: updated });
   Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+await handleCouponOnCartUpdate();
 
   removed ? notify.cartRemoved?.(removed) : notify.info?.(`Removed item`);
 
@@ -622,7 +768,7 @@ decreaseQty: (idOrKey, variantId = null) => {
 
 
   /* ---------------- UPDATE QTY ---------------- */
-  updateQty: (idOrKey, qty, variantId = null) => {
+  updateQty: async (idOrKey, qty, variantId = null) => {
   let nextQty = toNum(qty);
   const curr = get().items || [];
 
@@ -641,12 +787,17 @@ decreaseQty: (idOrKey, variantId = null) => {
 
     set({ items: updated });
     Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+    // ✅ cart updated -> coupon clear
+    await handleCouponOnCartUpdate();
+
     notify.cartRemoved?.(item);
 
     // ✅ GA4 remove_from_cart (full qty removed)
     try {
       const price = toNum(item.price);
       const currency = str(item?.productSnapshot?.currency || "INR") || "INR";
+
       pushEcomEvent("remove_from_cart", {
         currency,
         value: price * prevQty,
@@ -656,14 +807,22 @@ decreaseQty: (idOrKey, variantId = null) => {
       console.warn("📈 GA4 qty->remove failed", e);
     }
 
-    // Abandoned snapshot
+    // ✅ Abandoned snapshot
     try {
       const abandoned = useAbandonedCartStore.getState();
       const auth = useAuthStore.getState();
+
       abandoned.upsertCart({
         cartId: auth.activeCartId || "",
-        items: updated.map((it) => ({ productId: it.productId, variantId: it.variantId || null, qty: it.quantity })),
-        context: { lastPageUrl: window.location.href, device: window.innerWidth < 768 ? "mobile" : "desktop" },
+        items: updated.map((it) => ({
+          productId: it.productId,
+          variantId: it.variantId || null,
+          qty: it.quantity,
+        })),
+        context: {
+          lastPageUrl: window.location.href,
+          device: window.innerWidth < 768 ? "mobile" : "desktop",
+        },
       });
     } catch (e) {
       console.warn("🛒 Abandoned snapshot failed (qty->remove)", e);
@@ -682,11 +841,16 @@ decreaseQty: (idOrKey, variantId = null) => {
 
   set({ items: updated });
   Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+  // ✅ cart updated -> coupon clear (IMPORTANT ✅)
+  await handleCouponOnCartUpdate();
+
   notify.cartQtyUpdated?.(item, nextQty);
 
   /* ✅ GA4 delta tracking */
   try {
     const delta = nextQty - prevQty;
+
     if (delta !== 0) {
       const price = toNum(item.price);
       const currency = str(item?.productSnapshot?.currency || "INR") || "INR";
@@ -703,14 +867,22 @@ decreaseQty: (idOrKey, variantId = null) => {
     console.warn("📈 GA4 updateQty delta failed", e);
   }
 
-  // Abandoned snapshot
+  // ✅ Abandoned snapshot
   try {
     const abandoned = useAbandonedCartStore.getState();
     const auth = useAuthStore.getState();
+
     abandoned.upsertCart({
       cartId: auth.activeCartId || "",
-      items: updated.map((it) => ({ productId: it.productId, variantId: it.variantId || null, qty: it.quantity })),
-      context: { lastPageUrl: window.location.href, device: window.innerWidth < 768 ? "mobile" : "desktop" },
+      items: updated.map((it) => ({
+        productId: it.productId,
+        variantId: it.variantId || null,
+        qty: it.quantity,
+      })),
+      context: {
+        lastPageUrl: window.location.href,
+        device: window.innerWidth < 768 ? "mobile" : "desktop",
+      },
     });
   } catch (e) {
     console.warn("🛒 Abandoned snapshot failed (updateQty)", e);
@@ -719,16 +891,20 @@ decreaseQty: (idOrKey, variantId = null) => {
 
 
 
+
   /* ---------------- CLEAR ---------------- */
-  clearCart: () => {
+  clearCart: async () => {
   set({ items: [] });
   Cookies.remove(KEY);
+
+  // ✅ coupon remove + clear persisted
+  await handleCouponOnCartUpdate();
+
   notify.cartCleared?.();
 
   // ✅ DON'T touch buyNowItem here
-
-  
 },
+
 
 completeCheckout: () => {
   set({ buyNowItem: null });
@@ -744,6 +920,27 @@ completeCheckout: () => {
   /* ---------------- ORDER PAYLOAD ----------------
      ✅ use this in checkout when hitting POST /api/orders
   */
+
+     totalCompareAtPrice: () =>
+  (get().items || []).reduce((sum, it) => {
+    const cap = toNum(it.compareAtPrice);
+    const p = toNum(it.price);
+    const qty = toNum(it.quantity || 0);
+
+    const use = cap > p ? cap : p; // fallback if compareAtPrice missing
+    return sum + use * qty;
+  }, 0),
+
+totalSavings: () =>
+  (get().items || []).reduce((sum, it) => {
+    const cap = toNum(it.compareAtPrice);
+    const p = toNum(it.price);
+    const qty = toNum(it.quantity || 0);
+
+    return sum + (cap > p ? (cap - p) * qty : 0);
+  }, 0),
+
+  
   toOrderItems: () =>
     (get().items || []).map((it) => ({
       productId: it.productId,

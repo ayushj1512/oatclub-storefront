@@ -45,7 +45,9 @@ export default function MobileHeader() {
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const lastViewCartRef = useRef({ key: null, at: 0 });
+
   const items = useCartStore((s) => s.items) || [];
+  const cartCount = useCartStore((s) => s.totalCount());
 
   const fireViewCart = useCallback(async () => {
     try {
@@ -198,13 +200,28 @@ export default function MobileHeader() {
 
             <WishlistButton size={22} />
 
+            {/* ✅ CART WITH BADGE */}
             <button
               type="button"
               aria-label="Cart"
               onClick={handleCartClick}
-              className="text-black transition hover:opacity-70"
+              className="relative text-black transition hover:opacity-70"
             >
               <ShoppingBag size={22} />
+
+              {cartCount > 0 && (
+                <span
+                  className="
+                    absolute -top-2 -right-2
+                    flex items-center justify-center
+                    min-w-[18px] h-[18px]
+                    rounded-full bg-black text-white
+                    text-[10px] font-bold px-[5px]
+                  "
+                >
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </button>
 
             <Link

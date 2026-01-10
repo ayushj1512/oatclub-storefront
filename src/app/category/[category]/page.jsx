@@ -141,12 +141,16 @@ export default function CategoryPage() {
    * useLayoutEffect runs before browser paints, so old products never show.
    */
   useLayoutEffect(() => {
-    if (!ready) return;
+  if (!ready) return;
 
-    // category/sort change = clear immediately before paint
-    setDisplayProducts([]);
-    setIsInitialFetching(true);
-  }, [ready, category, sort]);
+  // ✅ clear error + list BEFORE paint (prevents flash)
+  clearError?.();
+
+  // category/sort change = clear immediately before paint
+  setDisplayProducts([]);
+  setIsInitialFetching(true);
+}, [ready, category, sort, clearError]);
+
 
   // ✅ Fetch products when category/sort changes (NEW: category route)
   useEffect(() => {
@@ -171,12 +175,19 @@ export default function CategoryPage() {
   }, [ready, category, sort, fetchProductsByCategory, clearError]);
 
   // ✅ Sync store -> displayProducts only after loading ends
-  useEffect(() => {
-    if (isLoading) return;
+ useEffect(() => {
+  if (isLoading) return;
 
-    setDisplayProducts(Array.isArray(allProducts) ? allProducts : []);
+  // ✅ if error, keep old displayProducts so page doesn't blink empty
+  if (error) {
     setIsInitialFetching(false);
-  }, [isLoading, allProducts]);
+    return;
+  }
+
+  setDisplayProducts(Array.isArray(allProducts) ? allProducts : []);
+  setIsInitialFetching(false);
+}, [isLoading, allProducts, error]);
+
 
   // ✅ Apply filters
   const applyFilters = () => {
@@ -343,19 +354,19 @@ export default function CategoryPage() {
           hideFilterButton={true}
         />
 
-        {/* Error */}
-        {error && (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
-            <div className="font-semibold">Something went wrong</div>
-            <div className="text-sm mt-1">{error}</div>
-            <button
-              onClick={retry}
-              className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
-            >
-              Retry
-            </button>
-          </div>
-        )}
+        {!showInitialLoading && error && (
+  <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+    <div className="font-semibold">Something went wrong</div>
+    <div className="text-sm mt-1">{error}</div>
+    <button
+      onClick={retry}
+      className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
+    >
+      Retry
+    </button>
+  </div>
+)}
+
 
         {/* Products */}
         <div className="mt-6">

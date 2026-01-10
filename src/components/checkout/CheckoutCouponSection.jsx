@@ -24,8 +24,9 @@ export default function CheckoutCouponSection({ cartTotal }) {
     error,
     message,
     applyCoupon,
-    removeCoupon,
     clearCouponMessages,
+    rehydrateCoupon,
+    clearPersistedCoupon, // ✅ NEW (from updated store)
 
     // ✅ Suggestions
     suggestedCoupons,
@@ -36,19 +37,33 @@ export default function CheckoutCouponSection({ cartTotal }) {
 
   const hasCoupon = Boolean(coupon?.code);
 
-  // ✅ Guest friendly customerId (no auth needed)
+  // ✅ Guest friendly customerId
   const customerId = "guest";
 
-  // ✅ Stable function to fetch suggestions (works for guest too)
+  // ✅ Stable function to fetch suggestions
   const loadSuggestions = useCallback(() => {
     if (cartTotal == null || cartTotal <= 0 || hasCoupon) return;
     fetchSuggestedCoupons({ customerId, cartTotal });
   }, [cartTotal, fetchSuggestedCoupons, hasCoupon]);
 
-  // ✅ Fetch suggestions when cartTotal changes
+  // ✅ Fetch suggestions
   useEffect(() => {
     loadSuggestions();
   }, [loadSuggestions]);
+
+  // ✅ 1) If cart becomes invalid/empty -> clear coupon + storage
+  useEffect(() => {
+    if (hasCoupon && (!cartTotal || cartTotal <= 0)) {
+      clearPersistedCoupon?.();
+    }
+  }, [hasCoupon, cartTotal, clearPersistedCoupon]);
+
+  // ✅ 2) If coupon exists but discount is 0 -> rehydrate
+  useEffect(() => {
+    if (hasCoupon && cartTotal > 0 && Number(discount || 0) === 0) {
+      rehydrateCoupon?.({ customerId, cartTotal });
+    }
+  }, [hasCoupon, cartTotal, discount, rehydrateCoupon]);
 
   const onApply = async (applyCode = code) => {
     const finalCode = String(applyCode || "").trim();
@@ -61,7 +76,7 @@ export default function CheckoutCouponSection({ cartTotal }) {
 
       await applyCoupon({
         code: formatted,
-        customerId, // ✅ guest
+        customerId,
         cartTotal,
       });
 
@@ -69,16 +84,13 @@ export default function CheckoutCouponSection({ cartTotal }) {
       setClickedCode(null);
     } catch {
       setClickedCode(null);
-      /* handled in store */
     }
   };
 
-  const onRemove = () => {
-    removeCoupon();
+  const onRemove = async () => {
     clearCouponMessages?.();
     setCode("");
-
-    // ✅ refresh suggestions after removing coupon
+    await clearPersistedCoupon?.(); // ✅ state + localStorage both clear
     setTimeout(() => loadSuggestions(), 50);
   };
 
@@ -148,7 +160,7 @@ export default function CheckoutCouponSection({ cartTotal }) {
             </button>
           </div>
 
-          {/* ✅ Coupon Suggestions (Guest + Logged-in both) */}
+          {/* Suggested Coupons */}
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-semibold text-gray-800">

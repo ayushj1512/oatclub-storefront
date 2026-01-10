@@ -19,6 +19,7 @@ import ReviewSection from "@/components/productDetail/ReviewSection";
 import SupportSection from "@/components/productDetail/SupportSection";
 import RecentlyViewedProducts from "@/components/productDetail/RecentlyViewedProducts"
 import ColorSelector from "@/components/productDetail/ColorSelector";
+import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 
 const BRAND = {  black: "#111111" };
 
@@ -625,8 +626,23 @@ const link = typeof window !== "undefined" ? window.location.href : "";
     } catch {}
   };
 
-  if (loading || storeLoading) return <div className="p-10 text-center text-gray-500 text-sm">Loading...</div>;
-  if (!product) return <div className="p-10 text-center text-gray-500 text-sm">Product not found</div>;
+  if (loading || storeLoading) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <UniversalLuxuryLoader />
+    </div>
+  );
+}
+
+ if (!product) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <p className="text-xs tracking-[0.4em] uppercase text-black/60">
+        Product not found
+      </p>
+    </div>
+  );
+}
 
   return (
     <div className="w-full px-4 md:px-12 py-6 md:py-12">

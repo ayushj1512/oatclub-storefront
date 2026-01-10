@@ -66,11 +66,14 @@ export default function CartPage() {
   const pathname = usePathname();
   const lastViewCartRef = useRef({ key: null, at: 0 });
   const skipAbandonRef = useRef(false);
-const { decreaseQty, updateQty, removeFromCart } = useCartStore();
+  const { decreaseQty, updateQty, removeFromCart } = useCartStore();
 
   const items = useCartStore((s) => s.items) || [];
   const initialize = useCartStore((s) => s.initialize);
   const totalPriceFn = useCartStore((s) => s.totalPrice);
+  const totalCompareAtPriceFn = useCartStore((s) => s.totalCompareAtPrice);
+  const totalSavingsFn = useCartStore((s) => s.totalSavings);
+
   const updateQtyFn = useCartStore((s) => s.updateQty);
   const removeFn = useCartStore((s) => s.removeFromCart);
 
@@ -85,14 +88,23 @@ const { decreaseQty, updateQty, removeFromCart } = useCartStore();
 
   const hasCoupon = Boolean(coupon?.code);
 
-useEffect(() => {
-  // ✅ only hydrate if items are empty (avoid overwrite after addToCart)
-  if (!items?.length) initialize?.();
-  initAuth?.();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+  useEffect(() => {
+    // ✅ only hydrate if items are empty (avoid overwrite after addToCart)
+    if (!items?.length) initialize?.();
+    initAuth?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const subtotal = useMemo(() => (typeof totalPriceFn === "function" ? totalPriceFn() : 0), [totalPriceFn, items?.length]);
+  const totalCompareAt = useMemo(
+    () => (typeof totalCompareAtPriceFn === "function" ? totalCompareAtPriceFn() : 0),
+    [totalCompareAtPriceFn, items?.length]
+  );
+
+  const totalSavings = useMemo(
+    () => (typeof totalSavingsFn === "function" ? totalSavingsFn() : 0),
+    [totalSavingsFn, items?.length]
+  );
 
   const payableTotal = useMemo(() => {
     if (hasCoupon && couponFinalTotal != null) return Number(couponFinalTotal) || 0;
@@ -103,33 +115,33 @@ useEffect(() => {
 
   const isLoggedIn = Boolean(user?.uid && customer?._id);
 
-const itemKey = (item) =>
-  String(
-    item?.__key ||
+  const itemKey = (item) =>
+    String(
+      item?.__key ||
       `${String(item?.productId || item?.id || "")}__${String(item?.variantId || "")}`
-  );
+    );
 
   const updateQtySafe = (item, nextQty) => {
-  const qty = Math.max(1, Number(nextQty || 1));
-  const key = itemKey(item); // ✅ always correct key
+    const qty = Math.max(1, Number(nextQty || 1));
+    const key = itemKey(item); // ✅ always correct key
 
-  try {
-    updateQtyFn?.(key, qty);
-  } catch {
-    updateQtyFn?.(item?.productId || item?.id, qty, item?.variantId);
-  }
-};
+    try {
+      updateQtyFn?.(key, qty);
+    } catch {
+      updateQtyFn?.(item?.productId || item?.id, qty, item?.variantId);
+    }
+  };
 
 
-const removeSafe = (item) => {
-  const key = itemKey(item);
+  const removeSafe = (item) => {
+    const key = itemKey(item);
 
-  try {
-    removeFn?.(key);
-  } catch {
-    removeFn?.(item?.productId || item?.id, item?.variantId);
-  }
-};
+    try {
+      removeFn?.(key);
+    } catch {
+      removeFn?.(item?.productId || item?.id, item?.variantId);
+    }
+  };
 
 
   const getLineUnitPrice = (item) => {
@@ -171,7 +183,7 @@ const removeSafe = (item) => {
 
       const contents = items
         .map((it) => {
-         const id = itemKey(it); // ✅ productId__variantId unique
+          const id = it?.productId || it?.productSnapshot?.sku;
           if (!id) return null;
           const quantity = Number(it?.qty ?? it?.quantity ?? 1) || 1;
           const item_price = Number(it?.price ?? 0) || 0;
@@ -190,7 +202,7 @@ const removeSafe = (item) => {
 
       pushEcomEvent("view_cart", { currency: "INR", value, items: items.slice(0, 50).map(ga4CartItem) });
 
-      Promise.resolve(trackMeta("ViewCart", { currency: "INR", value, content_type: "product", content_ids: contents.map((c) => c.id), contents, num_items: contents.reduce((s, c) => s + (c.quantity || 0), 0) })).catch(() => {});
+      Promise.resolve(trackMeta("ViewCart", { currency: "INR", value, content_type: "product", content_ids: contents.map((c) => c.id), contents, num_items: contents.reduce((s, c) => s + (c.quantity || 0), 0) })).catch(() => { });
     } catch (e) {
       console.warn("view_cart failed", e);
     }
@@ -224,14 +236,14 @@ const removeSafe = (item) => {
               </Link>
 
               <button
-  type="button"
-  disabled={!items.length}
-  onClick={goCheckout}
-  className="inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
-  style={{ backgroundColor: BRAND }}
->
-  Checkout
-</button>
+                type="button"
+                disabled={!items.length}
+                onClick={goCheckout}
+                className="inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
+                style={{ backgroundColor: BRAND }}
+              >
+                Checkout
+              </button>
 
             </div>
           </div>
@@ -259,73 +271,190 @@ const removeSafe = (item) => {
               ) : (
                 <div className="divide-y divide-black/5">
                   {items.map((item) => {
-                    const src = getImageSrc(item);
-                    const qty = Math.max(1, Number(item?.qty ?? item?.quantity ?? 1));
-                    const price = getLineUnitPrice(item);
-                    const name = getItemName(item);
+  const src = getImageSrc(item);
+  const qty = Math.max(1, Number(item?.qty ?? item?.quantity ?? 1));
+  const price = getLineUnitPrice(item);
 
-                    return (
-                      <div key={itemKey(item)} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div className="relative w-[84px] h-[104px] sm:w-[92px] sm:h-28 overflow-hidden rounded-[18px] bg-black/4 border border-black/5 shadow-[0_10px_18px_rgba(0,0,0,0.05)]">
-                            {src ? <Image src={src} alt={name} fill className="object-cover" sizes="(max-width: 640px) 84px, 92px" /> : <div className="w-full h-full grid place-items-center text-[11px] text-gray-500">No image</div>}
-                          </div>
+  const mrp =
+    Number(item?.compareAtPrice ?? item?.productSnapshot?.compareAtPrice ?? 0) ||
+    0;
+  const showMrp = mrp > price;
+  const discountPercent = showMrp
+    ? Math.round(((mrp - price) / mrp) * 100)
+    : 0;
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-sm sm:text-[15px] font-semibold text-gray-900 truncate">{name}</p>
-                                <div className="mt-1 flex flex-wrap items-center gap-2">
-{(item?.selectedSize || item?.variant?.size) && (
-  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
-    Size: {String(item?.selectedSize || item?.variant?.size).toUpperCase()}
-  </span>
-)}
-{item?.selectedColor && (
-  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700 flex items-center gap-1">
-    <span
-      className="h-3 w-3 rounded-full border border-black/10"
-      style={{ backgroundColor: item.selectedColor }}
-    />
-    Color: {String(item.selectedColor).replace(/-/g, " ")}
-  </span>
-)}
+  const name = getItemName(item);
 
-                                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">₹{money(price)} each</span>
-                                </div>
-                              </div>
+  // ✅ helper for slug
+  const slugify = (str = "") =>
+    String(str)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "");
 
-                              <button type="button" onClick={() => removeSafe(item)} className="sm:hidden grid place-items-center size-9 rounded-2xl border border-black/10 bg-white/70 hover:bg-white active:scale-[0.98] transition" aria-label="Remove from cart" title="Remove">
-                                <Trash2 className="w-4 h-4 text-gray-600" />
-                              </button>
-                            </div>
+  // ✅ product routing details
+  const productId = item?.productId || item?.id || item?._id;
+  const category = item?.productSnapshot?.category || "all";
+  const productName = slugify(name);
 
-                            <div className="mt-3 sm:hidden flex items-center justify-between">
-                              <QtyStepper value={qty} onDec={() => updateQtySafe(item, qty - 1)} onInc={() => updateQtySafe(item, qty + 1)} />
-                              <div className="text-right">
-                                <div className="text-[11px] text-gray-500">Total</div>
-                                <div className="text-base font-semibold tabular-nums" style={{ color: BRAND }}>₹{money(price * qty)}</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+  const goToProduct = () => {
+    if (!productId) return;
+    router.push(`/category/${slugify(category)}/${productName}/${productId}`);
+  };
 
-                        <div className="hidden sm:flex items-center justify-end gap-4 ml-auto">
-<QtyStepper
-  value={qty}
-  onDec={() => decreaseQty(itemKey(item))}
-  onInc={() => updateQtySafe(item, qty + 1)}
-/>                          <div className="text-right min-w-[120px]">
-                            <div className="text-xs text-gray-500">Total</div>
-                            <div className="text-lg font-semibold tabular-nums" style={{ color: BRAND }}>₹{money(price * qty)}</div>
-                          </div>
-                          <button type="button" onClick={() => removeSafe(item)} className="grid place-items-center size-10 rounded-2xl border border-black/10 bg-white/70 hover:bg-white active:scale-[0.98] transition" aria-label="Remove from cart" title="Remove">
-                            <Trash2 className="w-4 h-4 text-gray-600" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+  return (
+    <div
+      key={itemKey(item)}
+      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+    >
+      {/* ✅ CLICKABLE AREA */}
+      <div
+        onClick={goToProduct}
+        className="cursor-pointer flex items-center gap-4 min-w-0 flex-1"
+      >
+        <div className="relative w-[84px] h-[104px] sm:w-[92px] sm:h-28 overflow-hidden rounded-[18px] bg-black/4 border border-black/5 shadow-[0_10px_18px_rgba(0,0,0,0.05)]">
+          {src ? (
+            <Image
+              src={src}
+              alt={name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 640px) 84px, 92px"
+            />
+          ) : (
+            <div className="w-full h-full grid place-items-center text-[11px] text-gray-500">
+              No image
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm sm:text-[15px] font-semibold text-gray-900 truncate">
+                {name}
+              </p>
+
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                {(item?.selectedSize || item?.variant?.size) && (
+                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
+                    Size:{" "}
+                    {String(item?.selectedSize || item?.variant?.size).toUpperCase()}
+                  </span>
+                )}
+
+                {item?.selectedColor && (
+                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700 flex items-center gap-1">
+                    <span
+                      className="h-3 w-3 rounded-full border border-black/10"
+                      style={{ backgroundColor: item.selectedColor }}
+                    />
+                    Color: {String(item.selectedColor).replace(/-/g, " ")}
+                  </span>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {showMrp && (
+                    <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700 line-through">
+                      ₹{money(mrp)}
+                    </span>
+                  )}
+
+                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
+                    ₹{money(price)} each
+                  </span>
+
+                  {discountPercent > 0 && (
+                    <span className="text-[11px] px-2 py-1 rounded-xl bg-green-50 border border-green-200 text-green-700 font-semibold">
+                      {discountPercent}% OFF
+                    </span>
+                  )}
+                </div>
+
+                {showMrp && (
+                  <p className="text-[12px] text-green-700 mt-1">
+                    You save ₹{money((mrp - price) * qty)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* ✅ REMOVE BUTTON (mobile) with stopPropagation */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeSafe(item);
+              }}
+              className="sm:hidden grid place-items-center size-9 rounded-2xl border border-black/10 bg-white/70 hover:bg-white active:scale-[0.98] transition"
+              aria-label="Remove from cart"
+              title="Remove"
+            >
+              <Trash2 className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+
+          {/* ✅ MOBILE QTY STEPPER with stopPropagation */}
+          <div className="mt-3 sm:hidden flex items-center justify-between">
+            <div onClick={(e) => e.stopPropagation()}>
+              <QtyStepper
+                value={qty}
+                onDec={() => decreaseQty(itemKey(item))}
+                onInc={() => updateQtySafe(item, qty + 1)}
+              />
+            </div>
+
+            <div className="text-right">
+              <div className="text-[11px] text-gray-500">Total</div>
+              <div
+                className="text-base font-semibold tabular-nums"
+                style={{ color: BRAND }}
+              >
+                ₹{money(price * qty)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ DESKTOP QTY + REMOVE (NOT CLICKABLE) */}
+      <div className="hidden sm:flex items-center justify-end gap-4 ml-auto">
+        <div onClick={(e) => e.stopPropagation()}>
+          <QtyStepper
+            value={qty}
+            onDec={() => decreaseQty(itemKey(item))}
+            onInc={() => updateQtySafe(item, qty + 1)}
+          />
+        </div>
+
+        <div className="text-right min-w-[120px]">
+          <div className="text-xs text-gray-500">Total</div>
+          <div
+            className="text-lg font-semibold tabular-nums"
+            style={{ color: BRAND }}
+          >
+            ₹{money(price * qty)}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            removeSafe(item);
+          }}
+          className="grid place-items-center size-10 rounded-2xl border border-black/10 bg-white/70 hover:bg-white active:scale-[0.98] transition"
+          aria-label="Remove from cart"
+          title="Remove"
+        >
+          <Trash2 className="w-4 h-4 text-gray-600" />
+        </button>
+      </div>
+    </div>
+  );
+})}
+
                 </div>
               )}
             </GlassCard>
@@ -342,10 +471,31 @@ const removeSafe = (item) => {
                 </div>
 
                 <div className="p-4 sm:p-5 space-y-3">
+                  {totalCompareAt > subtotal && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">MRP Total</span>
+                      <span className="font-semibold tabular-nums text-gray-900 line-through">
+                        ₹{money(totalCompareAt)}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Subtotal</span>
-                    <span className="font-semibold tabular-nums text-gray-900">₹{money(subtotal)}</span>
+                    <span className="font-semibold tabular-nums text-gray-900">
+                      ₹{money(subtotal)}
+                    </span>
                   </div>
+
+                  {totalSavings > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">You Saved</span>
+                      <span className="font-semibold tabular-nums text-green-700">
+                        ₹{money(totalSavings)}
+                      </span>
+                    </div>
+                  )}
+
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Shipping</span>
@@ -366,16 +516,16 @@ const removeSafe = (item) => {
                     <span className="text-xl font-semibold tabular-nums" style={{ color: BRAND }}>₹{money(payableTotal)}</span>
                   </div>
 
-                  
+
                   <button
-  type="button"
-  disabled={!items.length}
-  onClick={goCheckout}
-  className="mt-3 w-full rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
-  style={{ backgroundColor: BRAND }}
->
-  Proceed to Checkout
-</button>
+                    type="button"
+                    disabled={!items.length}
+                    onClick={goCheckout}
+                    className="mt-3 w-full rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white shadow-[0_14px_28px_rgba(34,197,94,0.35)] active:scale-[0.99] transition disabled:opacity-50 disabled:shadow-none"
+                    style={{ backgroundColor: BRAND }}
+                  >
+                    Proceed to Checkout
+                  </button>
 
 
                   <div className="text-[11px] text-gray-500 leading-relaxed">
@@ -386,7 +536,7 @@ const removeSafe = (item) => {
             </div>
           </div>
         </div>
-      </div>r
+      </div>
     </section>
   );
 }

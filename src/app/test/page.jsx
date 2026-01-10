@@ -1,82 +1,24 @@
+// src/app/test/page.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 
-const TEXTS = [
-  "Preparing Your Edit",
-  "Curating Elegance",
-  "Styling the Details",
-  "Almost There",
-  "Loading the Look",
-];
-
-export default function UniversalLuxuryLoader({
-  size = 10,
-  gap = 12,
-  interval = 2200,
-}) {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      setIndex((i) => (i + 1) % TEXTS.length);
-    }, interval);
-    return () => clearInterval(t);
-  }, [interval]);
-
+export default function TestLoaderPage() {
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      {/* Dots */}
-      <div className="flex items-center" style={{ gap }}>
-        <span className="lux-dot lux-dot-1" />
-        <span className="lux-dot lux-dot-2" />
-        <span className="lux-dot lux-dot-3" />
+    <main className="min-h-screen w-full flex items-center justify-center bg-[#F6F6F8]">
+      <div className="flex flex-col items-center gap-6 rounded-3xl bg-white/70 backdrop-blur-xl border border-black/5 shadow-[0_18px_45px_rgba(0,0,0,0.10)] px-8 py-10">
+        
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900 tracking-tight">
+          Universal Luxury Loader Preview
+        </h1>
+
+        <UniversalLuxuryLoader interval={2200} />
+
+        <p className="text-xs text-gray-500 text-center max-w-sm">
+          This is a test preview page for the loader component.  
+          You can adjust the interval prop to see text cycling speed.
+        </p>
       </div>
-
-      {/* Text */}
-      <p
-        key={index}
-        className="text-[12px] font-bold tracking-[0.32em] uppercase text-black/70 transition-opacity duration-500"
-      >
-        {TEXTS[index]}
-      </p>
-
-      {/* Styles */}
-      <style>{`
-        .lux-dot {
-          width: ${size}px;
-          height: ${size}px;
-          border-radius: 9999px;
-          background: radial-gradient(circle at 30% 30%, #a00030, #800020);
-          animation: lux-breathe 1.9s ease-in-out infinite;
-          box-shadow: 0 0 14px rgba(128, 0, 32, 0.45);
-        }
-
-        .lux-dot-2 {
-          animation-delay: 0.25s;
-          opacity: 0.85;
-        }
-
-        .lux-dot-3 {
-          animation-delay: 0.5s;
-          opacity: 0.65;
-        }
-
-        @keyframes lux-breathe {
-          0% {
-            transform: scale(0.85);
-            opacity: 0.45;
-          }
-          50% {
-            transform: scale(1.3);
-            opacity: 1;
-          }
-          100% {
-            transform: scale(0.85);
-            opacity: 0.45;
-          }
-        }
-      `}</style>
-    </div>
+    </main>
   );
 }

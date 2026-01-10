@@ -9,7 +9,7 @@ export const useCouponStore = create(
       // --------------------
       // STATE
       // --------------------
-      coupon: null, // { code, discount, finalTotal }
+      coupon: null, // ✅ only { code } will persist
       discount: 0,
       finalTotal: null,
       isApplying: false,
@@ -28,6 +28,25 @@ export const useCouponStore = create(
       // GETTERS
       // --------------------
       isApplied: () => Boolean(get().coupon?.code),
+
+      // --------------------
+      // ✅ CLEAR PERSISTED + RESET (NEW)
+      // --------------------
+      clearPersistedCoupon: async () => {
+        try {
+          await useCouponStore.persist.clearStorage(); // ✅ clears localStorage
+        } catch (_) {}
+
+        set({
+          coupon: null,
+          discount: 0,
+          finalTotal: null,
+          isApplying: false,
+          error: null,
+          message: null,
+          _applyPromise: null,
+        });
+      },
 
       // --------------------
       // FETCH SUGGESTED COUPONS
@@ -57,12 +76,9 @@ export const useCouponStore = create(
             throw new Error(data.message || "Failed to fetch suggestions");
           }
 
-          // ✅ Fix: Backend returns coupons in data.data
           const coupons = Array.isArray(data.data) ? data.data : [];
-
           const now = new Date();
 
-          // ✅ Filter coupons (only valid + active + minPurchase + not already used by same customer)
           const filtered = coupons.filter((c) => {
             const isActive = c.isActive;
             const validFrom = new Date(c.validFrom);
@@ -73,7 +89,6 @@ export const useCouponStore = create(
             const meetsMinPurchase =
               !c.minPurchase || Number(cartTotal) >= Number(c.minPurchase);
 
-            // ✅ Prevent showing if already used by customer & limit is 1
             const alreadyUsed =
               Array.isArray(c.usedBy) && c.usedBy.includes(customerId);
 
@@ -154,11 +169,7 @@ export const useCouponStore = create(
             }
 
             set({
-              coupon: {
-                code: couponCode,
-                discount: data.discount,
-                finalTotal: data.finalTotal,
-              },
+              coupon: { code: couponCode }, // ✅ persist only this
               discount: data.discount,
               finalTotal: data.finalTotal,
               isApplying: false,
@@ -188,7 +199,28 @@ export const useCouponStore = create(
       },
 
       // --------------------
-      // REMOVE COUPON
+      // ✅ REAPPLY AFTER RELOAD (UPDATED)
+      // --------------------
+      rehydrateCoupon: async ({ customerId, cartTotal }) => {
+        const code = get().coupon?.code;
+        if (!code) return;
+
+        // ✅ if cartTotal invalid -> remove + clear persist
+        if (!cartTotal || cartTotal <= 0) {
+          await get().clearPersistedCoupon();
+          return;
+        }
+
+        try {
+          await get().applyCoupon({ code, customerId, cartTotal });
+        } catch (_) {
+          // ✅ if invalid coupon after reload -> clear persisted
+          await get().clearPersistedCoupon();
+        }
+      },
+
+      // --------------------
+      // REMOVE COUPON (UPDATED)
       // --------------------
       removeCoupon: () => {
         set({
@@ -210,31 +242,24 @@ export const useCouponStore = create(
       },
 
       // --------------------
-      // RESET STORE
+      // RESET STORE (UPDATED)
       // --------------------
-      resetCouponStore: () => {
-        set({
-          coupon: null,
-          discount: 0,
-          finalTotal: null,
-          isApplying: false,
-          error: null,
-          message: null,
+      resetCouponStore: async () => {
+        await get().clearPersistedCoupon();
 
+        set({
           suggestedCoupons: [],
           isLoadingSuggestions: false,
           suggestionError: null,
-
-          _applyPromise: null,
         });
       },
     }),
     {
       name: "coupon-store",
+
+      // ✅ ONLY persist coupon code, nothing else
       partialize: (state) => ({
-        coupon: state.coupon,
-        discount: state.discount,
-        finalTotal: state.finalTotal,
+        coupon: state.coupon ? { code: state.coupon.code } : null,
       }),
     }
   )

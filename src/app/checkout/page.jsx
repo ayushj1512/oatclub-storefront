@@ -101,17 +101,38 @@ const items = buyNowItem ? [buyNowItem] : cartItems; // ✅ UI + Summary uses th
   /* ---------------- TOTALS ---------------- */
   const subtotal = useMemo(() => {
   return (items || []).reduce((sum, it) => {
-    const price = Number(it?.price || 0);
-    const qty = Number(it?.quantity ?? it?.qty ?? 1);
+    const price = Number(it?.price ?? it?.productSnapshot?.price ?? 0) || 0;
+    const qty = Math.max(1, Number(it?.quantity ?? it?.qty ?? 1) || 1);
     return sum + price * qty;
   }, 0);
 }, [items]);
 
 
+const totalMrp = useMemo(() => {
+  return (items || []).reduce((sum, it) => {
+    const price = Number(it?.price ?? it?.productSnapshot?.price ?? 0) || 0;
+    const mrp = Number(it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0) || 0;
+    const qty = Math.max(1, Number(it?.quantity ?? it?.qty ?? 1) || 1);
+    const use = mrp > price ? mrp : price;
+    return sum + use * qty;
+  }, 0);
+}, [items]);
+
+const totalSavings = useMemo(() => {
+  return (items || []).reduce((sum, it) => {
+    const price = Number(it?.price ?? it?.productSnapshot?.price ?? 0) || 0;
+    const mrp = Number(it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0) || 0;
+    const qty = Math.max(1, Number(it?.quantity ?? it?.qty ?? 1) || 1);
+    return sum + (mrp > price ? (mrp - price) * qty : 0);
+  }, 0);
+}, [items]);
+
   const payable = useMemo(() => {
-    const d = Math.max(0, Number(discount || 0));
-    return Math.max(0, subtotal - d);
-  }, [subtotal, discount]);
+  const d = Math.max(0, Number(discount || 0));
+  const safeDiscount = Math.min(d, Number(subtotal || 0));
+  return Math.max(0, Number(subtotal || 0) - safeDiscount);
+}, [subtotal, discount]);
+
 
   const selectedAddressObj = useMemo(() => {
     if (!selectedAddressId) return null;
@@ -120,22 +141,40 @@ const items = buyNowItem ? [buyNowItem] : cartItems; // ✅ UI + Summary uses th
 
   /* ---------------- GA4 ITEMS ---------------- */
   const ga4Items = useMemo(() => {
-  return (items || []).map((it) =>
-    mapItem(
+  return (items || []).map((it) => {
+    const qty = Math.max(1, Number(it?.quantity ?? it?.qty ?? 1) || 1);
+
+    const price = Number(
+      it?.price ?? it?.productSnapshot?.price ?? 0
+    ) || 0;
+
+    // ✅ Best GA4 id strategy: sku > variantId > productId
+    const id =
+      it?.variant?.sku ||
+      it?.productSnapshot?.sku ||
+      it?.variantId ||
+      it?.productId;
+
+    const variantText = [it?.selectedSize, it?.selectedColor]
+      .filter(Boolean)
+      .join(" / ");
+
+    return mapItem(
       {
-        _id: it?.productId,
-        id: it?.productId,
-        name: it?.name,
-        title: it?.name,
-        price: Number(it?.price || 0),
+        _id: String(id || ""),
+        id: String(id || ""),
+        name: it?.name || it?.productSnapshot?.title || "Item",
+        title: it?.name || it?.productSnapshot?.title || "Item",
+        price,
         category: it?.productSnapshot?.category || "",
-        variant: [it?.selectedSize, it?.selectedColor].filter(Boolean).join(" / "),
+        variant: variantText,
         sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
       },
-      Number(it?.quantity ?? it?.qty ?? 1)
-    )
-  );
+      qty
+    );
+  });
 }, [items]);
+
 
 
   
@@ -251,9 +290,15 @@ const ensureGuestCustomer = async () => {
 
   /* ---------------- INIT ---------------- */
   useEffect(() => {
-    // initCart?.();
-    initializeAuth?.();
-  }, []);
+  // ✅ DO NOT overwrite existing hydrated items
+  const st = useCartStore.getState();
+  if (!st.items?.length && !st.buyNowItem) {
+    initCart?.();
+  }
+  initializeAuth?.();
+}, []);
+
+
 
   /* ---------------- FETCH ADDRESSES ---------------- */
   useEffect(() => {
@@ -405,22 +450,49 @@ const ensureGuestCustomer = async () => {
 const validate = () => {
   const payload = getCheckoutPayload(); // ✅ cartStore decides buyNow/cart
 
-  if (!payload.length) return "Your cart is empty.";
-  if (!user?.uid && !customer?._id) return "Please login or continue as guest.";
-  if (!selectedAddressObj) return "Please select an address.";
-  if (!["cod", "razorpay"].includes(selectedPayment))
+  /* ---------- basic checks ---------- */
+  if (!Array.isArray(payload) || payload.length === 0) {
+    return "Your cart is empty.";
+  }
+
+  if (!user?.uid && !customer?._id) {
+    return "Please login or continue as guest.";
+  }
+
+  if (!selectedAddressObj?._id) {
+    return "Please select an address.";
+  }
+
+  if (!["cod", "razorpay"].includes(selectedPayment)) {
     return "Invalid payment method selected.";
+  }
 
-  // ✅ ObjectId check
-  const bad = payload.find((it) => !isObjectId(it.productId));
-  if (bad) return "Cart item missing Mongo ObjectId.";
+  /* ---------- item-level checks ---------- */
+  for (const it of payload) {
+    const pid = it?.productId;
 
-  // ✅ VariantId safety check (if present but empty)
-  const badVariant = payload.find((it) => ("variantId" in it) && !it.variantId);
-  if (badVariant) return "Please select size/color for one item.";
+    // ✅ Mongo ObjectId check
+    if (!isObjectId(pid)) {
+      return "Cart item missing valid product id (Mongo ObjectId).";
+    }
+
+    // ✅ qty check
+    const q = Number(it?.quantity ?? 1);
+    if (!Number.isFinite(q) || q <= 0) {
+      return "Invalid quantity detected in cart.";
+    }
+
+    // ✅ variant check: if backend expects variantId (key present) but empty
+    // (your getCheckoutPayload sends variantId only when available,
+    // but safe check for edge cases)
+    if ("variantId" in it && !it.variantId) {
+      return "Please select size/color for one item.";
+    }
+  }
 
   return null;
 };
+
 
 
 
@@ -495,6 +567,7 @@ const handlePlaceOrder = async () => {
     } else {
       clearCart?.(); // ✅ normal cart clear
     }
+removeCoupon?.(); // ✅ clear applied coupon after successful order
 
     toast.success("Order placed successfully!", { id: toastId });
 
