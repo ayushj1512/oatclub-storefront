@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ProductCard from "@/components/common/ProductCard";
+import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { useProductStore } from "@/store/productStore"; // ✅ use updated store (fetchProductsByCategory)
+import { useProductStore } from "@/store/productStore";
 
 const FEATURE_IMAGE =
   "https://res.cloudinary.com/djtva6hec/image/upload/v1765956745/miray/media/nhzqroykgtmg1modqikj.jpg";
@@ -23,10 +24,11 @@ export default function WinterDropSection() {
   const [localLoading, setLocalLoading] = useState(true);
   const [localProducts, setLocalProducts] = useState([]);
 
-  // ✅ use new store function
+  // ✅ 8 sec delay before showing empty state
+  const [showEmpty, setShowEmpty] = useState(false);
+
   const fetchProductsByCategory = useProductStore((s) => s.fetchProductsByCategory);
 
-  // ✅ Refs for desktop rows
   const row1Ref = useRef(null);
   const row2Ref = useRef(null);
 
@@ -47,18 +49,15 @@ export default function WinterDropSection() {
       try {
         setLocalLoading(true);
 
-        // ✅ Use new route: /api/products/by-category/winter-drops
         const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
         if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
 
-        // ✅ call store fetcher (optional - keeps analytics, cache, etc.)
         await fetchProductsByCategory("winter-drops", {
           page: 1,
           limit: 20,
           isActive: true,
         });
 
-        // ✅ direct fetch to get clean array (because store returns no products sometimes)
         const url = `${BACKEND}/api/products/by-category/winter-drops?page=1&limit=20&isActive=true`;
         const res = await fetch(url, { cache: "no-store" });
         const data = await res.json();
@@ -79,16 +78,27 @@ export default function WinterDropSection() {
     };
 
     loadWinterDrops();
-
     return () => {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ Empty state delay handler
+  useEffect(() => {
+    if (!localLoading && products.length === 0) {
+      setShowEmpty(false);
+      const t = setTimeout(() => setShowEmpty(true), 8000); // ✅ 8 sec
+      return () => clearTimeout(t);
+    }
+    setShowEmpty(false);
+  }, [localLoading, products.length]);
+
   const desktopRow1 = products.slice(0, 10);
   const desktopRow2 = products.slice(10, 20);
   const mobileRow = products.slice(0, 12);
+
+  const isEmpty = !localLoading && products.length === 0;
 
   return (
     <section className="w-full bg-white">
@@ -124,11 +134,9 @@ export default function WinterDropSection() {
             className="block w-full md:w-[40%] lg:w-[38%] flex-none self-start"
           >
             <div className="relative w-full overflow-hidden aspect-[4/4] md:aspect-square rounded-2xl border border-gray-200 bg-gray-100">
-              {localLoading && (
+              {localLoading ? (
                 <ShimmerBlock className="absolute inset-0 rounded-2xl" />
-              )}
-
-              {!localLoading && (
+              ) : (
                 <Image
                   src={FEATURE_IMAGE}
                   alt="Winter Drops Collection"
@@ -143,25 +151,19 @@ export default function WinterDropSection() {
 
           {/* Products Area */}
           <div className="w-full md:flex-1 min-w-0">
-            {/* ================= DESKTOP (2 ROWS) ================= */}
+            {/* ================= DESKTOP ================= */}
             <div className="hidden md:flex flex-col gap-4">
               {localLoading ? (
                 <div className="space-y-4">
-                  <div className="flex gap-4 overflow-x-auto no-scrollbar pb-0">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={`sk1-${i}`} className="flex-shrink-0 w-[240px]">
-                        <ProductCard loading />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-4 overflow-x-auto no-scrollbar pb-0">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={`sk2-${i}`} className="flex-shrink-0 w-[240px]">
-                        <ProductCard loading />
-                      </div>
-                    ))}
-                  </div>
+                  {[1, 2].map((row) => (
+                    <div key={row} className="flex gap-4 overflow-x-auto no-scrollbar pb-0">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={`sk${row}-${i}`} className="flex-shrink-0 w-[240px]">
+                          <ProductCard loading />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
                 </div>
               ) : products.length ? (
                 <div className="space-y-4">
@@ -188,16 +190,10 @@ export default function WinterDropSection() {
                     <div
                       ref={row1Ref}
                       className="flex gap-4 overflow-x-auto no-scrollbar pb-2 overscroll-x-contain"
-                      style={{
-                        WebkitOverflowScrolling: "touch",
-                        touchAction: "pan-x",
-                      }}
+                      style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
                     >
                       {desktopRow1.map((p) => (
-                        <div
-                          key={p._id || p.id}
-                          className="flex-shrink-0 w-[240px]"
-                        >
+                        <div key={p._id || p.id} className="flex-shrink-0 w-[240px]">
                           <ProductCard product={p} disableRecentlyViewed />
                         </div>
                       ))}
@@ -228,16 +224,10 @@ export default function WinterDropSection() {
                       <div
                         ref={row2Ref}
                         className="flex gap-4 overflow-x-auto no-scrollbar pb-2 overscroll-x-contain"
-                        style={{
-                          WebkitOverflowScrolling: "touch",
-                          touchAction: "pan-x",
-                        }}
+                        style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
                       >
                         {desktopRow2.map((p) => (
-                          <div
-                            key={p._id || p.id}
-                            className="flex-shrink-0 w-[240px]"
-                          >
+                          <div key={p._id || p.id} className="flex-shrink-0 w-[240px]">
                             <ProductCard product={p} disableRecentlyViewed />
                           </div>
                         ))}
@@ -246,8 +236,14 @@ export default function WinterDropSection() {
                   )}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 border border-gray-200 rounded-xl p-10 text-center bg-gray-50">
-                  No products found in Winter Drops.
+                <div className="border border-gray-200 rounded-xl p-10 bg-gray-50">
+                  {!showEmpty ? (
+                    <UniversalLuxuryLoader />
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center">
+                      No products found in Winter Drops.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -276,10 +272,7 @@ export default function WinterDropSection() {
               ) : products.length ? (
                 <div
                   className="flex gap-3 overflow-x-auto pb-2 overscroll-x-contain"
-                  style={{
-                    WebkitOverflowScrolling: "touch",
-                    touchAction: "pan-x",
-                  }}
+                  style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
                 >
                   {mobileRow.map((p) => (
                     <div key={p._id || p.id} className="flex-shrink-0 w-[180px]">
@@ -288,11 +281,20 @@ export default function WinterDropSection() {
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 border border-gray-200 rounded-xl p-8 text-center bg-gray-50 rounded-xl">
-                  No products found in Winter Drops.
+                <div className="border border-gray-200 rounded-xl p-8 bg-gray-50">
+                  {!showEmpty ? (
+                    <UniversalLuxuryLoader />
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center">
+                      No products found in Winter Drops.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* ✅ Optional fallback: in case you want to use isEmpty variable */}
+            {isEmpty && null}
           </div>
         </div>
       </div>
