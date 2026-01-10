@@ -272,6 +272,31 @@ export const useAddressStore = create((set, get) => ({
     }
   },
 
+  /* ======================================================
+     ✅ RESET STORE ON LOGOUT
+     - Clears addresses + caches + dedupe keys
+  ====================================================== */
+  resetAddressOnLogout: () => {
+    try {
+      set({
+        addresses: [],
+        loading: false,
+        error: null,
+
+        pinLoading: false,
+        pinCache: {},
+        _pinReqId: 0,
+
+        _lastEventKey: null,
+        _lastEventAt: 0,
+      });
+    } catch (e) {
+      console.warn("⚠️ Address reset on logout failed:", e);
+    }
+  },
+
+  
+
   /* ---------------- PINCODE LOOKUP ---------------- */
   lookupPincode: async (pincode) => {
     const pin = String(pincode || "").replace(/\D/g, "").slice(0, 6);

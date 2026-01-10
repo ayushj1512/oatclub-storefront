@@ -72,6 +72,8 @@ const toAbandonedItems = (items = []) =>
     qty: it.quantity,
   }));
 
+  
+
 /**
  * ✅ Build a stable cart item from backend product + selected variantId/size
  * Input `product` should be the normalized product from productStore.
@@ -437,10 +439,118 @@ Cookies.set("buy_now_item", JSON.stringify(normalizedBuyNow), { expires: 1 }); /
   }
 },
 
+ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
+  try {
+    const curr = get().items || [];
+    const key = builtItem?.__key || cartKey(builtItem);
+
+    const exists = curr.find((p) => (p.__key || cartKey(p)) === key);
+
+    // ✅ already cart me hai -> kuch mat karo (NO qty increment)
+    if (exists) return { added: false, item: exists };
+
+    const updated = [{ ...builtItem }, ...curr];
+
+    // ✅ SAVE CART
+    set({ items: updated });
+    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+    // ✅ COUPON CLEAR ON CART UPDATE
+    await handleCouponOnCartUpdate();
+
+    // ✅ UI feedback (optional but recommended)
+    notify.cartAdded?.(builtItem);
+
+    /* ---------------- ANALYTICS ---------------- */
+    try {
+      const pid =
+        originalProduct?._id ||
+        originalProduct?.id ||
+        originalProduct?.productId ||
+        builtItem?.productId;
+
+      if (pid) useAnalyticsStore.getState().trackAddToCart(pid);
+    } catch (e) {
+      console.warn("📊 Analytics cart_add failed (buyNow ensure)", e);
+    }
+
+    /* ---------------- META (PIXEL + CAPI) ---------------- */
+    try {
+      const pid =
+        originalProduct?.sku ||
+        originalProduct?._id ||
+        originalProduct?.id ||
+        builtItem?.productId;
+
+      const price = Number(builtItem?.price ?? originalProduct?.price ?? 0) || 0;
+      const quantity = Number(builtItem?.quantity ?? 1) || 1;
+
+      await trackMeta("AddToCart", {
+        content_type: "product",
+        content_ids: pid ? [String(pid)] : [],
+        contents: pid
+          ? [{ id: String(pid), quantity, item_price: price }]
+          : [],
+        value: price * quantity,
+        currency: getCartCurrency(builtItem, originalProduct?.currency || "INR"),
+      });
+    } catch (e) {
+      console.warn("🧾 Meta AddToCart failed (buyNow ensure)", e);
+    }
+
+    /* ---------------- GA4: add_to_cart ---------------- */
+    try {
+      const addQty = Number(builtItem?.quantity ?? 1) || 1;
+      const price = Number(builtItem?.price ?? 0) || 0;
+      const currency = getCartCurrency(builtItem, originalProduct?.currency || "INR");
+
+      pushEcomEvent("add_to_cart", {
+        currency,
+        value: price * addQty,
+        items: [toGa4Item(builtItem, addQty)],
+      });
+    } catch (e) {
+      console.warn("📈 GA4 add_to_cart failed (buyNow ensure)", e);
+    }
+
+    /* ---------------- ABANDONED CART SNAPSHOT ---------------- */
+    try {
+      const abandoned = useAbandonedCartStore.getState();
+      const auth = useAuthStore.getState();
+
+      abandoned.upsertCart({
+        cartId: auth.activeCartId || "",
+        items: updated.map((it) => ({
+          productId: it.productId,
+          variantId: it.variantId || null,
+          qty: it.quantity,
+        })),
+        context: {
+          lastPageUrl: window.location.href,
+          device: window.innerWidth < 768 ? "mobile" : "desktop",
+        },
+      });
+    } catch (e) {
+      console.warn("🛒 Abandoned cart snapshot failed (buyNow ensure)", e);
+    }
+
+    return { added: true, item: builtItem };
+  } catch (e) {
+    console.warn("❌ ensureInCartNoDuplicate failed", e);
+    return { added: false, error: e };
+  }
+},
 
 
 
-setBuyNow: ({ product, qty = 1, variantId = null, selectedSize = null, selectedColor = null }) => {
+
+setBuyNow: async ({
+  product,
+  qty = 1,
+  variantId = null,
+  selectedSize = null,
+  selectedColor = null,
+}) => {
   const built = buildCartItem({ product, qty, variantId, selectedSize, selectedColor });
 
   if (!built) return;
@@ -455,9 +565,14 @@ setBuyNow: ({ product, qty = 1, variantId = null, selectedSize = null, selectedC
     return;
   }
 
+  // ✅ Buy Now state set
   set({ buyNowItem: { ...built, __originalProduct: product } });
   Cookies.set("buy_now_item", JSON.stringify(built), { expires: 1 });
+
+  // ✅ IMPORTANT: cart me bhi add ho jaye (but duplicate/qty increment nahi)
+  await get().ensureInCartNoDuplicate(built, product);
 },
+
 
 
 clearBuyNow: () => {
@@ -889,6 +1004,31 @@ decreaseQty: (idOrKey, variantId = null) => {
   }
 },
 
+/* ---------------- Reset Cart on Logout ---------------- */
+resetCartOnLogout: async () => {
+  set({ items: [], buyNowItem: null });
+
+  Cookies.remove(KEY); // cart_products
+  Cookies.remove("buy_now_item"); // buy now cookie
+
+  try {
+    // ✅ coupon clear if applied
+    const couponStore = useCouponStore.getState();
+    if (couponStore?.isApplied?.()) {
+      await couponStore.clearPersistedCoupon();
+    }
+  } catch (e) {
+    console.warn("⚠️ Coupon clear failed on logout", e);
+  }
+
+  try {
+    // ✅ abandoned cart local clear (only if you have such a method)
+    const abandoned = useAbandonedCartStore.getState();
+    abandoned.clear?.(); 
+  } catch (e) {
+    console.warn("⚠️ Abandoned cart clear failed on logout", e);
+  }
+},
 
 
 

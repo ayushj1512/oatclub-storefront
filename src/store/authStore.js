@@ -12,7 +12,8 @@ import {
   updateProfile,
 } from "firebase/auth";
 import toast from "react-hot-toast";
-
+import { useCartStore } from "@/store/cartStore";
+import { useAddressStore } from "@/store/addressStore"
 const COOKIE_KEY = "user_auth";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 // ✅ Returns true = skip event, false = fire event
@@ -887,7 +888,7 @@ createGuestCustomer: async ({ name = "", email = "", phone = "", password = "" }
   requestLogout: () => set({ showLogoutConfirm: true }),
   cancelLogout: () => set({ showLogoutConfirm: false }),
 
- confirmLogout: async () => {
+confirmLogout: async () => {
   try {
     // ✅ Firebase Signout
     await signOut(auth);
@@ -896,25 +897,104 @@ createGuestCustomer: async ({ name = "", email = "", phone = "", password = "" }
   }
 
   try {
-    // ✅ Remove cookie
-    Cookies.remove(COOKIE_KEY);
+    /* ----------------------------------------
+       ✅ 1) Clear CART + BUY NOW Cookies (Safe)
+    ----------------------------------------- */
 
-    // ✅ Clear storages
-    localStorage.clear();
-    sessionStorage.clear();
+    // ✅ remove exact cookie (if single key)
+    Cookies.remove("cart_products");
+    Cookies.remove("buy_now_item");
 
-    // ✅ Reset this store
+    // ✅ remove any cart_products_* (if user-specific keys exist)
+    Object.keys(Cookies.get() || {}).forEach((k) => {
+      if (k.startsWith("cart_products")) Cookies.remove(k);
+      if (k.startsWith("buy_now_item")) Cookies.remove(k);
+    });
+
+    /* ----------------------------------------
+       ✅ 2) Reset Zustand Stores
+    ----------------------------------------- */
+
+    // ✅ reset cart store properly (items + cookies + hydrated flag etc)
+    try {
+      const cart = useCartStore.getState();
+      if (cart?.resetCartOnLogout) {
+        await cart.resetCartOnLogout();
+      } else {
+        // fallback if resetCartOnLogout not implemented
+        useCartStore.setState({ items: [], buyNowItem: null, hasHydrated: false });
+      }
+    } catch (e) {
+      console.warn("⚠️ Cart reset on logout failed:", e);
+    }
+
+    // ✅ Abandoned cart store clear
+    try {
+      const abandoned = useAbandonedCartStore.getState();
+      abandoned?.clear?.();
+    } catch (e) {
+      console.warn("⚠️ AbandonedCart clear failed:", e);
+    }
+
+    // ✅ Coupon store clear
+    try {
+      const coupon = useCouponStore.getState();
+      if (coupon?.isApplied?.()) {
+        await coupon.clearPersistedCoupon();
+      } else {
+        coupon?.clearPersistedCoupon?.();
+      }
+    } catch (e) {
+      console.warn("⚠️ Coupon clear failed:", e);
+    }
+
+    // ✅ Address store clear (🔥 NEW)
+    try {
+      const addr = useAddressStore.getState();
+      addr?.resetAddressOnLogout?.();
+
+      // fallback if reset function not present
+      if (!addr?.resetAddressOnLogout) {
+        useAddressStore.setState({
+          addresses: [],
+          loading: false,
+          error: null,
+          pinLoading: false,
+          pinCache: {},
+          _pinReqId: 0,
+          _lastEventKey: null,
+          _lastEventAt: 0,
+        });
+      }
+    } catch (e) {
+      console.warn("⚠️ Address reset failed on logout:", e);
+    }
+
+    /* ----------------------------------------
+       ✅ 3) Clear Storages (Optional but OK)
+    ----------------------------------------- */
+
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {
+      console.warn("⚠️ Storage clear failed:", e);
+    }
+
+    /* ----------------------------------------
+       ✅ 4) Reset AUTH Store
+    ----------------------------------------- */
     set(initialAuthState);
 
-    // ✅ Reset other Zustand stores (global helper approach)
-    // 🔥 Make this file once and import it here
-    // resetAllStores();
-
-    // ✅ Hard redirect + refresh (clears in-memory state 100%)
+    /* ----------------------------------------
+       ✅ 5) Hard Redirect
+    ----------------------------------------- */
     window.location.href = "/";
   } catch (e) {
     console.error("❌ Logout cleanup failed:", e);
   }
 },
+
+
 
 }));
