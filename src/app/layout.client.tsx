@@ -88,7 +88,7 @@ export default function LayoutClient({
           richColors
           closeButton
           expand
-          duration={2000}
+          duration={1000}
         />
       </ClientProviders>
     </>
