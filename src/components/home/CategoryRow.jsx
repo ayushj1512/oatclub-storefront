@@ -59,7 +59,6 @@ export default function CategoryRow() {
   }, [settings]);
 
   const handleNavigate = (cat) => {
-    // ✅ only one push
     if (cat?.slug) return router.push(`/category/${cat.slug}`);
     if (cat?.tag) return router.push(`/tag/${cat.tag}`);
   };
@@ -101,11 +100,28 @@ export default function CategoryRow() {
               onClick={() => handleNavigate(cat)}
               aria-label={cat?.name}
               className="
-                shrink-0 flex flex-col items-center select-none transition active:scale-[0.97]
-                md:flex-1 md:min-w-0
+                shrink-0 md:flex-1 md:min-w-0
+                flex flex-col items-center select-none
+
+                cursor-pointer
+                transition
+                hover:opacity-90
+                active:scale-[0.97]
+
+                focus-visible:outline-none
+                focus-visible:ring-2
+                focus-visible:ring-black/30
+                focus-visible:ring-offset-2
+                focus-visible:ring-offset-white
               "
             >
-              <div className="w-[72px] h-[72px] md:w-[92px] md:h-[92px] rounded-full overflow-hidden bg-black/5">
+              <div
+                className="
+                  w-[72px] h-[72px] md:w-[92px] md:h-[92px]
+                  rounded-full overflow-hidden bg-black/5
+                  cursor-pointer
+                "
+              >
                 {cat?.image ? (
                   <Image
                     src={cat.image}

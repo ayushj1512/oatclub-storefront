@@ -161,32 +161,34 @@ createOrder: async ({
     }));
 
     /* ✅ Meta: InitiateCheckout + AddPaymentInfo */
-    try {
-      await trackMeta("InitiateCheckout", {
-        currency,
-        value: orderValue,
-        content_type: "product",
-        content_ids: contents.map((c) => c.id),
-        contents: metaContents,
-        num_items: metaContents.reduce((s, c) => s + c.quantity, 0),
-        ...(couponCode ? { coupon: couponCode } : {}),
-      });
-    } catch (e) {
-      console.warn("🧾 Meta InitiateCheckout failed", e);
-    }
+  // ✅ Meta: InitiateCheckout + AddPaymentInfo (send backend value)
+try {
+  await trackMeta("InitiateCheckout", {
+    currency,
+    value: backendValue || orderValue,
+    content_type: "product",
+    content_ids: contents.map((c) => c.id),
+    contents: metaContents,
+    num_items: metaContents.reduce((s, c) => s + c.quantity, 0),
+    ...(couponCode ? { coupon: couponCode } : {}),
+  });
+} catch (e) {
+  console.warn("🧾 Meta InitiateCheckout failed", e);
+}
 
-    try {
-      await trackMeta("AddPaymentInfo", {
-        currency,
-        value: orderValue,
-        content_type: "product",
-        content_ids: contents.map((c) => c.id),
-        contents: metaContents,
-        payment_method: pm,
-      });
-    } catch (e) {
-      console.warn("🧾 Meta AddPaymentInfo failed", e);
-    }
+try {
+  await trackMeta("AddPaymentInfo", {
+    currency,
+    value: backendValue || orderValue,
+    content_type: "product",
+    content_ids: contents.map((c) => c.id),
+    contents: metaContents,
+    payment_method: pm,
+  });
+} catch (e) {
+  console.warn("🧾 Meta AddPaymentInfo failed", e);
+}
+
 
     /* ✅ create order on backend */
     const payload = {
@@ -217,13 +219,24 @@ createOrder: async ({
     });
 
     const order = data?.order;
+// ✅ Prefer backend computed totals (fix value=0)
+const backendValue =
+  Number(
+    order?.finalTotal ??
+    order?.grandTotal ??
+    order?.total ??
+    order?.payableAmount ??
+    order?.amount ??
+    order?.totalAmount ??
+    0
+  ) || 0;
 
     /* ✅ COD ONLY: Purchase tracking */
     if (pm === "cod") {
       await get().trackPurchaseSuccess({
         orderId: order?._id || order?.orderNumber || customerId,
         currency,
-        value: orderValue,
+value: backendValue || orderValue,
         contents, // ✅ keep full contents for GA4
          coupon: couponCode,
 
@@ -249,8 +262,6 @@ createOrder: async ({
 },
 
 
-
-
 trackPurchaseSuccess: async ({
   orderId,
   currency = "INR",
@@ -258,14 +269,20 @@ trackPurchaseSuccess: async ({
   contents = [],
   coupon = null,
   paymentMethod = "cod",
+  event_source_url, // ✅ optional: pass thankyou url if you want
 } = {}) => {
   try {
+    // ✅ sanitize value
+    const safeValue = Number(value);
+    const finalValue = Number.isFinite(safeValue) && safeValue > 0 ? safeValue : 0;
+
     const now = Date.now();
-    const key = `purchase_${paymentMethod}_${orderId}_${Number(value || 0)}`;
+    // ✅ Dedup key should NOT depend on value (value can change / be 0)
+    const key = `purchase_${paymentMethod}_${String(orderId)}`;
 
     const { _lastPurchaseKey, _lastPurchaseAt } = get();
     const sameKey = _lastPurchaseKey === key;
-    const tooSoon = _lastPurchaseAt && now - _lastPurchaseAt < 5000;
+    const tooSoon = _lastPurchaseAt && now - _lastPurchaseAt < 8000; // slightly higher window
     if (sameKey && tooSoon) return;
 
     set({ _lastPurchaseKey: key, _lastPurchaseAt: now });
@@ -273,33 +290,51 @@ trackPurchaseSuccess: async ({
     // ✅ Ensure coupon is string only
     const couponCode = coupon ? String(coupon).trim() : null;
 
-    // ✅ Meta contents strict format
+    // ✅ Meta contents strict format + remove zero item_price if missing
     const metaContents = (contents || [])
-      .map((c) => ({
-        id: String(c?.id || ""),
-        quantity: Number(c?.quantity || 1),
-        item_price: Number(c?.item_price || 0),
-      }))
-      .filter((c) => c.id);
+      .map((c) => {
+        const id = String(c?.id || "");
+        if (!id) return null;
+
+        const quantity = Number(c?.quantity || 1);
+        const itemPrice = Number(c?.item_price || 0);
+
+        return {
+          id,
+          quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+          // only include item_price if valid >0 (Meta accepts it, but 0 pollutes signal)
+          ...(Number.isFinite(itemPrice) && itemPrice > 0 ? { item_price: itemPrice } : {}),
+        };
+      })
+      .filter(Boolean);
 
     // ✅ GA4 items format
     const ga4Items = (contents || [])
-      .map((c) => ({
-        item_id: String(c?.id || ""),
-        item_name: c?.name ? String(c.name) : undefined, // ✅ GA4 recommended
-        item_variant: c?.variant ? String(c.variant) : undefined, // ✅ "M / Black"
-        variant_id: c?.variantId ? String(c.variantId) : undefined, // ✅ custom param
-        quantity: Number(c?.quantity || 1),
-        price: Number(c?.item_price || 0),
-      }))
-      .filter((x) => x.item_id);
+      .map((c) => {
+        const item_id = String(c?.id || "");
+        if (!item_id) return null;
+
+        const quantity = Number(c?.quantity || 1);
+        const price = Number(c?.item_price || 0);
+
+        return {
+          item_id,
+          item_name: c?.name ? String(c.name) : undefined,
+          item_variant: c?.variant ? String(c.variant) : undefined,
+          variant_id: c?.variantId ? String(c.variantId) : undefined,
+          quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+          // GA4 expects number; if unknown keep undefined instead of 0
+          ...(Number.isFinite(price) && price > 0 ? { price } : {}),
+        };
+      })
+      .filter(Boolean);
 
     /* ✅✅✅ GA4 PURCHASE EVENT */
     try {
       pushEcomEvent("purchase", {
         transaction_id: String(orderId),
         currency,
-        value: Number(value || 0),
+        value: finalValue, // ✅
         payment_type: paymentMethod,
         coupon: couponCode || undefined,
         items: ga4Items,
@@ -310,17 +345,22 @@ trackPurchaseSuccess: async ({
 
     /* ✅ META PURCHASE */
     try {
-      await trackMeta("Purchase", {
+      // ✅ If you have no contents pricing, still send Purchase with value
+      const payload = {
         currency,
-        value: Number(value || 0),
+        value: finalValue, // ✅
         content_type: "product",
         content_ids: metaContents.map((c) => c.id),
         contents: metaContents,
-        num_items: metaContents.reduce((s, c) => s + c.quantity, 0),
+        num_items: metaContents.reduce((s, c) => s + (c.quantity || 0), 0),
         order_id: String(orderId),
         payment_method: paymentMethod,
         ...(couponCode ? { coupon: couponCode } : {}),
-      });
+      };
+
+      // ✅ If you want the purchase to be attributed to success URL (optional)
+      // trackMeta supports opts param in your implementation
+      await trackMeta("Purchase", payload, {}, event_source_url ? { event_source_url } : {});
     } catch (e) {
       console.warn("🧾 Meta Purchase failed", e);
     }
@@ -328,9 +368,7 @@ trackPurchaseSuccess: async ({
     /* ✅ INTERNAL ANALYTICS PURCHASE */
     try {
       const analytics = useAnalyticsStore.getState();
-      metaContents.forEach((c) => {
-        analytics.trackPurchase?.(c.id);
-      });
+      metaContents.forEach((c) => analytics.trackPurchase?.(c.id));
     } catch (e) {
       console.warn("📊 Internal purchase analytics failed", e);
     }
@@ -338,6 +376,7 @@ trackPurchaseSuccess: async ({
     console.warn("Purchase tracking failed", e);
   }
 },
+
 
 
 
