@@ -648,7 +648,7 @@ const link = typeof window !== "undefined" ? window.location.href : "";
     <div className="w-full px-4 md:px-12 py-6 md:py-12">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {/* LEFT */}
-        <div className="w-full md:max-w-[420px] mx-auto">
+<div className="w-full md:max-w-none">
           <ProductGallery images={product.images || []} />
         </div>
 
