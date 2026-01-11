@@ -3,20 +3,23 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useHomepageSettingsStore } from "@/store/homepageSettingsStore"; 
-// ✅ change path as per your app
+import { useHomepageSettingsStore } from "@/store/homepageSettingsStore";
 
 /* =======================
    SHIMMER UI
 ======================= */
 function CategoryRowShimmer({ count = 8 }) {
   return (
-    <div className="no-scrollbar flex items-start gap-3 px-4 overflow-x-auto">
+    <div className="no-scrollbar flex items-start gap-3 px-4 overflow-x-auto md:px-8 md:overflow-x-hidden md:justify-between">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="shrink-0 flex flex-col items-center">
+        <div
+          key={i}
+          className="shrink-0 flex flex-col items-center md:flex-1 md:min-w-0"
+        >
           <div className="w-[72px] h-[72px] md:w-[92px] md:h-[92px] rounded-full bg-gray-200 relative overflow-hidden">
             <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
           </div>
+
           <div className="mt-2 h-3 w-12 rounded bg-gray-200 relative overflow-hidden">
             <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
           </div>
@@ -51,13 +54,14 @@ export default function CategoryRow() {
   const categories = useMemo(() => {
     const row = settings?.categoryRow || [];
     return row
-      .filter((item) => item.isActive && item.name) // active only
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+      .filter((item) => item?.isActive && item?.name)
+      .sort((a, b) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
   }, [settings]);
 
   const handleNavigate = (cat) => {
-    if (cat.slug) router.push(`/category/${cat.slug}`);
-    if (cat.tag) router.push(`/tag/${cat.tag}`);
+    // ✅ only one push
+    if (cat?.slug) return router.push(`/category/${cat.slug}`);
+    if (cat?.tag) return router.push(`/tag/${cat.tag}`);
   };
 
   // ✅ If no categories, don't render row
@@ -79,17 +83,30 @@ export default function CategoryRow() {
       {loading || shimmerLoading ? (
         <CategoryRowShimmer />
       ) : (
-        <div className="no-scrollbar flex items-start gap-3 px-4 overflow-x-auto overflow-y-hidden touch-pan-x overscroll-x-contain">
+        <div
+          className="
+            no-scrollbar
+            flex items-start gap-3 px-4
+            overflow-x-auto overflow-y-hidden touch-pan-x overscroll-x-contain
+
+            md:px-8 md:gap-6
+            md:overflow-x-hidden md:touch-auto
+            md:justify-between
+          "
+        >
           {categories.map((cat, idx) => (
             <button
-              key={`${cat.name}-${idx}`}
+              key={`${cat?.name}-${idx}`}
               type="button"
               onClick={() => handleNavigate(cat)}
-              aria-label={cat.name}
-              className="shrink-0 flex flex-col items-center select-none transition active:scale-[0.97]"
+              aria-label={cat?.name}
+              className="
+                shrink-0 flex flex-col items-center select-none transition active:scale-[0.97]
+                md:flex-1 md:min-w-0
+              "
             >
               <div className="w-[72px] h-[72px] md:w-[92px] md:h-[92px] rounded-full overflow-hidden bg-black/5">
-                {cat.image ? (
+                {cat?.image ? (
                   <Image
                     src={cat.image}
                     alt={cat.name}
@@ -97,7 +114,7 @@ export default function CategoryRow() {
                     height={200}
                     className="w-full h-full object-cover"
                   />
-                ) : cat.video ? (
+                ) : cat?.video ? (
                   <video
                     src={cat.video}
                     autoPlay
@@ -111,8 +128,8 @@ export default function CategoryRow() {
                 )}
               </div>
 
-              <p className="mt-1 text-center text-[12px] md:text-[13px] font-semibold leading-tight text-black/75">
-                {cat.name}
+              <p className="mt-1 w-full px-1 text-center text-[12px] md:text-[13px] font-semibold leading-tight text-black/75 truncate">
+                {cat?.name}
               </p>
             </button>
           ))}

@@ -52,7 +52,7 @@ export default function TrendingSection() {
   ======================= */
   if (showShimmer) {
     return (
-      <section className="pt-10 px-4 bg-white">
+      <section className="pt-2 px-4 bg-white">
         <h2 className="font-bogle text-xl md:text-3xl font-black text-center text-black mb-10 tracking-[0.28em] uppercase">
           Trending Now
         </h2>
@@ -90,7 +90,7 @@ export default function TrendingSection() {
      REAL CONTENT
   ======================= */
   return (
-    <motion.section className="pt-10 bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+    <motion.section className="pt-2 bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
       <div className="w-full bg-black text-center mb-10">
         <h2 className="text-white py-3 text-lg md:text-3xl font-semibold uppercase tracking-[0.28em]">
           Trending Now
