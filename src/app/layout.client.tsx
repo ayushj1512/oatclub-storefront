@@ -6,7 +6,7 @@ import { useEffect, Suspense } from "react";
 
 import GTMPageView from "@/components/tracking/GTMPageView";
 import GoogleTagManager from "@/components/tracking/GoogleTagManager";
-import MetaPixel from "@/components/tracking/MetaPixel"; // ✅ ADD THIS
+import MetaPixel from "@/components/tracking/MetaPixel";
 import ClarityProvider from "@/components/clarity/ClarityProvider";
 
 import DesktopHeader from "@/components/layout/DesktopHeader";
@@ -83,22 +83,22 @@ export default function LayoutClient({
         <LogoutConfirmModal />
 
         {/* TOASTER */}
-       {/* TOASTER */}
-<Toaster
-  position="top-right"
-  richColors
-  closeButton
-  expand={false}
-  duration={1000}
-  toastOptions={{
-    className:
-      "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm",
-    descriptionClassName: "text-[11px] leading-4 opacity-80",
-    actionButtonClassName: "h-7 px-2 text-[11px]",
-    cancelButtonClassName: "h-7 px-2 text-[11px]",
-  }}
-/>
-
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          expand={false}
+          duration={1000}
+          toastOptions={{
+            classNames: {
+              toast:
+                "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm",
+              description: "text-[11px] leading-4 opacity-80",
+              actionButton: "h-7 px-2 text-[11px]",
+              cancelButton: "h-7 px-2 text-[11px]",
+            },
+          }}
+        />
       </ClientProviders>
     </>
   );
