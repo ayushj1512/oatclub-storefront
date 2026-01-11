@@ -83,13 +83,22 @@ export default function LayoutClient({
         <LogoutConfirmModal />
 
         {/* TOASTER */}
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-          expand
-          duration={1000}
-        />
+       {/* TOASTER */}
+<Toaster
+  position="top-right"
+  richColors
+  closeButton
+  expand={false}
+  duration={1000}
+  toastOptions={{
+    className:
+      "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm",
+    descriptionClassName: "text-[11px] leading-4 opacity-80",
+    actionButtonClassName: "h-7 px-2 text-[11px]",
+    cancelButtonClassName: "h-7 px-2 text-[11px]",
+  }}
+/>
+
       </ClientProviders>
     </>
   );
