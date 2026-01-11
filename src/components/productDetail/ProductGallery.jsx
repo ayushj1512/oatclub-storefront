@@ -25,22 +25,22 @@ export default function ProductGallery({ images = [] }) {
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      {/* MAIN IMAGE – BALANCED DESKTOP SIZE */}
+      {/* MAIN IMAGE (BIGGER ON DESKTOP) */}
       <div
         className="
-          relative aspect-square min-h-80
+          relative aspect-square
+          min-h-80 md:min-h-[520px] lg:min-h-[600px] xl:min-h-[680px] 2xl:min-h-[760px]
           rounded-2xl overflow-hidden bg-white
           w-full
-          md:w-[640px]
-          lg:w-[720px]
-          xl:w-[800px]
-          2xl:w-[860px]
+          md:max-w-[640px] lg:max-w-[760px] xl:max-w-[860px] 2xl:max-w-[980px]
+          md:mx-auto
         "
       >
         <button
           type="button"
           onClick={() => go(-1)}
           className="absolute left-4 top-1/2 -translate-y-1/2 z-10 text-3xl hidden md:block opacity-60 hover:opacity-100"
+          aria-label="Previous image"
         >
           ←
         </button>
@@ -48,6 +48,7 @@ export default function ProductGallery({ images = [] }) {
           type="button"
           onClick={() => go(1)}
           className="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-3xl hidden md:block opacity-60 hover:opacity-100"
+          aria-label="Next image"
         >
           →
         </button>
@@ -75,42 +76,64 @@ export default function ProductGallery({ images = [] }) {
                 alt="Product"
                 fill
                 priority
-                className="object-contain p-4 md:p-6 select-none"
+                className="object-contain p-4 md:p-6 lg:p-8 select-none"
                 draggable={false}
-                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 640px, (max-width: 1280px) 720px, (max-width: 1536px) 800px, 860px"
+                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 640px, (max-width: 1280px) 760px, 980px"
               />
             </motion.div>
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* THUMBNAILS */}
+      {/* THUMBNAILS (ALSO A BIT BIGGER ON DESKTOP) */}
       <div
         className="
           relative w-full
-          md:w-[640px]
-          lg:w-[720px]
-          xl:w-[800px]
-          2xl:w-[860px]
+          md:max-w-[640px] lg:max-w-[760px] xl:max-w-[860px] 2xl:max-w-[980px]
+          md:mx-auto
         "
       >
+        <button
+          type="button"
+          onClick={() => ref.current?.scrollBy({ left: -320, behavior: "smooth" })}
+          className="absolute left-0 top-1/2 -translate-y-1/2 hidden md:block text-2xl opacity-50 hover:opacity-100"
+          aria-label="Scroll thumbnails left"
+        >
+          ←
+        </button>
+        <button
+          type="button"
+          onClick={() => ref.current?.scrollBy({ left: 320, behavior: "smooth" })}
+          className="absolute right-0 top-1/2 -translate-y-1/2 hidden md:block text-2xl opacity-50 hover:opacity-100"
+          aria-label="Scroll thumbnails right"
+        >
+          →
+        </button>
+
         <div
           ref={ref}
-          className="flex gap-3 overflow-x-auto no-scrollbar px-2 py-2 snap-x snap-mandatory scroll-smooth"
+          className="flex gap-3 overflow-x-auto no-scrollbar px-2 md:px-10 py-2 snap-x snap-mandatory scroll-smooth"
         >
           {images.map((x, i) => (
             <button
-              key={i}
+              type="button"
+              key={`${x}-${i}`}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setIdx(i)}
-              className={`relative shrink-0 rounded-xl overflow-hidden
-                w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24
-                ${i === idx ? "ring-2 ring-black" : "opacity-60 hover:opacity-100"}`}
+              className={`
+                relative shrink-0 rounded-xl overflow-hidden snap-start transition
+                w-16 h-16 md:w-24 md:h-24 lg:w-[110px] lg:h-[110px] xl:w-[120px] xl:h-[120px]
+                ${i === idx ? "ring-2 ring-black opacity-100" : "opacity-60 hover:opacity-100"}
+              `}
+              aria-label={`Select image ${i + 1}`}
             >
               <Image
                 src={x}
-                alt=""
+                alt={`Thumb ${i + 1}`}
                 fill
-                className="object-contain p-2 bg-white"
+                className="object-contain p-2 md:p-3 bg-white"
+                draggable={false}
+                sizes="120px"
               />
             </button>
           ))}
