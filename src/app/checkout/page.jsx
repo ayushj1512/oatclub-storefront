@@ -118,10 +118,18 @@ export default function CheckoutPage() {
     }, 0);
   }, [items]);
 
-  const payable = useMemo(() => {
-    const d = Math.max(0, Number(discount || 0));
-    return Math.max(0, subtotal - Math.min(d, subtotal));
-  }, [subtotal, discount]);
+  const razorpayExtraDiscount = useMemo(() => {
+  if (String(selectedPayment).toLowerCase() !== "razorpay") return 0;
+  return Math.round(subtotal * 0.05); // 5% on subtotal
+}, [selectedPayment, subtotal]);
+
+const payable = useMemo(() => {
+  const couponDiscount = Math.max(0, Number(discount || 0));
+  const extra = Math.max(0, Number(razorpayExtraDiscount || 0));
+  const totalDiscount = couponDiscount + extra;
+
+  return Math.max(0, subtotal - Math.min(totalDiscount, subtotal));
+}, [subtotal, discount, razorpayExtraDiscount]);
 
   const selectedAddressObj = useMemo(() => {
     if (!selectedAddressId) return null;
@@ -372,17 +380,17 @@ export default function CheckoutPage() {
     try {
       const orderItems = getCheckoutPayload();
 
-      const order = await createOrder({
-        customerId: finalCustomer._id,
-        shippingAddressId: selectedAddressObj._id,
-        billingAddressId: selectedAddressObj._id,
-        paymentMethod: selectedPayment,
-        items: orderItems,
-        source: "website",
-        coupon: coupon
-          ? { code: coupon.code, discount, finalTotal: payable }
-          : null,
-      });
+     const order = await createOrder({
+  customerId: finalCustomer._id,
+  shippingAddressId: selectedAddressObj._id,
+  billingAddressId: selectedAddressObj._id,
+  paymentMethod: selectedPayment,
+  items: orderItems,
+  source: "website",
+  discount: Number(discount || 0), // ✅ ADD THIS
+  coupon: coupon ? { code: coupon.code } : null, // ✅ keep minimal
+});
+
 
       if (buyNowItem) completeCheckout?.();
       else clearCart?.();
@@ -440,36 +448,44 @@ export default function CheckoutPage() {
           />
 
           {/* Step 2: Summary */}
-          <OrderSummary
-            items={items}
-            subtotal={subtotal}
-            coupon={coupon}
-            discount={discount}
-            payable={payable}
-            showSummary={showSummary}
-            setShowSummary={setShowSummary}
-          />
+         <OrderSummary
+  items={items}
+  subtotal={subtotal}
+  coupon={coupon}
+  discount={discount}
+  razorpayExtraDiscount={razorpayExtraDiscount}
+  payable={payable}
+  showSummary={showSummary}
+  setShowSummary={setShowSummary}
+  email={addressForm.email}
+  phone={addressForm.phone}
+  customerId={user?.uid || null}
+/>
+
 
 
           {/* Step 3: Payment */}
-          <PaymentOptions
-            showPayment={showPayment}
-            setShowPayment={setShowPayment}
-            selectedPayment={selectedPayment}
-            setSelectedPayment={setSelectedPayment}
-            payable={payable}
-            coupon={coupon}
-            discount={discount}
-            placing={placing}
-            validate={validateCheckout}
-            setShowCodCaptcha={setShowCodCaptcha}
-            selectedAddressObj={selectedAddressObj}
-            user={user}
-            customer={customer || guestCustomer}
-            ensureGuestCustomer={ensureGuestCustomer}
-            getCheckoutPayload={getCheckoutPayload}
-            createOrder={createOrder}
-          />
+        <PaymentOptions
+  showPayment={showPayment}
+  setShowPayment={setShowPayment}
+  selectedPayment={selectedPayment}
+  setSelectedPayment={setSelectedPayment}
+  payable={payable}
+  subtotal={subtotal} // ✅ NEW (for showing “you save ₹x”)
+  razorpayExtraDiscount={razorpayExtraDiscount} // ✅ NEW (5% extra off amount)
+  coupon={coupon}
+  discount={discount}
+  placing={placing}
+  validate={validateCheckout}
+  setShowCodCaptcha={setShowCodCaptcha}
+  selectedAddressObj={selectedAddressObj}
+  user={user}
+  customer={customer || guestCustomer}
+  ensureGuestCustomer={ensureGuestCustomer}
+  getCheckoutPayload={getCheckoutPayload}
+  createOrder={createOrder}
+/>
+
         </div>
       </div>
 

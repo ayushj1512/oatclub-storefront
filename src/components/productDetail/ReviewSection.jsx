@@ -36,11 +36,13 @@ const shuffle = (arr) => {
 };
 const pickRating = () => (Math.random() < 0.62 ? 5 : Math.random() < 0.92 ? 4 : 3);
 const randomDate = () => {
-  const start = new Date("2024-10-01T00:00:00.000Z");
-  const end = new Date("2025-10-01T00:00:00.000Z");
+  // after Oct 2025 => start from Nov 1, 2025
+  const start = new Date("2025-10-01T00:00:00.000Z");
+  const end = new Date(); // up to today
   const t = start.getTime() + Math.random() * (end.getTime() - start.getTime());
   return new Date(t).toISOString().slice(0, 10);
 };
+
 
 export default function ReviewSection() {
   const [reviews, setReviews] = useState([]);   // ✅ generated after mount

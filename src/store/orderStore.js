@@ -91,8 +91,9 @@ createOrder: async ({
     if (!items?.length) throw new Error("Order items missing");
 
     const pm = String(paymentMethod).toLowerCase();
-    if (!["cod", "razorpay"].includes(pm))
+    if (!["cod", "razorpay"].includes(pm)) {
       throw new Error("Invalid payment method");
+    }
 
     /* ✅ coupon safe normalize */
     const couponCode =
@@ -109,8 +110,9 @@ createOrder: async ({
       const variantId = it?.variantId || null;
 
       if (!productId) throw new Error("Each item must have productId");
-      if (!Number.isFinite(quantity) || quantity < 1)
+      if (!Number.isFinite(quantity) || quantity < 1) {
         throw new Error("Invalid item quantity");
+      }
 
       return { productId, quantity, ...(variantId ? { variantId } : {}) };
     });
@@ -140,17 +142,22 @@ createOrder: async ({
       })
       .filter(Boolean);
 
-    const itemsTotal = contents.reduce(
-      (s, c) => s + c.item_price * c.quantity,
-      0
-    );
+    const itemsTotal = contents.reduce((s, c) => s + c.item_price * c.quantity, 0);
 
+    /* ✅ Razorpay extra 5% off (applied on itemsTotal/subtotal) */
+    const razorpayExtraDiscount =
+      pm === "razorpay" ? Math.round(itemsTotal * 0.05) : 0;
+
+    /* ✅ Total discount to send to backend */
+    const finalDiscount = Number(discount || 0) + razorpayExtraDiscount;
+
+    /* ✅ Compute frontend estimate (used only for checkout events) */
     const orderValue = Math.max(
       0,
       itemsTotal +
         Number(shippingFee || 0) +
         Number(tax || 0) -
-        Number(discount || 0)
+        Number(finalDiscount || 0)
     );
 
     /* ✅ Meta needs only id/qty/price (best practice) */
@@ -160,58 +167,70 @@ createOrder: async ({
       item_price: c.item_price,
     }));
 
-    /* ✅ Meta: InitiateCheckout + AddPaymentInfo */
-  // ✅ Meta: InitiateCheckout + AddPaymentInfo (send backend value)
-try {
-  await trackMeta("InitiateCheckout", {
-    currency,
-    value: backendValue || orderValue,
-    content_type: "product",
-    content_ids: contents.map((c) => c.id),
-    contents: metaContents,
-    num_items: metaContents.reduce((s, c) => s + c.quantity, 0),
-    ...(couponCode ? { coupon: couponCode } : {}),
-  });
-} catch (e) {
-  console.warn("🧾 Meta InitiateCheckout failed", e);
-}
+    /* ✅✅ FIX: Meta InitiateCheckout + AddPaymentInfo should NOT use backendValue */
+    try {
+      await trackMeta("InitiateCheckout", {
+        currency,
+        value: orderValue, // ✅ use frontend estimate
+        content_type: "product",
+        content_ids: contents.map((c) => c.id),
+        contents: metaContents,
+        num_items: metaContents.reduce((s, c) => s + c.quantity, 0),
+        ...(couponCode ? { coupon: couponCode } : {}),
+        ...(pm === "razorpay"
+          ? { razorpay_extra_discount: razorpayExtraDiscount } // optional debug
+          : {}),
+      });
+    } catch (e) {
+      console.warn("🧾 Meta InitiateCheckout failed", e);
+    }
 
-try {
-  await trackMeta("AddPaymentInfo", {
-    currency,
-    value: backendValue || orderValue,
-    content_type: "product",
-    content_ids: contents.map((c) => c.id),
-    contents: metaContents,
-    payment_method: pm,
-  });
-} catch (e) {
-  console.warn("🧾 Meta AddPaymentInfo failed", e);
-}
-
+    try {
+      await trackMeta("AddPaymentInfo", {
+        currency,
+        value: orderValue, // ✅ use frontend estimate
+        content_type: "product",
+        content_ids: contents.map((c) => c.id),
+        contents: metaContents,
+        payment_method: pm,
+        ...(pm === "razorpay"
+          ? { razorpay_extra_discount: razorpayExtraDiscount } // optional debug
+          : {}),
+      });
+    } catch (e) {
+      console.warn("🧾 Meta AddPaymentInfo failed", e);
+    }
 
     /* ✅ create order on backend */
     const payload = {
-  customerId,
-  shippingAddressId,
-  billingAddressId: billingAddressId || shippingAddressId,
-  items: normalizedItems,
-  discount,
-  coupon:
-    coupon && typeof coupon === "object"
-      ? coupon
-      : couponCode
-      ? { code: couponCode, discount, finalTotal: orderValue }
-      : null,
-  shippingFee,
-  tax,
-  currency,
-  paymentMethod: pm,
-  source,
-  isGiftOrder,
-  customerMessage,
-};
+      customerId,
+      shippingAddressId,
+      billingAddressId: billingAddressId || shippingAddressId,
+      items: normalizedItems,
 
+      // ✅ IMPORTANT: send combined discount (coupon discount + razorpay extra)
+      discount: finalDiscount,
+
+      // ✅ keep coupon object clean (don't send frontend finalTotal ideally)
+      coupon:
+        coupon && typeof coupon === "object"
+          ? { code: String(coupon.code || "").trim() }
+          : couponCode
+          ? { code: couponCode }
+          : null,
+
+      shippingFee,
+      tax,
+      currency,
+      paymentMethod: pm,
+      source,
+      isGiftOrder,
+      customerMessage,
+
+      // ✅ optional: let backend know why discount increased (helps audit)
+      razorpayExtraDiscount: pm === "razorpay" ? razorpayExtraDiscount : 0,
+      razorpayExtraDiscountPct: pm === "razorpay" ? 5 : 0,
+    };
 
     const data = await api("/api/orders", {
       method: "POST",
@@ -219,27 +238,28 @@ try {
     });
 
     const order = data?.order;
-// ✅ Prefer backend computed totals (fix value=0)
-const backendValue =
-  Number(
-    order?.finalTotal ??
-    order?.grandTotal ??
-    order?.total ??
-    order?.payableAmount ??
-    order?.amount ??
-    order?.totalAmount ??
-    0
-  ) || 0;
 
-    /* ✅ COD ONLY: Purchase tracking */
+    // ✅ Prefer backend computed totals (fix value=0)
+    const backendValue =
+      Number(
+        order?.finalTotal ??
+          order?.grandTotal ??
+          order?.total ??
+          order?.payableAmount ??
+          order?.amount ??
+          order?.totalAmount ??
+          0
+      ) || 0;
+
+    /* ✅ COD ONLY: Purchase tracking (keeping your current behavior) */
     if (pm === "cod") {
       await get().trackPurchaseSuccess({
         orderId: order?._id || order?.orderNumber || customerId,
         currency,
-value: backendValue || orderValue,
+        value: backendValue || orderValue,
         contents, // ✅ keep full contents for GA4
-         coupon: couponCode,
-
+        coupon: couponCode,
+        paymentMethod: pm,
       });
     }
 
@@ -260,6 +280,7 @@ value: backendValue || orderValue,
     throw e;
   }
 },
+
 
 
 trackPurchaseSuccess: async ({

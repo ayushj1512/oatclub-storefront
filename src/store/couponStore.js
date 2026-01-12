@@ -3,42 +3,52 @@ import { persist } from "zustand/middleware";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
+const normCode = (v) => String(v || "").trim().toUpperCase();
+const norm = (v) => String(v || "").trim();
+const normEmail = (v) => String(v || "").trim().toLowerCase();
+const normPhone = (v) => String(v || "").replace(/[^\d+]/g, "").trim();
+const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normEmail(v));
+const isPhone = (v) => {
+  const p = normPhone(v).replace(/^\+/, "");
+  return p.length >= 10 && p.length <= 15;
+};
+
+// customerKey must match backend: email:xxx | phone:xxx | id:xxx
+const customerKey = ({ email, phone, customerId }) => {
+  if (email && isEmail(email)) return `email:${normEmail(email)}`;
+  if (phone && isPhone(phone)) return `phone:${normPhone(phone)}`;
+  const cid = norm(customerId);
+  if (!cid || cid.toLowerCase() === "guest") return null;
+  return `id:${cid}`;
+};
+
 export const useCouponStore = create(
   persist(
     (set, get) => ({
-      // --------------------
-      // STATE
-      // --------------------
-      coupon: null, // ✅ only { code } will persist
+      // state
+      coupon: null, // { code }
+      couponCustomerKey: null, // ✅ persists identity used for this coupon
       discount: 0,
       finalTotal: null,
       isApplying: false,
       error: null,
       message: null,
 
-      // ✅ Suggested Coupons
       suggestedCoupons: [],
       isLoadingSuggestions: false,
       suggestionError: null,
 
-      // internal lock (prevents double apply)
       _applyPromise: null,
 
-      // --------------------
-      // GETTERS
-      // --------------------
-      isApplied: () => Boolean(get().coupon?.code),
+      isApplied: () => !!get().coupon?.code,
 
-      // --------------------
-      // ✅ CLEAR PERSISTED + RESET (NEW)
-      // --------------------
       clearPersistedCoupon: async () => {
         try {
-          await useCouponStore.persist.clearStorage(); // ✅ clears localStorage
+          await useCouponStore.persist.clearStorage();
         } catch (_) {}
-
         set({
           coupon: null,
+          couponCustomerKey: null,
           discount: 0,
           finalTotal: null,
           isApplying: false,
@@ -48,104 +58,52 @@ export const useCouponStore = create(
         });
       },
 
-      // --------------------
-      // FETCH SUGGESTED COUPONS
-      // --------------------
-      fetchSuggestedCoupons: async ({ customerId, cartTotal }) => {
-        if (!API_BASE) {
-          set({ suggestionError: "Backend not configured" });
-          return;
-        }
-
-        if (!customerId || cartTotal == null) return;
-
+      fetchSuggestedCoupons: async ({ cartTotal }) => {
+        if (!API_BASE) return set({ suggestionError: "Backend not configured" });
         try {
-          set({
-            isLoadingSuggestions: true,
-            suggestionError: null,
-          });
+          set({ isLoadingSuggestions: true, suggestionError: null });
 
           const res = await fetch(`${API_BASE}/api/coupons`, {
-            method: "GET",
             headers: { "Content-Type": "application/json" },
           });
-
           const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || "Failed to fetch coupons");
 
-          if (!res.ok) {
-            throw new Error(data.message || "Failed to fetch suggestions");
-          }
-
-          const coupons = Array.isArray(data.data) ? data.data : [];
           const now = new Date();
+          const coupons = Array.isArray(data.data) ? data.data : [];
+          const list = coupons
+            .filter((c) => c?.isActive)
+            .map((c) => {
+              const vf = c.validFrom ? new Date(c.validFrom) : null;
+              const vt = c.validTill ? new Date(c.validTill) : null;
+              const okDate = (!vf || vf <= now) && (!vt || vt >= now);
+              const okMin = !c.minPurchase || cartTotal == null || +cartTotal >= +c.minPurchase;
+              return { ...c, _eligibility: { okDate, okMin, isEligible: okDate && okMin } };
+            })
+            .sort((a, b) => (+b._eligibility.isEligible) - (+a._eligibility.isEligible));
 
-          const filtered = coupons.filter((c) => {
-            const isActive = c.isActive;
-            const validFrom = new Date(c.validFrom);
-            const validTill = new Date(c.validTill);
-
-            const isInDateRange = validFrom <= now && validTill >= now;
-
-            const meetsMinPurchase =
-              !c.minPurchase || Number(cartTotal) >= Number(c.minPurchase);
-
-            const alreadyUsed =
-              Array.isArray(c.usedBy) && c.usedBy.includes(customerId);
-
-            const limitPerCustomerOk =
-              c.usageLimitPerCustomer === 1 ? !alreadyUsed : true;
-
-            return (
-              isActive &&
-              isInDateRange &&
-              meetsMinPurchase &&
-              limitPerCustomerOk
-            );
-          });
-
-          set({
-            suggestedCoupons: filtered,
-            isLoadingSuggestions: false,
-            suggestionError: null,
-          });
-        } catch (err) {
+          set({ suggestedCoupons: list, isLoadingSuggestions: false });
+        } catch (e) {
           set({
             suggestedCoupons: [],
             isLoadingSuggestions: false,
-            suggestionError: err.message || "Failed to fetch suggestions",
+            suggestionError: e?.message || "Failed to fetch coupons",
           });
         }
       },
 
-      // --------------------
-      // APPLY COUPON
-      // --------------------
-      applyCoupon: async ({ code, customerId, cartTotal }) => {
-        if (!API_BASE) {
-          set({ error: "Backend not configured" });
-          throw new Error("Backend not configured");
-        }
+      applyCoupon: async ({ code, cartTotal, email, phone, customerId }) => {
+        if (!API_BASE) throw new Error("Backend not configured");
 
-        if (!code || !customerId || cartTotal == null) {
-          set({ error: "Invalid coupon data" });
-          throw new Error("Invalid coupon data");
-        }
+        const cCode = normCode(code);
+        const cKey = customerKey({ email, phone, customerId });
 
-        // ✅ prevent double apply spam
-        if (get().isApplying && get()._applyPromise) {
-          return get()._applyPromise;
-        }
+        if (!cCode || cartTotal == null) throw new Error("Invalid coupon data");
+        if (!cKey) throw new Error("Please enter email or phone number to apply coupon.");
 
-        const couponCode = String(code).trim().toUpperCase();
-        const cid = String(customerId).trim();
-
-        // ✅ if same coupon already applied, do nothing
-        if (get().coupon?.code === couponCode) {
-          return {
-            message: "Coupon already applied",
-            discount: get().discount,
-            finalTotal: get().finalTotal,
-          };
+        if (get().isApplying && get()._applyPromise) return get()._applyPromise;
+        if (get().coupon?.code === cCode && get().couponCustomerKey === cKey) {
+          return { message: "Coupon already applied", discount: get().discount, finalTotal: get().finalTotal };
         }
 
         const p = (async () => {
@@ -155,40 +113,34 @@ export const useCouponStore = create(
             const res = await fetch(`${API_BASE}/api/coupons/apply`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                code: couponCode,
-                customerId: cid,
-                cartTotal,
-              }),
+              body: JSON.stringify({ code: cCode, cartTotal, email, phone, customerId }),
             });
 
             const data = await res.json().catch(() => ({}));
-
-            if (!res.ok) {
-              throw new Error(data.message || "Failed to apply coupon");
-            }
+            if (!res.ok) throw new Error(data.message || "Failed to apply coupon");
 
             set({
-              coupon: { code: couponCode }, // ✅ persist only this
-              discount: data.discount,
-              finalTotal: data.finalTotal,
+              coupon: { code: cCode },
+              couponCustomerKey: cKey,
+              discount: data.discount ?? 0,
+              finalTotal: data.finalTotal ?? null,
               isApplying: false,
-              error: null,
               message: data.message || "Coupon applied successfully",
+              error: null,
             });
 
             return data;
-          } catch (err) {
+          } catch (e) {
             set({
               coupon: null,
+              couponCustomerKey: null,
               discount: 0,
               finalTotal: null,
               isApplying: false,
-              error: err.message || "Coupon failed",
+              error: e?.message || "Coupon failed",
               message: null,
             });
-
-            throw err;
+            throw e;
           } finally {
             set({ _applyPromise: null });
           }
@@ -198,68 +150,38 @@ export const useCouponStore = create(
         return p;
       },
 
-      // --------------------
-      // ✅ REAPPLY AFTER RELOAD (UPDATED)
-      // --------------------
-      rehydrateCoupon: async ({ customerId, cartTotal }) => {
-        const code = get().coupon?.code;
-        if (!code) return;
+      rehydrateCoupon: async ({ cartTotal, email, phone, customerId }) => {
+        const c = get().coupon?.code;
+        if (!c) return;
 
-        // ✅ if cartTotal invalid -> remove + clear persist
-        if (!cartTotal || cartTotal <= 0) {
-          await get().clearPersistedCoupon();
-          return;
+        const cKey = customerKey({ email, phone, customerId });
+        if (!cKey || !(cartTotal > 0)) return get().clearPersistedCoupon();
+
+        if (get().couponCustomerKey && get().couponCustomerKey !== cKey) {
+          return get().clearPersistedCoupon();
         }
 
         try {
-          await get().applyCoupon({ code, customerId, cartTotal });
-        } catch (_) {
-          // ✅ if invalid coupon after reload -> clear persisted
+          await get().applyCoupon({ code: c, cartTotal, email, phone, customerId });
+        } catch {
           await get().clearPersistedCoupon();
         }
       },
 
-      // --------------------
-      // REMOVE COUPON (UPDATED)
-      // --------------------
-      removeCoupon: () => {
-        set({
-          coupon: null,
-          discount: 0,
-          finalTotal: null,
-          error: null,
-          message: null,
-          isApplying: false,
-          _applyPromise: null,
-        });
-      },
+      removeCoupon: async () => get().clearPersistedCoupon(),
 
-      // --------------------
-      // CLEAR MESSAGE/ERROR
-      // --------------------
-      clearCouponMessages: () => {
-        set({ error: null, message: null });
-      },
+      clearCouponMessages: () => set({ error: null, message: null, suggestionError: null }),
 
-      // --------------------
-      // RESET STORE (UPDATED)
-      // --------------------
       resetCouponStore: async () => {
         await get().clearPersistedCoupon();
-
-        set({
-          suggestedCoupons: [],
-          isLoadingSuggestions: false,
-          suggestionError: null,
-        });
+        set({ suggestedCoupons: [], isLoadingSuggestions: false, suggestionError: null });
       },
     }),
     {
       name: "coupon-store",
-
-      // ✅ ONLY persist coupon code, nothing else
-      partialize: (state) => ({
-        coupon: state.coupon ? { code: state.coupon.code } : null,
+      partialize: (s) => ({
+        coupon: s.coupon ? { code: s.coupon.code } : null,
+        couponCustomerKey: s.couponCustomerKey || null,
       }),
     }
   )

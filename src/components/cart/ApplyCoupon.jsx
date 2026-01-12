@@ -1,21 +1,21 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Tag, X, Loader2 } from "lucide-react";
 import { useCouponStore } from "@/store/couponStore";
 
-const money = (n) =>
-  Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0";
-
-const couponLabel = (c) => {
-  if (!c) return "";
-  if (c.discountType === "percentage") return `${c.discountValue}% OFF`;
-  return `₹${money(c.discountValue)} OFF`;
+const money = (n) => (Number.isFinite(+n) ? (+n).toLocaleString("en-IN") : "0");
+const couponLabel = (c) =>
+  !c ? "" : c.discountType === "percentage" ? `${c.discountValue}% OFF` : `₹${money(c.discountValue)} OFF`;
+const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim().toLowerCase());
+const isPhone = (v) => {
+  const p = String(v || "").replace(/[^\d+]/g, "").trim().replace(/^\+/, "");
+  return p.length >= 10 && p.length <= 15;
 };
 
-export default function ApplyCoupon({ cartTotal }) {
+export default function ApplyCoupon({ cartTotal, email, phone, customerId }) {
   const [code, setCode] = useState("");
-  const [clickedCode, setClickedCode] = useState(null);
+  const [clicked, setClicked] = useState("");
 
   const {
     coupon,
@@ -26,146 +26,109 @@ export default function ApplyCoupon({ cartTotal }) {
     applyCoupon,
     removeCoupon,
     clearCouponMessages,
-    rehydrateCoupon, // ✅ IMPORTANT
-
-    // ✅ Suggestions
+    rehydrateCoupon,
     suggestedCoupons,
     isLoadingSuggestions,
     suggestionError,
     fetchSuggestedCoupons,
   } = useCouponStore();
 
-  const hasCoupon = Boolean(coupon?.code);
+  const hasCoupon = !!coupon?.code;
+  const saved = useMemo(() => Math.max(0, +discount || 0), [discount]);
+  const canIdentify = isEmail(email) || isPhone(phone) || (customerId && String(customerId).toLowerCase() !== "guest");
 
-  // ✅ Always treat as guest
-  const customerId = "guest";
-
-  // ✅ Load suggestions
-  const loadSuggestions = useCallback(() => {
-    if (cartTotal == null || cartTotal <= 0 || hasCoupon) return;
-    fetchSuggestedCoupons({ customerId, cartTotal });
-  }, [cartTotal, fetchSuggestedCoupons, hasCoupon]);
+  const load = useCallback(() => {
+    if (!hasCoupon && cartTotal > 0) fetchSuggestedCoupons({ cartTotal });
+  }, [hasCoupon, cartTotal, fetchSuggestedCoupons]);
 
   useEffect(() => {
-    loadSuggestions();
-  }, [loadSuggestions]);
+    load();
+    if (hasCoupon && !(cartTotal > 0)) removeCoupon();
+    if (hasCoupon && cartTotal > 0 && saved === 0)
+      rehydrateCoupon?.({ cartTotal, email, phone, customerId });
+  }, [load, hasCoupon, cartTotal, saved, removeCoupon, rehydrateCoupon, email, phone, customerId]);
 
-  // ✅ 1) If cart total becomes invalid -> reset coupon + clear localStorage
-  useEffect(() => {
-    if (hasCoupon && (!cartTotal || cartTotal <= 0)) {
-      removeCoupon();
-      useCouponStore.persist.clearStorage(); // ✅ clear persisted coupon code
-    }
-  }, [hasCoupon, cartTotal, removeCoupon]);
-
-  // ✅ 2) If coupon exists (persisted) but discount is 0 -> rehydrate
-  useEffect(() => {
-    if (hasCoupon && cartTotal > 0 && Number(discount || 0) === 0) {
-      rehydrateCoupon?.({ customerId, cartTotal });
-    }
-  }, [hasCoupon, cartTotal, discount, rehydrateCoupon]);
-
-  const onApply = async (applyCode = code) => {
-    const finalCode = String(applyCode || "").trim();
-    if (!finalCode || isApplying) return;
+  const onApply = async (v = code) => {
+    const c = String(v || "").trim().toUpperCase();
+    if (!c || isApplying) return;
 
     try {
       clearCouponMessages?.();
-      setClickedCode(finalCode.toUpperCase());
-
-      await applyCoupon({
-        code: finalCode,
-        customerId,
-        cartTotal,
-      });
-
+      setClicked(c);
+      await applyCoupon({ code: c, cartTotal, email, phone, customerId });
       setCode("");
-      setClickedCode(null);
-    } catch {
-      setClickedCode(null);
+    } finally {
+      setClicked("");
     }
   };
 
   const onRemove = async () => {
-    removeCoupon();
+    await removeCoupon();
     clearCouponMessages?.();
     setCode("");
-
-    // ✅ Clear persisted coupon too
-    await useCouponStore.persist.clearStorage();
-
-    // ✅ Refresh suggestions after removing
-    setTimeout(() => loadSuggestions(), 50);
+    setTimeout(load, 50);
   };
-
-  const displayDiscount = useMemo(
-    () => Math.max(0, Number(discount || 0)),
-    [discount]
-  );
 
   return (
     <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.06)]">
-      <div className="flex items-center gap-2 mb-2">
-        <Tag className="w-4 h-4 text-gray-700" />
+      <div className="mb-2 flex items-center gap-2">
+        <Tag className="h-4 w-4 text-gray-700" />
         <p className="text-sm font-semibold text-black">Apply Coupon</p>
       </div>
 
       {hasCoupon ? (
-        <div className="flex items-center justify-between rounded-xl bg-gray-50 border border-gray-200 px-3 py-2">
+        <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
           <div>
-            <p className="text-sm font-semibold text-black">
-              {coupon.code} applied
-            </p>
-            <p className="text-xs text-gray-600">
-              You saved ₹{money(displayDiscount)}
-            </p>
+            <p className="text-sm font-semibold text-black">{coupon.code} applied</p>
+            <p className="text-xs text-gray-600">You saved ₹{money(saved)}</p>
           </div>
-
           <button
             type="button"
             onClick={onRemove}
             aria-label="Remove coupon"
-            className="grid place-items-center w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 transition"
+            className="grid h-8 w-8 place-items-center rounded-full bg-gray-200 transition hover:bg-gray-300"
           >
-            <X className="w-4 h-4 text-black" />
+            <X className="h-4 w-4 text-black" />
           </button>
         </div>
       ) : (
         <>
-          {/* ✅ Input + Apply */}
           <div className="flex items-center gap-2">
             <input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="Enter coupon code"
-              className="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 transition"
+              className="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm outline-none transition focus:ring-2 focus:ring-black/20"
             />
 
             <button
               type="button"
-              disabled={isApplying || !code.trim()}
+              disabled={isApplying || !code.trim() || !canIdentify}
               onClick={() => onApply()}
-              className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-black hover:bg-black/90 transition disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/90 disabled:opacity-60"
+              title={!canIdentify ? "Enter email or phone to apply coupon" : ""}
             >
-              {isApplying && clickedCode === code.trim().toUpperCase() ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+              {isApplying && clicked === code.trim().toUpperCase() ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 "Apply"
               )}
             </button>
           </div>
 
-          {/* ✅ Suggested Coupons */}
-          <div className="mt-3">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-gray-700">
-                Suggested Coupons
-              </p>
+          {!canIdentify && (
+            <p className="mt-2 text-xs text-gray-600">
+              Enter email or phone number to apply coupon.
+            </p>
+          )}
 
+          <div className="mt-3">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-700">Suggested Coupons</p>
               <button
                 type="button"
-                onClick={loadSuggestions}
-                className="text-[11px] font-semibold text-gray-600 hover:text-black transition"
+                onClick={load}
+                className="text-[11px] font-semibold text-gray-600 transition hover:text-black"
               >
                 Refresh
               </button>
@@ -173,7 +136,7 @@ export default function ApplyCoupon({ cartTotal }) {
 
             {isLoadingSuggestions ? (
               <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Loading suggestions...
               </div>
             ) : suggestionError ? (
@@ -181,31 +144,24 @@ export default function ApplyCoupon({ cartTotal }) {
             ) : suggestedCoupons?.length ? (
               <div className="flex flex-wrap gap-2">
                 {suggestedCoupons.map((c) => {
-                  const isThisApplying = isApplying && clickedCode === c.code;
-
+                  const cc = String(c.code || "").toUpperCase();
+                  const spin = isApplying && clicked === cc;
                   return (
                     <button
-                      key={c._id || c.code}
+                      key={c._id || cc}
                       type="button"
-                      disabled={isApplying}
-                      onClick={() => onApply(c.code)}
-                      className="px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50 text-xs font-semibold text-black hover:bg-black hover:text-white transition disabled:opacity-60"
+                      disabled={isApplying || !canIdentify}
+                      onClick={() => onApply(cc)}
+                      className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-black transition hover:bg-black hover:text-white disabled:opacity-60"
+                      title={!canIdentify ? "Enter email or phone to apply coupon" : ""}
                     >
                       <span className="inline-flex items-center gap-1">
-                        {isThisApplying ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : null}
-                        {c.code}
+                        {spin ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                        {cc}
                       </span>
-
-                      <span className="ml-1 font-medium opacity-70">
-                        {couponLabel(c)}
-                      </span>
-
-                      {c.minPurchase > 0 && (
-                        <span className="ml-2 text-[11px] opacity-60">
-                          Min ₹{money(c.minPurchase)}
-                        </span>
+                      <span className="ml-1 font-medium opacity-70">{couponLabel(c)}</span>
+                      {+c.minPurchase > 0 && (
+                        <span className="ml-2 text-[11px] opacity-60">Min ₹{money(c.minPurchase)}</span>
                       )}
                     </button>
                   );
@@ -216,7 +172,6 @@ export default function ApplyCoupon({ cartTotal }) {
             )}
           </div>
 
-          {/* ✅ Error / Message */}
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
           {message && <p className="mt-2 text-xs text-green-700">{message}</p>}
         </>
