@@ -228,7 +228,9 @@ export default function CartPage() {
                 <span className="text-gray-400 font-medium text-sm sm:text-base">({itemCount} {itemCount === 1 ? "item" : "items"})</span>
               </div>
               <p className="mt-1 text-sm text-gray-500">Review items and proceed to a secure checkout.</p>
-            </div>
+<p className="mt-1 text-sm text-gray-500">
+  You can apply coupons during checkout.
+</p>            </div>
 
             <div className="flex items-center gap-2">
               <Link href="/shop" className="inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold border border-black/10 bg-white/70 hover:bg-white transition">
@@ -461,7 +463,7 @@ export default function CartPage() {
           </div>
 
           <div className="lg:col-span-4">
-            <div className="mb-4 md:mb-6"><ApplyCoupon cartTotal={subtotal} /></div>
+            {/* <div className="mb-4 md:mb-6"><ApplyCoupon cartTotal={subtotal} /></div> */}
 
             <div className="lg:sticky lg:top-6">
               <GlassCard className="rounded-[22px] overflow-hidden">
