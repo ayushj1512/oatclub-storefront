@@ -1,37 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import ProductCard from "@/components/common/ProductCard";
 import { useProductStore } from "@/store/productStore";
 
-export default function TrendingSection() {
+export default function TopSectionFeatured() {
   const { allProducts, isLoading, error, fetchProductsByCategory } =
     useProductStore();
 
   const fetchedRef = useRef(false);
   const scrollRef = useRef(null);
 
-  // ✅ this makes shuffle change every time (on mount + interval)
-  const [shuffleTick, setShuffleTick] = useState(0);
+  // ✅ keep one source of truth
+  const CATEGORY = "top"; // <-- set this to "tops" if your DB stores "tops"
+  const ACCEPT = new Set(["top", "tops"]); // ✅ safety: accept both
 
   useEffect(() => {
     if (fetchedRef.current) return;
     fetchedRef.current = true;
 
-    fetchProductsByCategory("featured", {
+    fetchProductsByCategory(CATEGORY, {
       page: 1,
       limit: 60,
       isActive: true,
       sort: "newest",
     });
   }, [fetchProductsByCategory]);
-
-  // ✅ reshuffle every 3 seconds (change duration if needed)
-  useEffect(() => {
-    const t = setInterval(() => setShuffleTick((x) => x + 1), 3000);
-    return () => clearInterval(t);
-  }, []);
 
   const scrollRow = (dir) => {
     if (!scrollRef.current) return;
@@ -42,9 +37,18 @@ export default function TrendingSection() {
   };
 
   const products = useMemo(() => {
-    const list = (allProducts || []).filter(
-      (p) => p?.raw?.isActive !== false && p?.isInStock !== false
-    );
+    const list = (allProducts || [])
+      .filter((p) => p?.raw?.isActive !== false)
+      .filter((p) => p?.isInStock !== false)
+      .filter((p) => {
+        const cats = Array.isArray(p?.raw?.categories)
+          ? p.raw.categories
+          : Array.isArray(p?.categories)
+          ? p.categories
+          : [];
+
+        return cats.some((c) => ACCEPT.has(String(c || "").trim().toLowerCase()));
+      });
 
     const shuffled = [...list].sort(() => Math.random() - 0.5).slice(0, 12);
 
@@ -61,8 +65,7 @@ export default function TrendingSection() {
       category: p.category,
       currency: p.currency,
     }));
-    // ✅ depend on shuffleTick so it reshuffles even if allProducts same
-  }, [allProducts, shuffleTick]);
+  }, [allProducts]);
 
   const showShimmer = isLoading && !products.length;
   const showArrows = (products?.length || 0) > 2 || showShimmer;
@@ -70,9 +73,11 @@ export default function TrendingSection() {
   if (showShimmer) {
     return (
       <section className="pt-2 px-4 bg-white">
-        <h2 className="font-bogle text-xl md:text-3xl font-black text-center text-black mb-10 tracking-[0.28em] uppercase">
-          TRENDING
-        </h2>
+        <div className="w-full bg-black text-center mb-10">
+          <h2 className="text-white py-3 text-lg md:text-3xl font-semibold uppercase tracking-[0.28em]">
+            Tops
+          </h2>
+        </div>
 
         <div className="relative">
           <button
@@ -125,7 +130,7 @@ export default function TrendingSection() {
     >
       <div className="w-full bg-black text-center mb-10">
         <h2 className="text-white py-3 text-lg md:text-3xl font-semibold uppercase tracking-[0.28em]">
-          TRENDING
+          Tops
         </h2>
       </div>
 
@@ -169,7 +174,7 @@ export default function TrendingSection() {
         >
           {products.map((p) => (
             <div
-              key={`${p.id}_${shuffleTick}`} // ✅ force re-render order
+              key={p.id}
               className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]"
             >
               <ProductCard product={p} />

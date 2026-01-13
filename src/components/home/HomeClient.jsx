@@ -6,11 +6,12 @@ import { generateSEO } from "@/utils/seoConfig";
 // ⭐ ABOVE THE FOLD
 import HeroSection from "@/components/home/HeroSection";
 import CategoryRow from "@/components/home/CategoryRow";
-import StyleByOccasion from "@/components/home/StyleByOccasion";
+// import StyleByOccasion from "@/components/home/StyleByOccasion";
 
 // ⭐ BELOW THE FOLD (NORMAL RENDER)
 import TrendingSection from "@/components/home/TrendingSection";
 import WinterFeatureSection from "@/components/home/WinterFeatureSection";
+import TopSectionFeatured from "@/components/home/TopSection"; // ✅ NEW
 import BestSellerSection from "@/components/home/BestSellerSection";
 import VideoRow from "@/components/home/VideoRow";
 import BlogSection from "@/components/home/BlogSection";
@@ -48,10 +49,15 @@ export default function HomeClient() {
         {/* <StyleByOccasion /> */}
 
         {/* BELOW THE FOLD — NORMAL SECTIONS */}
-
         <TrendingSection />
         <WinterFeatureSection />
+
+        {/* ✅ NEW TOP SECTION (Featured Category) */}
+        <TopSectionFeatured />
+
+        {/* Best Seller comes after Top Section */}
         <BestSellerSection />
+
         <VideoRow />
         <BlogSection />
         <RecentlyViewed />
