@@ -63,103 +63,132 @@ export const useSearchStore = create((set, get) => ({
     }),
 
   searchProducts: async ({ page = 1 } = {}) => {
-    const state = get();
-    const { query, limit, filters: { category, tags, minPrice, maxPrice, sort } } = state;
+  const state = get();
+  const {
+    query,
+    limit,
+    filters: { category, tags, minPrice, maxPrice, sort },
+  } = state;
 
-    if (!API_BASE) return set({ error: "Search API not configured" });
+  if (!API_BASE) return set({ error: "Search API not configured" });
 
-    const q = (query || "").trim();
-    if (!q || q.length < 2) {
-      return set({ results: [], total: 0, pages: 1, page: 1, error: null, loading: false });
+  const q = (query || "").trim();
+  if (!q || q.length < 2) {
+    return set({
+      results: [],
+      total: 0,
+      pages: 1,
+      page: 1,
+      error: null,
+      loading: false,
+    });
+  }
+
+  set({ loading: true, error: null });
+
+  try {
+    const params = new URLSearchParams();
+    params.set("search", q);
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+
+    if (category) params.set("category", String(category));
+    if (tags?.length) params.set("tags", tags.join(","));
+    if (minPrice != null) params.set("minPrice", String(minPrice));
+    if (maxPrice != null) params.set("maxPrice", String(maxPrice));
+    if (sort) params.set("sort", String(sort));
+
+    // ✅ ALWAYS: only published products
+    params.set("isActive", "true");
+
+    const res = await fetch(`${API_BASE}/api/products?${params.toString()}`, {
+      cache: "no-store",
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || "Search request failed");
+
+    const incoming = Array.isArray(data?.products) ? data.products : [];
+
+    // ✅ Extra safety: if backend ever returns inactive, drop them
+    const publishedOnly = incoming.filter((p) => p?.isActive !== false);
+
+    const finalResults =
+      page === 1
+        ? publishedOnly
+        : [...(get().results || []), ...publishedOnly];
+
+    set({
+      results: finalResults,
+      total: data?.total || 0,
+      page: data?.page || page,
+      pages: data?.pages || 1,
+      loading: false,
+      lastSearchedAt: Date.now(),
+    });
+
+    /* ✅ Analytics appearance */
+    try {
+      const analytics = useAnalyticsStore.getState();
+      publishedOnly.forEach((p) =>
+        analytics.trackSearchAppearance(p._id || p.id)
+      );
+    } catch (e) {
+      console.warn("📊 Search analytics failed", e);
     }
 
-    set({ loading: true, error: null });
-
+    /* ✅ GA4: search + view_search_results (ONLY for page=1 + deduped) */
     try {
-      const params = new URLSearchParams();
-      params.set("search", q);
-      params.set("page", String(page));
-      params.set("limit", String(limit));
-      if (category) params.set("category", String(category));
-      if (tags?.length) params.set("tags", tags.join(","));
-      if (minPrice != null) params.set("minPrice", String(minPrice));
-      if (maxPrice != null) params.set("maxPrice", String(maxPrice));
-      if (sort) params.set("sort", String(sort));
+      const ga4Key = stableStringify({ q, category, tags, minPrice, maxPrice, sort, isActive: true });
+      const now = Date.now();
+      const { _lastGA4SearchKey, _lastGA4SearchAt } = get();
 
-      const res = await fetch(`${API_BASE}/api/products?${params.toString()}`);
-      if (!res.ok) throw new Error("Search request failed");
+      const tooSoon = _lastGA4SearchAt && now - _lastGA4SearchAt < 2500;
+      const sameKey = _lastGA4SearchKey && _lastGA4SearchKey === ga4Key;
 
-      const data = await res.json();
-      const incoming = data.products || [];
-      const finalResults = page === 1 ? incoming : [...(get().results || []), ...incoming];
+      if (page === 1 && !(sameKey && tooSoon)) {
+        pushToDataLayer({ event: "search", search_term: q });
 
-      set({
-        results: finalResults,
-        total: data.total || 0,
-        page: data.page || page,
-        pages: data.pages || 1,
-        loading: false,
-        lastSearchedAt: Date.now(),
-      });
+        pushEcomEvent("view_search_results", {
+          currency: "INR",
+          items: publishedOnly.slice(0, 20).map(ga4Item),
+        });
 
-      /* ✅ Analytics appearance */
-      try {
-        const analytics = useAnalyticsStore.getState();
-        incoming.forEach((p) => analytics.trackSearchAppearance(p._id || p.id));
-      } catch (e) {
-        console.warn("📊 Search analytics failed", e);
-      }
-
-      /* ✅ GA4: search + view_search_results (ONLY for page=1 + deduped) */
-      try {
-        const ga4Key = stableStringify({ q, category, tags, minPrice, maxPrice, sort });
-        const now = Date.now();
-        const { _lastGA4SearchKey, _lastGA4SearchAt } = get();
-
-        const tooSoon = _lastGA4SearchAt && now - _lastGA4SearchAt < 2500;
-        const sameKey = _lastGA4SearchKey && _lastGA4SearchKey === ga4Key;
-
-        if (page === 1 && !(sameKey && tooSoon)) {
-          // basic search event
-          pushToDataLayer({ event: "search", search_term: q });
-
-          // ecommerce recommended: view_search_results
-          pushEcomEvent("view_search_results", {
-            currency: "INR",
-            items: incoming.slice(0, 20).map(ga4Item),
-          });
-
-          set({ _lastGA4SearchKey: ga4Key, _lastGA4SearchAt: now });
-        }
-      } catch (e) {
-        console.warn("📈 GA4 search events failed", e);
-      }
-
-      /* ✅ Meta Search (existing logic) */
-      try {
-        const metaKey = stableStringify({ q, category, tags, minPrice, maxPrice, sort });
-        const now = Date.now();
-        const { _lastMetaSearchKey, _lastMetaSearchAt } = get();
-
-        const tooSoon = _lastMetaSearchAt && now - _lastMetaSearchAt < 2500;
-        const sameKey = _lastMetaSearchKey && _lastMetaSearchKey === metaKey;
-
-        if (page === 1 && !(sameKey && tooSoon)) {
-          await trackMeta("Search", {
-            search_string: q,
-            content_category: category ? String(category) : undefined,
-            content_ids: incoming.slice(0, 20).map((p) => String(p._id || p.id)).filter(Boolean),
-          });
-
-          set({ _lastMetaSearchKey: metaKey, _lastMetaSearchAt: now });
-        }
-      } catch (e) {
-        console.warn("🧾 Meta Search event failed", e);
+        set({ _lastGA4SearchKey: ga4Key, _lastGA4SearchAt: now });
       }
     } catch (e) {
-      set({ loading: false, error: e?.message || "Search failed" });
+      console.warn("📈 GA4 search events failed", e);
     }
-  },
+
+    /* ✅ Meta Search */
+    try {
+      const metaKey = stableStringify({ q, category, tags, minPrice, maxPrice, sort, isActive: true });
+      const now = Date.now();
+      const { _lastMetaSearchKey, _lastMetaSearchAt } = get();
+
+      const tooSoon = _lastMetaSearchAt && now - _lastMetaSearchAt < 2500;
+      const sameKey = _lastMetaSearchKey && _lastMetaSearchKey === metaKey;
+
+      if (page === 1 && !(sameKey && tooSoon)) {
+        await trackMeta("Search", {
+          search_string: q,
+          content_category: category ? String(category) : undefined,
+          content_ids: publishedOnly
+            .slice(0, 20)
+            .map((p) => String(p._id || p.id))
+            .filter(Boolean),
+        });
+
+        set({ _lastMetaSearchKey: metaKey, _lastMetaSearchAt: now });
+      }
+    } catch (e) {
+      console.warn("🧾 Meta Search event failed", e);
+    }
+  } catch (e) {
+    set({ loading: false, error: e?.message || "Search failed" });
+  }
+},
+
 
   loadMore: async () => {
     const { page, pages, loading } = get();

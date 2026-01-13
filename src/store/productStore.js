@@ -114,90 +114,94 @@
     return x;
   };
 
-  const buildUrl = (p = {}) => {
-    const qs = new URLSearchParams();
-    const setIf = (k, v) => {
-      if (v === undefined || v === null) return;
-      const s = String(v).trim();
-      if (!s) return;
-      qs.set(k, s);
-    };
+ const buildUrl = (p = {}) => {
+  const qs = new URLSearchParams();
+  const setIf = (k, v) => {
+    if (v === undefined || v === null) return;
+    const s = String(v).trim();
+    if (!s) return;
+    qs.set(k, s);
+  };
 
-    setIf("page", p.page);
-    setIf("limit", p.limit);
-    setIf("search", p.search);
+  setIf("page", p.page);
+  setIf("limit", p.limit);
+  setIf("search", p.search);
 
-    if (p.category && !isBadCategory(p.category)) setIf("category", p.category);
-    if (p.subcategory) setIf("subcategory", p.subcategory);
+  if (p.category && !isBadCategory(p.category)) setIf("category", p.category);
+  if (p.subcategory) setIf("subcategory", p.subcategory);
 
-    setIf("collection", p.collection);
+  setIf("collection", p.collection);
 
-    if (Array.isArray(p.tags)) setIf("tags", p.tags.join(","));
-    else setIf("tags", p.tags);
+  if (Array.isArray(p.tags)) setIf("tags", p.tags.join(","));
+  else setIf("tags", p.tags);
 
-    setIf("minPrice", p.minPrice);
-    setIf("maxPrice", p.maxPrice);
+  setIf("minPrice", p.minPrice);
+  setIf("maxPrice", p.maxPrice);
 
-    const sortMap = {
-      default: "",
-      priceLowHigh: "price_asc",
-      priceHighLow: "price_desc",
-      newest: "newest",
-      rating: "rating",
-      popularity: "popularity",
-    };
+  const sortMap = {
+    default: "",
+    priceLowHigh: "price_asc",
+    priceHighLow: "price_desc",
+    newest: "newest",
+    rating: "rating",
+    popularity: "popularity",
+  };
 
   if (p.sort) setIf("sort", sortMap[p.sort] || p.sort);
-    else if (p.sortOption && sortMap[p.sortOption])
-      setIf("sort", sortMap[p.sortOption]);
+  else if (p.sortOption && sortMap[p.sortOption])
+    setIf("sort", sortMap[p.sortOption]);
 
-    if (p.isActive != null) setIf("isActive", p.isActive);
-    if (p.sku) setIf("sku", p.sku);
+  // ✅ DEFAULT: only published products
+  // if caller explicitly passes isActive, respect it, else force true
+  if (p.isActive != null) setIf("isActive", p.isActive);
+  else setIf("isActive", true);
 
-    const q = qs.toString();
-    return `${BACKEND}/api/products${q ? `?${q}` : ""}`;
-  };
+  if (p.sku) setIf("sku", p.sku);
+
+  const q = qs.toString();
+  return `${BACKEND}/api/products${q ? `?${q}` : ""}`;
+};
 
   // ✅ NEW: build url for tag route
-  const buildTagUrl = (p = {}) => {
-    const qs = new URLSearchParams();
-    const setIf = (k, v) => {
-      if (v === undefined || v === null) return;
-      const s = String(v).trim();
-      if (!s) return;
-      qs.set(k, s);
-    };
-
-    // route supports tag OR tags[]
-    if (p.tag) setIf("tag", p.tag);
-    if (Array.isArray(p.tags) && p.tags.length) setIf("tags", p.tags.join(","));
-
-    setIf("page", p.page);
-    setIf("limit", p.limit);
-    setIf("search", p.search);
-    setIf("minPrice", p.minPrice);
-    setIf("maxPrice", p.maxPrice);
-
-    // ✅ sort mapping
-    const sortMap = {
-      default: "",
-      priceLowHigh: "price_asc",
-      priceHighLow: "price_desc",
-      newest: "newest",
-      rating: "rating",
-      popularity: "popularity",
-    };
-
-    // ✅ FIX: apply mapping even when p.sort is passed
-    if (p.sort) setIf("sort", sortMap[p.sort] || p.sort);
-    else if (p.sortOption && sortMap[p.sortOption])
-      setIf("sort", sortMap[p.sortOption]);
-
-    if (p.isActive != null) setIf("isActive", p.isActive);
-
-    const q = qs.toString();
-    return `${BACKEND}/api/products/by-tag${q ? `?${q}` : ""}`;
+ const buildTagUrl = (p = {}) => {
+  const qs = new URLSearchParams();
+  const setIf = (k, v) => {
+    if (v === undefined || v === null) return;
+    const s = String(v).trim();
+    if (!s) return;
+    qs.set(k, s);
   };
+
+  if (p.tag) setIf("tag", p.tag);
+  if (Array.isArray(p.tags) && p.tags.length) setIf("tags", p.tags.join(","));
+
+  setIf("page", p.page);
+  setIf("limit", p.limit);
+  setIf("search", p.search);
+  setIf("minPrice", p.minPrice);
+  setIf("maxPrice", p.maxPrice);
+
+  const sortMap = {
+    default: "",
+    priceLowHigh: "price_asc",
+    priceHighLow: "price_desc",
+    newest: "newest",
+    rating: "rating",
+    popularity: "popularity",
+  };
+
+  if (p.sort) setIf("sort", sortMap[p.sort] || p.sort);
+  else if (p.sortOption && sortMap[p.sortOption])
+    setIf("sort", sortMap[p.sortOption]);
+
+  // ✅ DEFAULT: only published products
+  if (p.isActive != null) setIf("isActive", p.isActive);
+  else setIf("isActive", true);
+
+  const q = qs.toString();
+  return `${BACKEND}/api/products/by-tag${q ? `?${q}` : ""}`;
+};
+
 // ✅ NEW: build url for category route
 const buildCategoryUrl = (category, p = {}) => {
   const qs = new URLSearchParams();
@@ -233,7 +237,10 @@ const buildCategoryUrl = (category, p = {}) => {
   else if (p.sortOption && sortMap[p.sortOption])
     setIf("sort", sortMap[p.sortOption]);
 
+  // ✅ DEFAULT: only published products
   if (p.isActive != null) setIf("isActive", p.isActive);
+  else setIf("isActive", true);
+
   if (p.sku) setIf("sku", p.sku);
 
   const q = qs.toString();
@@ -241,6 +248,7 @@ const buildCategoryUrl = (category, p = {}) => {
     String(category || "")
   )}${q ? `?${q}` : ""}`;
 };
+
 
 
   const isCastCategoryErr = (m = "") =>
