@@ -43,6 +43,7 @@ const initialAuthState = {
   _authUnsubscribe: null,
   _lastAuthEvent: null,
   _lastAuthEventAt: 0,
+  _guestCreatePromise: null,
 };
 
 
@@ -766,110 +767,107 @@ registerWithEmail: async (email, password, name) => {
 
 // Guest checkout
 
+// authStore.js (inside useAuthStore)
 createGuestCustomer: async ({ name = "", email = "", phone = "", password = "" } = {}) => {
-  try {
-    // ✅ sanitize
-    name = String(name || "").trim();
-    email = String(email || "").trim().toLowerCase();
-    phone = String(phone || "").trim();
-    password = String(password || "").trim();
+  // ✅ 1) If already in progress, return same promise (blocks 2nd call)
+  console.log("🚨 createGuestCustomer CALLED", { email, at: Date.now() }, new Error("trace").stack);
 
-    console.log("🟡 createGuestCustomer called:", { name, email, phone });
+  const inflight = get()._guestCreatePromise;
+  if (inflight) return inflight;
+console.log("🔥 Firebase SIGNUP attempt", { email });
 
-    // ✅ validations
-    if (!email || !password || password.length < 4) {
-      toast.error("Email + Password required");
-      return null;
-    }
-
-    if (!name || !phone) {
-      toast.error("Name + Phone required");
-      return null;
-    }
-
-    set({ loading: true });
-
-    let firebaseUser = null;
-
-    /* -------------------------------------------------------
-       ✅ STEP 1: Firebase create OR login
-    ------------------------------------------------------- */
+  const run = (async () => {
     try {
-      const signupRes = await createUserWithEmailAndPassword(auth, email, password);
-      firebaseUser = signupRes.user;
+      name = String(name || "").trim();
+      email = String(email || "").trim().toLowerCase();
+      phone = String(phone || "").trim();
+      password = String(password || "").trim();
 
-      console.log("✅ Firebase signup success:", {
-        uid: firebaseUser?.uid,
-        email: firebaseUser?.email,
-      });
-    } catch (err) {
-      if (err?.code === "auth/email-already-in-use") {
-        const loginRes = await signInWithEmailAndPassword(auth, email, password);
-        firebaseUser = loginRes.user;
+      if (!email || !password || password.length < 4) throw new Error("Email + Password required");
+      if (!name || !phone) throw new Error("Name + Phone required");
 
-        console.log("✅ Firebase login success:", {
-          uid: firebaseUser?.uid,
-          email: firebaseUser?.email,
-        });
-      } else {
-        console.error("❌ Firebase signup/login failed:", err);
-        toast.error(err?.message || "Firebase error");
-        set({ loading: false });
-        return null;
+      set({ loading: true });
+
+      // ✅ 2) If firebase already logged-in with same email, DON'T signup again
+      let firebaseUser = auth.currentUser;
+      if (firebaseUser?.email?.toLowerCase() !== email) firebaseUser = null;
+
+      // ✅ 3) Create/Login only if needed
+      if (!firebaseUser) {
+        try {
+          const signupRes = await createUserWithEmailAndPassword(auth, email, password);
+          firebaseUser = signupRes.user;
+        } catch (err) {
+          if (err?.code === "auth/email-already-in-use") {
+            const loginRes = await signInWithEmailAndPassword(auth, email, password);
+            firebaseUser = loginRes.user;
+          } else {
+            throw err;
+          }
+        }
       }
-    }
 
-    if (!firebaseUser) {
-      toast.error("Firebase user missing");
-      set({ loading: false });
-      return null;
-    }
+      if (!firebaseUser) throw new Error("Firebase user missing");
 
-    /* -------------------------------------------------------
-       ✅ STEP 2: Always update Firebase profile immediately
-       (so initialize() syncCustomer will get correct name)
-    ------------------------------------------------------- */
-    try {
-      await updateProfile(firebaseUser, {
-        displayName: name,
+      // ✅ 4) Update profile
+      try {
+        await updateProfile(firebaseUser, {
+          displayName: name,
+          photoURL: firebaseUser.photoURL || "/profile/user-avatar.jpg",
+        });
+      } catch {}
+
+      // ✅ 5) Sync backend NOW (so address save won't race)
+      set({ _lastSyncedUid: firebaseUser.uid });
+
+      const syncResult = await get().syncCustomer(firebaseUser, { name, phone, email });
+      if (!syncResult) throw new Error("Customer sync failed");
+
+      const { customer, token, activeCartId, activeCartType } = syncResult;
+
+      const userData = {
+        uid: firebaseUser.uid,
+        name,
+        email: firebaseUser.email || email,
         photoURL: firebaseUser.photoURL || "/profile/user-avatar.jpg",
+      };
+
+      set({
+        user: userData,
+        customer,
+        token,
+        activeCartId,
+        activeCartType,
+        isAuthenticated: true,
+        loading: false,
       });
 
-      console.log("✅ Firebase profile updated:", {
-        displayName: name,
-      });
-    } catch (err) {
-      console.warn("⚠️ Firebase updateProfile failed:", err);
+      Cookies.set(
+        COOKIE_KEY,
+        JSON.stringify({
+          user: userData,
+          customer,
+          token,
+          activeCartId,
+          activeCartType,
+          isGuest: false,
+        }),
+        { expires: 7 }
+      );
+
+      return { user: userData, customer };
+    } finally {
+      // ✅ release lock
+      set({ _guestCreatePromise: null, loading: false });
     }
+  })();
 
-    /* -------------------------------------------------------
-       ✅ STEP 3: SAVE data temporarily (for initialize sync)
-       (Because firebaseUser.phoneNumber is empty in email signup)
-    ------------------------------------------------------- */
-    localStorage.setItem(
-      "pending_guest_profile",
-      JSON.stringify({ name, phone, email })
-    );
-
-    console.log("✅ pending_guest_profile saved in localStorage");
-
-    /* -------------------------------------------------------
-       ✅ FINAL: DO NOT call syncCustomer here!
-       ✅ initialize() will run syncCustomer ONCE via onAuthStateChanged
-    ------------------------------------------------------- */
-
-    toast.success("Account created ✅");
-
-    set({ loading: false });
-
-    return { uid: firebaseUser.uid, email: firebaseUser.email };
-  } catch (err) {
-    console.error("❌ createGuestCustomer exception:", err);
-    toast.error("Guest creation failed");
-    set({ loading: false });
-    return null;
-  }
+  // ✅ store promise lock
+  set({ _guestCreatePromise: run });
+  return run;
 },
+
+
 
 
 

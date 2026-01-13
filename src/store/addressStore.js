@@ -2,12 +2,11 @@
 "use client";
 
 /**
- * ✅ Address Store + PINCODE LOOKUP (India Post)
- * ✅ Supports BOTH:
- *    - Logged-in (firebaseUID)
- *    - Guest checkout (customerId Mongo _id)
- * ✅ Meta Pixel + CAPI: AddShippingInfo
- * ✅ GA4: add_shipping_info
+ * ✅ Fixed Address Store
+ * - Hard validates firebaseUID/customerId (prevents silent failures)
+ * - Normalizes pincode/postalCode (no mismatch)
+ * - Better error extraction (json OR text)
+ * - Safer refresh after create/update/delete
  */
 
 import { create } from "zustand";
@@ -18,12 +17,39 @@ const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 const INDIA_POST = "https://api.postalpincode.in/pincode";
 
 /* ---------------- Helpers ---------------- */
+
+// ✅ JSON first, fallback to text so backend error doesn't get lost
 const safeJson = async (res) => {
   try {
     return await res.json();
   } catch {
-    return {};
+    try {
+      const t = await res.text();
+      return t ? { message: t } : {};
+    } catch {
+      return {};
+    }
   }
+};
+
+// ✅ Require at least one identity key (guest/customer or logged-in/firebase)
+const ensureIdentity = (payload = {}) => {
+  const firebaseUID = payload?.firebaseUID || null;
+  const customerId = payload?.customerId || null;
+  return { firebaseUID, customerId, ok: !!(firebaseUID || customerId) };
+};
+
+// ✅ Normalize postalCode/pincode for consistent backend + tracking
+const normalizeAddressPayload = (payload = {}) => {
+  const postalCode =
+    String(payload?.postalCode || payload?.pincode || "").replace(/\D/g, "").slice(0, 6);
+
+  return {
+    ...payload,
+    // keep both (backend might expect either)
+    postalCode: postalCode || payload?.postalCode || "",
+    pincode: postalCode || payload?.pincode || "",
+  };
 };
 
 const shouldSkipEvent = (get, set, key, windowMs = 4000) => {
@@ -43,14 +69,11 @@ export const useAddressStore = create((set, get) => ({
   pinCache: {},
   _pinReqId: 0,
 
-  // ✅ shared dedupe key for GA4 + Meta
   _lastEventKey: null,
   _lastEventAt: 0,
 
   /* ======================================================
-     ✅ FETCH ADDRESSES (firebaseUID OR customerId)
-     - Logged in -> firebaseUID
-     - Guest -> customerId (Mongo _id)
+     ✅ FETCH ADDRESSES
   ====================================================== */
   fetchAddresses: async ({ firebaseUID = null, customerId = null } = {}) => {
     if (!BACKEND) return [];
@@ -66,8 +89,8 @@ export const useAddressStore = create((set, get) => ({
       const res = await fetch(url, { cache: "no-store" });
       const data = await safeJson(res);
 
-      if (!data?.success) {
-        set({ loading: false, error: data?.message || "Failed to load" });
+      if (!res.ok || !data?.success) {
+        set({ loading: false, error: data?.message || "Failed to load addresses" });
         return [];
       }
 
@@ -81,35 +104,41 @@ export const useAddressStore = create((set, get) => ({
   },
 
   /* ======================================================
-     ✅ CREATE ADDRESS (works for guest + login)
-     - Requires either firebaseUID OR customerId
+     ✅ CREATE ADDRESS
+     - MUST have firebaseUID OR customerId
   ====================================================== */
   createAddress: async (addressPayload) => {
     if (!BACKEND) return null;
+
+    // ✅ normalize + validate identity early
+    const payload = normalizeAddressPayload(addressPayload);
+    const { firebaseUID, customerId, ok } = ensureIdentity(payload);
+
+    if (!ok) {
+      const msg = "Missing customerId/firebaseUID for address";
+      console.warn("❌ createAddress:", msg, payload);
+      set({ loading: false, error: msg });
+      return null;
+    }
+
     try {
       set({ loading: true, error: null });
 
       const res = await fetch(`${BACKEND}/api/addresses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(addressPayload),
+        body: JSON.stringify(payload),
       });
 
       const data = await safeJson(res);
 
-      if (!data?.success) {
-        set({
-          loading: false,
-          error: data?.message || "Unable to save address",
-        });
+      if (!res.ok || !data?.success) {
+        set({ loading: false, error: data?.message || "Unable to save address" });
         return null;
       }
 
-      // ✅ refresh addresses
-      await get().fetchAddresses({
-        firebaseUID: addressPayload.firebaseUID || null,
-        customerId: addressPayload.customerId || null,
-      });
+      // ✅ refresh list with same identity
+      await get().fetchAddresses({ firebaseUID, customerId });
 
       set({ loading: false });
       return data.data || null;
@@ -122,31 +151,37 @@ export const useAddressStore = create((set, get) => ({
 
   /* ======================================================
      ✅ UPDATE ADDRESS
-     - Requires firebaseUID or customerId in payload
   ====================================================== */
   updateAddress: async (id, payload) => {
     if (!BACKEND) return null;
+
+    const body = normalizeAddressPayload(payload);
+    const { firebaseUID, customerId, ok } = ensureIdentity(body);
+
+    if (!ok) {
+      const msg = "Missing customerId/firebaseUID for update";
+      console.warn("❌ updateAddress:", msg, body);
+      set({ loading: false, error: msg });
+      return null;
+    }
+
     try {
       set({ loading: true, error: null });
 
       const res = await fetch(`${BACKEND}/api/addresses/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
 
       const data = await safeJson(res);
 
-      if (!data?.success) {
+      if (!res.ok || !data?.success) {
         set({ loading: false, error: data?.message || "Update failed" });
         return null;
       }
 
-      await get().fetchAddresses({
-        firebaseUID: payload.firebaseUID || null,
-        customerId: payload.customerId || null,
-      });
-
+      await get().fetchAddresses({ firebaseUID, customerId });
       set({ loading: false });
       return data.data || null;
     } catch (e) {
@@ -158,19 +193,24 @@ export const useAddressStore = create((set, get) => ({
 
   /* ======================================================
      ✅ DELETE ADDRESS
-     - Works for guest + login
   ====================================================== */
   deleteAddress: async ({ id, firebaseUID = null, customerId = null }) => {
     if (!BACKEND) return null;
+
+    if (!firebaseUID && !customerId) {
+      const msg = "Missing customerId/firebaseUID for delete";
+      console.warn("❌ deleteAddress:", msg, { id, firebaseUID, customerId });
+      set({ loading: false, error: msg });
+      return null;
+    }
+
     try {
       set({ loading: true, error: null });
 
-      const res = await fetch(`${BACKEND}/api/addresses/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`${BACKEND}/api/addresses/${id}`, { method: "DELETE" });
       const data = await safeJson(res);
 
-      if (!data?.success) {
+      if (!res.ok || !data?.success) {
         set({ loading: false, error: data?.message || "Delete failed" });
         return null;
       }
@@ -190,23 +230,28 @@ export const useAddressStore = create((set, get) => ({
   ====================================================== */
   setDefaultAddress: async ({ id, firebaseUID = null, customerId = null, type }) => {
     if (!BACKEND) return null;
+
+    if (!firebaseUID && !customerId) {
+      const msg = "Missing customerId/firebaseUID for default";
+      console.warn("❌ setDefaultAddress:", msg, { id, firebaseUID, customerId });
+      set({ loading: false, error: msg });
+      return null;
+    }
+
     try {
       set({ loading: true, error: null });
 
-      const payload =
-        type === "shipping"
-          ? { isDefaultShipping: true }
-          : { isDefaultBilling: true };
+      const body = type === "shipping" ? { isDefaultShipping: true } : { isDefaultBilling: true };
 
       const res = await fetch(`${BACKEND}/api/addresses/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
 
       const data = await safeJson(res);
 
-      if (!data?.success) {
+      if (!res.ok || !data?.success) {
         set({ loading: false, error: data?.message || "Failed to set default" });
         return null;
       }
@@ -234,15 +279,15 @@ export const useAddressStore = create((set, get) => ({
     try {
       const v = Number(value || 0) || 0;
       const tier = String(shippingTier || "standard");
-
       const key = `ship_${addressId || "na"}_${v}_${tier}`;
       if (shouldSkipEvent(get, set, key, 4000)) return;
 
       const addr =
-        addressId &&
-        (get().addresses || []).find((a) => String(a?._id) === String(addressId));
+        addressId && (get().addresses || []).find((a) => String(a?._id) === String(addressId));
 
-      /* ✅ GA4 */
+      const postal = addr?.postalCode || addr?.pincode || "";
+
+      // ✅ GA4
       try {
         pushEcomEvent("add_shipping_info", {
           currency,
@@ -254,13 +299,13 @@ export const useAddressStore = create((set, get) => ({
         console.warn("📈 GA4 add_shipping_info failed", e);
       }
 
-      /* ✅ Meta */
+      // ✅ Meta
       try {
         await trackMeta("AddShippingInfo", {
           currency,
           value: v,
           shipping_tier: tier,
-          ...(addr?.pincode ? { postal_code: String(addr.pincode) } : {}),
+          ...(postal ? { postal_code: String(postal) } : {}),
           ...(addr?.state ? { state: String(addr.state) } : {}),
           ...(addr?.city ? { city: String(addr.city) } : {}),
         });
@@ -274,28 +319,19 @@ export const useAddressStore = create((set, get) => ({
 
   /* ======================================================
      ✅ RESET STORE ON LOGOUT
-     - Clears addresses + caches + dedupe keys
   ====================================================== */
   resetAddressOnLogout: () => {
-    try {
-      set({
-        addresses: [],
-        loading: false,
-        error: null,
-
-        pinLoading: false,
-        pinCache: {},
-        _pinReqId: 0,
-
-        _lastEventKey: null,
-        _lastEventAt: 0,
-      });
-    } catch (e) {
-      console.warn("⚠️ Address reset on logout failed:", e);
-    }
+    set({
+      addresses: [],
+      loading: false,
+      error: null,
+      pinLoading: false,
+      pinCache: {},
+      _pinReqId: 0,
+      _lastEventKey: null,
+      _lastEventAt: 0,
+    });
   },
-
-  
 
   /* ---------------- PINCODE LOOKUP ---------------- */
   lookupPincode: async (pincode) => {
@@ -312,6 +348,7 @@ export const useAddressStore = create((set, get) => ({
       const res = await fetch(`${INDIA_POST}/${pin}`, { cache: "no-store" });
       const json = await res.json().catch(() => null);
 
+      // ✅ ignore stale response
       if (get()._pinReqId !== reqId) return null;
 
       const first = Array.isArray(json) ? json[0] : null;
@@ -324,6 +361,7 @@ export const useAddressStore = create((set, get) => ({
 
       const mapped = {
         pincode: pin,
+        postalCode: pin, // ✅ keep both names
         city: po?.District || "",
         district: po?.District || "",
         state: po?.State || "",

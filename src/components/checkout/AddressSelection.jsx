@@ -3,6 +3,8 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Plus, ChevronDown, ChevronUp, CheckCircle2, Loader2 } from "lucide-react";
 
+
+// ✅ double click guard
 /* ---------------- UI ---------------- */
 const GlassCard = ({ children, className = "" }) => (
   <div
@@ -96,6 +98,7 @@ export default function AddressSelection({
 
   const [touched, setTouched] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const saveLockRef = useRef(false);
 
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState(false);
@@ -418,22 +421,52 @@ export default function AddressSelection({
               </div>
 
               {/* CTA */}
-              <button
-                type="button"
-                disabled={savingAddress || creatingGuest || checkingEmail || loadingAddresses}
-                onClick={async () => {
-                  setSubmitted(true);
-                  if (!isFormValid) return;
-                  await saveNewAddress();
-                }}
-                className="mt-4 w-full rounded-2xl bg-black py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(0,0,0,0.22)] transition hover:opacity-90 disabled:bg-black/20 disabled:text-black/40 active:scale-[0.99]"
-              >
-                {checkingEmail || loadingAddresses
-                  ? "Checking..."
-                  : savingAddress || creatingGuest
-                  ? "Saving..."
-                  : "Save Address"}
-              </button>
+             <button
+  type="button"
+  disabled={savingAddress || creatingGuest || checkingEmail || loadingAddresses}
+  onClick={async () => {
+    // ✅ block double click
+    if (saveLockRef.current) {
+      console.warn("⛔ Save blocked: already running");
+      return;
+    }
+    saveLockRef.current = true;
+
+    const traceId = `SAVE_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    console.groupCollapsed(`🟣 [${traceId}] Save Address Click`);
+    console.log("state:", { isLoggedIn, existingCustomer, savingAddress, creatingGuest, checkingEmail, loadingAddresses });
+
+    try {
+      setSubmitted(true);
+      if (!isFormValid) {
+        console.warn(`🟡 [${traceId}] form invalid`, { errors });
+        return;
+      }
+
+      // ✅ IMPORTANT: Only call parent. Parent handles guest create + address create.
+      console.log(`🔵 [${traceId}] calling saveNewAddress`);
+      const ok = await saveNewAddress();
+      console.log(`🔵 [${traceId}] saveNewAddress result =>`, ok);
+
+      if (!ok) console.warn(`❌ [${traceId}] saveNewAddress failed`);
+    } catch (e) {
+      console.error(`❌ [${traceId}] Save address flow failed:`, e);
+      // optional:
+      // toast.error("Address save failed");
+    } finally {
+      saveLockRef.current = false;
+      console.groupEnd();
+    }
+  }}
+  className="mt-4 w-full rounded-2xl bg-black py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(0,0,0,0.22)] transition hover:opacity-90 disabled:bg-black/20 disabled:text-black/40 active:scale-[0.99]"
+>
+  {checkingEmail || loadingAddresses
+    ? "Checking..."
+    : savingAddress || creatingGuest
+    ? "Saving..."
+    : "Save Address"}
+</button>
+
 
               {!isFormValid && submitted && (
                 <p className="mt-3 text-[11px] text-gray-500">Please fill required fields correctly.</p>

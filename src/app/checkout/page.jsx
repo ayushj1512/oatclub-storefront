@@ -280,65 +280,110 @@ const payable = useMemo(() => {
 
   /* ---------------- ENSURE CUSTOMER FOR GUEST ---------------- */
   const ensureGuestCustomer = async () => {
-    if (user?.uid && customer?._id) return customer;
-    if (!user?.uid && guestCustomer?._id) return guestCustomer;
+  if (user?.uid && customer?._id) return customer;
+  if (!user?.uid && guestCustomer?._id) return guestCustomer;
 
-    const email = addressForm.email?.trim();
-    const phone = addressForm.phone?.trim();
-    const name = addressForm.fullName?.trim();
-    const password = guestInfo.password?.trim();
+  const email = addressForm.email?.trim();
+  const phone = addressForm.phone?.trim();
+  const name = addressForm.fullName?.trim();
+  const password = guestInfo.password?.trim();
 
-    if (!email || !phone || !name || !password) {
-      toast.error("Fill Name, Email, Phone & Password");
-      return null;
-    }
+  if (!email || !phone || !name || !password) {
+    toast.error("Fill Name, Email, Phone & Password");
+    return null;
+  }
 
+  // ✅ toast: creating account
+  const tId = toast.loading("Creating account...");
+
+  try {
     setCreatingGuest(true);
     const created = await createGuestCustomer({ name, email, phone, password });
-    setCreatingGuest(false);
 
-    if (!created?._id) {
-      toast.error("Account creation failed.");
+    const createdCustomer = created?.customer || null;
+    if (!createdCustomer?._id) {
+      toast.error("Account creation failed.", { id: tId });
       return null;
     }
 
-    setGuestCustomer(created);
-    return created;
-  };
+    setGuestCustomer(createdCustomer);
+
+    // ✅ toast: created
+    toast.success("Account created ✅", { id: tId });
+    return createdCustomer;
+  } catch (e) {
+    console.error("❌ ensureGuestCustomer failed", e);
+    toast.error("Account creation failed.", { id: tId });
+    return null;
+  } finally {
+    setCreatingGuest(false);
+  }
+};
+
+
 
   /* ---------------- SAVE NEW ADDRESS ---------------- */
   const saveNewAddress = async () => {
-    let finalCustomer = customer || guestCustomer;
+  let finalCustomer = customer || guestCustomer;
 
-    if (!user?.uid && !finalCustomer?._id) {
-      finalCustomer = await ensureGuestCustomer();
-      if (!finalCustomer?._id) return;
+  // ✅ If guest + no customer -> ensure (will show account toasts)
+  if (!user?.uid && !finalCustomer?._id) {
+    finalCustomer = await ensureGuestCustomer();
+    if (!finalCustomer?._id) return false;
+  }
+
+  if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
+    toast.error("Enter valid pincode");
+    return false;
+  }
+  if (!addressForm.fullName) {
+    toast.error("Full name required");
+    return false;
+  }
+  if (!addressForm.phone) {
+    toast.error("Phone required");
+    return false;
+  }
+  if (!addressForm.addressLine1) {
+    toast.error("Address required");
+    return false;
+  }
+
+  // ✅ toast: saving address
+  const tId = toast.loading("Saving address...");
+
+  try {
+    setSavingAddress(true);
+
+    const payload = {
+      ...addressForm,
+      firebaseUID: user?.uid || null,
+      customerId: finalCustomer?._id || null,
+      email: user?.email || addressForm.email || finalCustomer?.email || "",
+    };
+
+    const created = await createAddress?.(payload);
+
+    if (!created?._id) {
+      toast.error("Address save failed.", { id: tId });
+      return false;
     }
 
-    if (!addressForm.postalCode || addressForm.postalCode.length !== 6)
-      return toast.error("Enter valid pincode");
-    if (!addressForm.fullName) return toast.error("Full name required");
-    if (!addressForm.phone) return toast.error("Phone required");
-    if (!addressForm.addressLine1) return toast.error("Address required");
+    setShowAddressForm(false);
+    setSelectedAddressId(created._id);
 
-    try {
-      setSavingAddress(true);
+    // ✅ toast: saved
+    toast.success("Address saved ✅", { id: tId });
+    return true;
+  } catch (e) {
+    console.error("❌ saveNewAddress failed", e);
+    toast.error("Address save failed.", { id: tId });
+    return false;
+  } finally {
+    setSavingAddress(false);
+  }
+};
 
-      const payload = {
-        ...addressForm,
-        firebaseUID: user?.uid || "",
-        customerId: finalCustomer?._id,
-        email: user?.email || addressForm.email || finalCustomer?.email || "",
-      };
-
-      const created = await createAddress?.(payload);
-
-      setShowAddressForm(false);
-      if (created?._id) setSelectedAddressId(created._id);
-    } finally {
-      setSavingAddress(false);
-    }
-  };
 
   /* ✅✅ FIXED VALIDATION (NO CUSTOMER ID DEPENDENCY) */
   const validateCheckout = () => {
