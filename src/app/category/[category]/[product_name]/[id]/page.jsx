@@ -20,6 +20,7 @@ import SupportSection from "@/components/productDetail/SupportSection";
 import RecentlyViewedProducts from "@/components/productDetail/RecentlyViewedProducts"
 import ColorSelector from "@/components/productDetail/ColorSelector";
 import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
+import ShippingHighlights from "@/components/productDetail/ShippingHighlights";
 
 const BRAND = {  black: "#111111" };
 
@@ -869,6 +870,10 @@ const link = typeof window !== "undefined" ? window.location.href : "";
 </button>
 
           </div>
+
+          <div className="pt-3">
+  <ShippingHighlights />
+</div>
 
           {/* DETAILS */}
           <ProductDetailSection title="Product Details" content={product.description} />

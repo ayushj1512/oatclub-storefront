@@ -4,7 +4,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
 export default function TopbarHeadline({ interval = 2800 }) {
-  const items = useMemo(() => ["New arrivals just dropped — shop now", "Gen-Z fits • Western vibes • Premium picks", "Use code FIRST10 for 10% off"], []);
+const items = useMemo(
+  () => [
+    "New arrivals just dropped — shop now",
+    "Gen-Z fits • Western vibes • Premium picks",
+    "Free Shipping on every order",
+    "Extra 5% off on online payments",
+    "Use code FIRST10 for 10% off",
+  ],
+  []
+);
+
 
   const [active, setActive] = useState(0);
 
