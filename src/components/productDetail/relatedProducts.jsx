@@ -96,7 +96,7 @@ export default function RelatedProducts({ productId }) {
   return (
     <section className="mt-10 px-3 md:px-6 w-full relative flex flex-col">
       <div className="flex justify-between items-center mb-3">
-        <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Related Products</h2>
+        <h2 className="text-xl md:text-2xl font-semibold text-gray-900">You’ll Love These</h2>
 
         <div className="hidden md:flex gap-2">
           <button onClick={() => scroll("left")} className="p-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition" aria-label="Scroll left">
