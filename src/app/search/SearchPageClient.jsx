@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, ChevronDown } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Search } from "lucide-react";
 
 import { useSearchStore } from "@/store/searchStore";
 import ProductGrid from "@/components/common/ProductGrid";
@@ -29,19 +28,12 @@ const normalizeProductForGrid = (p) => {
 
     price: String(p.price ?? ""),
     sale_price:
-      p.compareAtPrice && p.compareAtPrice > p.price
-        ? String(p.price)
-        : null,
-    regular_price: p.compareAtPrice
-      ? String(p.compareAtPrice)
-      : String(p.price),
+      p.compareAtPrice && p.compareAtPrice > p.price ? String(p.price) : null,
+    regular_price: p.compareAtPrice ? String(p.compareAtPrice) : String(p.price),
 
-    images: (p.images?.length
-      ? p.images
-      : p.thumbnail
-        ? [p.thumbnail]
-        : []
-    ).map((src) => ({ src })),
+    images: (p.images?.length ? p.images : p.thumbnail ? [p.thumbnail] : []).map(
+      (src) => ({ src })
+    ),
 
     image: p.thumbnail || p.images?.[0] || "",
 
@@ -66,39 +58,45 @@ export default function SearchPageClient() {
 
   const initialQuery = params.get("q") || "";
 
-  const {
-    query,
-    setQuery,
-    results,
-    loading,
-    total,
-    filters,
-    setFilters,
-    searchProducts,
-  } = useSearchStore();
+  const { query, setQuery, results, loading, total, searchProducts } =
+    useSearchStore();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  const queryTrim = (query || "").trim();
+
+  // ✅ Only allow search + grid when user typed something meaningful
+  const canSearch = queryTrim.length >= 2;
+
+  // ✅ Even if store loading is true, ignore it until canSearch
+  const effectiveLoading = canSearch ? loading : false;
+
   /* URL → Store sync */
   useEffect(() => {
-    if (initialQuery && initialQuery !== query) {
-      setQuery(initialQuery);
-      searchProducts();
+    const iq = (initialQuery || "").trim();
+    if (iq && iq !== query) {
+      setQuery(iq);
+      if (iq.length >= 2) searchProducts();
     }
     // eslint-disable-next-line
   }, []);
 
   /* Debounced search */
   useEffect(() => {
-    if (!query || query.trim().length < 2) return;
+    if (!canSearch) {
+      // ✅ keep url clean when cleared
+      if (params.get("q")) router.replace("/search");
+      return;
+    }
 
     const t = setTimeout(() => {
       searchProducts();
-      router.replace(`/search?q=${encodeURIComponent(query)}`);
+      router.replace(`/search?q=${encodeURIComponent(queryTrim)}`);
     }, 350);
 
     return () => clearTimeout(t);
-  }, [query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryTrim]);
 
   /* ✅ NORMALIZED RESULTS */
   const gridProducts = useMemo(
@@ -112,7 +110,9 @@ export default function SearchPageClient() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          if (!canSearch) return; // ✅ empty/short: do nothing
           searchProducts();
+          router.replace(`/search?q=${encodeURIComponent(queryTrim)}`);
         }}
         className="flex items-center bg-gray-100 border border-gray-300 px-4 py-2 rounded-md shadow-sm mb-4"
       >
@@ -127,17 +127,19 @@ export default function SearchPageClient() {
 
       {/* RESULTS HEADER */}
       <h2 className="text-sm text-black mb-4 text-center">
-        {loading
+        {!canSearch
+          ? "Search for products"
+          : effectiveLoading
           ? "Searching..."
           : gridProducts.length
           ? `Found ${total} products`
-          : query
-          ? `No results for "${query}"`
-          : "Search for products"}
+          : `No results for "${queryTrim}"`}
       </h2>
 
-      {/* PRODUCT GRID */}
-      <ProductGrid products={gridProducts} loading={loading} />
+      {/* ✅ DO NOT RENDER PRODUCT GRID UNTIL USER SEARCHES */}
+      {canSearch ? (
+        <ProductGrid products={gridProducts} loading={effectiveLoading} />
+      ) : null}
     </section>
   );
 }

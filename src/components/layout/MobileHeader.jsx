@@ -3,13 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { Menu, ShoppingBag, User, Search } from "lucide-react";
 import Image from "next/image";
 
 import WishlistButton from "@/components/header/WishlistButton";
 import MobileSidebarDrawer from "@/components/header/MobileSidebarDrawer";
-import TopbarHeadline from "@/components/layout/TopbarHeadline"; // ✅ INSIDE HEADER
+import TopbarHeadline from "@/components/layout/TopbarHeadline";
 
 import { useCartStore } from "@/store/cartStore";
 import { trackMeta } from "@/lib/meta/track";
@@ -36,8 +35,6 @@ const ga4CartItem = (it) =>
 
 export default function MobileHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchText, setSearchText] = useState("");
   const [isSticky, setIsSticky] = useState(false);
 
   const router = useRouter();
@@ -46,7 +43,6 @@ export default function MobileHeader() {
 
   const lastViewCartRef = useRef({ key: null, at: 0 });
 
-  const items = useCartStore((s) => s.items) || [];
   const cartCount = useCartStore((s) => s.totalCount());
 
   const fireViewCart = useCallback(async () => {
@@ -110,11 +106,7 @@ export default function MobileHeader() {
   }, []);
 
   useEffect(() => {
-    const onScroll = () => {
-      // ✅ make sticky once user scrolls even a bit
-      setIsSticky(window.scrollY > 10);
-    };
-
+    const onScroll = () => setIsSticky(window.scrollY > 10);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -134,15 +126,7 @@ export default function MobileHeader() {
     const ro = new ResizeObserver(setVar);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [showSearch]);
-
-  const handleSearchKey = (e) => {
-    if (e.key === "Enter" && searchText.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchText)}`);
-      setShowSearch(false);
-      setSearchText("");
-    }
-  };
+  }, []);
 
   const handleCartClick = useCallback(() => {
     fireViewCart();
@@ -151,7 +135,6 @@ export default function MobileHeader() {
 
   return (
     <>
-      {/* ✅ ONE STICKY UNIT: TOPBAR + HEADER */}
       <header
         id="mobile-header"
         className={[
@@ -159,10 +142,8 @@ export default function MobileHeader() {
           isSticky ? "fixed top-0 left-0 right-0" : "relative",
         ].join(" ")}
       >
-        {/* ✅ TOPBAR INSIDE HEADER (NO OVERLAP) */}
         <TopbarHeadline />
 
-        {/* ✅ MAIN HEADER ROW */}
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <button
             onClick={openMenu}
@@ -190,8 +171,9 @@ export default function MobileHeader() {
           </Link>
 
           <div className="shrink-0 flex items-center gap-4">
+            {/* ✅ NO DROPDOWN: go directly to /search */}
             <button
-              onClick={() => setShowSearch((s) => !s)}
+              onClick={() => router.push("/search")}
               aria-label="Search"
               className="text-black transition hover:opacity-70"
             >
@@ -200,7 +182,6 @@ export default function MobileHeader() {
 
             <WishlistButton size={22} />
 
-            {/* ✅ CART WITH BADGE */}
             <button
               type="button"
               aria-label="Cart"
@@ -233,29 +214,6 @@ export default function MobileHeader() {
             </Link>
           </div>
         </div>
-
-        {/* ✅ SEARCH DROPDOWN */}
-        <AnimatePresence>
-          {showSearch && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              className="border-t border-black/10 bg-white px-4 py-2"
-            >
-              <input
-                type="text"
-                autoFocus
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                onKeyDown={handleSearchKey}
-                placeholder="Search products"
-                className="w-full rounded-full border border-black/15 px-4 py-2 text-sm text-black placeholder-black/40 outline-none focus:border-black"
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </header>
 
       <MobileSidebarDrawer open={menuOpen} onClose={closeMenu} />
