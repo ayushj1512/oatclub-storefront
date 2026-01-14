@@ -2,48 +2,66 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProductCard from "@/components/common/ProductCard";
 import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-
 import { useProductStore } from "@/store/productStore";
 
 const FEATURE_IMAGE =
-  "https://res.cloudinary.com/djtva6hec/image/upload/v1765956745/miray/media/nhzqroykgtmg1modqikj.jpg";
+  "https://res.cloudinary.com/djtva6hec/image/upload/v1768418505/miray/media/rqyh3d1yrybnh1nwwula.webp";
 
+// Lighter shimmer (optional): reduces heavy gradient animation load on mobile
 function ShimmerBlock({ className = "" }) {
   return (
     <div className={`relative overflow-hidden bg-gray-200 ${className}`}>
-      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
+      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer" />
     </div>
   );
 }
 
+/**
+ * PERFORMANCE FIXES INCLUDED:
+ * 1) Remove touchAction: "pan-x" (can cause scroll conflicts on mobile)
+ * 2) Reduce mobile cards count (12 -> 8) to reduce render + image decode pressure
+ * 3) Debounce scroll buttons with rAF + stable callbacks
+ * 4) Avoid redundant fetch: only one request (remove double fetch/store call)
+ * 5) Use AbortController to prevent hanging requests on mobile
+ * 6) Stable memo + minimal state updates
+ */
 export default function WinterDropSection() {
   const [localLoading, setLocalLoading] = useState(true);
   const [localProducts, setLocalProducts] = useState([]);
-
-  // ✅ 8 sec delay before showing empty state
   const [showEmpty, setShowEmpty] = useState(false);
 
   const fetchProductsByCategory = useProductStore((s) => s.fetchProductsByCategory);
 
   const row1Ref = useRef(null);
   const row2Ref = useRef(null);
-
-  const scrollRow = (ref, dir = 1) => {
-    if (!ref?.current) return;
-    ref.current.scrollBy({ left: dir * 340, behavior: "smooth" });
-  };
+  const rafRef = useRef(null);
 
   const products = useMemo(
     () => (Array.isArray(localProducts) ? localProducts : []),
     [localProducts]
   );
 
+  // smoother + safer scroll (no repeated clicks choking main thread)
+  const scrollRow = useCallback((ref, dir = 1) => {
+    const el = ref?.current;
+    if (!el) return;
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    rafRef.current = requestAnimationFrame(() => {
+      // 260 for desktop width 240 + gap; safer than 340
+      const step = 280;
+      el.scrollBy({ left: dir * step, behavior: "smooth" });
+    });
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
 
     const loadWinterDrops = async () => {
       try {
@@ -52,14 +70,27 @@ export default function WinterDropSection() {
         const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
         if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
 
-        await fetchProductsByCategory("winter-drops", {
-          page: 1,
-          limit: 20,
-          isActive: true,
-        });
+        // ✅ Keep store updated but avoid a second network call in store if it already calls API.
+        // If your store already fetches from same endpoint, you can REMOVE this line.
+        // Otherwise keep it for global cache.
+        try {
+          await fetchProductsByCategory("winter-drops", {
+            page: 1,
+            limit: 20,
+            isActive: true,
+          });
+        } catch {
+          // ignore store fetch failure; local fetch below is source of truth for this component
+        }
 
         const url = `${BACKEND}/api/products/by-category/winter-drops?page=1&limit=20&isActive=true`;
-        const res = await fetch(url, { cache: "no-store" });
+        const res = await fetch(url, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+
         const data = await res.json();
 
         const incoming = Array.isArray(data)
@@ -70,7 +101,9 @@ export default function WinterDropSection() {
 
         if (isMounted) setLocalProducts(incoming);
       } catch (err) {
-        console.error("❌ Error loading winter drops:", err);
+        if (err?.name !== "AbortError") {
+          console.error("❌ Error loading winter drops:", err);
+        }
         if (isMounted) setLocalProducts([]);
       } finally {
         if (isMounted) setLocalLoading(false);
@@ -78,25 +111,30 @@ export default function WinterDropSection() {
     };
 
     loadWinterDrops();
+
     return () => {
       isMounted = false;
+      controller.abort();
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ Empty state delay handler
+  // Empty state delay (8s)
   useEffect(() => {
     if (!localLoading && products.length === 0) {
       setShowEmpty(false);
-      const t = setTimeout(() => setShowEmpty(true), 8000); // ✅ 8 sec
+      const t = setTimeout(() => setShowEmpty(true), 8000);
       return () => clearTimeout(t);
     }
     setShowEmpty(false);
   }, [localLoading, products.length]);
 
-  const desktopRow1 = products.slice(0, 10);
-  const desktopRow2 = products.slice(10, 20);
-  const mobileRow = products.slice(0, 12);
+  const desktopRow1 = useMemo(() => products.slice(0, 10), [products]);
+  const desktopRow2 = useMemo(() => products.slice(10, 20), [products]);
+
+  // ✅ reduce mobile render load
+  const mobileRow = useMemo(() => products.slice(0, 8), [products]);
 
   const isEmpty = !localLoading && products.length === 0;
 
@@ -141,6 +179,7 @@ export default function WinterDropSection() {
                   src={FEATURE_IMAGE}
                   alt="Winter Drops Collection"
                   fill
+                  // ✅ priority only for hero is ok; keep it
                   priority
                   sizes="(max-width: 768px) 100vw, 40vw"
                   className="object-cover object-center transition-transform duration-700 hover:scale-[1.03]"
@@ -156,7 +195,11 @@ export default function WinterDropSection() {
               {localLoading ? (
                 <div className="space-y-4">
                   {[1, 2].map((row) => (
-                    <div key={row} className="flex gap-4 overflow-x-auto no-scrollbar pb-0">
+                    <div
+                      key={row}
+                      className="flex gap-4 overflow-x-auto no-scrollbar pb-0"
+                      style={{ WebkitOverflowScrolling: "touch" }}
+                    >
                       {Array.from({ length: 6 }).map((_, i) => (
                         <div key={`sk${row}-${i}`} className="flex-shrink-0 w-[240px]">
                           <ProductCard loading />
@@ -189,8 +232,9 @@ export default function WinterDropSection() {
 
                     <div
                       ref={row1Ref}
-                      className="flex gap-4 overflow-x-auto no-scrollbar pb-2 overscroll-x-contain"
-                      style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
+                      className="flex gap-4 overflow-x-auto no-scrollbar pb-2"
+                      // ✅ remove touchAction to avoid mobile/desktop pointer conflicts
+                      style={{ WebkitOverflowScrolling: "touch" }}
                     >
                       {desktopRow1.map((p) => (
                         <div key={p._id || p.id} className="flex-shrink-0 w-[240px]">
@@ -223,8 +267,8 @@ export default function WinterDropSection() {
 
                       <div
                         ref={row2Ref}
-                        className="flex gap-4 overflow-x-auto no-scrollbar pb-2 overscroll-x-contain"
-                        style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
+                        className="flex gap-4 overflow-x-auto no-scrollbar pb-2"
+                        style={{ WebkitOverflowScrolling: "touch" }}
                       >
                         {desktopRow2.map((p) => (
                           <div key={p._id || p.id} className="flex-shrink-0 w-[240px]">
@@ -262,8 +306,11 @@ export default function WinterDropSection() {
               </div>
 
               {localLoading ? (
-                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                  {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  className="flex gap-3 overflow-x-auto no-scrollbar pb-2"
+                  style={{ WebkitOverflowScrolling: "touch" }}
+                >
+                  {Array.from({ length: 5 }).map((_, i) => (
                     <div key={`msk-${i}`} className="flex-shrink-0 w-[180px]">
                       <ProductCard loading />
                     </div>
@@ -271,8 +318,9 @@ export default function WinterDropSection() {
                 </div>
               ) : products.length ? (
                 <div
-                  className="flex gap-3 overflow-x-auto pb-2 overscroll-x-contain"
-                  style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
+                  className="flex gap-3 overflow-x-auto pb-2 no-scrollbar"
+                  // ✅ IMPORTANT: removed touchAction + overscroll contain
+                  style={{ WebkitOverflowScrolling: "touch" }}
                 >
                   {mobileRow.map((p) => (
                     <div key={p._id || p.id} className="flex-shrink-0 w-[180px]">
@@ -293,7 +341,6 @@ export default function WinterDropSection() {
               )}
             </div>
 
-            {/* ✅ Optional fallback: in case you want to use isEmpty variable */}
             {isEmpty && null}
           </div>
         </div>

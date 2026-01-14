@@ -21,6 +21,7 @@ import RecentlyViewedProducts from "@/components/productDetail/RecentlyViewedPro
 import ColorSelector from "@/components/productDetail/ColorSelector";
 import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 import ShippingHighlights from "@/components/productDetail/ShippingHighlights";
+import CrossSellProducts from "@/components/productDetail/CrossSellProducts";
 
 const BRAND = {  black: "#111111" };
 
@@ -828,6 +829,10 @@ const link = typeof window !== "undefined" ? window.location.href : "";
 
 
 
+          <CrossSellProducts
+  category={category}
+  items={product?.raw?.crossSellProducts || []}
+/>
 
           {/* CTA row */}
           <div className="flex gap-2 flex-wrap pt-2">
@@ -870,6 +875,7 @@ const link = typeof window !== "undefined" ? window.location.href : "";
 </button>
 
           </div>
+
 
           <div className="pt-3">
   <ShippingHighlights />

@@ -5,8 +5,17 @@ import { Star } from "lucide-react";
 
 const N = 100;
 
-const NAMES = ["Aarushi","Saanvi","Rhea","Krisha","Nisha","Divya","Radhika","Ananya","Ishita","Meera","Pooja","Tanvi","Palak","Simran","Kavya","Neha","Aditi","Priya","Bhavna","Surbhi","Ira","Mahi","Shruti","Jhanvi","Khushi","Sakshi","Vaishnavi","Muskan","Ritu","Tanya"];
-const SURNAMES = ["Mehta","Patel","Kapoor","Shah","Verma","Sharma","Joshi","Bansal","Malhotra","Chopra","Singh","Gupta","Jain","Agarwal","Nair","Reddy","Iyer","Khan","Das","Saxena"];
+const NAMES = [
+  "Aarushi","Saanvi","Rhea","Krisha","Nisha","Divya","Radhika","Ananya","Ishita","Meera",
+  "Pooja","Tanvi","Palak","Simran","Kavya","Neha","Aditi","Priya","Bhavna","Surbhi",
+  "Ira","Mahi","Shruti","Jhanvi","Khushi","Sakshi","Vaishnavi","Muskan","Ritu","Tanya"
+];
+
+const SURNAMES = [
+  "Mehta","Patel","Kapoor","Shah","Verma","Sharma","Joshi","Bansal","Malhotra","Chopra",
+  "Singh","Gupta","Jain","Agarwal","Nair","Reddy","Iyer","Khan","Das","Saxena"
+];
+
 const COMMENTS = [
   "Fabric feels premium and super comfortable.",
   "Loved the fit — looks even better in real.",
@@ -26,6 +35,7 @@ const COMMENTS = [
 ];
 
 const ri = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+
 const shuffle = (arr) => {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -34,18 +44,26 @@ const shuffle = (arr) => {
   }
   return a;
 };
+
 const pickRating = () => (Math.random() < 0.62 ? 5 : Math.random() < 0.92 ? 4 : 3);
+
+const formatDMY = (date) =>
+  date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
 const randomDate = () => {
-  // after Oct 2025 => start from Nov 1, 2025
-  const start = new Date("2025-10-01T00:00:00.000Z");
-  const end = new Date(); // up to today
+  // start from Nov 1, 2025 up to today
+  const start = new Date("2025-11-01T00:00:00.000Z");
+  const end = new Date();
   const t = start.getTime() + Math.random() * (end.getTime() - start.getTime());
-  return new Date(t).toISOString().slice(0, 10);
+  return formatDMY(new Date(t));
 };
 
-
 export default function ReviewSection() {
-  const [reviews, setReviews] = useState([]);   // ✅ generated after mount
+  const [reviews, setReviews] = useState([]);
   const [visibleCount, setVisibleCount] = useState(3);
 
   useEffect(() => {
@@ -57,12 +75,17 @@ export default function ReviewSection() {
       date: randomDate(),
     }));
 
-    // ✅ ensure avg >= 3.9
-    let avg = arr.reduce((s, x) => s + x.rating, 0) / arr.length;
+    // ensure avg >= 3.9
+    let sum = arr.reduce((s, x) => s + x.rating, 0);
+    let avg = sum / arr.length;
+
     if (avg < 3.9) {
       for (let i = 0; i < arr.length && avg < 3.9; i++) {
-        if (arr[i].rating === 4) arr[i].rating = 5;
-        avg = arr.reduce((s, x) => s + x.rating, 0) / arr.length;
+        if (arr[i].rating === 4) {
+          arr[i].rating = 5;
+          sum += 1; // 4 -> 5
+          avg = sum / arr.length;
+        }
       }
     }
 
@@ -80,24 +103,32 @@ export default function ReviewSection() {
     return c;
   }, [reviews]);
 
-  if (!reviews.length) return null; // ✅ avoids hydration issues
+  if (!reviews.length) return null;
 
   return (
     <div className="mt-10 border-t border-gray-400 pt-6">
-      <h2 className="text-lg md:text-xl font-semibold text-black mb-4">Customer Reviews</h2>
+      <h2 className="text-lg md:text-xl font-semibold text-black mb-4">
+        Customer Reviews
+      </h2>
 
       {/* SUMMARY */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div className="text-center md:text-left">
           <h3 className="text-3xl font-bold text-black">{averageRating}</h3>
+
           <div className="flex justify-center md:justify-start mt-1 gap-1">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
                 key={i}
-                className={`w-5 h-5 ${i < Math.round(+averageRating) ? "text-yellow-500 fill-yellow-500" : "text-gray-600"}`}
+                className={`w-5 h-5 ${
+                  i < Math.round(+averageRating)
+                    ? "text-yellow-500 fill-yellow-500"
+                    : "text-gray-600"
+                }`}
               />
             ))}
           </div>
+
           <p className="text-xs text-gray-700 mt-1">{reviews.length} Reviews</p>
         </div>
 
@@ -105,13 +136,21 @@ export default function ReviewSection() {
           {[5, 4, 3, 2, 1].map((star) => {
             const count = distribution[star];
             const percent = (count / reviews.length) * 100 || 0;
+
             return (
               <div key={star} className="flex items-center gap-3">
                 <span className="w-6 text-xs font-medium text-black">{star}★</span>
+
                 <div className="flex-1 h-2 bg-gray-300 rounded-full">
-                  <div className="h-full bg-black rounded-full" style={{ width: `${percent}%` }} />
+                  <div
+                    className="h-full bg-black rounded-full"
+                    style={{ width: `${percent}%` }}
+                  />
                 </div>
-                <span className="text-[11px] text-gray-700 w-6 text-right">{count}</span>
+
+                <span className="text-[11px] text-gray-700 w-6 text-right">
+                  {count}
+                </span>
               </div>
             );
           })}
@@ -124,13 +163,22 @@ export default function ReviewSection() {
           <div key={r.id} className="border-b border-gray-300 pb-4">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold text-black">{r.name}</h4>
+
               <div className="flex gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className={`w-4 h-4 ${i < r.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-600"}`} />
+                  <Star
+                    key={i}
+                    className={`w-4 h-4 ${
+                      i < r.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-600"
+                    }`}
+                  />
                 ))}
               </div>
             </div>
+
+            {/* ✅ Day Month Year */}
             <p className="text-[12px] text-gray-700 mt-0.5">{r.date}</p>
+
             <p className="text-gray-800 text-sm mt-2 leading-relaxed">{r.comment}</p>
           </div>
         ))}
