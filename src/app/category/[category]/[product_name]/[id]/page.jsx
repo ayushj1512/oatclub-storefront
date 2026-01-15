@@ -22,6 +22,7 @@ import ColorSelector from "@/components/productDetail/ColorSelector";
 import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 import ShippingHighlights from "@/components/productDetail/ShippingHighlights";
 import CrossSellProducts from "@/components/productDetail/CrossSellProducts";
+import LepordCollectionAnnouncement from "@/components/productDetail/LepordCollectionAnnouncement";
 
 const BRAND = {  black: "#111111" };
 
@@ -679,6 +680,7 @@ const link = typeof window !== "undefined" ? window.location.href : "";
 </div>
 
           <h1 className="text-2xl md:text-3xl font-semibold text-black leading-tight">{product.name}</h1>
+<LepordCollectionAnnouncement collections={product?.raw?.collections || []} />
 
           {/* PRICE + icons */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
