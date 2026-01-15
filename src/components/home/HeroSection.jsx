@@ -245,19 +245,20 @@ export default function HeroSection() {
       )}
 
       {/* ✅ dots */}
-      {banners.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-          {banners.map((_, i) => (
-            <span
-              key={i}
-              onClick={() => setCurrent(i)}
-              className={`w-3 h-3 rounded-full cursor-pointer ${
-                current === i ? "bg-white" : "bg-gray-400"
-              }`}
-            />
-          ))}
-        </div>
-      )}
+     {banners.length > 1 && (
+  <div className="hidden md:flex absolute bottom-2 left-1/2 -translate-x-1/2 gap-2 z-20">
+    {banners.map((_, i) => (
+      <span
+        key={i}
+        onClick={() => setCurrent(i)}
+        className={`w-3 h-3 rounded-full cursor-pointer ${
+          current === i ? "bg-white" : "bg-gray-400"
+        }`}
+      />
+    ))}
+  </div>
+)}
+
     </section>
   );
 }

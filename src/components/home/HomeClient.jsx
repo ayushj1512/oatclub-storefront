@@ -69,31 +69,7 @@ export default function HomeClient() {
         
         <Newsletter />
            {/* ✅ MobiKwik Banner (after Trending) - responsive (phone vs md+) */}
-        <section className="w-full">
-          {/* Mobile */}
-          <div className="block md:hidden w-full">
-            <Image
-              src="https://res.cloudinary.com/djtva6hec/image/upload/v1768501880/miray/media/bpy7achyoy1h3itujt4s.png"
-              alt="MobiKwik offer banner"
-              width={2048}
-              height={600}
-              className="w-full h-auto object-cover"
-              loading="lazy"
-            />
-          </div>
-
-          {/* Medium & Large */}
-          <div className="hidden md:block w-full">
-            <Image
-              src="https://res.cloudinary.com/djtva6hec/image/upload/v1768501751/miray/media/ixptebzqueu0wlxltmt7.png"
-              alt="MobiKwik offer banner"
-              width={2048}
-              height={400}
-              className="w-full h-auto object-cover"
-              loading="lazy"
-            />
-          </div>
-        </section>
+      
       </main>
     </>
   );
