@@ -52,7 +52,23 @@ export default function HomeClient() {
         {/* BELOW THE FOLD — NORMAL SECTIONS */}
         <TrendingSection />
 
-        {/* ✅ MobiKwik Banner (after Trending) - responsive (phone vs md+) */}
+     
+
+        <WinterFeatureSection />
+
+        {/* ✅ NEW TOP SECTION (Featured Category) */}
+        <TopSectionFeatured />
+
+        {/* Best Seller comes after Top Section */}
+        <BestSellerSection />
+
+        <VideoRow />
+        <BlogSection />
+        <RecentlyViewed />
+        <InfoStrip />
+        
+        <Newsletter />
+           {/* ✅ MobiKwik Banner (after Trending) - responsive (phone vs md+) */}
         <section className="w-full">
           {/* Mobile */}
           <div className="block md:hidden w-full">
@@ -78,20 +94,6 @@ export default function HomeClient() {
             />
           </div>
         </section>
-
-        <WinterFeatureSection />
-
-        {/* ✅ NEW TOP SECTION (Featured Category) */}
-        <TopSectionFeatured />
-
-        {/* Best Seller comes after Top Section */}
-        <BestSellerSection />
-
-        <VideoRow />
-        <BlogSection />
-        <RecentlyViewed />
-        <InfoStrip />
-        <Newsletter />
       </main>
     </>
   );

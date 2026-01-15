@@ -94,10 +94,10 @@ export default function ContactPage() {
                   Typical response: within 48 hours
                 </span>
 
-                <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-black/70">
+                {/* <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-black/70">
                   <span className="h-2 w-2 rounded-full bg-black/60" />
                   Theme: Black · White · Grey
-                </span>
+                </span> */}
               </div>
             </div>
 
@@ -198,7 +198,7 @@ export default function ContactPage() {
                       <MapPin className="h-5 w-5" />
                     </span>
                     <div className="flex-1">
-                      <p className="text-xs font-bold tracking-widest uppercase text-black/50">
+                      {/* <p className="text-xs font-bold tracking-widest uppercase text-black/50">
                         Address
                       </p>
                       <p className="mt-2 text-lg font-extrabold leading-snug">
@@ -207,7 +207,7 @@ export default function ContactPage() {
                             {l}
                           </span>
                         ))}
-                      </p>
+                      </p> */}
                       <div className="mt-4 flex flex-wrap items-center gap-3">
                         <a
                           href={CONTACT.mapOpenUrl}

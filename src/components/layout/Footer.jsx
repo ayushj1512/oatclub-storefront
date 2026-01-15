@@ -20,7 +20,7 @@ export default function Footer() {
   const year = useMemo(() => new Date().getFullYear(), []);
 
   return (
-    <footer className="w-full bg-black text-white mt-16">
+    <footer className="w-full bg-black text-white ">
       {/* ================= MAIN ================= */}
       <div className="mx-auto  px-6 md:px-12 py-12">
         {/* ================= DESKTOP ================= */}

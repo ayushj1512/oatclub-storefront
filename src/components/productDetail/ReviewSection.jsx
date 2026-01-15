@@ -72,7 +72,13 @@ export default function ReviewSection() {
       name: `${NAMES[ri(0, NAMES.length - 1)]} ${SURNAMES[ri(0, SURNAMES.length - 1)]}`,
       rating: pickRating(),
       comment: COMMENTS[ri(0, COMMENTS.length - 1)],
-      date: randomDate(),
+      // keep both: for sorting + for display
+      dateObj: (() => {
+        const start = new Date("2025-11-01T00:00:00.000Z");
+        const end = new Date();
+        const t = start.getTime() + Math.random() * (end.getTime() - start.getTime());
+        return new Date(t);
+      })(),
     }));
 
     // ensure avg >= 3.9
@@ -89,7 +95,16 @@ export default function ReviewSection() {
       }
     }
 
-    setReviews(shuffle(arr));
+    // ✅ Desc order by date (latest first)
+    const sorted = [...arr].sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
+
+    // add formatted date string
+    const withFormattedDate = sorted.map((r) => ({
+      ...r,
+      date: formatDMY(r.dateObj),
+    }));
+
+    setReviews(withFormattedDate);
   }, []);
 
   const averageRating = useMemo(() => {
