@@ -36,15 +36,6 @@ const COMMENTS = [
 
 const ri = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 
-const shuffle = (arr) => {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-};
-
 const pickRating = () => (Math.random() < 0.62 ? 5 : Math.random() < 0.92 ? 4 : 3);
 
 const formatDMY = (date) =>
@@ -54,12 +45,23 @@ const formatDMY = (date) =>
     year: "numeric",
   });
 
-const randomDate = () => {
-  // start from Nov 1, 2025 up to today
+/**
+ * Random date between:
+ * start: Nov 1, 2025
+ * end: (today - 7 days)  ✅ ensures all reviews are at least 1 week old
+ */
+const randomDateObj = () => {
   const start = new Date("2025-11-01T00:00:00.000Z");
+
   const end = new Date();
+  end.setDate(end.getDate() - 7); // ✅ 1 week before today
+  end.setHours(23, 59, 59, 999);
+
+  // fallback: if end < start (edge case), just return start
+  if (end.getTime() <= start.getTime()) return new Date(start);
+
   const t = start.getTime() + Math.random() * (end.getTime() - start.getTime());
-  return formatDMY(new Date(t));
+  return new Date(t);
 };
 
 export default function ReviewSection() {
@@ -67,19 +69,17 @@ export default function ReviewSection() {
   const [visibleCount, setVisibleCount] = useState(3);
 
   useEffect(() => {
-    const arr = Array.from({ length: N }, (_, i) => ({
-      id: i + 1,
-      name: `${NAMES[ri(0, NAMES.length - 1)]} ${SURNAMES[ri(0, SURNAMES.length - 1)]}`,
-      rating: pickRating(),
-      comment: COMMENTS[ri(0, COMMENTS.length - 1)],
-      // keep both: for sorting + for display
-      dateObj: (() => {
-        const start = new Date("2025-11-01T00:00:00.000Z");
-        const end = new Date();
-        const t = start.getTime() + Math.random() * (end.getTime() - start.getTime());
-        return new Date(t);
-      })(),
-    }));
+    const arr = Array.from({ length: N }, (_, i) => {
+      const dateObj = randomDateObj();
+
+      return {
+        id: i + 1,
+        name: `${NAMES[ri(0, NAMES.length - 1)]} ${SURNAMES[ri(0, SURNAMES.length - 1)]}`,
+        rating: pickRating(),
+        comment: COMMENTS[ri(0, COMMENTS.length - 1)],
+        dateObj, // for sorting
+      };
+    });
 
     // ensure avg >= 3.9
     let sum = arr.reduce((s, x) => s + x.rating, 0);
@@ -95,7 +95,7 @@ export default function ReviewSection() {
       }
     }
 
-    // ✅ Desc order by date (latest first)
+    // ✅ Desc order by date (latest first) — latest will still be <= today-7d
     const sorted = [...arr].sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
 
     // add formatted date string
