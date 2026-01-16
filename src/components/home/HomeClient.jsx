@@ -19,6 +19,7 @@ import BlogSection from "@/components/home/BlogSection";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
 import InfoStrip from "@/components/home/InfoStrip";
 import Newsletter from "@/components/home/Newsletter";
+import LeopardFeatureCollection from "@/components/home/LeopardFeatureCollection";
 
 export default function HomeClient() {
   const { structuredData } = generateSEO({
@@ -52,7 +53,8 @@ export default function HomeClient() {
         {/* BELOW THE FOLD — NORMAL SECTIONS */}
         <TrendingSection />
 
-     
+           <LeopardFeatureCollection />
+
 
         <WinterFeatureSection />
 

@@ -398,12 +398,6 @@ trackPurchaseSuccess: async ({
   }
 },
 
-
-
-
-
-
-
   /**
    * GET ORDERS BY CUSTOMER
    * GET /api/orders/customer/:customerId
