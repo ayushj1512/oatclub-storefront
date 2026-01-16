@@ -61,34 +61,36 @@ export default function VideoRow() {
       ✅ Attach correct product (NO RANDOM FALLBACK)
   ============================ */
   const reelsWithProducts = useMemo(() => {
-    if (!reels?.length) return [];
+  if (!reels?.length) return [];
 
-    return reels.map((reel) => {
-      const reelSlug = String(reel?.slug || "").trim().toLowerCase();
+  return reels.map((reel) => {
+    const apiProd = reel?.product || null;
 
-      const matchedProduct = allProducts?.find(
-        (p) => String(p?.slug || "").trim().toLowerCase() === reelSlug
-      );
+    const targetSlug = String(apiProd?.slug || reel?.slug || "").trim().toLowerCase();
 
-      return {
-        ...reel,
-        src: reel.video || reel.src,
-        product: matchedProduct
-          ? {
-              id: matchedProduct.id || matchedProduct._id,
-              name: matchedProduct.name,
-              price: matchedProduct.price,
-              image: matchedProduct.image || "/placeholder.png", // product image ok
-              slug: matchedProduct.slug,
-              category:
-                matchedProduct.category?.slug ||
-                matchedProduct.category ||
-                "all-clothing",
-            }
-          : null,
-      };
-    });
-  }, [reels, allProducts]);
+    const matched = allProducts?.find(
+      (p) => String(p?.slug || "").trim().toLowerCase() === targetSlug
+    );
+
+    const mergedProduct = {
+      id: matched?.id || matched?._id || apiProd?.productId || null,
+      slug: matched?.slug || apiProd?.slug || null,
+      name: matched?.name || apiProd?.name || reel?.title || "",
+      image: matched?.image || apiProd?.image || "/placeholder.png",
+      price:
+        (matched?.price ?? null) !== null ? matched.price :
+        (apiProd?.price ?? null) !== null ? apiProd.price : 0,
+      category: matched?.category?.slug || matched?.category || "all-clothing",
+    };
+
+    return {
+      ...reel,
+      src: reel.video || reel.src,
+      product: mergedProduct.id && mergedProduct.slug ? mergedProduct : null,
+    };
+  });
+}, [reels, allProducts]);
+
 
   /* ============================
       ✅ AutoPlay only visible videos

@@ -14,54 +14,70 @@ export default function ReelViewer({
 }) {
   const [liked, setLiked] = useState(false);
   const [expanded, setExpanded] = useState(false);
-
-  const reel = reels[currentIndex] || null;
-
   const [direction, setDirection] = useState(0);
 
-  const scheduleRef = useRef({ raf: 0, queued: false });
+  const reel = reels?.[currentIndex] || null;
+  if (!reel) return null;
 
-  const scheduleIndexUpdate = useCallback((fn) => {
-    if (scheduleRef.current.queued) return;
+  const hashtags = reel?.hashtags || [];
 
-    scheduleRef.current.queued = true;
-    scheduleRef.current.raf = window.requestAnimationFrame(() => {
-      scheduleRef.current.queued = false;
-      fn();
-    });
-  }, []);
+  // ---- Product normalization (handles your API shape) ----
+  const rawProduct = reel?.product || null;
 
-  useEffect(() => {
-    return () => {
-      if (scheduleRef.current.raf) cancelAnimationFrame(scheduleRef.current.raf);
-    };
-  }, []);
+  const productId =
+    rawProduct?.id ||
+    rawProduct?._id ||
+    rawProduct?.productId ||
+    null;
+
+  const productSlug = rawProduct?.slug || null;
+
+  const productName =
+    (rawProduct?.name && String(rawProduct.name).trim()) ||
+    reel?.title ||
+    "View product";
+
+  const productImage =
+    (rawProduct?.image && String(rawProduct.image).trim()) ||
+    "/placeholder.png";
+
+  const rawPrice = rawProduct?.price;
+  const priceNumber =
+    typeof rawPrice === "number" ? rawPrice : Number(rawPrice);
+
+  const hasValidPrice =
+    Number.isFinite(priceNumber) && priceNumber > 0;
+
+  // ✅ no RAF: nav lock to prevent spam + the React warning
+  const navLockRef = useRef(false);
 
   const goNext = useCallback(() => {
-    scheduleIndexUpdate(() => {
-      setCurrentIndex((prev) => {
-        if (prev < reels.length - 1) {
-          setDirection(1);
-          return prev + 1;
-        }
-        return prev;
-      });
-      setExpanded(false); // ✅ reset expansion on next
-    });
-  }, [reels.length, setCurrentIndex, scheduleIndexUpdate]);
+    if (navLockRef.current) return;
+    navLockRef.current = true;
+
+    setDirection(1);
+    setExpanded(false);
+
+    setCurrentIndex((prev) => Math.min(prev + 1, reels.length - 1));
+
+    window.setTimeout(() => {
+      navLockRef.current = false;
+    }, 250);
+  }, [reels.length, setCurrentIndex]);
 
   const goPrev = useCallback(() => {
-    scheduleIndexUpdate(() => {
-      setCurrentIndex((prev) => {
-        if (prev > 0) {
-          setDirection(-1);
-          return prev - 1;
-        }
-        return prev;
-      });
-      setExpanded(false); // ✅ reset expansion on prev
-    });
-  }, [setCurrentIndex, scheduleIndexUpdate]);
+    if (navLockRef.current) return;
+    navLockRef.current = true;
+
+    setDirection(-1);
+    setExpanded(false);
+
+    setCurrentIndex((prev) => Math.max(prev - 1, 0));
+
+    window.setTimeout(() => {
+      navLockRef.current = false;
+    }, 250);
+  }, [setCurrentIndex]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -95,11 +111,9 @@ export default function ReelViewer({
         goPrev();
       }
 
-      if (wheelLockRef.current) {
-        window.setTimeout(() => {
-          wheelLockRef.current = false;
-        }, 450);
-      }
+      window.setTimeout(() => {
+        wheelLockRef.current = false;
+      }, 450);
     },
     [goNext, goPrev]
   );
@@ -149,7 +163,6 @@ export default function ReelViewer({
       if (!shouldTrigger) return;
 
       swipeLockRef.current = true;
-
       e.preventDefault?.();
 
       if (dy > 0) goNext();
@@ -193,9 +206,11 @@ export default function ReelViewer({
     []
   );
 
-  if (!reel) return null;
+  const canNavigateToProduct = Boolean(productSlug && productId);
 
-  const hashtags = reel.hashtags || [];
+  const ProductRow = ({ children }) => (
+    <div className="px-3 py-2 flex items-center gap-2">{children}</div>
+  );
 
   return (
     <motion.div
@@ -260,52 +275,68 @@ export default function ReelViewer({
           </button>
         </div>
 
-        {/* ✅ Expandable PRODUCT CARD */}
+        {/* ✅ PRODUCT CARD (no borders + price 0 handled) */}
         <div className="absolute bottom-3 left-3 right-3 z-50">
           <motion.div
             layout
             transition={{ duration: 0.25 }}
             className="bg-white rounded-lg shadow-xl overflow-hidden"
           >
-            <Link
-              href={`/category/products/${reel.product.slug}/${reel.product.id}`}
-              className="px-3 py-2 flex items-center gap-2"
-            >
-              <div className="w-10 h-10 bg-gray-100 rounded-md overflow-hidden shrink-0">
-                <Image
-                  src={reel.product.image}
-                  width={45}
-                  height={45}
-                  alt={reel.product.name}
-                  className="w-full h-full object-cover"
-                />
+            {canNavigateToProduct ? (
+              <Link
+                href={`/category/products/${productSlug}/${productId}`}
+                className="block"
+              >
+                <ProductRow>
+                  <div className="w-10 h-10 bg-gray-100 rounded-md overflow-hidden shrink-0">
+                    <Image
+                      src={productImage}
+                      width={45}
+                      height={45}
+                      alt={productName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div className="flex flex-col flex-1 leading-tight min-w-0">
+                    <p className="text-[13px] font-semibold text-gray-900 line-clamp-1">
+                      {productName}
+                    </p>
+
+                    {/* ✅ Price: hide ₹0 */}
+                    {hasValidPrice ? (
+                      <p className="text-black font-bold text-[13px]">
+                        ₹{priceNumber}
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 font-medium text-[12px]">
+                        View price
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="text-black/70 text-lg font-bold pr-1">→</div>
+                </ProductRow>
+              </Link>
+            ) : (
+              <div className="px-3 py-3 text-[12px] text-gray-700">
+                Product not linked for this reel
               </div>
+            )}
 
-              <div className="flex flex-col flex-1 leading-tight">
-                <p className="text-[13px] font-semibold text-gray-900 line-clamp-1">
-                  {reel.product.name}
-                </p>
-                <p className="text-black font-bold text-[13px]">
-                  ₹{reel.product.price}
-                </p>
-              </div>
-
-              <div className="text-black/70 text-lg font-bold pr-1">→</div>
-            </Link>
-
-            {/* ✅ Expand toggle */}
+            {/* Expand toggle (no border) */}
             <button
               onClick={(e) => {
                 e.preventDefault();
                 setExpanded((v) => !v);
               }}
-              className="w-full flex justify-center items-center gap-1 text-[12px] text-gray-600 py-1 border-t"
+              className="w-full flex justify-center items-center gap-1 text-[12px] text-gray-600 py-1"
             >
               {expanded ? "Less" : "More"}
               {expanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
             </button>
 
-            {/* ✅ Expand Content */}
+            {/* Expand content (no border) */}
             <AnimatePresence>
               {expanded && (
                 <motion.div
@@ -313,14 +344,14 @@ export default function ReelViewer({
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.25 }}
-                  className="px-3 py-2 border-t max-h-[180px] overflow-y-auto"
+                  className="px-3 py-2 max-h-[180px] overflow-y-auto"
                 >
-                  {/* caption */}
-                  <p className="text-gray-700 text-[12px] leading-snug mb-2">
-                    {reel.caption}
-                  </p>
+                  {reel.caption ? (
+                    <p className="text-gray-700 text-[12px] leading-snug mb-2 whitespace-pre-line">
+                      {reel.caption}
+                    </p>
+                  ) : null}
 
-                  {/* hashtags */}
                   {hashtags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {hashtags.map((tag, idx) => (
