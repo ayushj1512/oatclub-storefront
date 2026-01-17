@@ -53,13 +53,16 @@ export default function HomeClient() {
         {/* BELOW THE FOLD — NORMAL SECTIONS */}
         <TrendingSection />
 
+    {/* ✅ NEW TOP SECTION (Featured Category) */}
+        <TopSectionFeatured />
+
+        
            <LeopardFeatureCollection />
 
 
         <WinterFeatureSection />
 
-        {/* ✅ NEW TOP SECTION (Featured Category) */}
-        <TopSectionFeatured />
+    
 
         {/* Best Seller comes after Top Section */}
         <BestSellerSection />

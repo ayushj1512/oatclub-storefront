@@ -22,6 +22,30 @@ const money = (n) => {
   return num.toLocaleString("en-IN");
 };
 
+const isNumericLike = (v) => {
+  const s = String(v ?? "").trim();
+  return s.length > 0 && /^[0-9]+$/.test(s);
+};
+
+const safeColorLabel = (v) => {
+  const s = String(v ?? "").trim();
+  if (!s || isNumericLike(s)) return ""; // ✅ treat productCode as no-color
+  return s;
+};
+
+// optional: only apply dot background if looks like a css color
+const looksLikeCssColor = (v) => {
+  const s = String(v ?? "").trim();
+  if (!s) return false;
+  return (
+    s.startsWith("#") ||
+    s.startsWith("rgb") ||
+    s.startsWith("hsl") ||
+    ["black","white","red","blue","green","yellow","pink","purple","orange","brown","grey","gray","beige","navy","maroon"].includes(s.toLowerCase())
+  );
+};
+
+
 const getImageSrc = (item) => {
   const candidates = [item?.image, item?.thumbnail, item?.images?.[0]?.src, item?.images?.[0], item?.productSnapshot?.thumbnail, item?.productSnapshot?.images?.[0]];
   const src = candidates.find((v) => typeof v === "string" && v.trim().length > 0);
@@ -37,7 +61,9 @@ const ga4CartItem = (it) =>
       title: it?.name,
       price: Number(it?.price ?? 0) || 0,
       category: it?.productSnapshot?.category || "",
-      variant: [it?.selectedSize, it?.selectedColor].filter(Boolean).join(" / "),
+variant: [it?.selectedSize, safeColorLabel(it?.selectedColor)]
+  .filter(Boolean)
+  .join(" / "),
       sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
     },
     Number(it?.qty ?? it?.quantity ?? 1)
@@ -346,15 +372,25 @@ export default function CartPage() {
                   </span>
                 )}
 
-                {item?.selectedColor && (
-                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700 flex items-center gap-1">
-                    <span
-                      className="h-3 w-3 rounded-full border border-black/10"
-                      style={{ backgroundColor: item.selectedColor }}
-                    />
-                    Color: {String(item.selectedColor).replace(/-/g, " ")}
-                  </span>
-                )}
+                {(() => {
+  const color = safeColorLabel(item?.selectedColor);
+  if (!color) return null;
+
+  const dotColor = looksLikeCssColor(color) ? color : null;
+
+  return (
+    <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700 flex items-center gap-1">
+      {dotColor ? (
+        <span
+          className="h-3 w-3 rounded-full border border-black/10"
+          style={{ backgroundColor: dotColor }}
+        />
+      ) : null}
+      Color: {color.replace(/-/g, " ")}
+    </span>
+  );
+})()}
+
 
                 <div className="flex flex-wrap items-center gap-2">
                   {showMrp && (

@@ -92,36 +92,43 @@ const buildCartItem = ({
 
   const productType =
     product.productType ||
-    (Array.isArray(product.variants) && product.variants.length
-      ? "variable"
-      : "simple");
+    (Array.isArray(product.variants) && product.variants.length ? "variable" : "simple");
 
   let variant = null;
   const variants = Array.isArray(product.variants) ? product.variants : [];
+
+  /* ---------------- SANITIZE INPUTS ---------------- */
+  const rawSize = str(selectedSize).trim();
+  const rawColor = str(selectedColor).trim();
+
+  // ✅ If "color" looks like numeric productCode (e.g. 00131 / 00218) => treat as NO color
+  const safeSelectedColor =
+    rawColor && /^[0-9]+$/.test(rawColor) ? "" : rawColor;
+
+  const safeSelectedSize = rawSize; // keep as-is (string)
 
   /* ---------------- FIND VARIANT ---------------- */
 
   // ✅ 1) If variantId passed → direct match
   if (variantId) {
-    variant =
-      variants.find((v) => str(v?._id) === str(variantId)) || null;
+    variant = variants.find((v) => str(v?._id) === str(variantId)) || null;
 
     // ✅ normalize variantId if variant found
     variantId = variant?._id ? str(variant._id) : str(variantId);
   }
 
-  // ✅ 2) Else match using size + color
-  else if (selectedSize || selectedColor) {
-    const s = str(selectedSize).trim().toLowerCase();
-    const c = str(selectedColor).trim().toLowerCase();
+  // ✅ 2) Else match using size + color (using sanitized color)
+  else if (safeSelectedSize || safeSelectedColor) {
+    const s = safeSelectedSize.toLowerCase();
+    const c = safeSelectedColor.toLowerCase();
 
     variant =
       variants.find((v) => {
         const vs = extractSize(v).trim().toLowerCase();
         const vc = extractColor(v).trim().toLowerCase();
 
-        if (selectedSize && vs !== s) return false;
-        if (selectedColor && vc !== c) return false;
+        if (safeSelectedSize && vs !== s) return false;
+        if (safeSelectedColor && vc !== c) return false;
 
         return true;
       }) || null;
@@ -144,11 +151,8 @@ const buildCartItem = ({
   /* ---------------- PRICING ---------------- */
 
   const unitPrice =
-    variant && toNum(variant.price) > 0
-      ? toNum(variant.price)
-      : toNum(product.price);
+    variant && toNum(variant.price) > 0 ? toNum(variant.price) : toNum(product.price);
 
-  // ✅ compareAtPrice with smart fallback
   const compareAtPrice =
     variant?.compareAtPrice != null
       ? toNum(variant.compareAtPrice)
@@ -181,8 +185,6 @@ const buildCartItem = ({
     tags: Array.isArray(product.tags) ? product.tags : [],
     weight: toNum(product.weight),
     currency: str(product.currency || "INR"),
-
-    // ✅ store these for easy cart UI rendering
     price: unitPrice,
     compareAtPrice,
   };
@@ -198,8 +200,6 @@ const buildCartItem = ({
           : [],
         image: str(variant?.image || snapshot.thumbnail || ""),
         weight: toNum(variant?.weight),
-
-        // ✅ optional store for variant-level UI/debug
         price: variant?.price != null ? toNum(variant.price) : null,
         compareAtPrice:
           variant?.compareAtPrice != null
@@ -215,7 +215,6 @@ const buildCartItem = ({
   const item = {
     productId,
     productType,
-
     variantId: variantSnapshot?.variantId || null,
     quantity: safeQty,
 
@@ -226,15 +225,15 @@ const buildCartItem = ({
     price: unitPrice,
     compareAtPrice,
 
-    // ✅ store both selections
-    selectedSize: selectedSize
-      ? str(selectedSize)
+    selectedSize: safeSelectedSize
+      ? str(safeSelectedSize)
       : variant
       ? extractSize(variant)
       : "",
 
-    selectedColor: selectedColor
-      ? str(selectedColor)
+    // ✅ use sanitized color (never productCode)
+    selectedColor: safeSelectedColor
+      ? str(safeSelectedColor)
       : variant
       ? extractColor(variant)
       : "",
@@ -245,11 +244,10 @@ const buildCartItem = ({
     __key: "",
   };
 
-  // ✅ IMPORTANT: key must always be productId__variantId
   item.__key = `${productId}__${str(item.variantId || "")}`;
-
   return item;
 };
+
 
 
 
@@ -287,6 +285,13 @@ export const useCartStore = create((set, get) => ({
 initialize: () => {
   if (typeof window === "undefined") return;
 
+  // ✅ helper: remove numeric-only "color" like 00131 / 00218
+  const sanitizeColor = (v) => {
+    const c = str(v).trim();
+    if (!c) return "";
+    return /^[0-9]+$/.test(c) ? "" : c;
+  };
+
   /* ---------------- RESTORE CART ITEMS ---------------- */
   const stored = Cookies.get(KEY);
 
@@ -300,14 +305,13 @@ initialize: () => {
             const productId = str(it.productId || it.id || it._id);
 
             // ✅ normalize variantId with more fallbacks
-            const variantId =
-              it.variantId
-                ? str(it.variantId)
-                : it?.variant?.variantId
-                ? str(it.variant.variantId)
-                : it?.variant?._id
-                ? str(it.variant._id)
-                : null;
+            const variantId = it.variantId
+              ? str(it.variantId)
+              : it?.variant?.variantId
+              ? str(it.variant.variantId)
+              : it?.variant?._id
+              ? str(it.variant._id)
+              : null;
 
             const quantity = Math.max(1, toNum(it.quantity || it.qty || 1));
 
@@ -338,6 +342,10 @@ initialize: () => {
             // ✅ always regenerate correct key
             const __key = `${productId}__${variantId || ""}`;
 
+            // ✅ sanitize selections
+            const selectedSize = str(it.selectedSize || "").trim();
+            const selectedColor = sanitizeColor(it.selectedColor);
+
             return {
               ...it,
 
@@ -348,8 +356,8 @@ initialize: () => {
               price,
               compareAtPrice,
 
-              selectedSize: str(it.selectedSize || ""),
-              selectedColor: str(it.selectedColor || ""),
+              selectedSize,
+              selectedColor,
 
               __key,
             };
@@ -360,8 +368,7 @@ initialize: () => {
           }));
 
         set({ items: normalized });
-Cookies.set(KEY, JSON.stringify(normalized), { expires: 7 }); // ✅ rewrite clean cookie
-
+        Cookies.set(KEY, JSON.stringify(normalized), { expires: 7 }); // ✅ rewrite clean cookie
       }
     } catch (e) {
       console.error("❌ Cart cookie parse error:", e);
@@ -376,23 +383,17 @@ Cookies.set(KEY, JSON.stringify(normalized), { expires: 7 }); // ✅ rewrite cle
       const buyNowItem = JSON.parse(buyNowStored);
 
       if (buyNowItem && typeof buyNowItem === "object") {
-        const productId = str(
-          buyNowItem.productId || buyNowItem.id || buyNowItem._id
-        );
+        const productId = str(buyNowItem.productId || buyNowItem.id || buyNowItem._id);
 
-        const variantId =
-          buyNowItem.variantId
-            ? str(buyNowItem.variantId)
-            : buyNowItem?.variant?.variantId
-            ? str(buyNowItem.variant.variantId)
-            : buyNowItem?.variant?._id
-            ? str(buyNowItem.variant._id)
-            : null;
+        const variantId = buyNowItem.variantId
+          ? str(buyNowItem.variantId)
+          : buyNowItem?.variant?.variantId
+          ? str(buyNowItem.variant.variantId)
+          : buyNowItem?.variant?._id
+          ? str(buyNowItem.variant._id)
+          : null;
 
-        const quantity = Math.max(
-          1,
-          toNum(buyNowItem.quantity || buyNowItem.qty || 1)
-        );
+        const quantity = Math.max(1, toNum(buyNowItem.quantity || buyNowItem.qty || 1));
 
         const price = toNum(
           buyNowItem.price ??
@@ -422,15 +423,14 @@ Cookies.set(KEY, JSON.stringify(normalized), { expires: 7 }); // ✅ rewrite cle
           price,
           compareAtPrice,
 
-          selectedSize: str(buyNowItem.selectedSize || ""),
-          selectedColor: str(buyNowItem.selectedColor || ""),
+          selectedSize: str(buyNowItem.selectedSize || "").trim(),
+          selectedColor: sanitizeColor(buyNowItem.selectedColor),
 
           __key: `${productId}__${variantId || ""}`,
         };
 
-       set({ buyNowItem: normalizedBuyNow });
-Cookies.set("buy_now_item", JSON.stringify(normalizedBuyNow), { expires: 1 }); // ✅ rewrite clean cookie
-
+        set({ buyNowItem: normalizedBuyNow });
+        Cookies.set("buy_now_item", JSON.stringify(normalizedBuyNow), { expires: 1 }); // ✅ rewrite clean cookie
       }
     } catch (e) {
       console.error("❌ BuyNow cookie parse error:", e);
@@ -438,6 +438,7 @@ Cookies.set("buy_now_item", JSON.stringify(normalizedBuyNow), { expires: 1 }); /
     }
   }
 },
+
 
 ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
   try {

@@ -124,7 +124,7 @@ function SizeGuideSection() {
     </Accordion>
   );
 }
-
+const str = (v) => (v == null ? "" : String(v));
 const SIZE_ORDER = ["XXS","XS","S","M","L","XL","XXL","3XL","4XL","5XL"];
 
 const getSizeFromSku = (sku) => {
@@ -135,23 +135,13 @@ const getSizeFromSku = (sku) => {
   return "";
 };
 
-const getColorFromSku = (sku) => {
-  const parts = str(sku).toLowerCase().split("-").filter(Boolean);
-  if (parts.length < 2) return "";
+const getColorFromSku = () => "";
 
-  // usually color is 2nd last token
-  const candidate = parts[parts.length - 2];
-
-  // avoid returning size accidentally
-  if (SIZE_ORDER.includes(candidate.toUpperCase())) return "";
-
-  return candidate;
-};
 
 
 
 /* -------- variant helpers ---------- */
-const str = (v) => (v == null ? "" : String(v));
+
 
 const getAttrValue = (attrs, key) => {
   const k = str(key).trim().toLowerCase();
@@ -168,7 +158,6 @@ const getAttrValue = (attrs, key) => {
 
 const deriveSizesFromBackend = (normalized) => {
   if (!normalized) return [];
-
   const raw = normalized.raw || normalized;
 
   // 1) Try product attributes if available
@@ -180,83 +169,82 @@ const deriveSizesFromBackend = (normalized) => {
   );
 
   if (Array.isArray(sizeAttr?.values) && sizeAttr.values.length) {
-    return sizeAttr.values.map((s) => str(s).trim().toUpperCase()).filter(Boolean);
+    return sizeAttr.values
+      .map((s) => str(s).trim().toUpperCase())
+      .filter(Boolean);
   }
 
-  // 2) Fallback: derive sizes from SKU inside variants
-  const vars = Array.isArray(raw?.variants)
-    ? raw.variants
-    : Array.isArray(normalized?.variants)
-      ? normalized.variants
-      : [];
+  // 2) ✅ Correct fallback: derive sizes from variant attributes first, then SKU
+  const vars = Array.isArray(raw?.variants) ? raw.variants : [];
 
   const sizes = vars
     .map((v) => {
-      const sku = String(v?.sku || "").toUpperCase();
-      // ✅ Example: ...-XS-1EL0  => XS
-      const parts = sku.split("-");
-      return parts.length >= 2 ? parts[parts.length - 2] : null;
+      const fromAttr = str(getAttrValue(v?.attributes, "size")).trim().toUpperCase();
+      return fromAttr || getSizeFromSku(v?.sku);
     })
     .filter(Boolean);
 
-  return Array.from(new Set(sizes));
+  // unique + sorted
+  const uniq = Array.from(new Set(sizes));
+  uniq.sort((a, b) => {
+    const ia = SIZE_ORDER.indexOf(a);
+    const ib = SIZE_ORDER.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
+  return uniq;
 };
+
 
 const deriveColorsFromBackend = (normalized) => {
   if (!normalized) return [];
 
   const raw = normalized.raw || normalized;
-  const attrs = Array.isArray(raw?.attributes) ? raw.attributes : [];
 
-  const colorAttr = attrs.find(
-    (a) =>
-      str(a?.key).toLowerCase() === "color" ||
-      str(a?.attribute?.slug).toLowerCase() === "color" ||
-      str(a?.slug).toLowerCase() === "color"
-  );
+  // 1) product-level color attributes (if backend sends)
+  const attrs = Array.isArray(raw?.attributes) ? raw.attributes : [];
+  const colorAttr = attrs.find((a) => {
+    const key = str(a?.key || a?.slug || a?.attribute?.slug).trim().toLowerCase();
+    return key === "color";
+  });
 
   if (Array.isArray(colorAttr?.values) && colorAttr.values.length) {
     return colorAttr.values
-      .map((c) => {
-        // ✅ supports both: "black" OR {label,value}
-        if (typeof c === "string") return c;
-        return c?.value || c?.label || "";
-      })
+      .map((c) => (typeof c === "string" ? c : c?.value || c?.label || ""))
       .map((c) => str(c).trim().toLowerCase())
       .filter(Boolean);
   }
 
-  // fallback: derive from variants
+  // 2) ✅ variant-level color from attributes ONLY (do NOT guess from SKU)
   const vars = Array.isArray(raw?.variants) ? raw.variants : [];
   const colors = vars
-    .map((v) => getAttrValue(v?.attributes, "Color"))
-    .map((c) => str(c).trim().toLowerCase())
+    .map((v) => str(getAttrValue(v?.attributes, "color")).trim().toLowerCase())
     .filter(Boolean);
 
   return Array.from(new Set(colors));
 };
+
 
 const hasColorForSize = (normalized, size) => {
   const raw = normalized?.raw || normalized;
   const vars = Array.isArray(raw?.variants) ? raw.variants : [];
   const wantedSize = str(size).trim().toUpperCase();
 
-  const variantsForSize = vars.filter((v) => {
+  return vars.some((v) => {
     const s =
-      str(getAttrValue(v?.attributes, "Size")).trim().toUpperCase() ||
+      str(getAttrValue(v?.attributes, "size")).trim().toUpperCase() ||
       getSizeFromSku(v?.sku);
 
-    return wantedSize ? s === wantedSize : true;
-  });
+    if (wantedSize && s !== wantedSize) return false;
 
-  return variantsForSize.some((v) => {
-    const c =
-      str(getAttrValue(v?.attributes, "Color")).trim().toLowerCase() ||
-      getColorFromSku(v?.sku);
-
-    return Boolean(c);
+    const c = str(getAttrValue(v?.attributes, "color")).trim();
+    return Boolean(c); // ✅ only real color attribute
   });
 };
+
 
 
 
@@ -273,16 +261,13 @@ const getColorsForSize = (normalized, size) => {
 
       return wantedSize ? s === wantedSize : true;
     })
-    .map((v) => {
-      return (
-        str(getAttrValue(v?.attributes, "color")).trim().toLowerCase() ||
-        getColorFromSku(v?.sku)
-      );
-    })
+    // ✅ Only from attributes; no SKU guessing
+    .map((v) => str(getAttrValue(v?.attributes, "color")).trim().toLowerCase())
     .filter(Boolean);
 
   return Array.from(new Set(colors));
 };
+
 
 
 
@@ -476,11 +461,13 @@ const [selectedColor, setSelectedColor] = useState(null);
     if (!product) return;
     recentlyViewedStore.addProduct?.(product);
   }, [product, recentlyViewedStore]);
+
 const requireColor = useMemo(() => {
   if (!normalized) return false;
-  if (selectedSize) return hasColorForSize(normalized, selectedSize);
-  return (product?.colors?.length || 0) > 0;
-}, [normalized, selectedSize, product]);
+  if (!selectedSize) return false; // ✅ size choose nahi -> color kabhi force mat karo
+  return hasColorForSize(normalized, selectedSize);
+}, [normalized, selectedSize]);
+
 
 
   const requireSize = (product?.sizes?.length || 0) > 0;
@@ -522,14 +509,15 @@ if (product.productType === "variable" && !selectedVariantId) {
   return notify.error(requireColor ? "Please select size & color" : "Please select a size");
 }
 
-
+const finalColor = requireColor ? selectedColor : null;
 addToCart({
   product: normalized,
   qty: 1,
   selectedSize,
-  selectedColor,
+  selectedColor: finalColor,  // ✅ yahi important
   variantId: product.productType === "variable" || requireSize ? selectedVariantId : null,
 });
+console.log("FINAL COLOR", requireColor, selectedColor, finalColor);
 
 
     // cartStore also calls notify.cartAdded, but this is OK to keep minimal feedback:
@@ -574,18 +562,18 @@ addToCart({
     notify.error(requireColor ? "Please select size & color" : "Please select a size");
     return;
   }
-
+const finalColor = requireColor ? selectedColor : null;
   // ✅ BUY NOW SHOULD NOT TOUCH CART
   setBuyNow({
-    product: normalized,
-    qty: 1,
-    selectedSize,
-    selectedColor,
-    variantId:
-      product.productType === "variable" || requireSize || requireColor
-        ? selectedVariantId
-        : null,
-  });
+  product: normalized,
+  qty: 1,
+  selectedSize,
+  selectedColor: finalColor,  // ✅ yahi important
+  variantId:
+    product.productType === "variable" || requireSize || requireColor
+      ? selectedVariantId
+      : null,
+});
 
   await new Promise((r) => setTimeout(r, 150));
   router.push("/checkout");
@@ -840,10 +828,13 @@ const link = typeof window !== "undefined" ? window.location.href : "";
           <div className="flex gap-2 flex-wrap pt-2">
             {!selectionInCart ? (
               <button
-                onClick={handleAddToCart}
+                onClick={handleAddToCart
+                  
+                }
                 className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
                 style={{ backgroundColor: BRAND.black }}
               >
+                
                 <ShoppingCart size={18} />
                 Add to Cart
               </button>
