@@ -488,28 +488,39 @@ trackPurchaseSuccess: async ({
    * UPDATE ORDER STATUS (Admin)
    * PATCH /api/orders/:id/status
    */
-  updateOrderStatus: async (id, { fulfillmentStatus, paymentStatus }) => {
-    set({ loading: true, error: null });
-    try {
-      if (!id) throw new Error("Order id is required");
-      const data = await api(`/api/orders/${id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ fulfillmentStatus, paymentStatus }),
-      });
+  updateOrderStatus: async (
+  id,
+  { fulfillmentStatus, paymentStatus, adminRemarks }
+) => {
+  set({ loading: true, error: null });
+  try {
+    if (!id) throw new Error("Order id is required");
 
-      const updated = data.order;
-      set((state) => ({
-        order: state.order?._id === updated._id ? updated : state.order,
-        orders: state.orders.map((o) => (o._id === updated._id ? updated : o)),
-        loading: false,
-      }));
+    const payload = {
+      ...(fulfillmentStatus ? { fulfillmentStatus } : {}),
+      ...(paymentStatus ? { paymentStatus } : {}),
+      ...(adminRemarks != null ? { adminRemarks } : {}),
+    };
 
-      return updated;
-    } catch (e) {
-      set({ error: e.message, loading: false });
-      throw e;
-    }
-  },
+    const data = await api(`/api/orders/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+
+    const updated = data.order;
+    set((state) => ({
+      order: state.order?._id === updated._id ? updated : state.order,
+      orders: (state.orders || []).map((o) => (o._id === updated._id ? updated : o)),
+      loading: false,
+    }));
+
+    return updated;
+  } catch (e) {
+    set({ error: e.message, loading: false });
+    throw e;
+  }
+},
+
 
   /**
    * UPDATE TRACKING (Admin)

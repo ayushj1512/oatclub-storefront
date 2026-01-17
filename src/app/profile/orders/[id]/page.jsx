@@ -279,26 +279,35 @@ export default function OrderDetailsPage() {
   };
 
   const handleCancelConfirm = async (reasonText) => {
-    let toastId = null;
-    try {
-      setSubmitting(true);
-      toastId = toast.loading("Cancelling your order...");
+  let toastId = null;
 
-      await updateOrderStatus(order._id, {
-        fulfillmentStatus: "cancelled",
-        adminRemarks: reasonText,
-      });
+  try {
+    if (!order?._id) throw new Error("Order not found");
 
-      toast.success("Order cancelled successfully!", { id: toastId });
-      setShowCancelModal(false);
+    setSubmitting(true);
+    toastId = toast.loading("Cancelling your order...");
 
-      await fetchOrderById(order._id);
-    } catch (e) {
-      toast.error(e?.message || "Cancel failed", { id: toastId });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    const clean = String(reasonText ?? "").trim();
+    const finalReason = clean ? `Cancelled by customer: ${clean}` : "Cancelled by customer";
+
+    await updateOrderStatus(order._id, {
+      fulfillmentStatus: "cancelled",
+      adminRemarks: finalReason,
+    });
+
+    toast.success("Order cancelled successfully!", { id: toastId });
+    setShowCancelModal(false);
+
+    // optional: refresh local order
+    await fetchOrderById(order._id);
+  } catch (e) {
+    toast.error(e?.message || "Cancel failed", { id: toastId });
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
 
   /* -------------------------------------------
      ✅ UI
