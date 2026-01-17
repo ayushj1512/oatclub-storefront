@@ -5,18 +5,49 @@ import { Zap } from "lucide-react";
 export default function LepordCollectionAnnouncement({ collections = [] }) {
   if (!Array.isArray(collections) || collections.length === 0) return null;
 
-  const show = collections.some((c) => c?.slug === "leopard-energy");
-  if (!show) return null;
+  const isPolka = collections.some((c) => c?.slug === "the-polka-edit");
+  const isLeopard = collections.some((c) => c?.slug === "leopard-energy");
+
+  // show nothing if neither collection matches
+  if (!isPolka && !isLeopard) return null;
+
+  const isPolkaMode = isPolka; // polka takes priority if both ever exist
 
   return (
-    <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 md:px-4 md:py-3">
-      <div className="flex items-center gap-2">
-        <Zap size={16} className="text-amber-700 flex-shrink-0" />
+    <div
+      className={[
+        "w-full md:w-fit md:max-w-full rounded-lg border px-3 py-2 md:px-4 md:py-3",
+        isPolkaMode
+          ? "border-white/15"
+          : "bg-amber-50 border-amber-200",
+      ].join(" ")}
+      style={
+        isPolkaMode
+          ? {
+              backgroundColor: "#000",
+              backgroundImage:
+                "radial-gradient(circle at 8px 8px, rgba(255,255,255,0.18) 1.5px, transparent 1.6px)",
+              backgroundSize: "16px 16px",
+            }
+          : undefined
+      }
+    >
+      <div className="flex items-center justify-center md:justify-start gap-2">
+        <Zap
+          size={16}
+          className={isPolkaMode ? "text-white" : "text-amber-700"}
+        />
 
-        <p className="text-[12px] md:text-sm leading-snug text-amber-900">
-          This is a hot-selling item, so dispatch may take <b>5–7 days</b>. Your
-          order will be delivered with the quality, care, and reliability that
-          define <b>Miray’s promise</b>.
+        <p
+          className={[
+            "text-[12px] md:text-sm leading-snug",
+            "text-center md:text-left",
+            isPolkaMode ? "text-white" : "text-amber-900",
+          ].join(" ")}
+        >
+          {isPolkaMode
+            ? "Timeless polka dots with a modern edge"
+            : "Bestseller • On Fire • Trending Now"}
         </p>
       </div>
     </div>
