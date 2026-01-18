@@ -16,7 +16,7 @@ export default function FilterSortBar({
   onOpenFilters,
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 pb-4">
       {/* ✅ Filters Button */}
       {/* <button
         onClick={onOpenFilters}

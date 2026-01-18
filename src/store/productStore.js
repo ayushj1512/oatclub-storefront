@@ -28,6 +28,7 @@
         p?.productType ||
         (Array.isArray(p?.variants) && p.variants.length ? "variable" : "simple"),
     name: p?.name || p?.title || "",
+activeCollection: null,
 
       slug: p?.slug || "",
       price: Number(p?.price || 0),
@@ -447,12 +448,12 @@ const buildCollectionUrl = (collection, p = {}) => {
   ctrl = new AbortController();
   const myId = ++reqId;
 
-  const prevParams = get().lastParams || {};
-
-  const prevCollection = String(prevParams?.collection || "").trim().toLowerCase();
+  /* ✅ detect collection + sort change (clean) */
+  const prevCollection = String(get().activeCollection || "").toLowerCase();
   const nextCollection = collection.toLowerCase();
   const collectionChanged = prevCollection !== nextCollection;
 
+  const prevParams = get().lastParams || {};
   const sortChanged =
     String(params.sort || "") !== String(prevParams.sort || "");
 
@@ -461,6 +462,7 @@ const buildCollectionUrl = (collection, p = {}) => {
   set(() => ({
     isLoading: true,
     error: null,
+    activeCollection: collection, // ✅ NEW
     lastParams: { ...params, collection },
     ...(shouldReset ? { allProducts: [], page: 1, hasMoreFlag: true } : {}),
   }));
@@ -474,7 +476,7 @@ const buildCollectionUrl = (collection, p = {}) => {
 
     const incoming = uniqBySlug((data?.products || []).map(normalize));
 
-    /* ✅ GA4 view_item_list */
+    /* ✅ GA4: view_item_list */
     try {
       if (page === 1 && incoming.length) {
         const listId = `col_${nextCollection}`;
@@ -538,6 +540,7 @@ const buildCollectionUrl = (collection, p = {}) => {
     set({ isLoading: false });
   }
 },
+
 
 
 
