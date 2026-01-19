@@ -3,13 +3,17 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactCompiler: true,
 
- images: {
+  images: {
     remotePatterns: [
       // Pinterest
       { protocol: "https", hostname: "i.pinimg.com", pathname: "/**" },
 
       // Google login avatars
-      { protocol: "https", hostname: "lh3.googleusercontent.com", pathname: "/**" },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        pathname: "/**",
+      },
 
       // Unsplash
       { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
@@ -29,6 +33,21 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "i1.wp.com", pathname: "/**" },
       { protocol: "https", hostname: "i2.wp.com", pathname: "/**" },
     ],
+  },
+
+  async redirects() {
+    return [
+      {
+        source: "/category/all-clothing",
+        destination: "/all-clothing",
+        permanent: true,
+      },
+      {
+        source: "/category/new-arrivals",
+        destination: "/new-arrivals",
+        permanent: true,
+      },
+    ];
   },
 };
 

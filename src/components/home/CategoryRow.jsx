@@ -59,9 +59,14 @@ export default function CategoryRow() {
   }, [settings]);
 
   const handleNavigate = (cat) => {
-    if (cat?.slug) return router.push(`/category/${cat.slug}`);
-    if (cat?.tag) return router.push(`/tag/${cat.tag}`);
-  };
+  // slugs that are pages (not categories)
+  if (cat?.slug === "all-clothing") return router.push("/all-clothing");
+  if (cat?.slug === "new-arrivals") return router.push("/new-arrivals");
+
+  if (cat?.slug) return router.push(`/category/${cat.slug}`);
+  if (cat?.tag) return router.push(`/tag/${cat.tag}`);
+};
+
 
   // ✅ If no categories, don't render row
   if (!loading && !categories.length) return null;
