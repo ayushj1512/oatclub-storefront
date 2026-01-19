@@ -6,9 +6,7 @@ import Link from "next/link";
 import { Trash2, Plus, Minus, ArrowRight, Sparkles } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useRouter, usePathname } from "next/navigation";
-import ApplyCoupon from "@/components/cart/ApplyCoupon";
 import { useAuthStore } from "@/store/authStore";
-import { useAbandonedCartStore } from "@/store/abandonedCartStore";
 import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
 import { trackMeta } from "@/lib/meta/track";
@@ -184,24 +182,9 @@ export default function CartPage() {
     router.push("/checkout");
   };
 
-  useEffect(() => {
-    const handleLeave = () => {
-      const abandoned = useAbandonedCartStore.getState();
-      const cart = abandoned.cart;
-      if (!skipAbandonRef.current && cart?._id && cart?.items?.length) abandoned.markAbandoned(cart._id);
-    };
-    window.addEventListener("beforeunload", handleLeave);
-    return () => window.removeEventListener("beforeunload", handleLeave);
-  }, []);
+ 
 
-  useEffect(() => {
-    return () => {
-      if (skipAbandonRef.current) return;
-      const abandoned = useAbandonedCartStore.getState();
-      const cart = abandoned.cart;
-      if (cart?._id && cart?.items?.length) abandoned.markAbandoned(cart._id);
-    };
-  }, [pathname]);
+ 
 
   useEffect(() => {
     try {

@@ -10,6 +10,7 @@ import { trackMeta } from "@/lib/meta/track.js"; // adjust path based on your pr
 import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
 import { useCouponStore } from "@/store/couponStore"; // ✅ adjust path
+import { useCustomerCartStore } from "@/store/customerCartStore"; // ✅ NEW
 
 const KEY = "cart_products";
 
@@ -456,6 +457,17 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
     set({ items: updated });
     Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
 
+    /* ---------------- CUSTOMER CART ADDS (NEW) ---------------- */
+    try {
+      const code = str(builtItem?.productSnapshot?.productCode);
+      if (code) {
+        useCustomerCartStore.getState().addCartAdd(code);
+        console.log("🧾 customerCartAdd recorded (ensureInCartNoDuplicate):", code);
+      }
+    } catch (e) {
+      console.warn("⚠️ customerCartAdd failed (ensureInCartNoDuplicate)", e);
+    }
+
     // ✅ COUPON CLEAR ON CART UPDATE
     await handleCouponOnCartUpdate();
 
@@ -643,6 +655,18 @@ if (built.__error === "variant_not_found") {
   set({ items: updated });
 Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
 
+  /* ---------------- CUSTOMER CART ADDS (NEW) ---------------- */
+  try {
+    const code = str(built?.productSnapshot?.productCode || product?.productCode);
+    if (code) {
+      useCustomerCartStore.getState().addCartAdd(code);
+      console.log("🧾 customerCartAdd recorded (addToCart):", code);
+    }
+  } catch (e) {
+    console.warn("⚠️ customerCartAdd failed (addToCart)", e);
+  }
+
+
 await handleCouponOnCartUpdate();
 
 
@@ -822,6 +846,18 @@ await handleCouponOnCartUpdate();
 
 } catch (e) {
   console.warn("📊 Analytics cart_remove failed", e);
+
+    /* ---------------- CUSTOMER CART ADDS REMOVE (NEW) ---------------- */
+  try {
+    const code = str(removed?.productSnapshot?.productCode);
+    if (code) {
+      useCustomerCartStore.getState().removeCartAdd(code);
+      console.log("🧾 customerCartAdd removed (removeFromCart):", code);
+    }
+  } catch (e) {
+    console.warn("⚠️ customerCartRemove failed (removeFromCart)", e);
+  }
+
 }
 
 

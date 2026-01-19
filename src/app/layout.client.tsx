@@ -18,87 +18,60 @@ import ClientProviders from "@/components/layout/ClientProviders";
 import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
 
 import { useAuthStore } from "@/store/authStore";
+import { useCustomerCartStore } from "@/store/customerCartStore";
 
 /* ---------------------------------
-   🔥 Initialize Auth Store (EARLY)
+   🔥 Init Auth (early)
+   🧾 Init CustomerCart (guest restore + merge after login)
 ---------------------------------- */
 function AuthInit() {
-  const initialize = useAuthStore((state) => state.initialize);
+  const initializeAuth = useAuthStore((s) => s.initialize);
+  const customerId = useAuthStore((s) => s.customer?._id);
+
+  const initializeCustomerCart = useCustomerCartStore((s) => s.initialize);
+  const mergeGuestCartAdds = useCustomerCartStore((s) => s.mergeGuestCartAdds);
 
   useEffect(() => {
-    initialize();
-  }, [initialize]);
+    initializeAuth?.();
+  }, [initializeAuth]);
+
+  useEffect(() => {
+    initializeCustomerCart?.();
+  }, [initializeCustomerCart]);
+
+  useEffect(() => {
+    if (!customerId) return;
+    mergeGuestCartAdds?.();
+  }, [customerId, mergeGuestCartAdds]);
 
   return null;
 }
 
-export default function LayoutClient({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // ✅ Use ENV variable (recommended)
+export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
 
   return (
     <>
-      {/* ✅ AUTH INIT FIRST (IMPORTANT) */}
       <AuthInit />
 
-      {/* ✅ TRACKING (Wrapped in Suspense to avoid build error) */}
       <Suspense fallback={null}>
-        {/* ✅ META PIXEL */}
         <MetaPixel pixelId={META_PIXEL_ID} trackPageView debug />
-
-        {/* ✅ GTM */}
         <GoogleTagManager gtmId="GTM-5CTM95TR" />
         <GTMPageView />
-
-        {/* ✅ MICROSOFT CLARITY */}
         <ClarityProvider />
       </Suspense>
 
-      {/* ✅ PROVIDERS SHOULD WRAP EVERYTHING */}
       <ClientProviders>
-        {/* HEADER */}
-        <div className="hidden md:block">
-          <DesktopHeader />
-        </div>
-        <div className="md:hidden">
-          <MobileHeader />
-        </div>
+        <div className="hidden md:block"><DesktopHeader /></div>
+        <div className="md:hidden"><MobileHeader /></div>
 
-        {/* MAIN */}
-        <main className="flex min-h-screen flex-col bg-white ">
-          {children}
-        </main>
+        <main className="flex min-h-screen flex-col bg-white">{children}</main>
 
-        {/* FOOTER */}
         <Footer />
-
-        {/* Utilities */}
         <ScrollToTop />
-
-        {/* MODALS */}
         <LogoutConfirmModal />
 
-        {/* TOASTER */}
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-          expand={false}
-          duration={1000}
-          toastOptions={{
-            classNames: {
-              toast:
-                "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm",
-              description: "text-[11px] leading-4 opacity-80",
-              actionButton: "h-7 px-2 text-[11px]",
-              cancelButton: "h-7 px-2 text-[11px]",
-            },
-          }}
-        />
+        <Toaster position="top-right" richColors closeButton expand={false} duration={1000} toastOptions={{ classNames: { toast: "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm", description: "text-[11px] leading-4 opacity-80", actionButton: "h-7 px-2 text-[11px]", cancelButton: "h-7 px-2 text-[11px]" } }} />
       </ClientProviders>
     </>
   );
