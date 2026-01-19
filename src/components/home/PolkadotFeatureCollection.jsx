@@ -3,18 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import ProductCard from "@/components/common/ProductCard";
-import { useProductStore } from "@/store/productStore"; // ✅ adjust path if different
+import { useProductStore } from "@/store/productStore";
 
 /**
  * PolkadotFeatureCollection.jsx
  * ✅ uses NEXT_PUBLIC_API_URL
  * ✅ fetch collection slug: the-polka-edit
- * ✅ then fetch product details by productCode using store.fetchProductsByCodes (single request)
- * ✅ visible polka-dot header (no emoji)
+ * ✅ fetch product details by productCode using store.fetchProductsByCodes (single request)
+ * ✅ limits to TOP 15 products
  */
 
 const BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 const COLLECTION_SLUG = "the-polka-edit";
+const TOP_N = 15;
 
 const slugify = (s = "") =>
   String(s)
@@ -25,6 +26,8 @@ const slugify = (s = "") =>
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
+const normalizeCode = (p) => String(p?.productCode || p?.code || "").trim();
+
 export default function PolkadotFeatureCollection() {
   const scrollRef = useRef(null);
 
@@ -34,17 +37,18 @@ export default function PolkadotFeatureCollection() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [collection, setCollection] = useState(null);
-  const [items, setItems] = useState([]); // fetched product details
+  const [items, setItems] = useState([]);
 
   useEffect(() => {
+    if (!BASE) return;
+
     const controller = new AbortController();
 
-    (async () => {
+    const run = async () => {
       try {
         setLoading(true);
         setErr("");
 
-        // ✅ fetch collections
         const res = await fetch(`${BASE}/api/collections`, {
           method: "GET",
           cache: "no-store",
@@ -59,37 +63,38 @@ export default function PolkadotFeatureCollection() {
         const picked =
           (Array.isArray(all) && all.find((c) => c?.slug === COLLECTION_SLUG)) ||
           (Array.isArray(all) &&
-            all.find((c) =>
-              String(c?.name || "").toLowerCase().includes("polka")
-            )) ||
+            all.find((c) => String(c?.name || "").toLowerCase().includes("polka"))) ||
           null;
 
         setCollection(picked);
 
-        const list = Array.isArray(picked?.products) ? picked.products : [];
-        if (!list.length) {
+        const rawList = Array.isArray(picked?.products) ? picked.products : [];
+        if (!rawList.length) {
           setItems([]);
           return;
         }
 
-        // ✅ if already populated product docs, just use them (ensure productCode)
-        const populated = list.some(
+        // ✅ limit to top 15 from collection order
+        const list = rawList.slice(0, TOP_N);
+
+        const isPopulated = list.some(
           (p) =>
             p &&
             (p?.title ||
               p?.price ||
-              (Array.isArray(p?.images) && p.images.length))
+              (Array.isArray(p?.images) && p.images.length) ||
+              p?.thumbnail)
         );
 
-        if (populated) {
+        // If collection already includes product docs, use them directly (top 15)
+        if (isPopulated) {
           const cleaned = list
             .map((p) => ({
               ...p,
-              productCode: String(p?.productCode || p?.code || "").trim(),
+              productCode: normalizeCode(p),
             }))
-            .filter((p) => p?.productCode);
+            .filter((p) => p.productCode);
 
-          // optional: also cache them
           cleaned.forEach((p) => {
             try {
               upsertProduct(p);
@@ -100,36 +105,38 @@ export default function PolkadotFeatureCollection() {
           return;
         }
 
-        // ✅ otherwise fetch all by productCode in ONE API call
+        // Otherwise fetch by codes (single request), top 15 codes only
         const codes = Array.from(
-          new Set(
-            list
-              .map((p) => String(p?.productCode || p?.code || "").trim())
-              .filter(Boolean)
-          )
-        );
+          new Set(list.map(normalizeCode).filter(Boolean))
+        ).slice(0, TOP_N);
 
         if (!codes.length) {
           setItems([]);
           return;
         }
 
-        // ✅ store function hits /api/products/by-codes
         const fetched = await fetchProductsByCodes(codes, {
           mergeIntoAllProducts: true,
           method: "POST",
         });
 
-        // store already normalizes; but if it returns normalized objects,
-        // we still keep raw response fallback safety
-        setItems(
-          (Array.isArray(fetched) ? fetched : [])
-            .map((p) => ({
-              ...(p?.raw || p),
-              productCode: String(p?.productCode || p?.raw?.productCode || "").trim(),
-            }))
-            .filter((p) => p?.productCode)
+        // Keep order same as codes (top 15)
+        const byCode = new Map(
+          (Array.isArray(fetched) ? fetched : []).map((x) => {
+            const obj = x?.raw || x;
+            return [String(obj?.productCode || "").trim(), obj];
+          })
         );
+
+        const ordered = codes
+          .map((code) => byCode.get(code))
+          .filter(Boolean)
+          .map((p) => ({
+            ...p,
+            productCode: String(p?.productCode || "").trim(),
+          }));
+
+        setItems(ordered);
       } catch (e) {
         if (e?.name === "AbortError") return;
         setErr(e?.message || "Something went wrong");
@@ -138,8 +145,9 @@ export default function PolkadotFeatureCollection() {
       } finally {
         setLoading(false);
       }
-    })();
+    };
 
+    run();
     return () => controller.abort();
   }, [fetchProductsByCodes, upsertProduct]);
 
@@ -152,6 +160,7 @@ export default function PolkadotFeatureCollection() {
 
   const products = useMemo(() => {
     return (Array.isArray(items) ? items : [])
+      .slice(0, TOP_N)
       .map((p) => {
         const image =
           (Array.isArray(p?.images) && p.images[0]) ||
@@ -163,7 +172,7 @@ export default function PolkadotFeatureCollection() {
         return {
           id: p?._id || p?.id || code,
           productId: p?._id || p?.id,
-          productCode: code, // ✅ required for ProductCard
+          productCode: code,
           name: p?.title || p?.name || "Untitled",
           title: p?.title || p?.name || "Untitled",
           price: Number(p?.price || 0),
@@ -235,9 +244,7 @@ export default function PolkadotFeatureCollection() {
       transition={{ duration: 0.25 }}
     >
       <Header />
-      {err ? (
-        <p className="text-sm text-red-600 text-center mb-3">❌ {err}</p>
-      ) : null}
+      {err ? <p className="text-sm text-red-600 text-center mb-3">❌ {err}</p> : null}
 
       <div className="relative">
         {showArrows ? (
