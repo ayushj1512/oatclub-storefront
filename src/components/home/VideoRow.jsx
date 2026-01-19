@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Heart, Share2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useProductStore } from "@/store/productStore";
@@ -8,7 +8,7 @@ import { useReelStore } from "@/store/reelStore";
 import ReelViewer from "./ReelViewer";
 
 /* ============================
-    ✅ Shimmer
+   Shimmer
 ============================ */
 function Shimmer({ className = "" }) {
   return (
@@ -18,13 +18,9 @@ function Shimmer({ className = "" }) {
   );
 }
 
-/* ============================
-    ✅ Main Component
-============================ */
 export default function VideoRow() {
   const router = useRouter();
   const scrollerRef = useRef(null);
-
   const videoRefs = useRef([]);
 
   const [activeIndex, setActiveIndex] = useState(null);
@@ -32,15 +28,15 @@ export default function VideoRow() {
   const [readyMap, setReadyMap] = useState({});
   const [errorMap, setErrorMap] = useState({});
 
-  const { allProducts, fetchProducts } = useProductStore();
+  const { allProducts, fetchProducts, fetchProductsByIds } = useProductStore();
   const { reels, fetchReels, loading: reelLoading } = useReelStore();
 
-  // ✅ Strict mode safe fetch
   const fetchedProductsRef = useRef(false);
   const fetchedReelsRef = useRef(false);
+  const fetchedReelProductsRef = useRef(false);
 
   /* ============================
-      ✅ Fetch Products once
+     Fetch products list (optional)
   ============================ */
   useEffect(() => {
     if (fetchedProductsRef.current) return;
@@ -49,7 +45,7 @@ export default function VideoRow() {
   }, [fetchProducts]);
 
   /* ============================
-      ✅ Fetch Reels once
+     Fetch reels once
   ============================ */
   useEffect(() => {
     if (fetchedReelsRef.current) return;
@@ -58,66 +54,77 @@ export default function VideoRow() {
   }, [fetchReels]);
 
   /* ============================
-      ✅ Attach correct product (NO RANDOM FALLBACK)
+     IMPORTANT: fetch reel products by IDs
   ============================ */
-  const reelsWithProducts = useMemo(() => {
-  if (!reels?.length) return [];
+  useEffect(() => {
+    if (!reels?.length) return;
 
-  return reels.map((reel) => {
-    const apiProd = reel?.product || null;
+    const ids = reels
+      .map((r) => r?.product?.productId)
+      .filter(Boolean)
+      .map(String);
 
-    const targetSlug = String(apiProd?.slug || reel?.slug || "").trim().toLowerCase();
+    if (!ids.length) return;
 
-    const matched = allProducts?.find(
-      (p) => String(p?.slug || "").trim().toLowerCase() === targetSlug
-    );
+    // strict-mode safe + avoid repeat
+    if (fetchedReelProductsRef.current) return;
+    fetchedReelProductsRef.current = true;
 
-    const mergedProduct = {
-      id: matched?.id || matched?._id || apiProd?.productId || null,
-      slug: matched?.slug || apiProd?.slug || null,
-      name: matched?.name || apiProd?.name || reel?.title || "",
-      image: matched?.image || apiProd?.image || "/placeholder.png",
-      price:
-        (matched?.price ?? null) !== null ? matched.price :
-        (apiProd?.price ?? null) !== null ? apiProd.price : 0,
-      category: matched?.category?.slug || matched?.category || "all-clothing",
-    };
-
-    return {
-      ...reel,
-      src: reel.video || reel.src,
-      product: mergedProduct.id && mergedProduct.slug ? mergedProduct : null,
-    };
-  });
-}, [reels, allProducts]);
-
+    fetchProductsByIds(ids, { mergeIntoAllProducts: true });
+  }, [reels, fetchProductsByIds]);
 
   /* ============================
-      ✅ AutoPlay only visible videos
-      ✅ Pause when not visible
+     Attach product (ID-first)
+     NOTE: your store normalizes id as `p.id`
+  ============================ */
+  const reelsWithProducts = useMemo(() => {
+    if (!reels?.length) return [];
+
+    return reels.map((reel) => {
+      const apiProd = reel?.product || null;
+      const pid = apiProd?.productId ? String(apiProd.productId) : "";
+
+      const matched = pid
+        ? allProducts?.find((p) => String(p?.id) === pid)
+        : null;
+
+      const product = {
+        id: matched?.id || pid || null,
+        slug: matched?.slug || apiProd?.slug || null,
+        name: matched?.name || reel?.title || "",
+        image: matched?.image || apiProd?.image || "/placeholder.png",
+        price: matched?.price ?? apiProd?.price ?? 0,
+        category: matched?.category || "all-clothing",
+      };
+
+      return {
+        ...reel,
+        src: reel.video || reel.src,
+        product: product.id ? product : null, // show strip if id exists
+      };
+    });
+  }, [reels, allProducts]);
+
+  /* ============================
+     Auto play/pause visible videos
   ============================ */
   useEffect(() => {
     if (!reelsWithProducts.length) return;
 
-    const observer = new IntersectionObserver(
+    const obs = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          const video = entry.target;
-          if (!video) return;
-
-          if (entry.isIntersecting) {
-            video.play?.().catch(() => {});
-          } else {
-            video.pause?.();
-          }
+        entries.forEach(({ target, isIntersecting }) => {
+          const v = target;
+          if (!v) return;
+          if (isIntersecting) v.play?.().catch(() => {});
+          else v.pause?.();
         });
       },
       { threshold: 0.3 }
     );
 
-    videoRefs.current.forEach((v) => v && observer.observe(v));
-
-    return () => observer.disconnect();
+    videoRefs.current.forEach((v) => v && obs.observe(v));
+    return () => obs.disconnect();
   }, [reelsWithProducts]);
 
   const isLoading = reelLoading || !reelsWithProducts.length;
@@ -139,7 +146,6 @@ export default function VideoRow() {
   const scrollByCards = (dir) => {
     const el = scrollerRef.current;
     if (!el) return;
-
     const first = el.querySelector("[data-reel-card='true']");
     const w = first?.getBoundingClientRect?.().width || 200;
 
@@ -151,13 +157,12 @@ export default function VideoRow() {
 
   const navigateToProduct = (e, product) => {
     e.stopPropagation();
-    if (!product?.id || !product?.slug) return;
-
+    if (!product?.id || !product?.slug) return; // route needs slug
     router.push(`/category/${product.category}/${product.slug}/${product.id}`);
   };
 
   /* ============================
-      ✅ Shimmer Loading UI
+     Shimmer Loading
   ============================ */
   if (isLoading) {
     return (
@@ -187,9 +192,6 @@ export default function VideoRow() {
     );
   }
 
-  /* ============================
-      ✅ Main UI
-  ============================ */
   return (
     <>
       <section className="w-full flex flex-col bg-white py-8 md:py-14 overflow-hidden">
@@ -200,7 +202,6 @@ export default function VideoRow() {
         </div>
 
         <div className="relative px-3 sm:px-6 md:px-10">
-          {/* Desktop arrows */}
           <button
             onClick={() => scrollByCards("left")}
             className="hidden md:flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow transition"
@@ -215,7 +216,6 @@ export default function VideoRow() {
             <ChevronRight size={18} className="text-black" />
           </button>
 
-          {/* ✅ Horizontal row scroller */}
           <div
             ref={scrollerRef}
             className="flex gap-3 md:gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-2"
@@ -238,16 +238,13 @@ export default function VideoRow() {
                     hover:shadow-md transition
                   "
                 >
-                  {/* ✅ Reel Video Container */}
                   <div className="relative w-full aspect-[9/16] bg-black">
-                    {/* ✅ Simple Loader until video ready */}
                     {!isReady && !isError && (
                       <div className="absolute inset-0 bg-black flex items-center justify-center z-10">
                         <div className="w-8 h-8 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                       </div>
                     )}
 
-                    {/* ✅ Error fallback (optional but useful) */}
                     {isError ? (
                       <div className="absolute inset-0 bg-black flex items-center justify-center text-white text-xs">
                         Video unavailable
@@ -268,13 +265,11 @@ export default function VideoRow() {
                           e.currentTarget.play?.().catch(() => {});
                         }}
                         onError={() => {
-                          console.log("❌ Video failed:", reel.src);
                           setErrorMap((p) => ({ ...p, [i]: true }));
                         }}
                       />
                     )}
 
-                    {/* Overlay buttons */}
                     <div className="absolute bottom-2 right-2 flex flex-col gap-2 z-20">
                       <button
                         onClick={(e) => {
@@ -303,7 +298,6 @@ export default function VideoRow() {
                     </div>
                   </div>
 
-                  {/* ✅ Product navigation */}
                   {reel.product && (
                     <div
                       onClick={(e) => navigateToProduct(e, reel.product)}
@@ -334,14 +328,12 @@ export default function VideoRow() {
             })}
           </div>
 
-          {/* Mobile hint */}
           <p className="text-[11px] sm:text-xs text-gray-400 mt-3 text-center">
             Swipe left/right to explore reels
           </p>
         </div>
       </section>
 
-      {/* ✅ Reel Viewer Modal */}
       {activeIndex !== null && (
         <ReelViewer
           reels={reelsWithProducts}
