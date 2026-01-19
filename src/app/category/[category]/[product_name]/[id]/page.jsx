@@ -669,36 +669,47 @@ const link = typeof window !== "undefined" ? window.location.href : "";
 
           <h1 className="text-2xl md:text-3xl font-semibold text-black leading-tight">{product.name}</h1>
 <LepordCollectionAnnouncement collections={product?.raw?.collections || []} />
+{/* PRICE + icons */}
+<div className="flex items-center justify-between gap-3 flex-wrap">
+  <div className="flex items-center gap-3 flex-wrap">
+    <span className="text-2xl md:text-3xl font-semibold text-black">
+      ₹{money(product.price)}
+    </span>
 
-          {/* PRICE + icons */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-2xl md:text-3xl font-semibold text-black">₹{money(product.price)}</span>
-              {product.regularPrice > product.price ? (
-                <span className="line-through text-base text-gray-500">₹{money(product.regularPrice)}</span>
-              ) : null}
-            </div>
+    {product.regularPrice > product.price ? (
+      <>
+        <span className="line-through text-base text-gray-500">
+          ₹{money(product.regularPrice)}
+        </span>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleToggleWishlist}
-                className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
-                aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                title={wishlisted ? "Wishlisted" : "Add to wishlist"}
-              >
-<Heart size={20} className={wishlisted ? "fill-current text-black" : "text-black/70"} />
-              </button>
+        <span className="text-sm font-semibold text-green-700 bg-green-50 px-2 py-1 rounded">
+          {Math.round(((product.regularPrice - product.price) / product.regularPrice) * 100)}% OFF
+        </span>
+      </>
+    ) : null}
+  </div>
 
-              <button
-                onClick={handleShare}
-                className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
-                aria-label="Share"
-                title="Share"
-              >
-                <Share2 size={20} className="text-gray-900" />
-              </button>
-            </div>
-          </div>
+  <div className="flex items-center gap-3">
+    <button
+      onClick={handleToggleWishlist}
+      className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
+      aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+      title={wishlisted ? "Wishlisted" : "Add to wishlist"}
+    >
+      <Heart size={20} className={wishlisted ? "fill-current text-black" : "text-black/70"} />
+    </button>
+
+    <button
+      onClick={handleShare}
+      className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
+      aria-label="Share"
+      title="Share"
+    >
+      <Share2 size={20} className="text-gray-900" />
+    </button>
+  </div>
+</div>
+
 
  {/* SIZE SELECTOR */}
 {(product.sizes || []).length > 0 && (
