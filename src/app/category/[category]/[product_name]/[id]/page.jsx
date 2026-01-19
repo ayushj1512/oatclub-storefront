@@ -340,7 +340,10 @@ const setBuyNow = useCartStore((s) => s.setBuyNow);
 
   const recentlyViewedStore = useRecentlyViewedStore();
 
-  const fetchProductDetails = useProductStore((s) => s.fetchProductDetails);
+const fetchProductDetails = useProductStore((s) => s.fetchProductDetails);
+const fetchProductDetailsByCode = useProductStore(
+  (s) => s.fetchProductDetailsByCode
+);
   const storeLoading = useProductStore((s) => s.isLoading);
 
   const [normalized, setNormalized] = useState(null);
@@ -357,105 +360,112 @@ const [selectedColor, setSelectedColor] = useState(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
+useEffect(() => {
+  let mounted = true;
 
   async function load() {
-  if (!id) return;
-  setLoading(true);
+    if (!id) return;
+    setLoading(true);
 
-  try {
-    const p = await fetchProductDetails(id);
-    if (!mounted) return;
+    try {
+      let p = null;
 
-    setNormalized(p);
-
-    const sizes = deriveSizesFromBackend(p);
-    const colors = deriveColorsFromBackend(p);
-    const images = deriveImageList(p);
-
-    const mapped = {
-      id: p.productId,
-      productId: p.productId,
-      productCode: p.productCode,
-      name: p.name,
-      slug: p.slug,
-      price: Number(p.price || 0),
-      regularPrice: Number(p.compareAtPrice ?? p.price ?? 0),
-      onSale: Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
-      images,
-      description: p.raw?.description || p.description || "",
-      shortDescription: p.raw?.shortDescription || "",
-      sizes,
-      colors,
-      isInStock: Boolean(p.isInStock ?? true),
-      stock: Number(p.stock ?? 0),
-      productType: p.productType,
-      raw: p.raw || p,
-    };
-
-    setProduct(mapped);
-
-    // ✅ reset default selection
-    let nextSize = null;
-    let nextColor = null;
-
-    // ✅ auto-select size if single
-    if (sizes.length === 1) nextSize = sizes[0];
-
-    // ✅ auto-select color ONLY if size exists AND that size actually needs color AND color list single
-    if (nextSize) {
-      const needsColor = hasColorForSize(p, nextSize);
-      if (needsColor && colors.length === 1) nextColor = colors[0];
-    }
-
-    setSelectedSize(nextSize);
-    setSelectedColor(nextColor);
-
-    // ✅ auto resolve variantId properly
-    let vid = null;
-
-    if (nextSize) {
-      const needsColor = hasColorForSize(p, nextSize);
-
-      // size requires color
-      if (needsColor) {
-        if (nextColor) {
-          vid = findVariantIdByAttributes(p, { size: nextSize, color: nextColor });
-        } else {
-          // needs color but none selected yet
-          vid = null;
-        }
+      // ✅ auto-detect: Mongo ObjectId vs productCode
+      if (/^[a-f\d]{24}$/i.test(id)) {
+        p = await fetchProductDetails(id);
       } else {
-        // size does NOT require color
-        vid = findVariantIdByAttributes(p, { size: nextSize });
+        p = await fetchProductDetailsByCode(id);
       }
-    }
 
-    setSelectedVariantId(vid);
+      if (!mounted || !p) return;
 
-  } catch (e) {
-    console.error("[ProductPage] load failed", e);
-    notify.error(e?.message || "Failed to load product");
-    if (mounted) {
-      setProduct(null);
-      setNormalized(null);
-      setSelectedSize(null);
-      setSelectedColor(null);
-      setSelectedVariantId(null);
+      setNormalized(p);
+
+      const sizes = deriveSizesFromBackend(p);
+      const colors = deriveColorsFromBackend(p);
+      const images = deriveImageList(p);
+
+      const mapped = {
+        id: p.productId,
+        productId: p.productId,
+        productCode: p.productCode,
+        name: p.name,
+        slug: p.slug,
+        price: Number(p.price || 0),
+        regularPrice: Number(p.compareAtPrice ?? p.price ?? 0),
+        onSale:
+          Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
+        images,
+        description: p.raw?.description || p.description || "",
+        shortDescription: p.raw?.shortDescription || "",
+        sizes,
+        colors,
+        isInStock: Boolean(p.isInStock ?? true),
+        stock: Number(p.stock ?? 0),
+        productType: p.productType,
+        raw: p.raw || p,
+      };
+
+      setProduct(mapped);
+
+      // ✅ reset default selection
+      let nextSize = null;
+      let nextColor = null;
+
+      // auto-select size if single
+      if (sizes.length === 1) nextSize = sizes[0];
+
+      // auto-select color only if needed and single
+      if (nextSize) {
+        const needsColor = hasColorForSize(p, nextSize);
+        if (needsColor && colors.length === 1) nextColor = colors[0];
+      }
+
+      setSelectedSize(nextSize);
+      setSelectedColor(nextColor);
+
+      // ✅ resolve variantId
+      let vid = null;
+
+      if (nextSize) {
+        const needsColor = hasColorForSize(p, nextSize);
+
+        if (needsColor) {
+          vid = nextColor
+            ? findVariantIdByAttributes(p, {
+                size: nextSize,
+                color: nextColor,
+              })
+            : null;
+        } else {
+          vid = findVariantIdByAttributes(p, { size: nextSize });
+        }
+      }
+
+      setSelectedVariantId(vid);
+    } catch (e) {
+      console.error("[ProductPage] load failed", e);
+      notify.error(e?.message || "Failed to load product");
+
+      if (mounted) {
+        setProduct(null);
+        setNormalized(null);
+        setSelectedSize(null);
+        setSelectedColor(null);
+        setSelectedVariantId(null);
+      }
+    } finally {
+      if (mounted) setLoading(false);
     }
-  } finally {
-    if (mounted) setLoading(false);
   }
-}
 
+  load();
 
+  return () => {
+    mounted = false;
+  };
+}, [id, fetchProductDetails, fetchProductDetailsByCode]);
 
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, [id, fetchProductDetails]);
 
   useEffect(() => {
     if (!product) return;

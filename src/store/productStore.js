@@ -433,7 +433,7 @@ const buildCollectionUrl = (collection, p = {}) => {
           ===================================================== */
 
 
-  fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
+ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
   if (!BACKEND)
     return set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
 
@@ -442,7 +442,47 @@ const buildCollectionUrl = (collection, p = {}) => {
 
   const { page = 1, limit = get().limit } = params;
 
-  const url = buildCollectionUrl(collection, { ...params, page, limit });
+  // ✅ IMPORTANT: hit backend controller route
+  // GET /api/products/by-collection/:collection
+  const qs = new URLSearchParams();
+  const setIf = (k, v) => {
+    if (v === undefined || v === null) return;
+    const s = String(v).trim();
+    if (!s) return;
+    qs.set(k, s);
+  };
+
+  setIf("page", page);
+  setIf("limit", limit);
+  setIf("search", params.search);
+  setIf("category", params.category);
+  setIf("tags", Array.isArray(params.tags) ? params.tags.join(",") : params.tags);
+  setIf("minPrice", params.minPrice);
+  setIf("maxPrice", params.maxPrice);
+
+  const sortMap = {
+    default: "",
+    priceLowHigh: "price_asc",
+    priceHighLow: "price_desc",
+    newest: "newest",
+    rating: "rating",
+    popularity: "popularity",
+  };
+
+  if (params.sort) setIf("sort", sortMap[params.sort] || params.sort);
+  else if (params.sortOption && sortMap[params.sortOption])
+    setIf("sort", sortMap[params.sortOption]);
+
+  // ✅ DEFAULT: only published products
+  if (params.isActive != null) setIf("isActive", params.isActive);
+  else setIf("isActive", true);
+
+  if (params.sku) setIf("sku", params.sku);
+
+  const q = qs.toString();
+  const url = `${BACKEND}/api/products/by-collection/${encodeURIComponent(
+    collection
+  )}${q ? `?${q}` : ""}`;
 
   if (ctrl) ctrl.abort();
   ctrl = new AbortController();
@@ -462,7 +502,7 @@ const buildCollectionUrl = (collection, p = {}) => {
   set(() => ({
     isLoading: true,
     error: null,
-    activeCollection: collection, // ✅ NEW
+    activeCollection: collection,
     lastParams: { ...params, collection },
     ...(shouldReset ? { allProducts: [], page: 1, hasMoreFlag: true } : {}),
   }));
@@ -839,7 +879,94 @@ const buildCollectionUrl = (collection, p = {}) => {
   }
 },
 
+// ✅ PATCH ONLY: add this inside your zustand store (same level as fetchProductDetails)
 
+fetchProductDetailsByCode: async (productCode) => {
+  if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+  if (!productCode) throw new Error("productCode missing");
+
+  // ✅ keep same abort behavior as fetchProductDetails
+  if (ctrl) {
+    try { ctrl.abort(); } catch {}
+  }
+
+  ctrl = new AbortController();
+  const myId = ++reqId;
+
+  set({ isLoading: true, error: null });
+
+  const code = encodeURIComponent(String(productCode || "").trim());
+  const url = `${BACKEND}/api/products/code/${code}`;
+
+  try {
+    const r = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+    const j = await safeJson(r);
+    if (myId !== reqId) return null;
+
+    if (!r.ok) throw new Error(j?.message || "Failed to load product by code");
+
+    const prod = normalize(j);
+    get().upsertProduct(prod);
+
+    // ✅ (optional) GA4 view_item (same like fetchProductDetails)
+    try {
+      const k = `vi_${prod?.id || prod?.productCode || code}`;
+      if (!shouldSkipGA4(get, set, k, 1500)) {
+        pushEcomEvent("view_item", {
+          currency: prod?.currency || "INR",
+          value: Number(prod?.price || 0),
+          items: [ga4Item(prod, 1)],
+        });
+      }
+    } catch (e) {
+      console.warn("📈 GA4 view_item (code) failed", e);
+    }
+
+    // ✅ (optional) META ViewContent (same like fetchProductDetails)
+    try {
+      const now = Date.now();
+      const key = `view_product_${prod?.id || prod?.productCode || code}`;
+      const { _lastMetaViewKey, _lastMetaViewAt } = get();
+
+      const tooSoon = _lastMetaViewAt && now - _lastMetaViewAt < 1500;
+      const sameKey = _lastMetaViewKey && _lastMetaViewKey === key;
+
+      if (!(sameKey && tooSoon)) {
+        await trackMeta("ViewContent", {
+          content_type: "product",
+          content_ids: prod?.id ? [String(prod.id)] : [],
+          contents: prod?.id
+            ? [{ id: String(prod.id), quantity: 1, item_price: Number(prod.price || 0) }]
+            : [],
+          value: Number(prod.price || 0),
+          currency: prod.currency || "INR",
+          content_name: prod.name || "",
+          content_category: prod.category || "",
+        });
+
+        set({ _lastMetaViewKey: key, _lastMetaViewAt: now });
+      }
+    } catch (e) {
+      console.warn("🧾 Meta ViewContent (code) failed", e);
+    }
+
+    set({ isLoading: false });
+    return prod;
+  } catch (err) {
+    if (err?.name === "AbortError") return null;
+
+    if (myId === reqId) {
+      set({
+        error: err.message || "Failed to load product by code",
+        isLoading: false,
+      });
+    }
+
+    throw err;
+  } finally {
+    if (myId === reqId) set({ isLoading: false });
+  }
+},
 
 
 
@@ -1071,6 +1198,74 @@ fetchProductsByIds: async (ids = [], opts = {}) => {
     return [];
   }
 },
+
+
+/* =====================================================
+   ✅ NEW: FETCH MULTIPLE PRODUCTS BY PRODUCT CODES (single fetch)
+   GET  /api/products/by-codes?codes=00229,00230
+   POST /api/products/by-codes  body: { codes: ["00229","00230"] } OR { codes: "00229,00230" }
+===================================================== */
+fetchProductsByCodes: async (codes = [], opts = {}) => {
+  if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+
+  // ✅ normalize input (array/string)
+  const list = Array.isArray(codes)
+    ? codes
+    : typeof codes === "string"
+      ? codes.split(",").map((x) => String(x).trim()).filter(Boolean)
+      : [];
+
+  if (!list.length) return [];
+
+  const { mergeIntoAllProducts = true, method = "POST" } = opts;
+
+  // ❗ NOTE: DO NOT abort global ctrl here (it may cancel other list fetches)
+  const controller = new AbortController();
+
+  try {
+    let res;
+
+    if (String(method).toUpperCase() === "GET") {
+      const qs = new URLSearchParams();
+      qs.set("codes", list.join(","));
+
+      res = await fetch(`${BACKEND}/api/products/by-codes?${qs.toString()}`, {
+        method: "GET",
+        cache: "no-store",
+        signal: controller.signal,
+      });
+    } else {
+      res = await fetch(`${BACKEND}/api/products/by-codes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes: list }),
+        cache: "no-store",
+        signal: controller.signal,
+      });
+    }
+
+    const data = await safeJson(res);
+    if (!res.ok) {
+      throw new Error(data?.message || "Failed to load products by codes");
+    }
+
+    const incoming = Array.isArray(data?.products) ? data.products : [];
+    const normalized = incoming.map(normalize);
+
+    // ✅ update cache
+    if (mergeIntoAllProducts) {
+      normalized.forEach((p) => get().upsertProduct(p));
+    }
+
+    return normalized;
+  } catch (err) {
+    if (err?.name === "AbortError") return [];
+    console.error("❌ fetchProductsByCodes error:", err);
+    set({ error: err.message || "Failed to load products by codes" });
+    return [];
+  }
+},
+
 
 
         upsertProduct: (product) => {

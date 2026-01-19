@@ -155,6 +155,11 @@ export default function ProductCard({
   const pid = product?._id || product?.id || product?.productId;
   if (!pid) return null;
 
+  const pcode = String(
+  product?.productCode || product?.raw?.productCode || ""
+).trim();
+if (!pcode) return null;
+
   const productName = product?.title || product?.name || "Product";
 
   const image = getSafeImage(product);
@@ -209,7 +214,7 @@ export default function ProductCard({
     [product?.slug, productName]
   );
 
-  const productLink = `/category/${category}/${formattedName}/${pid}`;
+const productLink = `/category/${category}/${formattedName}/${encodeURIComponent(pcode)}`;
   const wishlisted = isInWishlist?.(pid);
 
   const toggleWishlist = (e) => {
