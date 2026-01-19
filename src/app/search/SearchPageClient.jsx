@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 
@@ -29,7 +29,9 @@ const normalizeProductForGrid = (p) => {
     price: String(p.price ?? ""),
     sale_price:
       p.compareAtPrice && p.compareAtPrice > p.price ? String(p.price) : null,
-    regular_price: p.compareAtPrice ? String(p.compareAtPrice) : String(p.price),
+    regular_price: p.compareAtPrice
+      ? String(p.compareAtPrice)
+      : String(p.price),
 
     images: (p.images?.length ? p.images : p.thumbnail ? [p.thumbnail] : []).map(
       (src) => ({ src })
@@ -37,7 +39,9 @@ const normalizeProductForGrid = (p) => {
 
     image: p.thumbnail || p.images?.[0] || "",
 
-    categories: Array.isArray(p.category)
+    categories: Array.isArray(p.categories)
+      ? p.categories.map((slug) => ({ slug, name: slug }))
+      : Array.isArray(p.category)
       ? p.category.map((c) => ({
           id: c._id,
           name: c.name,
@@ -58,40 +62,77 @@ export default function SearchPageClient() {
 
   const initialQuery = params.get("q") || "";
 
-  const { query, setQuery, results, loading, total, searchProducts } =
-    useSearchStore();
+  const {
+    query,
+    setQuery,
+    results,
+    loading,
+    total,
+    searchProducts,
+    resetSearch,
+  } = useSearchStore();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const queryTrim = (query || "").trim();
-
-  // ✅ Only allow search + grid when user typed something meaningful
   const canSearch = queryTrim.length >= 2;
-
-  // ✅ Even if store loading is true, ignore it until canSearch
   const effectiveLoading = canSearch ? loading : false;
 
-  /* URL → Store sync */
+  // used to avoid debounce firing due to initial URL sync
+  const didInitRef = useRef(false);
+
+  // used to avoid spamming router.replace("/search") repeatedly
+  const lastUrlQueryRef = useRef(initialQuery || "");
+
+  /* URL → Store sync (mount only) */
   useEffect(() => {
     const iq = (initialQuery || "").trim();
-    if (iq && iq !== query) {
+
+    didInitRef.current = true;
+    lastUrlQueryRef.current = iq;
+
+    if (iq) {
       setQuery(iq);
-      if (iq.length >= 2) searchProducts();
+      if (iq.length >= 2) searchProducts({ page: 1 });
+    } else {
+      resetSearch();
     }
     // eslint-disable-next-line
   }, []);
 
-  /* Debounced search */
+  /* Debounced search when user types */
   useEffect(() => {
+    if (!didInitRef.current) return;
+
+    // ✅ if empty: reset + clean URL (once)
+    if (queryTrim.length === 0) {
+      resetSearch();
+
+      if (lastUrlQueryRef.current) {
+        router.replace("/search");
+        lastUrlQueryRef.current = "";
+      }
+      return;
+    }
+
+    // ✅ if 1 char: don't search, don't reset
     if (!canSearch) {
-      // ✅ keep url clean when cleared
-      if (params.get("q")) router.replace("/search");
+      // keep URL clean (once)
+      if (lastUrlQueryRef.current) {
+        router.replace("/search");
+        lastUrlQueryRef.current = "";
+      }
       return;
     }
 
     const t = setTimeout(() => {
-      searchProducts();
-      router.replace(`/search?q=${encodeURIComponent(queryTrim)}`);
+      searchProducts({ page: 1 });
+
+      const nextUrl = `/search?q=${encodeURIComponent(queryTrim)}`;
+      if (lastUrlQueryRef.current !== queryTrim) {
+        router.replace(nextUrl);
+        lastUrlQueryRef.current = queryTrim;
+      }
     }, 350);
 
     return () => clearTimeout(t);
@@ -110,9 +151,15 @@ export default function SearchPageClient() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (!canSearch) return; // ✅ empty/short: do nothing
-          searchProducts();
-          router.replace(`/search?q=${encodeURIComponent(queryTrim)}`);
+          if (!canSearch) return;
+
+          searchProducts({ page: 1 });
+
+          const nextUrl = `/search?q=${encodeURIComponent(queryTrim)}`;
+          if (lastUrlQueryRef.current !== queryTrim) {
+            router.replace(nextUrl);
+            lastUrlQueryRef.current = queryTrim;
+          }
         }}
         className="flex items-center bg-gray-100 border border-gray-300 px-4 py-2 rounded-md shadow-sm mb-4"
       >
@@ -127,8 +174,10 @@ export default function SearchPageClient() {
 
       {/* RESULTS HEADER */}
       <h2 className="text-sm text-black mb-4 text-center">
-        {!canSearch
+        {queryTrim.length === 0
           ? "Search for products"
+          : !canSearch
+          ? "Type at least 2 characters…"
           : effectiveLoading
           ? "Searching..."
           : gridProducts.length
@@ -136,7 +185,7 @@ export default function SearchPageClient() {
           : `No results for "${queryTrim}"`}
       </h2>
 
-      {/* ✅ DO NOT RENDER PRODUCT GRID UNTIL USER SEARCHES */}
+      {/* Grid only when canSearch */}
       {canSearch ? (
         <ProductGrid products={gridProducts} loading={effectiveLoading} />
       ) : null}
