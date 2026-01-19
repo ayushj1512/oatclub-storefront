@@ -20,6 +20,7 @@ import RecentlyViewed from "@/components/home/RecentlyViewed";
 import InfoStrip from "@/components/home/InfoStrip";
 import Newsletter from "@/components/home/Newsletter";
 import LeopardFeatureCollection from "@/components/home/LeopardFeatureCollection";
+import PolkadotFeatureCollection from "@/components/home/PolkadotFeatureCollection";
 
 export default function HomeClient() {
   const { structuredData } = generateSEO({
@@ -50,14 +51,15 @@ export default function HomeClient() {
         <HeroSection />
         {/* <StyleByOccasion /> */}
 
-        
+              <PolkadotFeatureCollection />
+
            <LeopardFeatureCollection />
 
         {/* BELOW THE FOLD — NORMAL SECTIONS */}
-        <TrendingSection />
+        {/* <TrendingSection /> */}
 
     {/* ✅ NEW TOP SECTION (Featured Category) */}
-        <TopSectionFeatured />
+        {/* <TopSectionFeatured /> */}
 
         
 
@@ -67,9 +69,9 @@ export default function HomeClient() {
     
 
         {/* Best Seller comes after Top Section */}
-        <BestSellerSection />
+        {/* <BestSellerSection /> */}
 
-        {/* <VideoRow /> */}
+        <VideoRow />
         <BlogSection />
         <RecentlyViewed />
         <InfoStrip />
