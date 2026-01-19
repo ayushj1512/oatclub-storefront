@@ -50,6 +50,9 @@ export default function HomeClient() {
         <HeroSection />
         {/* <StyleByOccasion /> */}
 
+        
+           <LeopardFeatureCollection />
+
         {/* BELOW THE FOLD — NORMAL SECTIONS */}
         <TrendingSection />
 
@@ -57,17 +60,16 @@ export default function HomeClient() {
         <TopSectionFeatured />
 
         
-           <LeopardFeatureCollection />
 
 
-        <WinterFeatureSection />
+        {/* <WinterFeatureSection /> */}
 
     
 
         {/* Best Seller comes after Top Section */}
         <BestSellerSection />
 
-        <VideoRow />
+        {/* <VideoRow /> */}
         <BlogSection />
         <RecentlyViewed />
         <InfoStrip />
