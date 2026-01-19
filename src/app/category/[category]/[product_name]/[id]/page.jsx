@@ -518,6 +518,7 @@ if (requireColor && !selectedColor) return notify.error("Please select a color")
 if (product.productType === "variable" && !selectedVariantId) {
   return notify.error(requireColor ? "Please select size & color" : "Please select a size");
 }
+const allowed = new Set(["XS", "S", "M", "L", "XL"]);
 
 const finalColor = requireColor ? selectedColor : null;
 addToCart({
@@ -741,25 +742,20 @@ const link = typeof window !== "undefined" ? window.location.href : "";
     <div className="flex flex-wrap gap-2">
       {(() => {
         // ✅ predefined order
-        const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
+const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
+const allowed = new Set(["XS", "S", "M", "L", "XL"]);
 
-        const sortedSizes = [...(product.sizes || [])]
-          .map((x) => str(x).trim().toUpperCase())
-          .filter(Boolean)
-          .sort((a, b) => {
-            const ia = sizeOrder.indexOf(a);
-            const ib = sizeOrder.indexOf(b);
-
-            // If both exist in order list
-            if (ia !== -1 && ib !== -1) return ia - ib;
-
-            // If only one exists, it comes first
-            if (ia !== -1) return -1;
-            if (ib !== -1) return 1;
-
-            // Otherwise fallback alphabetical
-            return a.localeCompare(b);
-          });
+const sortedSizes = [...(product.sizes || [])]
+  .map((x) => str(x).trim().toUpperCase())
+  .filter((x) => x && allowed.has(x))   // ✅ ONLY XS/S/M/L/XL
+  .sort((a, b) => {
+    const ia = sizeOrder.indexOf(a);
+    const ib = sizeOrder.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
 
         return sortedSizes.map((s) => {
           const active = selectedSize === s;
