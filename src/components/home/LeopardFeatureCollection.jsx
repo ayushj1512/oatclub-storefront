@@ -154,7 +154,6 @@ export default function LeopardFeatureCollection() {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black" />
         <h2 className="relative text-white py-3 text-lg md:text-3xl font-semibold uppercase tracking-[0.28em] flex items-center justify-center gap-3">
-          <span className="text-xl md:text-3xl">🐆</span>
           {collection?.name || "LEOPARD ENERGY"}
         </h2>
       </div>

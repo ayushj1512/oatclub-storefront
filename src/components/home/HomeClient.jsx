@@ -71,7 +71,7 @@ export default function HomeClient() {
         {/* Best Seller comes after Top Section */}
         {/* <BestSellerSection /> */}
 
-        <VideoRow />
+        {/* <VideoRow /> */}
         <BlogSection />
         <RecentlyViewed />
         <InfoStrip />
