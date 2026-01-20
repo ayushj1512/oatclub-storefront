@@ -3,17 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import ProductCard from "@/components/common/ProductCard";
-import { useProductStore } from "@/store/productStore"; // ✅ adjust path if needed
 
 /**
- * LeopardFeatureCollection.jsx
- * ✅ uses NEXT_PUBLIC_API_URL
- * ✅ fetches collection slug: leopard-energy
- * ✅ then fetches products in ONE call via store.fetchProductsByCodes()
- * ✅ short, neat, clean
+ * LeopardFeatureCollection.jsx (DIRECT FETCH)
+ * ✅ Hits backend directly: /api/products/by-collection/:collection
+ * ✅ No zustand store dependency (no overwrite issues)
+ * ✅ Fast + optimized (small params + abort)
+ * ✅ UI identical to your original Leopard section
  */
 
-const BASE = String(process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 const COLLECTION_SLUG = "leopard-energy";
 
 const slugify = (s = "") =>
@@ -25,15 +24,58 @@ const slugify = (s = "") =>
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
+const safeJson = async (res) => {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+};
+
+const uniqBySlug = (arr = []) => {
+  const seen = new Set();
+  const out = [];
+  for (const x of arr) {
+    const k = String(x?.slug || "").trim().toLowerCase();
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
+};
+
+const normalizeCard = (p) => {
+  const code = String(p?.productCode || p?.code || "").trim();
+
+  const imagesArr = Array.isArray(p?.images) ? p.images : [];
+  const image = p?.thumbnail || p?.image || imagesArr[0] || "/placeholder.png";
+
+  const id = p?._id || p?.id || p?.productId || code;
+
+  return {
+    id,
+    productId: p?._id || p?.productId || p?.id,
+    productCode: code,
+    name: p?.title || p?.name || "Untitled",
+    title: p?.title || p?.name || "Untitled",
+    price: Number(p?.price || 0),
+    compareAtPrice: p?.compareAtPrice ?? p?.compare_at_price ?? null,
+    thumbnail: p?.thumbnail || image,
+    images: imagesArr.length ? imagesArr : [image],
+    slug: p?.slug || slugify(p?.title || p?.name || code),
+    category: "collection",
+    currency: p?.currency || "INR",
+    raw: p?.raw || p,
+  };
+};
+
 export default function LeopardFeatureCollection() {
   const scrollRef = useRef(null);
-
-  const fetchProductsByCodes = useProductStore((s) => s.fetchProductsByCodes);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [collection, setCollection] = useState(null);
-  const [items, setItems] = useState([]); // raw-ish product docs
+  const [items, setItems] = useState([]); // raw docs from backend
 
   useEffect(() => {
     const controller = new AbortController();
@@ -43,49 +85,29 @@ export default function LeopardFeatureCollection() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(`${BASE}/api/collections`, {
+        if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+
+        const qs = new URLSearchParams();
+        qs.set("page", "1");
+        qs.set("limit", "12");
+        qs.set("sort", "newest");
+        qs.set("isActive", "true");
+        // qs.set("mode", "card"); // ✅ enable if backend supports smaller payload
+
+        const url = `${BACKEND}/api/products/by-collection/${encodeURIComponent(
+          COLLECTION_SLUG
+        )}?${qs.toString()}`;
+
+        const res = await fetch(url, {
           cache: "no-store",
-          headers: { "Content-Type": "application/json" },
           signal: controller.signal,
         });
-        if (!res.ok) throw new Error(`Failed to fetch collections (${res.status})`);
 
-        const all = await res.json();
-        const picked =
-          (Array.isArray(all) && all.find((c) => c?.slug === COLLECTION_SLUG)) ||
-          (Array.isArray(all) &&
-            all.find((c) => String(c?.name || "").toLowerCase().includes("leopard"))) ||
-          null;
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data?.message || "Failed to load products");
 
-        setCollection(picked);
-
-        const list = Array.isArray(picked?.products) ? picked.products : [];
-        if (!list.length) return setItems([]);
-
-        // ✅ if already populated products, use directly
-        const populated = list.some(
-          (p) => p && (p?.title || p?.price || (Array.isArray(p?.images) && p.images.length))
-        );
-        if (populated) {
-          return setItems(
-            list
-              .map((p) => ({ ...p, productCode: String(p?.productCode || p?.code || "").trim() }))
-              .filter((p) => p?.productCode)
-          );
-        }
-
-        // ✅ otherwise: fetch all by productCode (single request)
-        const codes = Array.from(
-          new Set(
-            list
-              .map((p) => String(p?.productCode || p?.code || "").trim())
-              .filter(Boolean)
-          )
-        );
-
-        const fetched = await fetchProductsByCodes(codes, { mergeIntoAllProducts: false });
-        // store returns normalized objects -> keep raw for mapping below
-        setItems((Array.isArray(fetched) ? fetched : []).map((p) => p?.raw || p));
+        setCollection(data?.collection || null);
+        setItems(Array.isArray(data?.products) ? data.products : []);
       } catch (e) {
         if (e?.name === "AbortError") return;
         setError(e?.message || "Something went wrong");
@@ -97,32 +119,11 @@ export default function LeopardFeatureCollection() {
     })();
 
     return () => controller.abort();
-  }, [fetchProductsByCodes]);
+  }, []);
 
   const products = useMemo(() => {
-    return (Array.isArray(items) ? items : [])
-      .map((p) => {
-        const image =
-          (Array.isArray(p?.images) && p.images[0]) || p?.thumbnail || "/placeholder.png";
-        const code = String(p?.productCode || p?.code || "").trim();
-
-        return {
-          id: p?._id || p?.id || code,
-          productId: p?._id || p?.id,
-          productCode: code,
-          name: p?.title || p?.name || "Untitled",
-          title: p?.title || p?.name || "Untitled",
-          price: Number(p?.price || 0),
-          compareAtPrice: p?.compareAtPrice ?? p?.compare_at_price ?? null,
-          thumbnail: p?.thumbnail || image,
-          images: Array.isArray(p?.images) ? p.images : [image],
-          slug: p?.slug || slugify(p?.title || p?.name || code),
-          category: "collection",
-          currency: "INR",
-          raw: p,
-        };
-      })
-      .filter((x) => x.productCode);
+    const mapped = (Array.isArray(items) ? items : []).map(normalizeCard);
+    return uniqBySlug(mapped).filter((x) => x.productCode);
   }, [items]);
 
   const showShimmer = loading && !products.length;
@@ -134,9 +135,7 @@ export default function LeopardFeatureCollection() {
       behavior: "smooth",
     });
 
-  if (!loading && !collection) return null;
-  if (!showShimmer && !products.length) return null;
-
+  // ✅ Original Leopard header kept same
   const Header = () => (
     <div className="w-full text-center mb-2 overflow-hidden">
       <div className="relative bg-black">
@@ -164,12 +163,16 @@ export default function LeopardFeatureCollection() {
     <button
       type="button"
       onClick={() => scrollRow(dir)}
-      className={`absolute ${dir === "left" ? "left-2" : "right-2"} top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition`}
+      className={`absolute ${
+        dir === "left" ? "left-2" : "right-2"
+      } top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition`}
       aria-label={`Scroll ${dir}`}
     >
       {dir === "left" ? "←" : "→"}
     </button>
   );
+
+  if (!showShimmer && !products.length) return null;
 
   return (
     <motion.section
@@ -179,7 +182,9 @@ export default function LeopardFeatureCollection() {
       transition={{ duration: 0.25 }}
     >
       <Header />
-      {error ? <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p> : null}
+      {error ? (
+        <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p>
+      ) : null}
 
       <div className="relative">
         {showArrows ? (

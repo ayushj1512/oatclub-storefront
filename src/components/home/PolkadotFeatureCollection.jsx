@@ -3,19 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import ProductCard from "@/components/common/ProductCard";
-import { useProductStore } from "@/store/productStore";
 
 /**
- * PolkadotFeatureCollection.jsx
- * ✅ uses NEXT_PUBLIC_API_URL
- * ✅ fetch collection slug: the-polka-edit
- * ✅ fetch product details by productCode using store.fetchProductsByCodes (single request)
- * ✅ limits to TOP 15 products
+ * PolkaFeatureCollection.jsx (DIRECT FETCH)
+ * ✅ Hits backend directly: /api/products/by-collection/:collection
+ * ✅ No zustand store dependency (no Leopard override issue)
+ * ✅ Header updated as requested
  */
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 const COLLECTION_SLUG = "the-polka-edit";
-const TOP_N = 15;
 
 const slugify = (s = "") =>
   String(s)
@@ -26,174 +23,118 @@ const slugify = (s = "") =>
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
-const normalizeCode = (p) => String(p?.productCode || p?.code || "").trim();
+const safeJson = async (res) => {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+};
 
-export default function PolkadotFeatureCollection() {
+const uniqBySlug = (arr = []) => {
+  const seen = new Set();
+  const out = [];
+  for (const x of arr) {
+    const k = String(x?.slug || "").trim().toLowerCase();
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
+};
+
+const normalizeCard = (p) => {
+  const code = String(p?.productCode || p?.code || "").trim();
+
+  const imagesArr = Array.isArray(p?.images) ? p.images : [];
+  const image = p?.thumbnail || p?.image || imagesArr[0] || "/placeholder.png";
+
+  const id = p?._id || p?.id || p?.productId || code;
+
+  return {
+    id,
+    productId: p?._id || p?.productId || p?.id,
+    productCode: code,
+    name: p?.title || p?.name || "Untitled",
+    title: p?.title || p?.name || "Untitled",
+    price: Number(p?.price || 0),
+    compareAtPrice: p?.compareAtPrice ?? p?.compare_at_price ?? null,
+    thumbnail: p?.thumbnail || image,
+    images: imagesArr.length ? imagesArr : [image],
+    slug: p?.slug || slugify(p?.title || p?.name || code),
+    category: "collection",
+    currency: p?.currency || "INR",
+    raw: p?.raw || p,
+  };
+};
+
+export default function PolkaFeatureCollection() {
   const scrollRef = useRef(null);
 
-  const fetchProductsByCodes = useProductStore((s) => s.fetchProductsByCodes);
-  const upsertProduct = useProductStore((s) => s.upsertProduct);
-
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
+  const [error, setError] = useState("");
   const [collection, setCollection] = useState(null);
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState([]); // raw docs
 
   useEffect(() => {
-    if (!BASE) return;
-
     const controller = new AbortController();
 
-    const run = async () => {
+    (async () => {
       try {
         setLoading(true);
-        setErr("");
+        setError("");
 
-        const res = await fetch(`${BASE}/api/collections`, {
-          method: "GET",
+        if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
+
+        const qs = new URLSearchParams();
+        qs.set("page", "1");
+        qs.set("limit", "12");
+        qs.set("sort", "newest");
+        qs.set("isActive", "true");
+        // qs.set("mode", "card"); // enable if backend supports
+
+        const url = `${BACKEND}/api/products/by-collection/${encodeURIComponent(
+          COLLECTION_SLUG
+        )}?${qs.toString()}`;
+
+        const res = await fetch(url, {
           cache: "no-store",
-          headers: { "Content-Type": "application/json" },
           signal: controller.signal,
         });
 
-        if (!res.ok) throw new Error(`Collections fetch failed (${res.status})`);
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data?.message || "Failed to load products");
 
-        const all = await res.json();
-
-        const picked =
-          (Array.isArray(all) && all.find((c) => c?.slug === COLLECTION_SLUG)) ||
-          (Array.isArray(all) &&
-            all.find((c) => String(c?.name || "").toLowerCase().includes("polka"))) ||
-          null;
-
-        setCollection(picked);
-
-        const rawList = Array.isArray(picked?.products) ? picked.products : [];
-        if (!rawList.length) {
-          setItems([]);
-          return;
-        }
-
-        // ✅ limit to top 15 from collection order
-        const list = rawList.slice(0, TOP_N);
-
-        const isPopulated = list.some(
-          (p) =>
-            p &&
-            (p?.title ||
-              p?.price ||
-              (Array.isArray(p?.images) && p.images.length) ||
-              p?.thumbnail)
-        );
-
-        // If collection already includes product docs, use them directly (top 15)
-        if (isPopulated) {
-          const cleaned = list
-            .map((p) => ({
-              ...p,
-              productCode: normalizeCode(p),
-            }))
-            .filter((p) => p.productCode);
-
-          cleaned.forEach((p) => {
-            try {
-              upsertProduct(p);
-            } catch {}
-          });
-
-          setItems(cleaned);
-          return;
-        }
-
-        // Otherwise fetch by codes (single request), top 15 codes only
-        const codes = Array.from(
-          new Set(list.map(normalizeCode).filter(Boolean))
-        ).slice(0, TOP_N);
-
-        if (!codes.length) {
-          setItems([]);
-          return;
-        }
-
-        const fetched = await fetchProductsByCodes(codes, {
-          mergeIntoAllProducts: true,
-          method: "POST",
-        });
-
-        // Keep order same as codes (top 15)
-        const byCode = new Map(
-          (Array.isArray(fetched) ? fetched : []).map((x) => {
-            const obj = x?.raw || x;
-            return [String(obj?.productCode || "").trim(), obj];
-          })
-        );
-
-        const ordered = codes
-          .map((code) => byCode.get(code))
-          .filter(Boolean)
-          .map((p) => ({
-            ...p,
-            productCode: String(p?.productCode || "").trim(),
-          }));
-
-        setItems(ordered);
+        setCollection(data?.collection || null);
+        setItems(Array.isArray(data?.products) ? data.products : []);
       } catch (e) {
         if (e?.name === "AbortError") return;
-        setErr(e?.message || "Something went wrong");
+        setError(e?.message || "Something went wrong");
         setCollection(null);
         setItems([]);
       } finally {
         setLoading(false);
       }
-    };
+    })();
 
-    run();
     return () => controller.abort();
-  }, [fetchProductsByCodes, upsertProduct]);
-
-  const scrollRow = (dir) => {
-    scrollRef.current?.scrollBy({
-      left: dir === "left" ? -360 : 360,
-      behavior: "smooth",
-    });
-  };
+  }, []);
 
   const products = useMemo(() => {
-    return (Array.isArray(items) ? items : [])
-      .slice(0, TOP_N)
-      .map((p) => {
-        const image =
-          (Array.isArray(p?.images) && p.images[0]) ||
-          p?.thumbnail ||
-          "/placeholder.png";
-
-        const code = String(p?.productCode || p?.code || "").trim();
-
-        return {
-          id: p?._id || p?.id || code,
-          productId: p?._id || p?.id,
-          productCode: code,
-          name: p?.title || p?.name || "Untitled",
-          title: p?.title || p?.name || "Untitled",
-          price: Number(p?.price || 0),
-          compareAtPrice: p?.compareAtPrice ?? p?.compare_at_price ?? null,
-          thumbnail: p?.thumbnail || image,
-          images: Array.isArray(p?.images) ? p.images : [image],
-          slug: p?.slug || slugify(p?.title || p?.name || code),
-          category: "collection",
-          currency: "INR",
-          raw: p,
-        };
-      })
-      .filter((x) => x.productCode);
+    const mapped = (Array.isArray(items) ? items : []).map(normalizeCard);
+    return uniqBySlug(mapped).filter((x) => x.productCode);
   }, [items]);
 
   const showShimmer = loading && !products.length;
   const showArrows = products.length > 2 || showShimmer;
 
-  if (!loading && !collection) return null;
-  if (!showShimmer && !products.length) return null;
+  const scrollRow = (dir) =>
+    scrollRef.current?.scrollBy({
+      left: dir === "left" ? -360 : 360,
+      behavior: "smooth",
+    });
 
+  // ✅ Header updated as requested
   const Header = () => (
     <div className="w-full text-center mb-2 overflow-hidden">
       <div className="relative" style={{ backgroundColor: "#0a0a0a" }}>
@@ -236,6 +177,8 @@ export default function PolkadotFeatureCollection() {
     </button>
   );
 
+  if (!showShimmer && !products.length) return null;
+
   return (
     <motion.section
       className={`pt-2 ${showShimmer ? "px-4" : ""} bg-white`}
@@ -244,7 +187,9 @@ export default function PolkadotFeatureCollection() {
       transition={{ duration: 0.25 }}
     >
       <Header />
-      {err ? <p className="text-sm text-red-600 text-center mb-3">❌ {err}</p> : null}
+      {error ? (
+        <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p>
+      ) : null}
 
       <div className="relative">
         {showArrows ? (

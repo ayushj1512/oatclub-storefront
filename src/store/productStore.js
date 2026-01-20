@@ -29,7 +29,8 @@
         (Array.isArray(p?.variants) && p.variants.length ? "variable" : "simple"),
     name: p?.name || p?.title || "",
 activeCollection: null,
-
+productsByCollection: {},
+collectionsBySlug: {},
       slug: p?.slug || "",
       price: Number(p?.price || 0),
       compareAtPrice: p?.compareAtPrice ?? null,
@@ -433,12 +434,12 @@ const buildCollectionUrl = (collection, p = {}) => {
           ===================================================== */
 
 
- fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
+fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
   if (!BACKEND)
     return set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
 
   const collection = String(collectionSlugOrId || "").trim();
-  if (!collection) return;
+  if (!collection) return null;
 
   const { page = 1, limit = get().limit } = params;
 
@@ -479,16 +480,19 @@ const buildCollectionUrl = (collection, p = {}) => {
 
   if (params.sku) setIf("sku", params.sku);
 
+  // ✅ Optional: if you later add backend support
+  if (params.mode) setIf("mode", params.mode); // e.g. "card"
+
   const q = qs.toString();
   const url = `${BACKEND}/api/products/by-collection/${encodeURIComponent(
     collection
   )}${q ? `?${q}` : ""}`;
 
-  if (ctrl) ctrl.abort();
-  ctrl = new AbortController();
+  // ✅ DO NOT abort global ctrl here (multiple widgets on homepage)
+  const controller = new AbortController();
   const myId = ++reqId;
 
-  /* ✅ detect collection + sort change (clean) */
+  /* ✅ detect collection + sort change */
   const prevCollection = String(get().activeCollection || "").toLowerCase();
   const nextCollection = collection.toLowerCase();
   const collectionChanged = prevCollection !== nextCollection;
@@ -499,20 +503,27 @@ const buildCollectionUrl = (collection, p = {}) => {
 
   const shouldReset = page === 1 || collectionChanged || sortChanged;
 
+  // ✅ NEW: collection-wise caches (prevents Leopard/Polka overwriting)
+  // ensure state has these keys in your initial store too:
+  // productsByCollection: {}, collectionsBySlug: {}
   set(() => ({
     isLoading: true,
     error: null,
     activeCollection: collection,
     lastParams: { ...params, collection },
-    ...(shouldReset ? { allProducts: [], page: 1, hasMoreFlag: true } : {}),
+    ...(shouldReset ? { page: 1, hasMoreFlag: true } : {}),
   }));
 
   try {
-    const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+    const res = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
     const data = await safeJson(res);
 
     if (!res.ok) throw new Error(data?.message || "Failed to load products");
-    if (myId !== reqId) return;
+    if (myId !== reqId) return null;
 
     const incoming = uniqBySlug((data?.products || []).map(normalize));
 
@@ -567,19 +578,42 @@ const buildCollectionUrl = (collection, p = {}) => {
       console.warn("🧾 Meta Collection View failed", e);
     }
 
-    set((state) => ({
-      allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
-      page,
-      hasMoreFlag: incoming.length === limit,
-      isLoading: false,
-    }));
+    // ✅ NEW: write into productsByCollection so each widget reads its own list
+    // ✅ keep allProducts too (backward compatible), but DO NOT rely on it for widgets
+    set((state) => {
+      const prev = state.productsByCollection?.[nextCollection] || [];
+      const nextList = page === 1 ? incoming : [...prev, ...incoming];
+
+      return {
+        productsByCollection: {
+          ...(state.productsByCollection || {}),
+          [nextCollection]: nextList,
+        },
+        collectionsBySlug: {
+          ...(state.collectionsBySlug || {}),
+          [nextCollection]: data?.collection || state.collectionsBySlug?.[nextCollection] || null,
+        },
+
+        // backward compatible
+        allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
+
+        page,
+        hasMoreFlag: incoming.length === limit,
+        isLoading: false,
+      };
+    });
+
+    // ✅ IMPORTANT: return backend payload for components (collection name etc.)
+    return data;
   } catch (e) {
     if (e?.name !== "AbortError")
       set({ error: e.message || "Failed to load products" });
 
     set({ isLoading: false });
+    return null;
   }
 },
+
 
 
 
