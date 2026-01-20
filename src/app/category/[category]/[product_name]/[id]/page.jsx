@@ -907,7 +907,7 @@ const sortedSizes = [...(product.sizes || [])]
 
           <SupportSection product={product} selectedSize={selectedSize} requireSize={requireSize} brand={BRAND} />
 
-          <ReviewSection />
+          {/* <ReviewSection /> */}
         </aside>
       </div>
 
