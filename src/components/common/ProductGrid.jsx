@@ -22,10 +22,13 @@ export default function ProductGrid({ products = [], title = "", loading = false
     []
   );
 
-  const safeProducts = useMemo(
-    () => (Array.isArray(products) ? products.filter((p) => p?.id) : []),
-    [products]
-  );
+ const safeProducts = useMemo(() => {
+  if (!Array.isArray(products)) return [];
+  // keep original behavior (filter out invalid products),
+  // but also support APIs that send _id instead of id
+  return products.filter((p) => p?.id || p?._id);
+}, [products]);
+
 
   useEffect(() => {
     setMounted(true);

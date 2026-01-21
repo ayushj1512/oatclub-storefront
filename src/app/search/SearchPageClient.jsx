@@ -1,93 +1,84 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 
 import { useSearchStore } from "@/store/searchStore";
 import ProductGrid from "@/components/common/ProductGrid";
 
-/* ---------------- SORT OPTIONS ---------------- */
-const SORT_OPTIONS = [
-  { id: "newest", label: "Newest" },
-  { id: "price_asc", label: "Price: Low → High" },
-  { id: "price_desc", label: "Price: High → Low" },
-  { id: "rating", label: "Top Rated" },
-  { id: "popularity", label: "Most Popular" },
-];
+/* ---------- NORMALIZER (short + robust) ---------- */
+const imgSrc = (x) =>
+  typeof x === "string"
+    ? x
+    : x?.src || x?.url || x?.secure_url || x?.path || x?.location || "";
 
-/* ---------------- NORMALIZER ---------------- */
+const toNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
 const normalizeProductForGrid = (p) => {
   if (!p) return null;
 
   return {
     id: p._id,
     _id: p._id,
+
+    // ✅ ProductCard expects title/name both
+    title: p.title,
     name: p.title,
     slug: p.slug,
+
+    // ✅ VERY IMPORTANT: ProductCard needs productCode
+    productCode: p.productCode || p?.raw?.productCode || "",
 
     price: String(p.price ?? ""),
     sale_price:
       p.compareAtPrice && p.compareAtPrice > p.price ? String(p.price) : null,
-    regular_price: p.compareAtPrice
-      ? String(p.compareAtPrice)
-      : String(p.price),
+    regular_price: p.compareAtPrice ? String(p.compareAtPrice) : String(p.price),
 
+    // ✅ ProductCard reads: images[0].src OR images[0]
     images: (p.images?.length ? p.images : p.thumbnail ? [p.thumbnail] : []).map(
       (src) => ({ src })
     ),
 
+    thumbnail: p.thumbnail || "",
     image: p.thumbnail || p.images?.[0] || "",
 
     categories: Array.isArray(p.categories)
-      ? p.categories.map((slug) => ({ slug, name: slug }))
-      : Array.isArray(p.category)
-      ? p.category.map((c) => ({
-          id: c._id,
-          name: c.name,
-          slug: c.slug,
-        }))
+      ? p.categories
       : [],
 
     stock_status: p.isInStock ? "instock" : "outofstock",
     stock_quantity: p.stock ?? 0,
 
-    __raw: p,
+    // ✅ IMPORTANT: ProductCard checks product.raw.productCode
+    raw: p,        // 👈 add this
+    __raw: p,      // keep existing
   };
 };
+
+
 
 export default function SearchPageClient() {
   const router = useRouter();
   const params = useSearchParams();
-
   const initialQuery = params.get("q") || "";
 
-  const {
-    query,
-    setQuery,
-    results,
-    loading,
-    total,
-    searchProducts,
-    resetSearch,
-  } = useSearchStore();
+  const { query, setQuery, results, loading, total, searchProducts, resetSearch } =
+    useSearchStore();
 
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const didInitRef = useRef(false);
+  const lastUrlQueryRef = useRef(initialQuery.trim());
 
   const queryTrim = (query || "").trim();
   const canSearch = queryTrim.length >= 2;
   const effectiveLoading = canSearch ? loading : false;
 
-  // used to avoid debounce firing due to initial URL sync
-  const didInitRef = useRef(false);
-
-  // used to avoid spamming router.replace("/search") repeatedly
-  const lastUrlQueryRef = useRef(initialQuery || "");
-
   /* URL → Store sync (mount only) */
   useEffect(() => {
-    const iq = (initialQuery || "").trim();
-
+    const iq = initialQuery.trim();
     didInitRef.current = true;
     lastUrlQueryRef.current = iq;
 
@@ -97,17 +88,15 @@ export default function SearchPageClient() {
     } else {
       resetSearch();
     }
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Debounced search when user types */
+  /* Debounced search */
   useEffect(() => {
     if (!didInitRef.current) return;
 
-    // ✅ if empty: reset + clean URL (once)
-    if (queryTrim.length === 0) {
+    if (!queryTrim) {
       resetSearch();
-
       if (lastUrlQueryRef.current) {
         router.replace("/search");
         lastUrlQueryRef.current = "";
@@ -115,9 +104,7 @@ export default function SearchPageClient() {
       return;
     }
 
-    // ✅ if 1 char: don't search, don't reset
     if (!canSearch) {
-      // keep URL clean (once)
       if (lastUrlQueryRef.current) {
         router.replace("/search");
         lastUrlQueryRef.current = "";
@@ -139,15 +126,13 @@ export default function SearchPageClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryTrim]);
 
-  /* ✅ NORMALIZED RESULTS */
   const gridProducts = useMemo(
-    () => (results || []).map(normalizeProductForGrid).filter(Boolean),
+    () => (results || []).map(normalizeProductForGrid).filter((x) => x?.id),
     [results]
   );
 
   return (
     <section className="w-full min-h-screen bg-white px-4 py-6">
-      {/* SEARCH BAR */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -172,9 +157,8 @@ export default function SearchPageClient() {
         />
       </form>
 
-      {/* RESULTS HEADER */}
       <h2 className="text-sm text-black mb-4 text-center">
-        {queryTrim.length === 0
+        {!queryTrim
           ? "Search for products"
           : !canSearch
           ? "Type at least 2 characters…"
@@ -185,10 +169,11 @@ export default function SearchPageClient() {
           : `No results for "${queryTrim}"`}
       </h2>
 
-      {/* Grid only when canSearch */}
-      {canSearch ? (
+    
+
+      {canSearch && (
         <ProductGrid products={gridProducts} loading={effectiveLoading} />
-      ) : null}
+      )}
     </section>
   );
 }
