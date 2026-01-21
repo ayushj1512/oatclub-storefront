@@ -136,28 +136,32 @@ export default function LeopardFeatureCollection() {
     });
 
   // ✅ Original Leopard header kept same
-  const Header = () => (
-    <div className="w-full text-center mb-2 overflow-hidden">
-      <div className="relative bg-black">
-        <div
-          className="absolute inset-0 opacity-[0.22]"
-          style={{
-            backgroundImage: `
-              radial-gradient(circle at 20% 30%, rgba(255,204,102,0.55) 0 14px, transparent 15px),
-              radial-gradient(circle at 55% 55%, rgba(255,204,102,0.45) 0 12px, transparent 13px),
-              radial-gradient(circle at 80% 25%, rgba(255,204,102,0.50) 0 10px, transparent 11px),
-              radial-gradient(circle at 35% 80%, rgba(255,204,102,0.42) 0 16px, transparent 17px),
-              radial-gradient(circle at 70% 78%, rgba(255,204,102,0.46) 0 14px, transparent 15px)
-            `,
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black" />
-        <h2 className="relative text-white py-3 text-lg md:text-3xl font-semibold uppercase tracking-[0.28em] flex items-center justify-center gap-3">
-          {collection?.name || "LEOPARD ENERGY"}
-        </h2>
-      </div>
+ const Header = () => (
+  <div className="w-full text-center mb-2 overflow-hidden">
+    <div className="relative bg-black">
+      {/* Leopard background image */}
+      <div
+        className="absolute inset-0 bg-center bg-cover"
+        style={{
+          backgroundImage:
+            "url('https://res.cloudinary.com/djtva6hec/image/upload/v1769025183/miray/media/vlba9cmxpri63ceh2rvl.png')",
+          // slightly less dull than before
+          filter: "saturate(0.95) contrast(0.98) brightness(0.85)",
+        }}
+      />
+
+      {/* lighter overlays for readability */}
+      <div className="absolute inset-0 bg-black/30" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/18 via-transparent to-black/28" />
+
+      {/* Title on top */}
+      <h2 className="relative z-10 text-white py-3 text-lg md:text-3xl font-semibold uppercase tracking-[0.28em] flex items-center justify-center">
+        {collection?.name || "LEOPARD ENERGY"}
+      </h2>
     </div>
-  );
+  </div>
+);
+
 
   const ArrowBtn = ({ dir }) => (
     <button

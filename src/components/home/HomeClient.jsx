@@ -51,6 +51,9 @@ export default function HomeClient() {
         <HeroSection />
         {/* <StyleByOccasion /> */}
 
+             <BestSellerSection />
+
+
               <PolkadotFeatureCollection />
 
            <LeopardFeatureCollection />
@@ -69,8 +72,7 @@ export default function HomeClient() {
     
 
         {/* Best Seller comes after Top Section */}
-        {/* <BestSellerSection /> */}
-
+   
         {/* <VideoRow /> */}
         <BlogSection />
         <RecentlyViewed />
