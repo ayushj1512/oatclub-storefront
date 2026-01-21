@@ -15,6 +15,8 @@ import { useProductStore } from "@/store/productStore";
 import FiltersDrawer from "@/components/category/FiltersDrawer";
 import FilterSortBar from "@/components/category/FilterSortBar";
 
+
+
 const PAGE_SIZE = 20;
 
 const SORT_OPTIONS = [
