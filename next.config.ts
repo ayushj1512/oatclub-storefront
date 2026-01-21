@@ -36,19 +36,25 @@ const nextConfig: NextConfig = {
   },
 
   async redirects() {
-    return [
-      {
-        source: "/category/all-clothing",
-        destination: "/all-clothing",
-        permanent: true,
-      },
-      {
-        source: "/category/new-arrivals",
-        destination: "/new-arrivals",
-        permanent: true,
-      },
-    ];
-  },
+  return [
+    {
+      source: "/category/all-clothing",
+      destination: "/all-clothing",
+      permanent: true,
+    },
+    {
+      source: "/category/new-arrivals",
+      destination: "/new-arrivals",
+      permanent: true,
+    },
+    {
+      source: "/category/best-sellers",
+      destination: "/bestseller",
+      permanent: true,
+    },
+  ];
+},
+
 };
 
 export default nextConfig;
