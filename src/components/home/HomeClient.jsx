@@ -51,12 +51,12 @@ export default function HomeClient() {
         <HeroSection />
         {/* <StyleByOccasion /> */}
 
-             <BestSellerSection />
+           <LeopardFeatureCollection />
+           
 
 
               <PolkadotFeatureCollection />
-
-           <LeopardFeatureCollection />
+  <BestSellerSection />
 
         {/* BELOW THE FOLD — NORMAL SECTIONS */}
         {/* <TrendingSection /> */}
