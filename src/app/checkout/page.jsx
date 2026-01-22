@@ -47,6 +47,7 @@ export default function CheckoutPage() {
   const addresses = useAddressStore((s) => s.addresses) || [];
   const fetchAddresses = useAddressStore((s) => s.fetchAddresses);
   const createAddress = useAddressStore((s) => s.createAddress);
+  const clearAddresses = useAddressStore((s) => s.clearAddresses);
   const lookupPincode = useAddressStore((s) => s.lookupPincode);
   const pinLoading = useAddressStore((s) => s.pinLoading);
   const trackAddShippingInfo = useAddressStore((s) => s.trackAddShippingInfo);
@@ -111,6 +112,7 @@ export default function CheckoutPage() {
   }, [customer?._id, guestCustomer?._id]);
 
 
+
   /* ---------------- TOTALS ---------------- */
   const subtotal = useMemo(() => {
     return (items || []).reduce((sum, it) => {
@@ -142,10 +144,20 @@ const payable = useMemo(() => {
 
   /* ---------------- DEFAULT ADDRESS ---------------- */
   useEffect(() => {
-    if (!selectedAddressId && addresses?.length) {
-      setSelectedAddressId(addresses[0]?._id || null);
-    }
-  }, [addresses, selectedAddressId]);
+  if (!addresses?.length) {
+    setSelectedAddressId(null);
+    return;
+  }
+
+  const exists = addresses.some(
+    (a) => String(a?._id) === String(selectedAddressId)
+  );
+
+  if (!selectedAddressId || !exists) {
+    setSelectedAddressId(addresses[0]?._id || null); // ✅ top address selected
+  }
+}, [addresses, selectedAddressId]);
+
 
   /* ---------------- GA4 ITEMS ---------------- */
   const ga4Items = useMemo(() => {
@@ -218,36 +230,68 @@ const payable = useMemo(() => {
   /* ---------------- PINCODE LOOKUP ---------------- */
   const pinTimer = useRef(null);
   const lastPin = useRef("");
+    // ✅ Prevent multiple parallel ensure calls
+  const ensureLockRef = useRef(false);
+  const ensuredCustomerRef = useRef(null);
+
+
+  const lastGuestEmailRef = useRef("");
+
+const resetGuestContext = () => {
+  // clear addresses if you have this in store
+  clearAddresses?.();
+
+  setSelectedAddressId(null);
+  setGuestCustomer(null);
+
+  // reset ensure cache so old customer isn't reused
+  ensuredCustomerRef.current = null;
+  ensureLockRef.current = false;
+};
 
   const updateAddressField = (e) => {
-    const { name, value } = e.target;
+  const { name, value } = e.target;
 
-    if (name === "postalCode") {
-      const cleaned = String(value || "").replace(/\D/g, "").slice(0, 6);
-      setAddressForm((p) => ({ ...p, postalCode: cleaned }));
+  if (name === "postalCode") {
+    const cleaned = String(value || "").replace(/\D/g, "").slice(0, 6);
+    setAddressForm((p) => ({ ...p, postalCode: cleaned }));
 
-      if (pinTimer.current) clearTimeout(pinTimer.current);
-      if (cleaned.length !== 6) return;
+    if (pinTimer.current) clearTimeout(pinTimer.current);
+    if (cleaned.length !== 6) return;
 
-      pinTimer.current = setTimeout(async () => {
-        if (lastPin.current === cleaned) return;
-        lastPin.current = cleaned;
+    pinTimer.current = setTimeout(async () => {
+      if (lastPin.current === cleaned) return;
+      lastPin.current = cleaned;
 
-        const info = await lookupPincode?.(cleaned);
-        if (info?.state || info?.district || info?.city) {
-          setAddressForm((p) => ({
-            ...p,
-            city: info.city || info.district || p.city,
-            state: info.state || p.state,
-          }));
-        }
-      }, 250);
+      const info = await lookupPincode?.(cleaned);
+      if (info?.state || info?.district || info?.city) {
+        setAddressForm((p) => ({
+          ...p,
+          city: info.city || info.district || p.city,
+          state: info.state || p.state,
+        }));
+      }
+    }, 250);
 
-      return;
+    return;
+  }
+
+  // ✅ handle email change (guest flow)
+  if (name === "email") {
+    const clean = String(value || "").trim().toLowerCase();
+
+    if (clean !== lastGuestEmailRef.current) {
+      lastGuestEmailRef.current = clean;
+      resetGuestContext();
     }
 
-    setAddressForm((p) => ({ ...p, [name]: value }));
-  };
+    setAddressForm((p) => ({ ...p, email: clean }));
+    return;
+  }
+
+  setAddressForm((p) => ({ ...p, [name]: value }));
+};
+
 
   const updateGuestField = (e) => {
     const { name, value } = e.target;
@@ -323,9 +367,7 @@ const payable = useMemo(() => {
 };
 
 
-  // ✅ Prevent multiple parallel ensure calls
-  const ensureLockRef = useRef(false);
-  const ensuredCustomerRef = useRef(null);
+
 
   /**
    * ✅ Universal ensure: Logged-in OR Guest
@@ -422,63 +464,67 @@ const payable = useMemo(() => {
 
   /* ---------------- SAVE NEW ADDRESS ---------------- */
     const saveNewAddress = async () => {
-    // ✅ ALWAYS ensure customer (logged-in OR guest)
-    const finalCustomer = await ensureCustomer();
-    if (!finalCustomer?._id) return false;
+  // ✅ ALWAYS ensure customer (logged-in OR guest)
+  const finalCustomer = await ensureCustomer();
+  if (!finalCustomer?._id) return false;
 
-    if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
-      toast.error("Enter valid pincode");
-      return false;
-    }
-    if (!addressForm.fullName) {
-      toast.error("Full name required");
-      return false;
-    }
-    if (!addressForm.phone) {
-      toast.error("Phone required");
-      return false;
-    }
-    if (!addressForm.addressLine1) {
-      toast.error("Address required");
-      return false;
-    }
+  if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
+    toast.error("Enter valid pincode");
+    return false;
+  }
+  if (!addressForm.fullName) {
+    toast.error("Full name required");
+    return false;
+  }
+  if (!addressForm.phone) {
+    toast.error("Phone required");
+    return false;
+  }
+  if (!addressForm.addressLine1) {
+    toast.error("Address required");
+    return false;
+  }
 
-    const tId = toast.loading("Saving address...");
+  const tId = toast.loading("Saving address...");
 
-    try {
-      setSavingAddress(true);
+  try {
+    setSavingAddress(true);
 
-      const payload = {
-        ...addressForm,
-        firebaseUID: finalCustomer?.firebaseUID || user?.uid || null,
-        customerId: finalCustomer._id, // ✅ NEVER null now
-        email:
-          user?.email ||
-          addressForm.email ||
-          finalCustomer?.email ||
-          "",
-      };
+    const payload = {
+      ...addressForm,
+      firebaseUID: finalCustomer?.firebaseUID || user?.uid || null,
+      customerId: finalCustomer._id, // ✅ NEVER null now
+      email: user?.email || addressForm.email || finalCustomer?.email || "",
+    };
 
-      const created = await createAddress?.(payload);
+    const created = await createAddress?.(payload);
 
-      if (!created?._id) {
-        toast.error("Address save failed.", { id: tId });
-        return false;
-      }
+    // ✅ support both response shapes
+    const createdId = created?._id || created?.address?._id;
 
-      setShowAddressForm(false);
-      setSelectedAddressId(created._id);
-
-      toast.success("Address saved ✅", { id: tId });
-      return true;
-    } catch (e) {
-      console.error("❌ saveNewAddress failed", e);
+    if (!createdId) {
       toast.error("Address save failed.", { id: tId });
       return false;
-    } finally {
-      setSavingAddress(false);
     }
-  };
+
+    // ✅ IMPORTANT: refresh addresses so UI list updates correctly
+    await fetchAddresses?.({ firebaseUID: payload.firebaseUID });
+
+    // ✅ close form and auto-select the newly created address
+    setShowAddressForm(false);
+    setSelectedAddressId(createdId);
+
+    toast.success("Address saved ✅", { id: tId });
+    return true;
+  } catch (e) {
+    console.error("❌ saveNewAddress failed", e);
+    toast.error("Address save failed.", { id: tId });
+    return false;
+  } finally {
+    setSavingAddress(false);
+  }
+};
+
 
 
 

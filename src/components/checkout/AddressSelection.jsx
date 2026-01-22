@@ -107,6 +107,29 @@ export default function AddressSelection({
 
   const emailAbortRef = useRef(null);
   const showErr = (f) => submitted || touched[f];
+useEffect(() => {
+  // only for guest
+  if (isLoggedIn) return;
+
+  const emailOk = isValidEmail(addressForm.email);
+  if (!emailOk) return;
+
+  // don't toggle while api checking/loading addresses
+  if (checkingEmail || loadingAddresses) return;
+
+  // ✅ if no addresses, open form
+  if (!addresses?.length) {
+    setShowAddressForm(true);
+  } else {
+    setShowAddressForm(false);
+  }
+}, [
+  isLoggedIn,
+  addressForm.email,
+  checkingEmail,
+  loadingAddresses,
+  addresses?.length,
+]);
 
   /* ---------------- Errors ---------------- */
   const errors = useMemo(() => {
@@ -162,16 +185,18 @@ export default function AddressSelection({
       const data = await res.json();
 
       // ✅ Existing customer → load addresses silently, close form
-      if (res.ok && data?.exists && data?.customer?.firebaseUID) {
-        setExistingCustomer(true);
-        setLoadingAddresses(true);
+      // ✅ Existing customer → load addresses; if none, open form (no password)
+if (res.ok && data?.exists && data?.customer?.firebaseUID) {
+  setExistingCustomer(true);
+  setLoadingAddresses(true);
 
-        await onCustomerFound?.(data.customer);
+  await onCustomerFound?.(data.customer);
 
-        setLoadingAddresses(false);
-        setShowAddressForm(false);
-        return;
-      }
+  setLoadingAddresses(false);
+  return;
+}
+
+
 
       // ✅ New customer → auto open form for address + password
       if (res.ok && data?.exists === false) {
@@ -228,17 +253,19 @@ export default function AddressSelection({
                 label="Email"
                 name="email"
                 value={addressForm.email}
-                onChange={(e) => {
-                  updateAddressField(e);
+               onChange={(e) => {
+  updateAddressField(e);
 
-                  const val = String(e.target.value || "").trim().toLowerCase();
+  const val = String(e.target.value || "").trim().toLowerCase();
 
-                  if (isValidEmail(val)) setEmailToCheck(val);
-                  else {
-                    setEmailToCheck("");
-                    setExistingCustomer(false);
-                  }
-                }}
+  // ✅ reset flags immediately on any email edit
+  setExistingCustomer(false);
+  setLoadingAddresses(false);
+
+  if (isValidEmail(val)) setEmailToCheck(val);
+  else setEmailToCheck("");
+}}
+
                 onBlur={() => setTouched((p) => ({ ...p, email: true }))}
                 placeholder="Enter email"
                 inputMode="email"

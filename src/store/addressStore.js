@@ -266,6 +266,9 @@ export const useAddressStore = create((set, get) => ({
     }
   },
 
+  clearAddresses: () => set({ addresses: [] }),
+
+
   /* -------------------------------------------------------
      ✅ GA4 + META: add_shipping_info / AddShippingInfo
   ------------------------------------------------------- */
