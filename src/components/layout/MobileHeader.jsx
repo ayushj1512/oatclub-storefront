@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Menu, ShoppingBag, User, Search } from "lucide-react";
-import Image from "next/image";
 
 import WishlistButton from "@/components/header/WishlistButton";
 import MobileSidebarDrawer from "@/components/header/MobileSidebarDrawer";
@@ -34,16 +34,57 @@ const ga4CartItem = (it) =>
   );
 
 export default function MobileHeader() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [isSticky, setIsSticky] = useState(false);
-
   const router = useRouter();
-  const openMenu = useCallback(() => setMenuOpen(true), []);
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   const lastViewCartRef = useRef({ key: null, at: 0 });
-
   const cartCount = useCartStore((s) => s.totalCount());
+
+  // ✅ Freeze-safe scroll: throttle + update only when value changes
+  useEffect(() => {
+    let raf = 0;
+    let last = null;
+
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const y = Math.max(0, window.scrollY || 0); // iOS bounce safe
+        const next = y > 10;
+        if (next !== last) {
+          last = next;
+          setScrolled(next);
+        }
+      });
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // ✅ Header height var (guarded)
+  useEffect(() => {
+    const el = document.getElementById("mobile-header");
+    if (!el) return;
+
+    let lastH = -1;
+    const setVar = () => {
+      const h = Math.round(el.getBoundingClientRect().height);
+      if (h === lastH) return;
+      lastH = h;
+      document.documentElement.style.setProperty("--app-header-h", `${h}px`);
+    };
+
+    setVar();
+    const ro = new ResizeObserver(() => requestAnimationFrame(setVar));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const fireViewCart = useCallback(async () => {
     try {
@@ -65,22 +106,15 @@ export default function MobileHeader() {
       if (!contents.length) return;
 
       const value = contents.reduce(
-        (sum, c) =>
-          sum + (Number(c.item_price) || 0) * (Number(c.quantity) || 1),
+        (sum, c) => sum + (Number(c.item_price) || 0) * (Number(c.quantity) || 1),
         0
       );
 
       const key = `m_viewcart_${contents.map((c) => c.id).join("_")}_${value}`;
       const now = Date.now();
-      if (
-        lastViewCartRef.current.key === key &&
-        now - (lastViewCartRef.current.at || 0) < 2000
-      )
-        return;
-
+      if (lastViewCartRef.current.key === key && now - lastViewCartRef.current.at < 2000) return;
       lastViewCartRef.current = { key, at: now };
 
-      // ✅ GA4 view_cart
       try {
         pushEcomEvent("view_cart", {
           currency: "INR",
@@ -91,7 +125,6 @@ export default function MobileHeader() {
         console.warn("📈 GA4 view_cart failed", e);
       }
 
-      // ✅ Meta ViewCart
       await trackMeta("ViewCart", {
         currency: "INR",
         value,
@@ -105,29 +138,6 @@ export default function MobileHeader() {
     }
   }, []);
 
-  useEffect(() => {
-    const onScroll = () => setIsSticky(window.scrollY > 10);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    const el = document.getElementById("mobile-header");
-    if (!el) return;
-
-    const setVar = () =>
-      document.documentElement.style.setProperty(
-        "--app-header-h",
-        `${Math.round(el.getBoundingClientRect().height)}px`
-      );
-
-    setVar();
-    const ro = new ResizeObserver(setVar);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   const handleCartClick = useCallback(() => {
     fireViewCart();
     router.push("/cart");
@@ -138,15 +148,15 @@ export default function MobileHeader() {
       <header
         id="mobile-header"
         className={[
-          "md:hidden w-full bg-white border-b border-black/10 z-[9999]",
-          isSticky ? "fixed top-0 left-0 right-0" : "relative",
+          "md:hidden w-full bg-white border-b border-black/10 z-[9999] sticky top-0",
+          scrolled ? "shadow-sm" : "",
         ].join(" ")}
       >
         <TopbarHeadline />
 
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <button
-            onClick={openMenu}
+            onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
             className="shrink-0 text-black transition hover:opacity-70"
           >
@@ -171,7 +181,6 @@ export default function MobileHeader() {
           </Link>
 
           <div className="shrink-0 flex items-center gap-4">
-            {/* ✅ NO DROPDOWN: go directly to /search */}
             <button
               onClick={() => router.push("/search")}
               aria-label="Search"
@@ -189,17 +198,8 @@ export default function MobileHeader() {
               className="relative text-black transition hover:opacity-70"
             >
               <ShoppingBag size={22} />
-
               {cartCount > 0 && (
-                <span
-                  className="
-                    absolute -top-2 -right-2
-                    flex items-center justify-center
-                    min-w-[18px] h-[18px]
-                    rounded-full bg-black text-white
-                    text-[10px] font-bold px-[5px]
-                  "
-                >
+                <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-black text-white text-[10px] font-bold px-[5px]">
                   {cartCount > 99 ? "99+" : cartCount}
                 </span>
               )}
@@ -216,7 +216,7 @@ export default function MobileHeader() {
         </div>
       </header>
 
-      <MobileSidebarDrawer open={menuOpen} onClose={closeMenu} />
+      <MobileSidebarDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );
 }
