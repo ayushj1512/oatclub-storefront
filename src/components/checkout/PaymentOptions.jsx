@@ -38,7 +38,15 @@ const Chip = ({ children, tone = "neutral" }) => {
   );
 };
 
-function PayCard({ label, value, icon, sub, selected, setSelected, badge = null }) {
+function PayCard({
+  label,
+  value,
+  icon,
+  sub,
+  selected,
+  setSelected,
+  badge = null,
+}) {
   const active = selected === value;
 
   return (
@@ -100,7 +108,7 @@ export default function PaymentOptions({
 
   placing,
   validate,
- onPlaceOrder,
+  onPlaceOrder,
   selectedAddressObj,
   user,
   customer,
@@ -157,7 +165,7 @@ export default function PaymentOptions({
     }
 
     // ✅ IMPORTANT: pass discount at top-level (coupon store discount)
-    // Razorpay extra 5% is already applied inside orderStore.createOrder (backend payload gets combined discount)
+    // Razorpay extra 10% is already applied inside orderStore.createOrder (backend payload gets combined discount)
     return await createOrder({
       customerId,
       shippingAddressId: selectedAddressObj._id,
@@ -199,7 +207,7 @@ export default function PaymentOptions({
               setSelected={setSelectedPayment}
             />
 
-            {/* ✅ Online payment with a “5% extra off” badge */}
+            {/* ✅ Online payment with a “10% extra off” badge (more highlighted) */}
             <PayCard
               label="Online Payment"
               value="razorpay"
@@ -208,37 +216,42 @@ export default function PaymentOptions({
               selected={selectedPayment}
               setSelected={setSelectedPayment}
               badge={
-                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-800 border border-green-200/70">
-                  <Sparkles className="w-3 h-3" />
-                  5% extra off
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-50 to-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-900 border border-green-300 shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  10% EXTRA OFF
                 </span>
               }
             />
           </div>
         )}
 
-        {/* ✅ Offer / security strip */}
+        {/* ✅ Offer / security strip (more highlighted) */}
         {showPayment && isOnline && (
-          <div className="mt-3 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-3 border border-green-200/70">
+          <div className="mt-3 rounded-2xl bg-gradient-to-r from-green-50 via-emerald-50 to-amber-50 px-4 py-3 border border-green-300 shadow-[0_14px_34px_rgba(16,185,129,0.18)]">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 grid place-items-center size-9 rounded-2xl bg-white shadow-sm border border-green-200/60 text-green-700">
                 <ShieldCheck className="w-4 h-4" />
               </span>
 
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-green-900">
+                <div className="text-sm font-extrabold text-green-900 flex items-center gap-2">
                   Online Payment Offer Applied
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-600 text-white px-2 py-0.5 text-[10px] font-extrabold shadow-sm">
+                    <Sparkles className="w-3 h-3" />
+                    10% OFF
+                  </span>
                 </div>
-                <div className="text-xs text-green-800/80 mt-0.5">
-                  Pay online & get <b>extra 5% off</b> instantly. Secure checkout
+
+                <div className="text-xs text-green-800/90 mt-0.5">
+                  Pay online & get <b>extra 10% off</b> instantly. Secure checkout
                   via Razorpay (UPI, Cards, Netbanking).
                 </div>
 
                 {showExtra && (
-                  <div className="mt-2 inline-flex items-center gap-2 rounded-xl bg-white/70 px-3 py-1.5 text-xs text-green-900 border border-green-200/60">
+                  <div className="mt-2 inline-flex items-center gap-2 rounded-xl bg-white/80 px-3 py-1.5 text-xs text-green-900 border border-green-200/60 shadow-sm">
                     <Sparkles className="w-4 h-4 text-green-700" />
                     You save{" "}
-                    <span className="font-semibold tabular-nums">
+                    <span className="font-extrabold tabular-nums">
                       ₹{money(safeExtra)}
                     </span>{" "}
                     extra with Online Payment
@@ -270,7 +283,7 @@ export default function PaymentOptions({
             {showExtra && (
               <div className="flex items-center justify-between text-sm text-green-700 mt-1">
                 <span className="truncate">
-                  Online Payment Offer <b>(5% extra)</b>
+                  Online Payment Offer <b>(10% extra)</b>
                 </span>
                 <span className="shrink-0 tabular-nums">
                   − ₹{money(safeExtra)}
@@ -293,7 +306,7 @@ export default function PaymentOptions({
               Math.max(0, toNum(razorpayExtraDiscount)) > 0 && (
                 <div className="mt-2 text-[11px] text-gray-600">
                   Tip: Pay online to save{" "}
-                  <span className="font-semibold text-green-700">
+                  <span className="font-extrabold text-green-700">
                     ₹{money(toNum(razorpayExtraDiscount))}
                   </span>{" "}
                   extra.
@@ -303,7 +316,7 @@ export default function PaymentOptions({
 
           <Chip tone={isOnline ? "success" : "neutral"}>
             <IndianRupee className="w-3.5 h-3.5" />
-            {isOnline ? "Online (5% off)" : "COD"}
+            {isOnline ? "Online (10% off)" : "COD"}
           </Chip>
         </div>
 
@@ -312,17 +325,16 @@ export default function PaymentOptions({
           <button
             type="button"
             onClick={() => {
-  const err = validate?.();
-  if (err) return toast.error(err);
+              const err = validate?.();
+              if (err) return toast.error(err);
 
-  if (typeof onPlaceOrder !== "function") {
-    toast.error("Unable to place order. Please refresh.");
-    return;
-  }
+              if (typeof onPlaceOrder !== "function") {
+                toast.error("Unable to place order. Please refresh.");
+                return;
+              }
 
-  onPlaceOrder(); // ✅ direct place order (COD)
-}}
-
+              onPlaceOrder(); // ✅ direct place order (COD)
+            }}
             disabled={disabledCTA}
             className="mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(0,0,0,0.24)] transition hover:opacity-90 active:scale-[0.99] disabled:bg-black/20 disabled:text-black/40"
           >
@@ -331,10 +343,13 @@ export default function PaymentOptions({
           </button>
         ) : (
           <div className="mt-4">
-            <RazorpayCheckoutButton disabled={disabledCTA} createOrder={createRazorpayOrder} />
+            <RazorpayCheckoutButton
+              disabled={disabledCTA}
+              createOrder={createRazorpayOrder}
+            />
             {showExtra && (
-              <p className="mt-2 text-[11px] text-green-700 text-center">
-                Paying online saves you <b>₹{money(safeExtra)}</b> extra (5% off).
+              <p className="mt-2 text-[11px] text-green-800 text-center">
+                Paying online saves you <b>₹{money(safeExtra)}</b> extra (10% off).
               </p>
             )}
           </div>

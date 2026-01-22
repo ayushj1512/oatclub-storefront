@@ -57,7 +57,9 @@ export default function OrderSummary({
     return (items || []).reduce((sum, it) => {
       const qty = Math.max(1, toNum(it?.qty ?? it?.quantity ?? 1));
       const price = toNum(it?.price ?? it?.productSnapshot?.price ?? 0);
-      const mrp = toNum(it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0);
+      const mrp = toNum(
+        it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0
+      );
       const use = mrp > price ? mrp : price;
       return sum + use * qty;
     }, 0);
@@ -67,7 +69,9 @@ export default function OrderSummary({
     return (items || []).reduce((sum, it) => {
       const qty = Math.max(1, toNum(it?.qty ?? it?.quantity ?? 1));
       const price = toNum(it?.price ?? it?.productSnapshot?.price ?? 0);
-      const mrp = toNum(it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0);
+      const mrp = toNum(
+        it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0
+      );
       return sum + (mrp > price ? (mrp - price) * qty : 0);
     }, 0);
   }, [items]);
@@ -81,7 +85,9 @@ export default function OrderSummary({
     return Math.max(0, safeSubtotal - Math.min(totalDiscount, safeSubtotal));
   }, [safeSubtotal, totalDiscount]);
 
-  const finalPayable = Number.isFinite(toNum(payable)) ? toNum(payable) : computedPayable;
+  const finalPayable = Number.isFinite(toNum(payable))
+    ? toNum(payable)
+    : computedPayable;
 
   return (
     <GlassCard className="p-4 sm:p-5">
@@ -93,7 +99,9 @@ export default function OrderSummary({
       >
         <div className="min-w-0">
           <div className="text-sm text-gray-500">Step 2</div>
-          <div className="text-lg font-semibold text-gray-900">Order Summary</div>
+          <div className="text-lg font-semibold text-gray-900">
+            Order Summary
+          </div>
         </div>
         {showSummary ? <ChevronUp /> : <ChevronDown />}
       </button>
@@ -108,21 +116,30 @@ export default function OrderSummary({
                 {items.map((item) => {
                   const src = getImageSrc(item);
 
-                  const qty = Math.max(1, toNum(item?.qty ?? item?.quantity ?? 1));
-                  const price = toNum(item?.price ?? item?.productSnapshot?.price ?? 0);
+                  const qty = Math.max(
+                    1,
+                    toNum(item?.qty ?? item?.quantity ?? 1)
+                  );
+                  const price = toNum(
+                    item?.price ?? item?.productSnapshot?.price ?? 0
+                  );
 
                   const mrp = toNum(
-                    item?.compareAtPrice ?? item?.productSnapshot?.compareAtPrice ?? 0
+                    item?.compareAtPrice ??
+                      item?.productSnapshot?.compareAtPrice ??
+                      0
                   );
 
                   const showMrp = mrp > price;
-                  const discountPercent = showMrp ? Math.round(((mrp - price) / mrp) * 100) : 0;
+                  const discountPercent = showMrp
+                    ? Math.round(((mrp - price) / mrp) * 100)
+                    : 0;
 
                   const key = String(
                     item?.__key ||
-                      `${String(item?.productId || item?._id || item?.id || "")}__${String(
-                        item?.variantId || ""
-                      )}`
+                      `${String(
+                        item?.productId || item?._id || item?.id || ""
+                      )}__${String(item?.variantId || "")}`
                   );
 
                   return (
@@ -160,12 +177,15 @@ export default function OrderSummary({
                             )}
                             {item?.selectedColor && (
                               <span className="text-[11px] rounded-xl bg-black/5 px-2 py-0.5 text-black/70">
-                                Color: {String(item.selectedColor).replace(/-/g, " ")}
+                                Color:{" "}
+                                {String(item.selectedColor).replace(/-/g, " ")}
                               </span>
                             )}
                           </div>
 
-                          <p className="text-xs text-black/60 mt-1">Qty: {qty}</p>
+                          <p className="text-xs text-black/60 mt-1">
+                            Qty: {qty}
+                          </p>
 
                           {showMrp && (
                             <p className="text-[12px] text-green-700 mt-0.5">
@@ -238,17 +258,21 @@ export default function OrderSummary({
                     <span>
                       Coupon <b>{coupon.code}</b>
                     </span>
-                    <span className="font-semibold tabular-nums">− ₹{money(safeCouponDiscount)}</span>
+                    <span className="font-semibold tabular-nums">
+                      − ₹{money(safeCouponDiscount)}
+                    </span>
                   </div>
                 )}
 
-                {/* ✅ RAZORPAY EXTRA OFF LINE */}
+                {/* ✅ RAZORPAY EXTRA OFF LINE (5% -> 10%) */}
                 {safeRazorpayExtra > 0 && (
                   <div className="flex items-center justify-between text-sm text-green-700">
                     <span>
-                      Razorpay Offer <b>(5% extra)</b>
+                      Razorpay Offer <b>(10% extra)</b>
                     </span>
-                    <span className="font-semibold tabular-nums">− ₹{money(safeRazorpayExtra)}</span>
+                    <span className="font-semibold tabular-nums">
+                      − ₹{money(safeRazorpayExtra)}
+                    </span>
                   </div>
                 )}
 
@@ -267,14 +291,17 @@ export default function OrderSummary({
                 <div className="h-px bg-black/5 my-1" />
 
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-900">Payable</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    Payable
+                  </span>
                   <span className="text-lg font-semibold tabular-nums text-gray-900">
                     ₹{money(finalPayable)}
                   </span>
                 </div>
 
                 <div className="text-[11px] text-gray-500">
-                  Shipping: <span className="text-green-700 font-semibold">Free</span>
+                  Shipping:{" "}
+                  <span className="text-green-700 font-semibold">Free</span>
                 </div>
               </div>
             </>

@@ -124,7 +124,7 @@ export default function CheckoutPage() {
 
   const razorpayExtraDiscount = useMemo(() => {
   if (String(selectedPayment).toLowerCase() !== "razorpay") return 0;
-  return Math.round(subtotal * 0.05); // 5% on subtotal
+  return Math.round(subtotal * 0.10); // 10% on subtotal
 }, [selectedPayment, subtotal]);
 
 const payable = useMemo(() => {
@@ -658,7 +658,7 @@ const resetGuestContext = () => {
   setSelectedPayment={setSelectedPayment}
   payable={payable}
   subtotal={subtotal} // ✅ NEW (for showing “you save ₹x”)
-  razorpayExtraDiscount={razorpayExtraDiscount} // ✅ NEW (5% extra off amount)
+razorpayExtraDiscount={razorpayExtraDiscount} // ✅ NEW (10% extra off amount)
   coupon={coupon}
   discount={discount}
   placing={placing}
