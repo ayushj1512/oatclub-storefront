@@ -9,7 +9,7 @@ const items = useMemo(
     "New arrivals just dropped — shop now",
     "Gen-Z fits • Western vibes • Premium picks",
     "Free Shipping on every order",
-    "Extra 5% off on online payments",
+    "Extra 10% off on online payments",
     "Use code FIRST10 for 10% off",
   ],
   []
