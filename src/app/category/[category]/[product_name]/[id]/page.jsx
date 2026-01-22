@@ -693,9 +693,10 @@ const link = typeof window !== "undefined" ? window.location.href : "";
           ₹{money(product.regularPrice)}
         </span>
 
-        <span className="text-sm font-semibold text-green-700 bg-green-50 px-2 py-1 rounded">
-          {Math.round(((product.regularPrice - product.price) / product.regularPrice) * 100)}% OFF
-        </span>
+       <span className="text-sm font-semibold text-[#800020] bg-[#800020]/10 px-2 py-1 rounded">
+  {Math.round(((product.regularPrice - product.price) / product.regularPrice) * 100)}% OFF
+</span>
+
       </>
     ) : null}
   </div>

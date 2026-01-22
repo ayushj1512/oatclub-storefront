@@ -100,8 +100,7 @@ export default function PaymentOptions({
 
   placing,
   validate,
-  setShowCodCaptcha,
-
+ onPlaceOrder,
   selectedAddressObj,
   user,
   customer,
@@ -313,10 +312,17 @@ export default function PaymentOptions({
           <button
             type="button"
             onClick={() => {
-              const err = validate();
-              if (err) return toast.error(err);
-              setShowCodCaptcha(true);
-            }}
+  const err = validate?.();
+  if (err) return toast.error(err);
+
+  if (typeof onPlaceOrder !== "function") {
+    toast.error("Unable to place order. Please refresh.");
+    return;
+  }
+
+  onPlaceOrder(); // ✅ direct place order (COD)
+}}
+
             disabled={disabledCTA}
             className="mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(0,0,0,0.24)] transition hover:opacity-90 active:scale-[0.99] disabled:bg-black/20 disabled:text-black/40"
           >

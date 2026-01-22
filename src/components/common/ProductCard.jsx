@@ -308,11 +308,12 @@ const productLink = `/category/${category}/${formattedName}/${encodeURIComponent
               </span>
             )}
 
-            {discount > 0 && (
-              <span className="text-[11px] md:text-[12px] font-semibold text-green-700">
-                {discount}% OFF
-              </span>
-            )}
+           {discount > 0 && (
+  <span className="text-[11px] md:text-[12px] font-semibold text-[#800020]">
+    {discount}% OFF
+  </span>
+)}
+
           </div>
         </div>
       </div>

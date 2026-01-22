@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import toast from "react-hot-toast";
 
-import CodConfirmCaptcha from "@/components/checkout/CodConfirmCaptcha";
+// import CodConfirmCaptcha from "@/components/checkout/CodConfirmCaptcha";
 import OrderSummary from "@/components/checkout/OrderSummary";
 import AddressSelection from "@/components/checkout/AddressSelection";
 import PaymentOptions from "@/components/checkout/PaymentOptions";
@@ -68,7 +68,7 @@ export default function CheckoutPage() {
   const [showAddress, setShowAddress] = useState(true);
   const [showPayment, setShowPayment] = useState(true);
 
-  const [showCodCaptcha, setShowCodCaptcha] = useState(false);
+  // const [showCodCaptcha, setShowCodCaptcha] = useState(false);
 
   /* ✅ IMPORTANT: local customer for existing-email users (no login) */
   const [guestCustomer, setGuestCustomer] = useState(null);
@@ -105,9 +105,11 @@ export default function CheckoutPage() {
   }, []);
 
   /* ✅ sync local guestCustomer if store customer exists */
-  useEffect(() => {
-    if (customer?._id) setGuestCustomer(customer);
-  }, [customer?._id]);
+    useEffect(() => {
+    // ✅ only sync if guestCustomer is empty and store has customer
+    if (!guestCustomer?._id && customer?._id) setGuestCustomer(customer);
+  }, [customer?._id, guestCustomer?._id]);
+
 
   /* ---------------- TOTALS ---------------- */
   const subtotal = useMemo(() => {
@@ -321,68 +323,163 @@ const payable = useMemo(() => {
 };
 
 
+  // ✅ Prevent multiple parallel ensure calls
+  const ensureLockRef = useRef(false);
+  const ensuredCustomerRef = useRef(null);
+
+  /**
+   * ✅ Universal ensure: Logged-in OR Guest
+   * Goal: return a customer with _id, ALWAYS (or null)
+   */
+  const ensureCustomer = async ({ silent = false } = {}) => {
+    // If already ensured in this session, reuse
+    if (ensuredCustomerRef.current?._id) return ensuredCustomerRef.current;
+
+    // Store customer already present
+    if (customer?._id) {
+      ensuredCustomerRef.current = customer;
+      return customer;
+    }
+
+    // Guest customer already detected via email flow
+    if (!user?.uid && guestCustomer?._id) {
+      ensuredCustomerRef.current = guestCustomer;
+      return guestCustomer;
+    }
+
+    // Avoid parallel duplicate creation
+    if (ensureLockRef.current) {
+      // wait a bit for current ensure to finish
+      await new Promise((r) => setTimeout(r, 250));
+      return (
+        ensuredCustomerRef.current ||
+        customer ||
+        guestCustomer ||
+        null
+      );
+    }
+
+    ensureLockRef.current = true;
+
+    try {
+      // ✅ Logged-in but customer doc missing:
+      // We must create/ensure a customer linked to firebaseUID.
+      if (user?.uid && !customer?._id) {
+        const email = (user?.email || addressForm.email || "").trim();
+        const phone = (addressForm.phone || customer?.phone || "").trim();
+        const name = (addressForm.fullName || customer?.name || "").trim() || "User";
+
+        // If your backend does NOT need password for logged-in users,
+        // you should update backend + store. For now we still call same function.
+        const password =
+          (guestInfo.password || "").trim() ||
+          "__firebase_login__"; // placeholder; backend should ignore in logged-in mode
+
+        if (!email || !phone) {
+          if (!silent) toast.error("Please fill email & phone to continue.");
+          return null;
+        }
+
+        // Prefer backend upsert by firebaseUID/email
+        const created = await createGuestCustomer({
+          name,
+          email,
+          phone,
+          password,
+          firebaseUID: user.uid, // ✅ critical
+          mode: "logged_in",     // optional (backend can ignore)
+        });
+
+        const c = created?.customer || null;
+        if (c?._id) {
+          setGuestCustomer(c);
+          ensuredCustomerRef.current = c;
+          return c;
+        }
+
+        if (!silent) toast.error("Could not create customer profile.");
+        return null;
+      }
+
+      // ✅ Guest flow (no login)
+      const c = await ensureGuestCustomer();
+      if (c?._id) {
+        ensuredCustomerRef.current = c;
+        return c;
+      }
+      return null;
+    } catch (e) {
+      console.error("❌ ensureCustomer failed", e);
+      if (!silent) toast.error("Could not continue. Please try again.");
+      return null;
+    } finally {
+      ensureLockRef.current = false;
+    }
+  };
+
+
+
 
   /* ---------------- SAVE NEW ADDRESS ---------------- */
-  const saveNewAddress = async () => {
-  let finalCustomer = customer || guestCustomer;
-
-  // ✅ If guest + no customer -> ensure (will show account toasts)
-  if (!user?.uid && !finalCustomer?._id) {
-    finalCustomer = await ensureGuestCustomer();
+    const saveNewAddress = async () => {
+    // ✅ ALWAYS ensure customer (logged-in OR guest)
+    const finalCustomer = await ensureCustomer();
     if (!finalCustomer?._id) return false;
-  }
 
-  if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
-    toast.error("Enter valid pincode");
-    return false;
-  }
-  if (!addressForm.fullName) {
-    toast.error("Full name required");
-    return false;
-  }
-  if (!addressForm.phone) {
-    toast.error("Phone required");
-    return false;
-  }
-  if (!addressForm.addressLine1) {
-    toast.error("Address required");
-    return false;
-  }
-
-  // ✅ toast: saving address
-  const tId = toast.loading("Saving address...");
-
-  try {
-    setSavingAddress(true);
-
-    const payload = {
-      ...addressForm,
-      firebaseUID: user?.uid || null,
-      customerId: finalCustomer?._id || null,
-      email: user?.email || addressForm.email || finalCustomer?.email || "",
-    };
-
-    const created = await createAddress?.(payload);
-
-    if (!created?._id) {
-      toast.error("Address save failed.", { id: tId });
+    if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
+      toast.error("Enter valid pincode");
+      return false;
+    }
+    if (!addressForm.fullName) {
+      toast.error("Full name required");
+      return false;
+    }
+    if (!addressForm.phone) {
+      toast.error("Phone required");
+      return false;
+    }
+    if (!addressForm.addressLine1) {
+      toast.error("Address required");
       return false;
     }
 
-    setShowAddressForm(false);
-    setSelectedAddressId(created._id);
+    const tId = toast.loading("Saving address...");
 
-    // ✅ toast: saved
-    toast.success("Address saved ✅", { id: tId });
-    return true;
-  } catch (e) {
-    console.error("❌ saveNewAddress failed", e);
-    toast.error("Address save failed.", { id: tId });
-    return false;
-  } finally {
-    setSavingAddress(false);
-  }
-};
+    try {
+      setSavingAddress(true);
+
+      const payload = {
+        ...addressForm,
+        firebaseUID: finalCustomer?.firebaseUID || user?.uid || null,
+        customerId: finalCustomer._id, // ✅ NEVER null now
+        email:
+          user?.email ||
+          addressForm.email ||
+          finalCustomer?.email ||
+          "",
+      };
+
+      const created = await createAddress?.(payload);
+
+      if (!created?._id) {
+        toast.error("Address save failed.", { id: tId });
+        return false;
+      }
+
+      setShowAddressForm(false);
+      setSelectedAddressId(created._id);
+
+      toast.success("Address saved ✅", { id: tId });
+      return true;
+    } catch (e) {
+      console.error("❌ saveNewAddress failed", e);
+      toast.error("Address save failed.", { id: tId });
+      return false;
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
 
 
   /* ✅✅ FIXED VALIDATION (NO CUSTOMER ID DEPENDENCY) */
@@ -408,14 +505,10 @@ const payable = useMemo(() => {
   };
 
   /* ---------------- PLACE ORDER ---------------- */
-  const handlePlaceOrder = async () => {
-    let finalCustomer = customer || guestCustomer;
-
-    // ✅ guest create if needed
-    if (!user?.uid && !finalCustomer?._id) {
-      finalCustomer = await ensureGuestCustomer();
-      if (!finalCustomer?._id) return;
-    }
+    const handlePlaceOrder = async () => {
+    // ✅ ALWAYS ensure customer (logged-in OR guest)
+    const finalCustomer = await ensureCustomer();
+    if (!finalCustomer?._id) return;
 
     const err = validateCheckout();
     if (err) return toast.error(err);
@@ -425,17 +518,16 @@ const payable = useMemo(() => {
     try {
       const orderItems = getCheckoutPayload();
 
-     const order = await createOrder({
-  customerId: finalCustomer._id,
-  shippingAddressId: selectedAddressObj._id,
-  billingAddressId: selectedAddressObj._id,
-  paymentMethod: selectedPayment,
-  items: orderItems,
-  source: "website",
-  discount: Number(discount || 0), // ✅ ADD THIS
-  coupon: coupon ? { code: coupon.code } : null, // ✅ keep minimal
-});
-
+      const order = await createOrder({
+        customerId: finalCustomer._id, // ✅ stable
+        shippingAddressId: selectedAddressObj._id,
+        billingAddressId: selectedAddressObj._id,
+        paymentMethod: selectedPayment,
+        items: orderItems,
+        source: "website",
+        discount: Number(discount || 0),
+        coupon: coupon ? { code: coupon.code } : null,
+      });
 
       if (buyNowItem) completeCheckout?.();
       else clearCart?.();
@@ -444,12 +536,15 @@ const payable = useMemo(() => {
 
       toast.success("Order placed!", { id: toastId });
       router.push(
-        order?.orderNumber ? `/order-success?order=${order.orderNumber}` : "/order-success"
+        order?.orderNumber
+          ? `/order-success?order=${order.orderNumber}`
+          : "/order-success"
       );
     } catch (e) {
       toast.error(e?.message || "Failed to place order.", { id: toastId });
     }
   };
+
 
   /* ---------------- UI ---------------- */
   return (
@@ -522,7 +617,9 @@ const payable = useMemo(() => {
   discount={discount}
   placing={placing}
   validate={validateCheckout}
-  setShowCodCaptcha={setShowCodCaptcha}
+  // setShowCodCaptcha={setShowCodCaptcha}
+  onPlaceOrder={handlePlaceOrder}
+
   selectedAddressObj={selectedAddressObj}
   user={user}
   customer={customer || guestCustomer}
@@ -534,11 +631,11 @@ const payable = useMemo(() => {
         </div>
       </div>
 
-      <CodConfirmCaptcha
+      {/* <CodConfirmCaptcha
         open={showCodCaptcha}
         onClose={() => setShowCodCaptcha(false)}
         onVerified={handlePlaceOrder}
-      />
+      /> */}
     </section>
   );
 }
