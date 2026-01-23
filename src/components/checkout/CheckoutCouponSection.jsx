@@ -1,16 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { Tag, X, Loader2 } from "lucide-react";
 import { useCouponStore } from "@/store/couponStore";
 
 const money = (n) => (Number.isFinite(+n) ? (+n).toLocaleString("en-IN") : "0");
 const couponLabel = (c) =>
-  !c ? "" : c.discountType === "percentage" ? `${c.discountValue}% OFF` : `₹${money(c.discountValue)} OFF`;
+  !c
+    ? ""
+    : c.discountType === "percentage"
+    ? `${c.discountValue}% OFF`
+    : `₹${money(c.discountValue)} OFF`;
+
+const isValidEmail = (v) => {
+  const s = String(v || "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+};
 
 export default function CheckoutCouponSection({ cartTotal, email, phone, customerId }) {
+  const pathname = usePathname();
+
   const [code, setCode] = useState("");
   const [clicked, setClicked] = useState("");
+  const [step1Error, setStep1Error] = useState("");
 
   const {
     coupon,
@@ -30,30 +43,77 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
 
   const hasCoupon = !!coupon?.code;
   const saved = useMemo(() => Math.max(0, +discount || 0), [discount]);
+  const emailOk = useMemo(() => isValidEmail(email), [email]);
 
   const load = useCallback(() => {
     if (!hasCoupon && cartTotal > 0) fetchSuggestedCoupons({ cartTotal });
   }, [hasCoupon, cartTotal, fetchSuggestedCoupons]);
 
+  // ✅ Refresh UI + rehydrate + refresh suggestions when route/page changes
   useEffect(() => {
-    load();
-    if (hasCoupon && !(cartTotal > 0)) clearPersistedCoupon?.();
-  }, [load, hasCoupon, cartTotal, clearPersistedCoupon]);
+    // reset local UI states (so stale error/code doesn't carry to next step)
+    setCode("");
+    setClicked("");
+    setStep1Error("");
 
-  // ✅ No UI validation: user can click apply anytime.
+    // clear store messages too (success/error banners)
+    clearCouponMessages?.();
+
+    // if coupon exists & cart total is valid and email ok => revalidate it
+    if (hasCoupon && cartTotal > 0 && emailOk) {
+      rehydrateCoupon?.({ cartTotal, email, phone, customerId });
+      return;
+    }
+
+    // else: load suggestions for current cart total
+    load();
+  }, [
+    pathname, // ✅ key: page change trigger
+    hasCoupon,
+    cartTotal,
+    emailOk,
+    email,
+    phone,
+    customerId,
+    rehydrateCoupon,
+    load,
+    clearCouponMessages,
+  ]);
+
+  // ✅ keep earlier behavior: if coupon is applied but cart becomes empty -> clear
+  useEffect(() => {
+    if (hasCoupon && !(cartTotal > 0)) clearPersistedCoupon?.();
+  }, [hasCoupon, cartTotal, clearPersistedCoupon]);
+
   // ✅ Auto-validate/rehydrate when email/phone/customerId changes (after user types email)
   useEffect(() => {
-    if (!hasCoupon || !(cartTotal > 0)) return;
+    if (step1Error && emailOk) setStep1Error("");
+    if (!hasCoupon || !(cartTotal > 0) || !emailOk) return;
     rehydrateCoupon?.({ cartTotal, email, phone, customerId });
-  }, [hasCoupon, cartTotal, email, phone, customerId, rehydrateCoupon]);
+  }, [hasCoupon, cartTotal, email, phone, customerId, rehydrateCoupon, emailOk, step1Error]);
 
   const onApply = async (v = code) => {
     const c = String(v || "").trim().toUpperCase();
     if (!c || isApplying) return;
+
+    if (!emailOk) {
+      setStep1Error("Please enter email");
+      return;
+    }
+
     try {
+      setStep1Error("");
       clearCouponMessages?.();
       setClicked(c);
-      await applyCoupon({ code: c, cartTotal, email, phone, customerId });
+
+      await applyCoupon({
+        code: c,
+        cartTotal,
+        email,
+        phone,
+        customerId,
+      });
+
       setCode("");
     } finally {
       setClicked("");
@@ -62,6 +122,7 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
 
   const onRemove = async () => {
     clearCouponMessages?.();
+    setStep1Error("");
     setCode("");
     await clearPersistedCoupon?.();
     setTimeout(load, 50);
@@ -91,6 +152,11 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
         )}
       </div>
 
+      {/* ✅ Step-1 Email warning */}
+      {!emailOk ? (
+        <p className="text-[11px] text-amber-700">Enter email in Step 1 to apply coupon.</p>
+      ) : null}
+
       {hasCoupon ? (
         <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-3 py-2">
           <div>
@@ -114,16 +180,20 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
           <div className="flex items-center gap-2">
             <input
               value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                setCode(e.target.value.toUpperCase());
+                if (step1Error) setStep1Error("");
+              }}
               placeholder="Enter code"
               className="flex-1 rounded-xl bg-white px-3 py-2 text-xs outline-none shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] transition focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.18)]"
             />
 
             <button
               type="button"
-              disabled={isApplying || !code.trim()}
+              disabled={isApplying || !code.trim() || !emailOk}
               onClick={() => onApply()}
               className="inline-flex items-center justify-center rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:bg-black/20 disabled:text-black/40"
+              title={!emailOk ? "Please enter email" : undefined}
             >
               {isApplying && clicked === code.trim().toUpperCase() ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -134,6 +204,8 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
           </div>
 
           <div className="space-y-2">
+            {step1Error ? <p className="text-[11px] text-red-600">{step1Error}</p> : null}
+
             {isLoadingSuggestions ? (
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -151,9 +223,10 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
                     <button
                       key={c._id || cc}
                       type="button"
-                      disabled={isApplying}
+                      disabled={isApplying || !emailOk}
                       onClick={() => onApply(cc)}
                       className="rounded-xl border border-black/10 bg-white px-3 py-2 text-[11px] font-semibold text-gray-900 transition hover:bg-black hover:text-white disabled:opacity-60"
+                      title={!emailOk ? "Please enter email" : undefined}
                     >
                       <span className="inline-flex items-center gap-1">
                         {spin ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}

@@ -67,7 +67,7 @@ export default function MobileHeader() {
     };
   }, []);
 
-  // ✅ Header height var (guarded)
+  // ✅ Header height var (guarded) -> used by spacer so content doesn't jump
   useEffect(() => {
     const el = document.getElementById("mobile-header");
     if (!el) return;
@@ -85,6 +85,25 @@ export default function MobileHeader() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // ✅ Prevent background scroll conflicts when drawer open (no “freeze” feel)
+  useEffect(() => {
+    const body = document.body;
+    if (!body) return;
+
+    if (menuOpen) {
+      const prevOverflow = body.style.overflow;
+      const prevTouch = body.style.touchAction;
+
+      body.style.overflow = "hidden";
+      body.style.touchAction = "none";
+
+      return () => {
+        body.style.overflow = prevOverflow;
+        body.style.touchAction = prevTouch;
+      };
+    }
+  }, [menuOpen]);
 
   const fireViewCart = useCallback(async () => {
     try {
@@ -112,7 +131,11 @@ export default function MobileHeader() {
 
       const key = `m_viewcart_${contents.map((c) => c.id).join("_")}_${value}`;
       const now = Date.now();
-      if (lastViewCartRef.current.key === key && now - lastViewCartRef.current.at < 2000) return;
+      if (
+        lastViewCartRef.current.key === key &&
+        now - lastViewCartRef.current.at < 2000
+      )
+        return;
       lastViewCartRef.current = { key, at: now };
 
       try {
@@ -145,12 +168,25 @@ export default function MobileHeader() {
 
   return (
     <>
+      {/* ✅ Spacer so fixed header doesn't cover page content */}
+      <div
+        className="md:hidden"
+        style={{ height: "var(--app-header-h, 56px)" }}
+      />
+
+      {/* ✅ FIXED HEADER (works even when parent has overflow/transform) */}
       <header
         id="mobile-header"
         className={[
-          "md:hidden w-full bg-white border-b border-black/10 z-[9999] sticky top-0",
+          "md:hidden w-full bg-white border-b border-black/10",
+          "fixed top-0 left-0 right-0 z-[9999]",
+          "isolate",
+          "will-change-transform",
           scrolled ? "shadow-sm" : "",
         ].join(" ")}
+        style={{
+          transform: "translateZ(0)",
+        }}
       >
         <TopbarHeadline />
 

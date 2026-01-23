@@ -62,16 +62,37 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       </Suspense>
 
       <ClientProviders>
-        <div className="hidden md:block"><DesktopHeader /></div>
-        <div className="md:hidden"><MobileHeader /></div>
+        <div className="hidden md:block">
+          <DesktopHeader />
+        </div>
 
-        <main className="flex min-h-screen flex-col bg-white">{children}</main>
+        <div className="md:hidden">
+          <MobileHeader />
+        </div>
+
+        {/* ✅ pb-20 added so bottom content doesn't get covered */}
+        <main className="flex min-h-screen flex-col bg-white pb-8">{children}</main>
 
         <Footer />
         <ScrollToTop />
         <LogoutConfirmModal />
 
-        <Toaster position="top-right" richColors closeButton expand={false} duration={1000} toastOptions={{ classNames: { toast: "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm", description: "text-[11px] leading-4 opacity-80", actionButton: "h-7 px-2 text-[11px]", cancelButton: "h-7 px-2 text-[11px]" } }} />
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          expand={false}
+          duration={1000}
+          toastOptions={{
+            classNames: {
+              toast:
+                "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm",
+              description: "text-[11px] leading-4 opacity-80",
+              actionButton: "h-7 px-2 text-[11px]",
+              cancelButton: "h-7 px-2 text-[11px]",
+            },
+          }}
+        />
       </ClientProviders>
     </>
   );

@@ -1083,10 +1083,48 @@ resetCartOnLogout: async () => {
 },
 
 
-completeCheckout: () => {
+completeCheckout: async () => {
+  const buyNow = get().buyNowItem;
+
+  // 1) Always clear buyNow state + cookie
   set({ buyNowItem: null });
   Cookies.remove("buy_now_item");
+
+  // 2) If buyNow existed, remove same item from cart too
+  if (buyNow) {
+    const buyKey = buyNow.__key || cartKey(buyNow);
+
+    const curr = get().items || [];
+    const updated = curr.filter((p) => (p.__key || cartKey(p)) !== buyKey);
+
+    set({ items: updated });
+    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+
+    // optional: coupon clear (cart changed)
+    await handleCouponOnCartUpdate();
+
+    // optional: abandoned snapshot update
+    try {
+      const abandoned = useAbandonedCartStore.getState();
+      const auth = useAuthStore.getState();
+      abandoned.upsertCart({
+        cartId: auth.activeCartId || "",
+        items: updated.map((it) => ({
+          productId: it.productId,
+          variantId: it.variantId || null,
+          qty: it.quantity,
+        })),
+        context: {
+          lastPageUrl: window.location.href,
+          device: window.innerWidth < 768 ? "mobile" : "desktop",
+        },
+      });
+    } catch (e) {
+      console.warn("🛒 Abandoned snapshot failed (completeCheckout)", e);
+    }
+  }
 },
+
 
   /* ---------------- TOTALS ---------------- */
   totalCount: () => (get().items || []).reduce((s, i) => s + toNum(i.quantity || 0), 0),
