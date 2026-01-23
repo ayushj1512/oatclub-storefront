@@ -52,6 +52,11 @@ const nextConfig: NextConfig = {
       destination: "/bestseller",
       permanent: true,
     },
+    {
+        source: "/category/party-wear",
+        destination: "/collection/party-protocol",
+        permanent: true,
+      },
   ];
 },
 
