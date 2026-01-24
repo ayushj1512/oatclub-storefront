@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import CheckoutCouponSection from "@/components/checkout/CheckoutCouponSection";
@@ -9,6 +10,19 @@ import { useCouponStore } from "@/store/couponStore";
 /* ---------- utils ---------- */
 const money = (n) =>
   Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0";
+
+const toNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const slugify = (s = "") =>
+  String(s)
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 const getImageSrc = (item) => {
   const c = [
@@ -23,9 +37,18 @@ const getImageSrc = (item) => {
   return src || null;
 };
 
-const toNum = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+const getProductHref = (item) => {
+  const id = String(item?.productId || item?._id || item?.id || "");
+  const category = slugify(
+    item?.category?.slug ||
+      item?.categorySlug ||
+      item?.productSnapshot?.category?.slug ||
+      item?.productSnapshot?.categorySlug ||
+      item?.productSnapshot?.category ||
+      "all"
+  );
+  const productName = slugify(item?.slug || item?.handle || item?.name || "product");
+  return id ? `/category/${category}/${productName}/${id}` : "#";
 };
 
 /* ---------- UI bits ---------- */
@@ -44,8 +67,6 @@ export default function OrderSummary({
   razorpayExtraDiscount = 0,
   showSummary,
   setShowSummary,
-
-  // ✅ NEW: pass identity so coupons can validate/rehydrate on email/phone typing
   email,
   phone,
   customerId,
@@ -57,9 +78,7 @@ export default function OrderSummary({
     return (items || []).reduce((sum, it) => {
       const qty = Math.max(1, toNum(it?.qty ?? it?.quantity ?? 1));
       const price = toNum(it?.price ?? it?.productSnapshot?.price ?? 0);
-      const mrp = toNum(
-        it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0
-      );
+      const mrp = toNum(it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0);
       const use = mrp > price ? mrp : price;
       return sum + use * qty;
     }, 0);
@@ -69,9 +88,7 @@ export default function OrderSummary({
     return (items || []).reduce((sum, it) => {
       const qty = Math.max(1, toNum(it?.qty ?? it?.quantity ?? 1));
       const price = toNum(it?.price ?? it?.productSnapshot?.price ?? 0);
-      const mrp = toNum(
-        it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0
-      );
+      const mrp = toNum(it?.compareAtPrice ?? it?.productSnapshot?.compareAtPrice ?? 0);
       return sum + (mrp > price ? (mrp - price) * qty : 0);
     }, 0);
   }, [items]);
@@ -85,9 +102,7 @@ export default function OrderSummary({
     return Math.max(0, safeSubtotal - Math.min(totalDiscount, safeSubtotal));
   }, [safeSubtotal, totalDiscount]);
 
-  const finalPayable = Number.isFinite(toNum(payable))
-    ? toNum(payable)
-    : computedPayable;
+  const finalPayable = Number.isFinite(toNum(payable)) ? toNum(payable) : computedPayable;
 
   return (
     <GlassCard className="p-4 sm:p-5">
@@ -99,9 +114,7 @@ export default function OrderSummary({
       >
         <div className="min-w-0">
           <div className="text-sm text-gray-500">Step 2</div>
-          <div className="text-lg font-semibold text-gray-900">
-            Order Summary
-          </div>
+          <div className="text-lg font-semibold text-gray-900">Order Summary</div>
         </div>
         {showSummary ? <ChevronUp /> : <ChevronDown />}
       </button>
@@ -115,19 +128,12 @@ export default function OrderSummary({
               <div className="space-y-3">
                 {items.map((item) => {
                   const src = getImageSrc(item);
+                  const href = getProductHref(item);
 
-                  const qty = Math.max(
-                    1,
-                    toNum(item?.qty ?? item?.quantity ?? 1)
-                  );
-                  const price = toNum(
-                    item?.price ?? item?.productSnapshot?.price ?? 0
-                  );
-
+                  const qty = Math.max(1, toNum(item?.qty ?? item?.quantity ?? 1));
+                  const price = toNum(item?.price ?? item?.productSnapshot?.price ?? 0);
                   const mrp = toNum(
-                    item?.compareAtPrice ??
-                      item?.productSnapshot?.compareAtPrice ??
-                      0
+                    item?.compareAtPrice ?? item?.productSnapshot?.compareAtPrice ?? 0
                   );
 
                   const showMrp = mrp > price;
@@ -137,16 +143,13 @@ export default function OrderSummary({
 
                   const key = String(
                     item?.__key ||
-                      `${String(
-                        item?.productId || item?._id || item?.id || ""
-                      )}__${String(item?.variantId || "")}`
+                      `${String(item?.productId || item?._id || item?.id || "")}__${String(
+                        item?.variantId || ""
+                      )}`
                   );
 
-                  return (
-                    <div
-                      key={key}
-                      className="flex items-center justify-between gap-3 rounded-2xl bg-white/60 px-3 py-2 shadow-[0_10px_25px_rgba(0,0,0,0.06)]"
-                    >
+                  const Tile = (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl bg-white/60 px-3 py-2 shadow-[0_10px_25px_rgba(0,0,0,0.06)] hover:bg-white/75 transition cursor-pointer">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="relative h-[64px] w-[56px] shrink-0 overflow-hidden rounded-xl bg-black/4">
                           {src ? (
@@ -177,15 +180,12 @@ export default function OrderSummary({
                             )}
                             {item?.selectedColor && (
                               <span className="text-[11px] rounded-xl bg-black/5 px-2 py-0.5 text-black/70">
-                                Color:{" "}
-                                {String(item.selectedColor).replace(/-/g, " ")}
+                                Color: {String(item.selectedColor).replace(/-/g, " ")}
                               </span>
                             )}
                           </div>
 
-                          <p className="text-xs text-black/60 mt-1">
-                            Qty: {qty}
-                          </p>
+                          <p className="text-xs text-black/60 mt-1">Qty: {qty}</p>
 
                           {showMrp && (
                             <p className="text-[12px] text-green-700 mt-0.5">
@@ -213,6 +213,14 @@ export default function OrderSummary({
                         )}
                       </div>
                     </div>
+                  );
+
+                  return href === "#" ? (
+                    <div key={key}>{Tile}</div>
+                  ) : (
+                    <Link key={key} href={href} className="block" prefetch={false}>
+                      {Tile}
+                    </Link>
                   );
                 })}
               </div>
@@ -244,7 +252,6 @@ export default function OrderSummary({
                   </div>
                 )}
 
-                {/* ✅ COUPON SECTION INSIDE SUMMARY (PASS IDENTITY) */}
                 <CheckoutCouponSection
                   cartTotal={safeSubtotal}
                   email={email}
@@ -252,7 +259,6 @@ export default function OrderSummary({
                   customerId={customerId}
                 />
 
-                {/* ✅ COUPON LINE (from store) */}
                 {coupon?.code && safeCouponDiscount > 0 && (
                   <div className="flex items-center justify-between text-sm text-green-700">
                     <span>
@@ -264,7 +270,6 @@ export default function OrderSummary({
                   </div>
                 )}
 
-                {/* ✅ RAZORPAY EXTRA OFF LINE (5% -> 10%) */}
                 {safeRazorpayExtra > 0 && (
                   <div className="flex items-center justify-between text-sm text-green-700">
                     <span>
@@ -291,17 +296,14 @@ export default function OrderSummary({
                 <div className="h-px bg-black/5 my-1" />
 
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-900">
-                    Payable
-                  </span>
+                  <span className="text-sm font-semibold text-gray-900">Payable</span>
                   <span className="text-lg font-semibold tabular-nums text-gray-900">
                     ₹{money(finalPayable)}
                   </span>
                 </div>
 
                 <div className="text-[11px] text-gray-500">
-                  Shipping:{" "}
-                  <span className="text-green-700 font-semibold">Free</span>
+                  Shipping: <span className="text-green-700 font-semibold">Free</span>
                 </div>
               </div>
             </>
