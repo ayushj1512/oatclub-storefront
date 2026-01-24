@@ -122,18 +122,30 @@ export default function CheckoutPage() {
     }, 0);
   }, [items]);
 
-  const razorpayExtraDiscount = useMemo(() => {
+// coupon discount
+const couponDiscount = useMemo(() => {
+  return Math.max(0, Number(discount || 0));
+}, [discount]);
+
+// payable after coupon (base for razorpay extra)
+const payableAfterCoupon = useMemo(() => {
+  return Math.max(0, subtotal - Math.min(couponDiscount, subtotal));
+}, [subtotal, couponDiscount]);
+
+// ✅ Razorpay extra discount on payableAfterCoupon, not subtotal
+const razorpayExtraDiscount = useMemo(() => {
   if (String(selectedPayment).toLowerCase() !== "razorpay") return 0;
-  return Math.round(subtotal * 0.10); // 10% on subtotal
-}, [selectedPayment, subtotal]);
 
+  const base = payableAfterCoupon; // 👈 coupon already removed
+  const extra = Math.round(base * 0.10);
+
+  return Math.min(extra, base);
+}, [selectedPayment, payableAfterCoupon]);
+
+// ✅ final payable
 const payable = useMemo(() => {
-  const couponDiscount = Math.max(0, Number(discount || 0));
-  const extra = Math.max(0, Number(razorpayExtraDiscount || 0));
-  const totalDiscount = couponDiscount + extra;
-
-  return Math.max(0, subtotal - Math.min(totalDiscount, subtotal));
-}, [subtotal, discount, razorpayExtraDiscount]);
+  return Math.max(0, payableAfterCoupon - razorpayExtraDiscount);
+}, [payableAfterCoupon, razorpayExtraDiscount]);
 
   const selectedAddressObj = useMemo(() => {
     if (!selectedAddressId) return null;
