@@ -171,7 +171,6 @@ setActiveCart: (cartId, type = "cart") => {
       return null;
     }
 
-    const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
     if (!BACKEND) {
       console.error("❌ NEXT_PUBLIC_BACKEND_URL missing");
       return null;
@@ -180,29 +179,31 @@ setActiveCart: (cartId, type = "cart") => {
     // 🔐 Always refresh token
     const token = await firebaseUser.getIdToken(true);
 
-    // ✅ Clean overrides properly
-    const clean = (v) => String(v || "").trim();
+    const clean = (v) => String(v ?? "").trim();
 
     const overrideName = clean(overrides?.name);
     const overrideEmail = clean(overrides?.email).toLowerCase();
     const overridePhone = clean(overrides?.phone);
     const overrideImage = clean(overrides?.profileImage);
 
+    // ✅ Build payload but avoid sending empty strings
     const payload = {
       firebaseUID: firebaseUser.uid,
-
-      // ✅ Override priority (but only if not empty)
-      name: overrideName || clean(firebaseUser.displayName),
-      email: overrideEmail || clean(firebaseUser.email).toLowerCase(),
-      phone: overridePhone || clean(firebaseUser.phoneNumber),
-      profileImage: overrideImage || clean(firebaseUser.photoURL),
+      ...(overrideName || clean(firebaseUser.displayName)
+        ? { name: overrideName || clean(firebaseUser.displayName) }
+        : {}),
+      ...(overrideEmail || clean(firebaseUser.email)
+        ? { email: (overrideEmail || clean(firebaseUser.email)).toLowerCase() }
+        : {}),
+      ...(overridePhone || clean(firebaseUser.phoneNumber)
+        ? { phone: overridePhone || clean(firebaseUser.phoneNumber) }
+        : {}),
+      ...(overrideImage || clean(firebaseUser.photoURL)
+        ? { profileImage: overrideImage || clean(firebaseUser.photoURL) }
+        : {}),
     };
 
     console.log("📦 syncCustomer payload =>", payload);
-
-    // ⚠️ warn if still blank
-    if (!payload.name) console.warn("⚠️ syncCustomer: name is empty");
-    if (!payload.phone) console.warn("⚠️ syncCustomer: phone is empty");
 
     const res = await fetch(`${BACKEND}/api/customers`, {
       method: "POST",
@@ -213,13 +214,22 @@ setActiveCart: (cartId, type = "cart") => {
       body: JSON.stringify(payload),
     });
 
+    // ✅ Always read as text first (most important change)
+    const rawText = await res.text();
+
     if (!res.ok) {
-      const text = await res.text();
-      console.error("❌ Customer API error:", res.status, text);
+      console.error("❌ Customer API error:", res.status, rawText);
       return null;
     }
 
-    const data = await res.json();
+    // ✅ Parse JSON safely
+    let data;
+    try {
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch (e) {
+      console.error("❌ Backend did not return JSON:", rawText);
+      return null;
+    }
 
     console.log("📩 syncCustomer response =>", data);
 
@@ -229,10 +239,6 @@ setActiveCart: (cartId, type = "cart") => {
     }
 
     const customer = data.customer;
-
-    // ✅ Warn if backend still returns blank name/phone
-    if (!customer?.name) console.warn("⚠️ Backend returned blank name");
-    if (!customer?.phone) console.warn("⚠️ Backend returned blank phone");
 
     return {
       customer,
@@ -245,6 +251,7 @@ setActiveCart: (cartId, type = "cart") => {
     return null;
   }
 },
+
 
 
 
