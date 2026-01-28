@@ -13,14 +13,11 @@ const couponLabel = (c) =>
     ? `${c.discountValue}% OFF`
     : `₹${money(c.discountValue)} OFF`;
 
-const isValidEmail = (v) => {
-  const s = String(v || "").trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-};
+const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
+const isPublic = (c) => String(c?.visibility || "public").toLowerCase() !== "private";
 
 export default function CheckoutCouponSection({ cartTotal, email, phone, customerId }) {
   const pathname = usePathname();
-
   const [code, setCode] = useState("");
   const [clicked, setClicked] = useState("");
   const [step1Error, setStep1Error] = useState("");
@@ -45,30 +42,31 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
   const saved = useMemo(() => Math.max(0, +discount || 0), [discount]);
   const emailOk = useMemo(() => isValidEmail(email), [email]);
 
+  // ✅ ALWAYS fetch suggestions (store may return all), we will filter in UI
   const load = useCallback(() => {
-    if (!hasCoupon && cartTotal > 0) fetchSuggestedCoupons({ cartTotal });
-  }, [hasCoupon, cartTotal, fetchSuggestedCoupons]);
+    if (!hasCoupon && cartTotal > 0) fetchSuggestedCoupons({ cartTotal, email, phone, customerId });
+  }, [hasCoupon, cartTotal, fetchSuggestedCoupons, email, phone, customerId]);
 
-  // ✅ Refresh UI + rehydrate + refresh suggestions when route/page changes
+  // ✅ Suggested list must show ONLY public (private never displayed)
+  const publicCoupons = useMemo(
+    () => (Array.isArray(suggestedCoupons) ? suggestedCoupons.filter(isPublic) : []),
+    [suggestedCoupons]
+  );
+
   useEffect(() => {
-    // reset local UI states (so stale error/code doesn't carry to next step)
     setCode("");
     setClicked("");
     setStep1Error("");
-
-    // clear store messages too (success/error banners)
     clearCouponMessages?.();
 
-    // if coupon exists & cart total is valid and email ok => revalidate it
     if (hasCoupon && cartTotal > 0 && emailOk) {
       rehydrateCoupon?.({ cartTotal, email, phone, customerId });
       return;
     }
 
-    // else: load suggestions for current cart total
     load();
   }, [
-    pathname, // ✅ key: page change trigger
+    pathname,
     hasCoupon,
     cartTotal,
     emailOk,
@@ -80,40 +78,27 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
     clearCouponMessages,
   ]);
 
-  // ✅ keep earlier behavior: if coupon is applied but cart becomes empty -> clear
   useEffect(() => {
     if (hasCoupon && !(cartTotal > 0)) clearPersistedCoupon?.();
   }, [hasCoupon, cartTotal, clearPersistedCoupon]);
 
-  // ✅ Auto-validate/rehydrate when email/phone/customerId changes (after user types email)
   useEffect(() => {
     if (step1Error && emailOk) setStep1Error("");
-    if (!hasCoupon || !(cartTotal > 0) || !emailOk) return;
-    rehydrateCoupon?.({ cartTotal, email, phone, customerId });
-  }, [hasCoupon, cartTotal, email, phone, customerId, rehydrateCoupon, emailOk, step1Error]);
+    if (!hasCoupon && cartTotal > 0) load();
+    if (hasCoupon && cartTotal > 0 && emailOk) rehydrateCoupon?.({ cartTotal, email, phone, customerId });
+  }, [hasCoupon, cartTotal, email, phone, customerId, rehydrateCoupon, emailOk, step1Error, load]);
 
   const onApply = async (v = code) => {
     const c = String(v || "").trim().toUpperCase();
     if (!c || isApplying) return;
 
-    if (!emailOk) {
-      setStep1Error("Please enter email");
-      return;
-    }
+    if (!emailOk) return setStep1Error("Please enter email");
 
     try {
       setStep1Error("");
       clearCouponMessages?.();
       setClicked(c);
-
-      await applyCoupon({
-        code: c,
-        cartTotal,
-        email,
-        phone,
-        customerId,
-      });
-
+      await applyCoupon({ code: c, cartTotal, email, phone, customerId });
       setCode("");
     } finally {
       setClicked("");
@@ -152,10 +137,7 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
         )}
       </div>
 
-      {/* ✅ Step-1 Email warning */}
-      {!emailOk ? (
-        <p className="text-[11px] text-amber-700">Enter email in Step 1 to apply coupon.</p>
-      ) : null}
+      {!emailOk ? <p className="text-[11px] text-amber-700">Enter email in Step 1 to apply coupon.</p> : null}
 
       {hasCoupon ? (
         <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-3 py-2">
@@ -213,9 +195,9 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
               </div>
             ) : suggestionError ? (
               <p className="text-xs text-red-600">{suggestionError}</p>
-            ) : suggestedCoupons?.length ? (
+            ) : publicCoupons.length ? (
               <div className="flex flex-wrap gap-2">
-                {suggestedCoupons.map((c) => {
+                {publicCoupons.map((c) => {
                   const cc = String(c.code || "").toUpperCase();
                   const spin = isApplying && clicked === cc;
 
@@ -233,15 +215,13 @@ export default function CheckoutCouponSection({ cartTotal, email, phone, custome
                         {cc}
                       </span>
                       <span className="ml-1 font-medium opacity-70">{couponLabel(c)}</span>
-                      {+c.minPurchase > 0 && (
-                        <span className="ml-2 opacity-60">Min ₹{money(c.minPurchase)}</span>
-                      )}
+                      {+c.minPurchase > 0 && <span className="ml-2 opacity-60">Min ₹{money(c.minPurchase)}</span>}
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-[11px] text-gray-500">No coupons available</p>
+              <p className="text-[11px] text-gray-500">No public coupons available</p>
             )}
 
             {error && <p className="text-[11px] text-red-600">{error}</p>}

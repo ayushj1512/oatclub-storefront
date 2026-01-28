@@ -7,6 +7,7 @@ const normCode = (v) => String(v || "").trim().toUpperCase();
 const norm = (v) => String(v || "").trim();
 const normEmail = (v) => String(v || "").trim().toLowerCase();
 const normPhone = (v) => String(v || "").replace(/[^\d+]/g, "").trim();
+
 const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normEmail(v));
 const isPhone = (v) => {
   const p = normPhone(v).replace(/^\+/, "");
@@ -22,12 +23,13 @@ const customerKey = ({ email, phone, customerId }) => {
   return `id:${cid}`;
 };
 
+const isPublicCoupon = (c) => String(c?.visibility || "public").toLowerCase() !== "private";
+
 export const useCouponStore = create(
   persist(
     (set, get) => ({
-      // state
-      coupon: null, // { code }
-      couponCustomerKey: null, // ✅ persists identity used for this coupon
+      coupon: null,
+      couponCustomerKey: null,
       discount: 0,
       finalTotal: null,
       isApplying: false,
@@ -58,21 +60,26 @@ export const useCouponStore = create(
         });
       },
 
+      // ✅ ONLY PUBLIC COUPONS for suggestions
       fetchSuggestedCoupons: async ({ cartTotal }) => {
         if (!API_BASE) return set({ suggestionError: "Backend not configured" });
+
         try {
           set({ isLoadingSuggestions: true, suggestionError: null });
 
           const res = await fetch(`${API_BASE}/api/coupons`, {
             headers: { "Content-Type": "application/json" },
           });
+
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data.message || "Failed to fetch coupons");
 
           const now = new Date();
           const coupons = Array.isArray(data.data) ? data.data : [];
+
           const list = coupons
             .filter((c) => c?.isActive)
+            .filter(isPublicCoupon) // ✅ private removed here
             .map((c) => {
               const vf = c.validFrom ? new Date(c.validFrom) : null;
               const vt = c.validTill ? new Date(c.validTill) : null;
@@ -80,7 +87,7 @@ export const useCouponStore = create(
               const okMin = !c.minPurchase || cartTotal == null || +cartTotal >= +c.minPurchase;
               return { ...c, _eligibility: { okDate, okMin, isEligible: okDate && okMin } };
             })
-            .sort((a, b) => (+b._eligibility.isEligible) - (+a._eligibility.isEligible));
+            .sort((a, b) => +b._eligibility.isEligible - +a._eligibility.isEligible);
 
           set({ suggestedCoupons: list, isLoadingSuggestions: false });
         } catch (e) {
@@ -102,8 +109,13 @@ export const useCouponStore = create(
         if (!cKey) throw new Error("Please enter email or phone number to apply coupon.");
 
         if (get().isApplying && get()._applyPromise) return get()._applyPromise;
+
         if (get().coupon?.code === cCode && get().couponCustomerKey === cKey) {
-          return { message: "Coupon already applied", discount: get().discount, finalTotal: get().finalTotal };
+          return {
+            message: "Coupon already applied",
+            discount: get().discount,
+            finalTotal: get().finalTotal,
+          };
         }
 
         const p = (async () => {
