@@ -14,6 +14,7 @@ import TrendingSection from "@/components/home/TrendingSection";
 import WinterFeatureSection from "@/components/home/WinterFeatureSection";
 import TopSectionFeatured from "@/components/home/TopSection"; // ✅ NEW
 import BestSellerSection from "@/components/home/BestSellerSection";
+import RecommendationFeatureRow from "@/components/home/RecommendationFeatureRow"; // ✅ NEW
 import VideoRow from "@/components/home/VideoRow";
 import BlogSection from "@/components/home/BlogSection";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
@@ -51,36 +52,29 @@ export default function HomeClient() {
         <HeroSection />
         {/* <StyleByOccasion /> */}
 
-           <LeopardFeatureCollection />
-           
+        <LeopardFeatureCollection />
+        <PolkadotFeatureCollection />
 
+        <BestSellerSection />
 
-              <PolkadotFeatureCollection />
-  <BestSellerSection />
+        {/* ✅ NEW: Recommendation row after Bestseller */}
+        <RecommendationFeatureRow limit={12} seedCount={6} />
 
         {/* BELOW THE FOLD — NORMAL SECTIONS */}
         {/* <TrendingSection /> */}
 
-    {/* ✅ NEW TOP SECTION (Featured Category) */}
+        {/* ✅ NEW TOP SECTION (Featured Category) */}
         {/* <TopSectionFeatured /> */}
-
-        
-
 
         {/* <WinterFeatureSection /> */}
 
-    
-
-        {/* Best Seller comes after Top Section */}
-   
         {/* <VideoRow /> */}
         <BlogSection />
         <RecentlyViewed />
         <InfoStrip />
-        
         <Newsletter />
-           {/* ✅ MobiKwik Banner (after Trending) - responsive (phone vs md+) */}
-      
+
+        {/* ✅ MobiKwik Banner (after Trending) - responsive (phone vs md+) */}
       </main>
     </>
   );
