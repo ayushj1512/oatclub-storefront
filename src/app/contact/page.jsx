@@ -274,7 +274,7 @@ export default function ContactPage() {
               transition={{ duration: 0.55 }}
               className="space-y-6 lg:sticky lg:top-24 h-fit"
             >
-              {/* Map Card */}
+              {/* Map Card
               <div className="overflow-hidden rounded-[32px] border border-black/10 bg-white shadow-sm">
                 <div className="p-6">
                   <h3 className="text-xs font-bold tracking-widest uppercase text-black/50">
@@ -293,7 +293,7 @@ export default function ContactPage() {
                     referrerPolicy="no-referrer-when-downgrade"
                   />
                 </div>
-              </div>
+              </div> */}
 
               {/* Support Info */}
               <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
