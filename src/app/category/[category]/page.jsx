@@ -43,15 +43,6 @@ const buildFacets = (products = []) => {
   };
 };
 
-const getStockCount = (p) => {
-  const productStock = toNum(p?.stock_quantity ?? p?.stock, 0);
-  const variantStock = Array.isArray(p?.variants)
-    ? Math.max(...p.variants.map((v) => toNum(v?.stock, 0)))
-    : 0;
-
-  return Math.max(productStock, variantStock);
-};
-
 const getTimeValue = (p) => {
   const t =
     p?.createdAt ||
@@ -100,12 +91,10 @@ export default function CategoryPage() {
   const [sort, setSort] = useState("newest");
 
   // ✅ Applied filters
-  const [onlyInStock, setOnlyInStock] = useState(true);
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
 
   // ✅ Draft filters (drawer ke liye)
-  const [draftOnlyInStock, setDraftOnlyInStock] = useState(true);
   const [draftPriceMin, setDraftPriceMin] = useState(null);
   const [draftPriceMax, setDraftPriceMax] = useState(null);
 
@@ -163,8 +152,7 @@ export default function CategoryPage() {
     clearError?.();
     setDrawerOpen(false);
 
-    setOnlyInStock(true);
-    setDraftOnlyInStock(true);
+   
 
     fetchProductsByCategory(category, {
       isActive: true,
@@ -191,7 +179,6 @@ export default function CategoryPage() {
 
   // ✅ Apply filters
   const applyFilters = () => {
-    setOnlyInStock(draftOnlyInStock);
     setPriceMin(draftPriceMin);
     setPriceMax(draftPriceMax);
     setDrawerOpen(false);
@@ -199,10 +186,8 @@ export default function CategoryPage() {
 
   // ✅ Reset filters
   const resetFilters = useCallback(() => {
-    setOnlyInStock(true);
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
-    setDraftOnlyInStock(true);
     setDraftPriceMin(facets.priceMin);
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
@@ -214,7 +199,6 @@ export default function CategoryPage() {
     const getPrice = (p) =>
       Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
 
-    if (onlyInStock) arr = arr.filter((p) => getStockCount(p) > 0);
 
     const lo = priceMin ?? facets.priceMin;
     const hi = priceMax ?? facets.priceMax;
@@ -236,7 +220,6 @@ export default function CategoryPage() {
     return arr;
   }, [
     displayProducts,
-    onlyInStock,
     priceMin,
     priceMax,
     facets.priceMin,
@@ -244,8 +227,7 @@ export default function CategoryPage() {
     sort,
   ]);
 
-  const inStockCount =
-    displayProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
+
 
   // ✅ NEW: category load more handler
   const loadingMoreRef = useRef(false);
@@ -325,8 +307,6 @@ export default function CategoryPage() {
         drawerTop={drawerTop}
         drawerHeight={drawerHeight}
         facets={facets}
-        draftOnlyInStock={draftOnlyInStock}
-        setDraftOnlyInStock={setDraftOnlyInStock}
         draftPriceMin={draftPriceMin}
         setDraftPriceMin={setDraftPriceMin}
         draftPriceMax={draftPriceMax}
@@ -346,7 +326,6 @@ export default function CategoryPage() {
         {/* ✅ Sort Bar */}
         <FilterSortBar
           category={categoryName}
-          inStockCount={inStockCount}
           showInitialLoading={showInitialLoading}
           sort={sort}
           setSort={setSort}

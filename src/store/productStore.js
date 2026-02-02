@@ -14,43 +14,47 @@
 
   /* ---------------- helpers ---------------- */
   const normalize = (p) => {
-    const id = p?._id ? String(p._id) : "";
-    const images = Array.isArray(p?.images) ? p.images : [];
-    const thumb = p?.thumbnail || images[0] || "/placeholder.png";
-    const stock = Number(p?.stock ?? 0);
-    const isInStock = Boolean(p?.isInStock ?? stock > 0);
+  const id = p?._id ? String(p._id) : "";
+  const images = Array.isArray(p?.images) ? p.images : [];
+  const thumb = p?.thumbnail || images[0] || "/placeholder.png";
 
-    return {
-      id,
-      productId: id,
-      productCode: p?.productCode || "",
-      productType:
-        p?.productType ||
-        (Array.isArray(p?.variants) && p.variants.length ? "variable" : "simple"),
+  return {
+    id,
+    productId: id,
+    productCode: p?.productCode || "",
+    productType:
+      p?.productType ||
+      (Array.isArray(p?.variants) && p.variants.length ? "variable" : "simple"),
+
     name: p?.name || p?.title || "",
-activeCollection: null,
-productsByCollection: {},
-collectionsBySlug: {},
-      slug: p?.slug || "",
-      price: Number(p?.price || 0),
-      compareAtPrice: p?.compareAtPrice ?? null,
-      currency: p?.currency || "INR",
-      description: p?.shortDescription || p?.description || "",
-      category: p?.category?.slug || "uncategorized",
-      categoryId: p?.category?._id ? String(p.category._id) : null,
-      subcategoryId: p?.subcategory?._id ? String(p.subcategory._id) : null,
-      image: thumb,
-      thumbnail: thumb,
-      images,
-      variants: Array.isArray(p?.variants) ? p.variants : [],
-      stock,
-      isInStock,
-      tags: Array.isArray(p?.tags) ? p.tags : [],
-      dateCreated: p?.createdAt || null,
-      source: "backend",
-      raw: p,
-    };
+    slug: p?.slug || "",
+
+    price: Number(p?.price || 0),
+    compareAtPrice: p?.compareAtPrice ?? null,
+    currency: p?.currency || "INR",
+    description: p?.shortDescription || p?.description || "",
+
+    category: p?.category?.slug || "uncategorized",
+    categoryId: p?.category?._id ? String(p.category._id) : null,
+    subcategoryId: p?.subcategory?._id ? String(p.subcategory._id) : null,
+
+    image: thumb,
+    thumbnail: thumb,
+    images,
+
+    variants: Array.isArray(p?.variants) ? p.variants : [],
+
+    // ✅ inventory removed from store mapping
+    // stock: Number(p?.stock ?? 0),
+    // isInStock: Boolean(p?.isInStock ?? stock > 0),
+
+    tags: Array.isArray(p?.tags) ? p.tags : [],
+    dateCreated: p?.createdAt || null,
+    source: "backend",
+    raw: p,
   };
+};
+
 
   const ga4Item = (p, qty = 1) =>
     mapItem(
@@ -309,6 +313,9 @@ const buildCollectionUrl = (collection, p = {}) => {
         allProducts: [],
         page: 1,
         limit: 20,
+        activeCollection: null,
+productsByCollection: {},
+collectionsBySlug: {},
         hasMoreFlag: true,
     activeCategory: null,
     lastParams: {},
@@ -443,58 +450,17 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
 
   const { page = 1, limit = get().limit } = params;
 
-  // ✅ IMPORTANT: hit backend controller route
-  // GET /api/products/by-collection/:collection
-  const qs = new URLSearchParams();
-  const setIf = (k, v) => {
-    if (v === undefined || v === null) return;
-    const s = String(v).trim();
-    if (!s) return;
-    qs.set(k, s);
-  };
-
-  setIf("page", page);
-  setIf("limit", limit);
-  setIf("search", params.search);
-  setIf("category", params.category);
-  setIf("tags", Array.isArray(params.tags) ? params.tags.join(",") : params.tags);
-  setIf("minPrice", params.minPrice);
-  setIf("maxPrice", params.maxPrice);
-
-  const sortMap = {
-    default: "",
-    priceLowHigh: "price_asc",
-    priceHighLow: "price_desc",
-    newest: "newest",
-    rating: "rating",
-    popularity: "popularity",
-  };
-
-  if (params.sort) setIf("sort", sortMap[params.sort] || params.sort);
-  else if (params.sortOption && sortMap[params.sortOption])
-    setIf("sort", sortMap[params.sortOption]);
-
-  // ✅ DEFAULT: only published products
-  if (params.isActive != null) setIf("isActive", params.isActive);
-  else setIf("isActive", true);
-
-  if (params.sku) setIf("sku", params.sku);
-
-  // ✅ Optional: if you later add backend support
-  if (params.mode) setIf("mode", params.mode); // e.g. "card"
-
-  const q = qs.toString();
-  const url = `${BACKEND}/api/products/by-collection/${encodeURIComponent(
-    collection
-  )}${q ? `?${q}` : ""}`;
-
-  // ✅ DO NOT abort global ctrl here (multiple widgets on homepage)
-  const controller = new AbortController();
-  const myId = ++reqId;
-
-  /* ✅ detect collection + sort change */
-  const prevCollection = String(get().activeCollection || "").toLowerCase();
   const nextCollection = collection.toLowerCase();
+  const url = buildCollectionUrl(collection, { ...params, page, limit });
+
+  // ✅ do not use global ctrl + reqId for widgets
+  const controller = new AbortController();
+  const token = `${nextCollection}__${Date.now()}__${Math.random()
+    .toString(16)
+    .slice(2)}`;
+
+  // ✅ reset logic: collection or sort change
+  const prevCollection = String(get().activeCollection || "").toLowerCase();
   const collectionChanged = prevCollection !== nextCollection;
 
   const prevParams = get().lastParams || {};
@@ -503,15 +469,12 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
 
   const shouldReset = page === 1 || collectionChanged || sortChanged;
 
-  // ✅ NEW: collection-wise caches (prevents Leopard/Polka overwriting)
-  // ensure state has these keys in your initial store too:
-  // productsByCollection: {}, collectionsBySlug: {}
   set(() => ({
     isLoading: true,
     error: null,
     activeCollection: collection,
     lastParams: { ...params, collection },
-    ...(shouldReset ? { page: 1, hasMoreFlag: true } : {}),
+    _collectionFetchToken: token, // ✅ add this state key
   }));
 
   try {
@@ -521,68 +484,17 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
     });
 
     const data = await safeJson(res);
-
     if (!res.ok) throw new Error(data?.message || "Failed to load products");
-    if (myId !== reqId) return null;
+
+    // ✅ ignore stale response
+    if (get()._collectionFetchToken !== token) return null;
 
     const incoming = uniqBySlug((data?.products || []).map(normalize));
 
-    /* ✅ GA4: view_item_list */
-    try {
-      if (page === 1 && incoming.length) {
-        const listId = `col_${nextCollection}`;
-        const key = `vil_${listId}_${incoming
-          .slice(0, 15)
-          .map((p) => p.id)
-          .join("_")}`;
-
-        if (!shouldSkipGA4(get, set, key, 1500)) {
-          pushEcomEvent("view_item_list", {
-            item_list_id: listId,
-            item_list_name: String(collection),
-            items: incoming.slice(0, 50).map((p) => ga4Item(p, 1)),
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("📈 GA4 collection view_item_list failed", e);
-    }
-
-    /* 🧾 META: Collection View (deduped) */
-    try {
-      if (collection && page === 1 && collectionChanged) {
-        const now = Date.now();
-        const key = `view_collection_${nextCollection}`;
-
-        const { _lastMetaCategoryKey, _lastMetaCategoryAt } = get();
-        const tooSoon =
-          _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
-        const sameKey = _lastMetaCategoryKey === key;
-
-        if (!(sameKey && tooSoon)) {
-          await trackMeta("ViewContent", {
-            content_type: "product_group",
-            content_ids: [String(collection)],
-            content_name: String(collection),
-            currency: "INR",
-            content_ids_product: incoming
-              .slice(0, 10)
-              .map((p) => String(p?.id))
-              .filter(Boolean),
-          });
-
-          set({ _lastMetaCategoryKey: key, _lastMetaCategoryAt: now });
-        }
-      }
-    } catch (e) {
-      console.warn("🧾 Meta Collection View failed", e);
-    }
-
-    // ✅ NEW: write into productsByCollection so each widget reads its own list
-    // ✅ keep allProducts too (backward compatible), but DO NOT rely on it for widgets
+    // ✅ write into collection bucket
     set((state) => {
       const prev = state.productsByCollection?.[nextCollection] || [];
-      const nextList = page === 1 ? incoming : [...prev, ...incoming];
+      const nextList = shouldReset ? incoming : [...prev, ...incoming];
 
       return {
         productsByCollection: {
@@ -591,31 +503,35 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
         },
         collectionsBySlug: {
           ...(state.collectionsBySlug || {}),
-          [nextCollection]: data?.collection || state.collectionsBySlug?.[nextCollection] || null,
+          [nextCollection]:
+            data?.collection ||
+            state.collectionsBySlug?.[nextCollection] ||
+            null,
         },
-
-        // backward compatible
-        allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
-
-        page,
-        hasMoreFlag: incoming.length === limit,
         isLoading: false,
       };
     });
 
-    // ✅ IMPORTANT: return backend payload for components (collection name etc.)
     return data;
   } catch (e) {
-    if (e?.name !== "AbortError")
-      set({ error: e.message || "Failed to load products" });
-
-    set({ isLoading: false });
+    if (e?.name !== "AbortError") {
+      set({ error: e.message || "Failed to load products", isLoading: false });
+    } else {
+      set({ isLoading: false });
+    }
     return null;
   }
 },
 
 
+  /* =====================================================
+            ✅ NEW: FETCH BY COLLECTION ROUTE
+          ===================================================== */
 
+getProductsForCollection: (collectionSlugOrId) => {
+  const key = String(collectionSlugOrId || "").trim().toLowerCase();
+  return (get().productsByCollection || {})[key] || [];
+},
 
 
 
