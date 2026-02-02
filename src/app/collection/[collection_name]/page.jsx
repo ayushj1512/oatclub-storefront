@@ -297,15 +297,7 @@ export default function CollectionPage() {
 
       <div className="px-4 py-6">
         <h1 className="text-2xl font-bold">{collectionName}</h1>
-<div className="mt-2">   <FilterSortBar
-          category={collectionName}
-          inStockCount={inStockCount}
-          showInitialLoading={showInitialLoading}
-          sort={sort}
-          setSort={setSort}
-          sortOptions={SORT_OPTIONS}
-          hideFilterButton
-        /></div>
+<div className="mt-2"> </div>
       
 
         {error && !showInitialLoading && (
