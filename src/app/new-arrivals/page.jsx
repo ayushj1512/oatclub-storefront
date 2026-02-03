@@ -88,12 +88,10 @@ export default function NewArrivalsPage() {
   const [sort, setSort] = useState("newest");
 
   // ✅ Applied filters
-  const [onlyInStock, setOnlyInStock] = useState(true);
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
 
   // ✅ Draft filters (drawer)
-  const [draftOnlyInStock, setDraftOnlyInStock] = useState(true);
   const [draftPriceMin, setDraftPriceMin] = useState(null);
   const [draftPriceMax, setDraftPriceMax] = useState(null);
 
@@ -146,8 +144,6 @@ export default function NewArrivalsPage() {
     clearError?.();
     setDrawerOpen(false);
 
-    setOnlyInStock(true);
-    setDraftOnlyInStock(true);
 
     // ✅ route: /api/products?page=1&limit=20&sort=newest&isActive=true
     fetchProducts({
@@ -173,7 +169,6 @@ export default function NewArrivalsPage() {
 
   // ✅ Apply filters
   const applyFilters = () => {
-    setOnlyInStock(draftOnlyInStock);
     setPriceMin(draftPriceMin);
     setPriceMax(draftPriceMax);
     setDrawerOpen(false);
@@ -181,10 +176,8 @@ export default function NewArrivalsPage() {
 
   // ✅ Reset filters
   const resetFilters = useCallback(() => {
-    setOnlyInStock(true);
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
-    setDraftOnlyInStock(true);
     setDraftPriceMin(facets.priceMin);
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
@@ -196,7 +189,6 @@ export default function NewArrivalsPage() {
     const getPrice = (p) =>
       Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
 
-    if (onlyInStock) arr = arr.filter((p) => getStockCount(p) > 0);
 
     const lo = priceMin ?? facets.priceMin;
     const hi = priceMax ?? facets.priceMax;
@@ -218,7 +210,6 @@ export default function NewArrivalsPage() {
     return arr;
   }, [
     displayProducts,
-    onlyInStock,
     priceMin,
     priceMax,
     facets.priceMin,
@@ -226,8 +217,6 @@ export default function NewArrivalsPage() {
     sort,
   ]);
 
-  const inStockCount =
-    displayProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
 
   // ✅ Load more
   const loadingMoreRef = useRef(false);
@@ -297,8 +286,7 @@ export default function NewArrivalsPage() {
         drawerTop={drawerTop}
         drawerHeight={drawerHeight}
         facets={facets}
-        draftOnlyInStock={draftOnlyInStock}
-        setDraftOnlyInStock={setDraftOnlyInStock}
+  
         draftPriceMin={draftPriceMin}
         setDraftPriceMin={setDraftPriceMin}
         draftPriceMax={draftPriceMax}
@@ -318,7 +306,6 @@ export default function NewArrivalsPage() {
         {/* ✅ Sort Bar */}
         <FilterSortBar
           category={pageTitle}
-          inStockCount={inStockCount}
           showInitialLoading={showInitialLoading}
           sort={sort}
           setSort={setSort}

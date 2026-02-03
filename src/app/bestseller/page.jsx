@@ -253,7 +253,6 @@ export default function BestsellerPage() {
     <div className="w-full sm:w-auto sm:flex sm:justify-end">
       <FilterSortBar
         category={pageTitle}
-        inStockCount={finalList.length}
         showInitialLoading={showInitialLoading}
         hideFilterButton={true}
         sort={"newest"}
