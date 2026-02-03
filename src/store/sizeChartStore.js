@@ -2,8 +2,25 @@
 
 import { create } from "zustand";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL; 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_URL = `${BASE_URL}/api/size-charts`;
+
+/* ================= tiny helpers ================= */
+const str = (v) => String(v ?? "");
+const isArr = (v) => Array.isArray(v);
+
+const normalizeId = (v) => str(v?._id || v).trim();
+const hasCategory = (chart, categoryId) => {
+  const cats = isArr(chart?.categories) ? chart.categories : [];
+  const target = normalizeId(categoryId);
+  return cats.some((c) => normalizeId(c) === target);
+};
+
+// Universal = categories empty OR missing
+const isUniversal = (chart) => {
+  const cats = isArr(chart?.categories) ? chart.categories : [];
+  return cats.length === 0;
+};
 
 export const useSizeChartStore = create((set, get) => ({
   /* ================= STATE ================= */
@@ -13,8 +30,8 @@ export const useSizeChartStore = create((set, get) => ({
   error: null,
 
   /* ================= HELPERS ================= */
-  setLoading: (val) => set({ loading: val }),
-  setError: (err) => set({ error: err }),
+  setLoading: (val) => set({ loading: !!val }),
+  setError: (err) => set({ error: err ? String(err) : null }),
 
   /* =========================================================
      FETCH ALL SIZE CHARTS
@@ -28,10 +45,11 @@ export const useSizeChartStore = create((set, get) => ({
 
       if (!res.ok) throw new Error(data?.message || "Failed to fetch charts");
 
-      set({ items: data, loading: false });
-      return data;
+      const items = isArr(data) ? data : [];
+      set({ items, loading: false });
+      return items;
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({ error: err?.message || "Failed to fetch charts", loading: false });
       return null;
     }
   },
@@ -53,7 +71,7 @@ export const useSizeChartStore = create((set, get) => ({
       set({ active: data, loading: false });
       return data;
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({ error: err?.message || "Failed to fetch chart", loading: false });
       return null;
     }
   },
@@ -68,20 +86,20 @@ export const useSizeChartStore = create((set, get) => ({
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload || {}),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to create chart");
 
       set((state) => ({
-        items: [data, ...state.items],
+        items: [data, ...(isArr(state.items) ? state.items : [])],
         loading: false,
       }));
 
       return data;
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({ error: err?.message || "Failed to create chart", loading: false });
       return null;
     }
   },
@@ -98,48 +116,65 @@ export const useSizeChartStore = create((set, get) => ({
       const res = await fetch(`${API_URL}/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload || {}),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to update chart");
 
       set((state) => ({
-        items: state.items.map((c) => (c?._id === id ? data : c)),
-        active: state.active?._id === id ? data : state.active,
+        items: (isArr(state.items) ? state.items : []).map((c) =>
+          str(c?._id) === str(id) ? data : c
+        ),
+        active: str(state.active?._id) === str(id) ? data : state.active,
         loading: false,
       }));
 
       return data;
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({ error: err?.message || "Failed to update chart", loading: false });
       return null;
     }
   },
 
+  /* =========================================================
+     FETCH BY CATEGORY (category-specific first, else universal)
+     - Avoids refetch if items already loaded
+  ========================================================= */
   fetchByCategory: async (categoryId) => {
-  if (!categoryId) return null;
+    try {
+      set({ loading: true, error: null });
 
-  try {
-    set({ loading: true, error: null });
+      // 1) Use cached items if available
+      let charts = isArr(get().items) ? get().items : [];
 
-    const res = await fetch(API_URL, { cache: "no-store" });
-    const data = await res.json();
+      // 2) If not loaded yet, fetch once
+      if (charts.length === 0) {
+        const res = await fetch(API_URL, { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message || "Failed to fetch charts");
+        charts = isArr(data) ? data : [];
+        set({ items: charts }); // cache it
+      }
 
-    if (!res.ok) throw new Error(data?.message || "Failed to fetch charts");
+      // 3) Pick category chart first (if categoryId provided)
+      const catId = categoryId ? str(categoryId) : "";
+      const categoryChart = catId
+        ? charts.find((c) => hasCategory(c, catId))
+        : null;
 
-    const chart = (Array.isArray(data) ? data : []).find((c) =>
-      (c?.categories || []).some((cat) => String(cat?._id || cat) === String(categoryId))
-    );
+      // 4) Fallback to universal chart (categories empty)
+      const universalChart = charts.find((c) => isUniversal(c)) || null;
 
-    set({ active: chart || null, loading: false });
-    return chart || null;
-  } catch (err) {
-    set({ error: err.message, loading: false });
-    return null;
-  }
-},
+      const picked = categoryChart || universalChart || null;
 
+      set({ active: picked, loading: false });
+      return picked;
+    } catch (err) {
+      set({ error: err?.message || "Failed to fetch chart", loading: false });
+      return null;
+    }
+  },
 
   /* =========================================================
      DELETE SIZE CHART
@@ -150,22 +185,21 @@ export const useSizeChartStore = create((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-      });
-
+      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to delete chart");
 
       set((state) => ({
-        items: state.items.filter((c) => c?._id !== id),
-        active: state.active?._id === id ? null : state.active,
+        items: (isArr(state.items) ? state.items : []).filter(
+          (c) => str(c?._id) !== str(id)
+        ),
+        active: str(state.active?._id) === str(id) ? null : state.active,
         loading: false,
       }));
 
       return true;
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({ error: err?.message || "Failed to delete chart", loading: false });
       return false;
     }
   },
