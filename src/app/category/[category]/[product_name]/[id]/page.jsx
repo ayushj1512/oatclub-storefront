@@ -920,7 +920,7 @@ const sortedSizes = [...(product.sizes || [])]
       />
 
       <div className="mt-2">
-        <RelatedProducts productId={product.productId} />
+<RelatedProducts currentProduct={normalized?.raw || normalized || product?.raw || product} />
       </div>
 
        <RecentlyViewedProducts />

@@ -457,12 +457,34 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
     set({ items: updated });
     Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
 
-    /* ---------------- CUSTOMER CART ADDS (NEW) ---------------- */
+    /* ---------------- CUSTOMER CART ADDS (UPDATED) ---------------- */
     try {
-      const code = str(builtItem?.productSnapshot?.productCode);
+      const code = str(
+        builtItem?.productSnapshot?.productCode || originalProduct?.productCode || ""
+      ).trim();
+
       if (code) {
-        useCustomerCartStore.getState().addCartAdd(code);
-        console.log("🧾 customerCartAdd recorded (ensureInCartNoDuplicate):", code);
+        useCustomerCartStore.getState().addCartAdd({
+          productCode: code,
+          variantId:
+            str(
+              builtItem?.variantId ||
+                builtItem?.variant?.variantId ||
+                builtItem?.variant?._id ||
+                ""
+            ).trim() || null,
+          size: str(builtItem?.selectedSize || "").trim(),
+        });
+
+        console.log("🧾 customerCartAdd recorded (ensureInCartNoDuplicate):", {
+          productCode: code,
+          variantId:
+            builtItem?.variantId ||
+            builtItem?.variant?.variantId ||
+            builtItem?.variant?._id ||
+            null,
+          size: builtItem?.selectedSize || "",
+        });
       }
     } catch (e) {
       console.warn("⚠️ customerCartAdd failed (ensureInCartNoDuplicate)", e);
@@ -501,9 +523,7 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
       await trackMeta("AddToCart", {
         content_type: "product",
         content_ids: pid ? [String(pid)] : [],
-        contents: pid
-          ? [{ id: String(pid), quantity, item_price: price }]
-          : [],
+        contents: pid ? [{ id: String(pid), quantity, item_price: price }] : [],
         value: price * quantity,
         currency: getCartCurrency(builtItem, originalProduct?.currency || "INR"),
       });
@@ -557,6 +577,7 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
 
 
 
+
 setBuyNow: async ({
   product,
   qty = 1,
@@ -606,17 +627,17 @@ addToCart: async ({
 }) => {
   const built = buildCartItem({ product, qty, variantId, selectedSize, selectedColor });
 
-if (!built) return;
+  if (!built) return;
 
-if (built.__error === "variant_required") {
-  notify?.error?.("Please select size & color");
-  return;
-}
+  if (built.__error === "variant_required") {
+    notify?.error?.("Please select size & color");
+    return;
+  }
 
-if (built.__error === "variant_not_found") {
-  notify?.error?.("Selected variant not available");
-  return;
-}
+  if (built.__error === "variant_not_found") {
+    notify?.error?.("Selected variant not available");
+    return;
+  }
 
   const key = built.__key;
   const curr = get().items || [];
@@ -628,51 +649,55 @@ if (built.__error === "variant_not_found") {
         const pk = p.__key || cartKey(p);
         if (pk !== key) return p;
 
-        const nextQty = Math.max(
-          1,
-          toNum(p.quantity || 1) + toNum(built.quantity || 1)
-        );
+        const nextQty = Math.max(1, toNum(p.quantity || 1) + toNum(built.quantity || 1));
 
         return {
-  ...p,
-  ...built,
+          ...p,
+          ...built,
 
-  // ✅ preserve old compareAtPrice if new one missing
-  compareAtPrice:
-    built.compareAtPrice != null ? built.compareAtPrice : p.compareAtPrice,
+          // ✅ preserve old compareAtPrice if new one missing
+          compareAtPrice: built.compareAtPrice != null ? built.compareAtPrice : p.compareAtPrice,
 
-  // ✅ preserve old price if new one missing
-  price: built.price != null ? built.price : p.price,
+          // ✅ preserve old price if new one missing
+          price: built.price != null ? built.price : p.price,
 
-  quantity: nextQty,
-  __key: pk,
-};
-
+          quantity: nextQty,
+          __key: pk,
+        };
       })
     : [{ ...built }, ...curr];
 
   /* ---------------- SAVE CART ---------------- */
   set({ items: updated });
-Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
 
-  /* ---------------- CUSTOMER CART ADDS (NEW) ---------------- */
+  /* ---------------- CUSTOMER CART ADDS (UPDATED) ---------------- */
   try {
-    const code = str(built?.productSnapshot?.productCode || product?.productCode);
+    const code = str(built?.productSnapshot?.productCode || product?.productCode || "").trim();
+
     if (code) {
-      useCustomerCartStore.getState().addCartAdd(code);
-      console.log("🧾 customerCartAdd recorded (addToCart):", code);
+      useCustomerCartStore.getState().addCartAdd({
+        productCode: code,
+        variantId:
+          str(built?.variantId || built?.variant?.variantId || built?.variant?._id || "").trim() ||
+          null,
+        size: str(built?.selectedSize || "").trim(),
+      });
+
+      console.log("🧾 customerCartAdd recorded (addToCart):", {
+        productCode: code,
+        variantId: built?.variantId || built?.variant?.variantId || built?.variant?._id || null,
+        size: built?.selectedSize || "",
+      });
     }
   } catch (e) {
     console.warn("⚠️ customerCartAdd failed (addToCart)", e);
   }
 
-
-await handleCouponOnCartUpdate();
-
+  await handleCouponOnCartUpdate();
 
   const newQty =
-    updated.find((p) => (p.__key || cartKey(p)) === key)?.quantity ||
-    built.quantity;
+    updated.find((p) => (p.__key || cartKey(p)) === key)?.quantity || built.quantity;
 
   /* ---------------- UI FEEDBACK ---------------- */
   if (exists) {
@@ -682,80 +707,53 @@ await handleCouponOnCartUpdate();
 
     /* ---------------- ANALYTICS ---------------- */
     try {
-  const pid =
-    product?._id ||
-    product?.id ||
-    product?.productId ||
-    built?.productId;
-
-  if (pid) useAnalyticsStore.getState().trackAddToCart(pid);
-} catch (e) {
-  console.warn("📊 Analytics cart_add failed", e);
-}
-
+      const pid = product?._id || product?.id || product?.productId || built?.productId;
+      if (pid) useAnalyticsStore.getState().trackAddToCart(pid);
+    } catch (e) {
+      console.warn("📊 Analytics cart_add failed", e);
+    }
 
     /* ---------------- META (PIXEL + CAPI) ---------------- */
     try {
-      // Safely determine product identifier
       const pid = product?.sku || product?._id || product?.id || built?.productId;
 
-      // Price fallback: built.price > product.price > 0
-      const price =
-        Number(built?.price ?? product?.price ?? product?.salePrice ?? 0) || 0;
-
+      const price = Number(built?.price ?? product?.price ?? product?.salePrice ?? 0) || 0;
       const quantity = Number(built?.quantity ?? qty ?? 1) || 1;
-
-      const value = price * quantity;
 
       await trackMeta("AddToCart", {
         content_type: "product",
         content_ids: pid ? [String(pid)] : [],
-        contents: pid
-          ? [
-              {
-                id: String(pid),
-                quantity,
-                item_price: price,
-              },
-            ]
-          : [],
-        value,
-        currency: "INR", // change if needed
+        contents: pid ? [{ id: String(pid), quantity, item_price: price }] : [],
+        value: price * quantity,
+        currency: "INR",
       });
     } catch (e) {
       console.warn("🧾 Meta AddToCart failed", e);
     }
   }
 
-  /* ---------------- GA4: ADD TO CART (🔥 NEW) ---------------- */
+  /* ---------------- GA4: ADD TO CART ---------------- */
   try {
-    // Track the quantity that was ADDED this time (delta), not full cart qty
     const addQty = Number(built?.quantity ?? qty ?? 1) || 1;
     const price = Number(built?.price ?? product?.price ?? 0) || 0;
-    const value = price * addQty;
-
-   const currency = getCartCurrency(built, product?.currency || "INR");
-
+    const currency = getCartCurrency(built, product?.currency || "INR");
 
     pushEcomEvent("add_to_cart", {
       currency,
-      value,
+      value: price * addQty,
       items: [toGa4Item(built, addQty)],
-
     });
   } catch (e) {
     console.warn("📈 GA4 add_to_cart failed", e);
   }
 
-  /* ------------------------------------------------
-     🛒 ABANDONED CART SNAPSHOT (🔥 IMPORTANT)
-  ------------------------------------------------- */
+  /* ---------------- ABANDONED CART SNAPSHOT ---------------- */
   try {
     const abandoned = useAbandonedCartStore.getState();
     const auth = useAuthStore.getState();
 
     abandoned.upsertCart({
-      cartId: auth.activeCartId || "", // optional but helps linking
+      cartId: auth.activeCartId || "",
       items: updated.map((it) => ({
         productId: it.productId,
         variantId: it.variantId || null,
@@ -770,6 +768,7 @@ await handleCouponOnCartUpdate();
     console.warn("🛒 Abandoned cart snapshot failed (addToCart)", e);
   }
 },
+
 
 
 // tocheckout items for buy now,
@@ -813,11 +812,45 @@ getCheckoutPayload: () => {
 
   set({ items: updated });
   Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-await handleCouponOnCartUpdate();
+
+  await handleCouponOnCartUpdate();
 
   removed ? notify.cartRemoved?.(removed) : notify.info?.(`Removed item`);
 
-  /* ---------- GA4: remove_from_cart (NEW) ---------- */
+  /* ---------------- CUSTOMER CART ADDS REMOVE (UPDATED) ---------------- */
+  try {
+    const code = str(
+      removed?.productSnapshot?.productCode || removed?.productCode || ""
+    ).trim();
+
+    if (code) {
+      useCustomerCartStore.getState().removeCartAdd({
+        productCode: code,
+        variantId:
+          str(
+            removed?.variantId ||
+              removed?.variant?.variantId ||
+              removed?.variant?._id ||
+              ""
+          ).trim() || null,
+        size: str(removed?.selectedSize || "").trim(),
+      });
+
+      console.log("🧾 customerCartAdd removed (removeFromCart):", {
+        productCode: code,
+        variantId:
+          removed?.variantId ||
+          removed?.variant?.variantId ||
+          removed?.variant?._id ||
+          null,
+        size: removed?.selectedSize || "",
+      });
+    }
+  } catch (e) {
+    console.warn("⚠️ customerCartRemove failed (removeFromCart)", e);
+  }
+
+  /* ---------- GA4: remove_from_cart ---------- */
   try {
     if (removed) {
       const rmQty = Number(removed?.quantity ?? 1) || 1;
@@ -836,30 +869,15 @@ await handleCouponOnCartUpdate();
 
   /* ---------- Analytics ---------- */
   try {
-  const a = useAnalyticsStore.getState();
+    const a = useAnalyticsStore.getState();
+    const productId = removed?.productId || str(idOrKey).split("__")[0];
 
-  const productId = removed?.productId || str(idOrKey).split("__")[0];
-
-  a.trackRemoveFromCart
-    ? a.trackRemoveFromCart(productId)
-    : a.trackProductEvent?.({ productId, event: "cart_remove" });
-
-} catch (e) {
-  console.warn("📊 Analytics cart_remove failed", e);
-
-    /* ---------------- CUSTOMER CART ADDS REMOVE (NEW) ---------------- */
-  try {
-    const code = str(removed?.productSnapshot?.productCode);
-    if (code) {
-      useCustomerCartStore.getState().removeCartAdd(code);
-      console.log("🧾 customerCartAdd removed (removeFromCart):", code);
-    }
+    a.trackRemoveFromCart
+      ? a.trackRemoveFromCart(productId)
+      : a.trackProductEvent?.({ productId, event: "cart_remove" });
   } catch (e) {
-    console.warn("⚠️ customerCartRemove failed (removeFromCart)", e);
+    console.warn("📊 Analytics cart_remove failed", e);
   }
-
-}
-
 
   /* ---------- Meta ---------- */
   try {
@@ -884,15 +902,24 @@ await handleCouponOnCartUpdate();
   try {
     const abandoned = useAbandonedCartStore.getState();
     const auth = useAuthStore.getState();
+
     abandoned.upsertCart({
       cartId: auth.activeCartId || "",
-      items: updated.map((it) => ({ productId: it.productId, variantId: it.variantId || null, qty: it.quantity })),
-      context: { lastPageUrl: window.location.href, device: window.innerWidth < 768 ? "mobile" : "desktop" },
+      items: updated.map((it) => ({
+        productId: it.productId,
+        variantId: it.variantId || null,
+        qty: it.quantity,
+      })),
+      context: {
+        lastPageUrl: window.location.href,
+        device: window.innerWidth < 768 ? "mobile" : "desktop",
+      },
     });
   } catch (e) {
     console.warn("🛒 Abandoned snapshot failed (removeFromCart)", e);
   }
 },
+
 
 decreaseQty: (idOrKey, variantId = null) => {
   const curr = get().items || [];

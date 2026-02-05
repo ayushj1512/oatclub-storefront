@@ -81,6 +81,8 @@ const Chip = ({ children }) => (
   </span>
 );
 
+
+
 /* -------------------------------------------
    ✅ Modal Wrapper
 -------------------------------------------- */
@@ -126,6 +128,8 @@ export default function OrderDetailsPage() {
   const [selectedSize, setSelectedSize] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [remarkDraft, setRemarkDraft] = useState("");
+const [savingRemark, setSavingRemark] = useState(false);
 
   /* -------------------------------------------
      ✅ LOAD ORDER + RMAs
@@ -145,6 +149,14 @@ export default function OrderDetailsPage() {
 
     return () => clearInterval(interval);
   }, [authLoading, isAuthenticated, id, fetchOrderById, fetchRmasByOrder, router]);
+
+
+  useEffect(() => {
+  if (order?.customerSupportRemark != null) {
+    setRemarkDraft(String(order.customerSupportRemark));
+  }
+}, [order?._id]);
+
 
   const safeItems = useMemo(() => {
     const list = order?.items || [];
@@ -307,6 +319,28 @@ export default function OrderDetailsPage() {
   }
 };
 
+const saveOrderRemark = async () => {
+  let toastId = null;
+  try {
+    if (!order?._id) return;
+
+    setSavingRemark(true);
+    toastId = toast.loading("Saving remark...");
+
+    await updateOrderStatus(order._id, {
+      customerSupportRemark: remarkDraft,
+    });
+
+    toast.success("Remark saved", { id: toastId });
+    await fetchOrderById(order._id);
+  } catch (e) {
+    toast.error(e?.message || "Failed to save remark", { id: toastId });
+  } finally {
+    setSavingRemark(false);
+  }
+};
+
+
 
 
   /* -------------------------------------------
@@ -361,6 +395,42 @@ export default function OrderDetailsPage() {
             </div>
           </div>
         </div>
+
+   {/* ✅ ORDER REMARK (Customer Support) */}
+<div className="bg-white rounded-3xl shadow-sm p-6">
+  <div className="flex items-center justify-between gap-3">
+    <h2 className="text-lg font-semibold text-gray-900">Order Remark</h2>
+
+    <button
+      onClick={saveOrderRemark}
+      disabled={savingRemark}
+      className="
+        px-4 py-2 rounded-xl text-sm font-semibold
+        bg-black text-white
+        hover:opacity-90
+        disabled:opacity-40
+        transition
+      "
+    >
+      {savingRemark ? "Saving..." : "Save"}
+    </button>
+  </div>
+
+  <textarea
+    value={remarkDraft}
+    onChange={(e) => setRemarkDraft(e.target.value)}
+    placeholder="Add internal remark for this order…"
+    rows={4}
+    className="
+      mt-4 w-full rounded-2xl border border-gray-200
+      bg-gray-50 p-4 text-sm text-gray-900
+      outline-none resize-none
+      focus:bg-white focus:border-black/20
+    "
+  />
+</div>
+
+
 
         {/* RMAs */}
         {Array.isArray(rmas) && rmas.length > 0 ? (

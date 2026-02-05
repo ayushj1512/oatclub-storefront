@@ -5,63 +5,74 @@ import ProductCard from "@/components/common/ProductCard";
 import { useProductStore } from "@/store/productStore";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-export default function RelatedProducts({ productId }) {
+const str = (v) => (v == null ? "" : String(v));
+const uniq = (arr) => Array.from(new Set(arr.filter(Boolean)));
+
+export default function RelatedProducts({ currentProduct }) {
   const scrollRef = useRef(null);
 
+  const fetchProductsByIds = useProductStore((s) => s.fetchProductsByIds);
   const allProducts = useProductStore((s) => s.allProducts) || [];
-  const isLoading = useProductStore((s) => s.isLoading);
-  const fetchProducts = useProductStore((s) => s.fetchProducts);
 
-  const [loadingLocal, setLoadingLocal] = useState(true);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Ensure product list exists (no WC now)
+  const raw = currentProduct?.raw || currentProduct || null;
+
+  const selfId = str(raw?._id || raw?.id || raw?.productId);
+
+  // ✅ your response has: collections[0].products[{product:"id", productCode:"00279"}]
+  const relatedIds = useMemo(() => {
+    const cols = Array.isArray(raw?.collections) ? raw.collections : [];
+    const first = cols[0];
+    const products = Array.isArray(first?.products) ? first.products : [];
+    return uniq(
+      products
+        .map((x) => str(x?.product))
+        .filter((id) => id && id !== selfId)
+    );
+  }, [raw, selfId]);
+
   useEffect(() => {
     let mounted = true;
+
     (async () => {
+      setLoading(true);
+
       try {
-        if (!allProducts.length) await fetchProducts?.();
+        // ✅ Priority 1: fetch by collection product IDs
+        if (relatedIds.length && typeof fetchProductsByIds === "function") {
+          const fetched = await fetchProductsByIds(relatedIds, {
+            mergeIntoAllProducts: true,
+          });
+
+          if (!mounted) return;
+
+          setItems(Array.isArray(fetched) ? fetched : []);
+          return;
+        }
+
+        // ✅ Fallback: if backend didn’t send collection list,
+        // show anything from cache except self (better than blank)
+        const fallback = (allProducts || []).filter(
+          (p) => str(p?.id || p?.productId) && str(p?.id || p?.productId) !== selfId
+        );
+
+        if (!mounted) return;
+        setItems(fallback.slice(0, 20));
+      } catch (e) {
+        if (!mounted) return;
+        console.error("RelatedProducts failed:", e);
+        setItems([]);
       } finally {
-        if (mounted) setLoadingLocal(false);
+        if (mounted) setLoading(false);
       }
     })();
+
     return () => {
       mounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allProducts.length, productId]);
-
-  const related = useMemo(() => {
-    if (!allProducts.length || !productId) return [];
-    const current = allProducts.find((p) => String(p?.productId || p?.id) === String(productId));
-    if (!current) return [];
-
-    const currentCat = String(current?.category || "").toLowerCase();
-    const currentSub = String(current?.subcategoryId || "");
-    const currentTags = Array.isArray(current?.tags) ? current.tags.map((t) => String(t).toLowerCase()) : [];
-
-    const score = (p) => {
-      let s = 0;
-      if (String(p?.category || "").toLowerCase() && String(p?.category || "").toLowerCase() === currentCat) s += 3;
-      if (currentSub && String(p?.subcategoryId || "") === currentSub) s += 2;
-      const tags = Array.isArray(p?.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
-      if (tags.length && currentTags.length) {
-        const set = new Set(tags);
-        const overlap = currentTags.reduce((acc, t) => (set.has(t) ? acc + 1 : acc), 0);
-        s += Math.min(3, overlap); // cap overlap points
-      }
-      return s;
-    };
-
-    const list = allProducts
-      .filter((p) => String(p?.productId || p?.id) !== String(productId))
-      .map((p) => ({ p, s: score(p) }))
-      .filter((x) => x.s > 0)
-      .sort((a, b) => b.s - a.s)
-      .slice(0, 20)
-      .map((x) => x.p);
-
-    return list;
-  }, [allProducts, productId]);
+  }, [relatedIds.join(","), fetchProductsByIds, selfId]); // keep stable
 
   const scroll = (direction) => {
     if (!scrollRef.current) return;
@@ -72,13 +83,14 @@ export default function RelatedProducts({ productId }) {
 
   const CARD_WRAP = "w-[160px] md:w-[210px] flex-shrink-0 snap-start";
   const CARD_HEIGHT = "h-[320px] md:h-[380px]";
-  const loading = Boolean(loadingLocal || isLoading);
 
   if (loading) {
     return (
       <section className="mt-10 px-3 md:px-6 w-full relative flex flex-col">
         <div className="flex justify-between items-center mb-3">
-          <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Similar Styles You’ll Love</h2>
+          <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
+            You’ll Love These
+          </h2>
         </div>
         <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -91,18 +103,28 @@ export default function RelatedProducts({ productId }) {
     );
   }
 
-  if (!related.length) return null;
+  if (!items.length) return null;
 
   return (
     <section className="mt-10 px-3 md:px-6 w-full relative flex flex-col">
       <div className="flex justify-between items-center mb-3">
-        <h2 className="text-xl md:text-2xl font-semibold text-gray-900">You’ll Love These</h2>
+        <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
+          You’ll Love These
+        </h2>
 
         <div className="hidden md:flex gap-2">
-          <button onClick={() => scroll("left")} className="p-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition" aria-label="Scroll left">
+          <button
+            onClick={() => scroll("left")}
+            className="p-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition"
+            aria-label="Scroll left"
+          >
             <ChevronLeft className="w-4 h-4 text-gray-700" />
           </button>
-          <button onClick={() => scroll("right")} className="p-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition" aria-label="Scroll right">
+          <button
+            onClick={() => scroll("right")}
+            className="p-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition"
+            aria-label="Scroll right"
+          >
             <ChevronRight className="w-4 h-4 text-gray-700" />
           </button>
         </div>
@@ -111,10 +133,12 @@ export default function RelatedProducts({ productId }) {
       <div className="pointer-events-none absolute top-0 left-0 h-full w-6 bg-gradient-to-r from-white to-transparent" />
       <div className="pointer-events-none absolute top-0 right-0 h-full w-6 bg-gradient-to-l from-white to-transparent" />
 
-      <div ref={scrollRef} className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory scroll-smooth pb-2">
-        {related.map((p) => (
-          <div key={String(p?.productId || p?.id)} className={`${CARD_WRAP} ${CARD_HEIGHT}`}>
-            {/* ProductCard can keep using product.id for routing; we provide both anyway in store normalize */}
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory scroll-smooth pb-2"
+      >
+        {items.map((p) => (
+          <div key={str(p?.id || p?.productId)} className={`${CARD_WRAP} ${CARD_HEIGHT}`}>
             <ProductCard product={p} />
           </div>
         ))}
