@@ -9,11 +9,19 @@ import { useRouter } from "next/navigation";
 import ProfileMenu from "@/components/header/ProfileMenu";
 import WishlistButton from "@/components/header/WishlistButton";
 import CartButton from "@/components/header/CartButton";
-import { useCategoryStore } from "@/store/categoryStore";
 import TopbarHeadline from "@/components/layout/TopbarHeadline";
+
+import { useCategoryStore } from "@/store/categoryStore";
+import { useCollectionStore } from "@/store/collectionStore";
 
 const LOGO_URL =
   "https://res.cloudinary.com/djtva6hec/image/upload/v1764916639/miray/media/k0yvgu5m0ij1husm3ugh.png";
+
+const toSentence = (s) =>
+  String(s ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (m) => m.toUpperCase());
 
 export default function DesktopHeader() {
   const [open, setOpen] = useState(false);
@@ -23,12 +31,19 @@ export default function DesktopHeader() {
   const dropdownRef = useRef(null);
   const fetchedOnceRef = useRef(false);
 
-  // ✅ separate selectors
+  // ✅ categories
   const categories = useCategoryStore((s) => s.categories);
-  const loading = useCategoryStore((s) => s.loading);
-  const error = useCategoryStore((s) => s.error);
+  const catLoading = useCategoryStore((s) => s.loading);
+  const catError = useCategoryStore((s) => s.error);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
-  const clearError = useCategoryStore((s) => s.clearError);
+  const clearCatError = useCategoryStore((s) => s.clearError);
+
+  // ✅ collections
+  const collections = useCollectionStore((s) => s.items);
+  const colLoading = useCollectionStore((s) => s.loading);
+  const colError = useCollectionStore((s) => s.error);
+  const fetchCollections = useCollectionStore((s) => s.fetchAll);
+  const clearColError = useCollectionStore((s) => s.clearError);
 
   useEffect(() => {
     const TOPBAR_HEIGHT = 36;
@@ -60,21 +75,35 @@ export default function DesktopHeader() {
     if (fetchedOnceRef.current) return;
     fetchedOnceRef.current = true;
 
-    clearError?.();
-    fetchCategories({ active: true, parent: "null" });
+    clearCatError?.();
+    clearColError?.();
+    fetchCategories?.({ active: true, parent: "null" });
+    fetchCollections?.({ force: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const menuCats = useMemo(() => {
+  const cats = useMemo(() => {
     const list = Array.isArray(categories) ? categories : [];
     return list
       .map((c) => ({
         key: c?._id || c?.slug || c?.name,
-        label: c?.name || c?.slug || "Category",
+        label: toSentence(c?.name || c?.slug || "Category"),
         slug: String(c?.slug || "").trim(),
       }))
-      .filter((c) => c.slug);
+      .filter((x) => x.slug);
   }, [categories]);
+
+  const cols = useMemo(() => {
+    const list = Array.isArray(collections) ? collections : [];
+    return list
+      .filter((c) => c?.isActive !== false)
+      .map((c) => ({
+        key: c?._id || c?.slug || c?.name,
+        label: toSentence(c?.name || c?.slug || "Collection"),
+        slug: String(c?.slug || "").trim(),
+      }))
+      .filter((x) => x.slug);
+  }, [collections]);
 
   return (
     <header
@@ -84,15 +113,13 @@ export default function DesktopHeader() {
     >
       <TopbarHeadline />
 
-      {/* Main Row */}
       <div className="relative w-full flex items-center px-10 py-4">
         {/* LEFT */}
         <div className="flex items-center gap-3">
-          {/* Menu Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
-              aria-label="Open categories"
+              aria-label="Open menu"
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
               className="inline-flex items-center justify-center rounded-full p-2 text-black transition hover:bg-black/5 active:scale-[0.98]"
@@ -101,54 +128,94 @@ export default function DesktopHeader() {
             </button>
 
             {open && (
-              <div className="absolute left-0 top-12 z-50 w-[520px] max-w-[80vw] rounded-2xl bg-white p-3 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.35)] ring-1 ring-black/10">
-                {loading && (
-                  <p className="px-2 py-2 text-sm text-black/60">
-                    Loading categories…
+              <div className="absolute left-0 top-12 z-50 w-[600px] max-w-[85vw] rounded-2xl bg-white p-3 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.35)] ring-1 ring-black/10">
+                {/* ✅ Collections first (black heading) */}
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-[13px] font-semibold text-black">
+                    Collections
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="text-[12px] text-black/60 hover:text-black"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {colLoading && (
+                  <p className="px-1 py-2 text-sm text-black/60">
+                    Loading collections…
+                  </p>
+                )}
+                {colError && (
+                  <p className="px-1 py-2 text-sm text-black/60">{colError}</p>
+                )}
+                {!colLoading && !colError && cols.length > 0 && (
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {cols.map((x) => (
+                      <Link
+                        key={x.key}
+                        href={`/collection/${x.slug}`}
+                        onClick={() => setOpen(false)}
+                        className="h-10 w-full rounded-xl bg-black text-white px-3 text-[13px] font-medium flex items-center justify-center whitespace-nowrap overflow-hidden text-ellipsis hover:opacity-90 transition"
+                        title={x.label}
+                      >
+                        {x.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {!colLoading && !colError && !cols.length && (
+                  <p className="px-1 py-2 text-sm text-black/60">
+                    No collections found.
                   </p>
                 )}
 
-                {error && (
-                  <p className="px-2 py-2 text-sm text-black/60">{error}</p>
+                {/* divider */}
+                <div className="my-3 h-px w-full bg-black/10" />
+
+                {/* ✅ Categories */}
+                <p className="px-1 text-[13px] font-semibold text-black">
+                  Categories
+                </p>
+
+                {catLoading && (
+                  <p className="px-1 py-2 text-sm text-black/60">
+                    Loading categories…
+                  </p>
+                )}
+                {catError && (
+                  <p className="px-1 py-2 text-sm text-black/60">{catError}</p>
                 )}
 
-                {!loading && !error && menuCats.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {menuCats.map((c) => (
+                {!catLoading && !catError && cats.length > 0 && (
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {cats.map((x) => (
                       <Link
-                        key={c.key}
-                        href={`/category/${c.slug}`}
+                        key={x.key}
+                        href={`/category/${x.slug}`}
                         onClick={() => setOpen(false)}
-                        className="
-                          h-10 w-full
-                          rounded-xl bg-black/[0.03]
-                          px-3 text-[13px] font-medium text-black/80
-                          flex items-center justify-center
-                          whitespace-nowrap overflow-hidden text-ellipsis
-                          hover:bg-black/[0.06] hover:text-black
-                          transition
-                        "
-                        title={c.label}
+                        className="h-10 w-full rounded-xl bg-black/[0.03] px-3 text-[13px] font-medium text-black/80 flex items-center justify-center whitespace-nowrap overflow-hidden text-ellipsis hover:bg-black/[0.06] hover:text-black transition"
+                        title={x.label}
                       >
-                        {c.label}
+                        {x.label}
                       </Link>
                     ))}
                   </div>
                 )}
 
-                {!loading && !error && !menuCats.length && (
-                  <p className="px-2 py-2 text-sm text-black/60">
+                {!catLoading && !catError && !cats.length && (
+                  <p className="px-1 py-2 text-sm text-black/60">
                     No categories found.
                   </p>
                 )}
               </div>
             )}
           </div>
-
-         
         </div>
 
-        {/* CENTER LOGO (true center) */}
+        {/* CENTER LOGO */}
         <div className="absolute left-1/2 -translate-x-1/2">
           <Link href="/" aria-label="Go to homepage" className="flex items-center">
             <div className="relative h-10 w-32">
@@ -166,15 +233,14 @@ export default function DesktopHeader() {
 
         {/* RIGHT */}
         <div className="ml-auto flex items-center gap-7 text-black">
-           {/* Search Icon -> Navigate */}
-        <button
-  type="button"
-  onClick={() => router.push("/search")}
-  aria-label="Search"
-  className="inline-flex items-center justify-center rounded-full p-2 text-black transition hover:bg-black/5 active:scale-[0.98]"
->
-  <Search className="h-6 w-6" />
-</button>
+          <button
+            type="button"
+            onClick={() => router.push("/search")}
+            aria-label="Search"
+            className="inline-flex items-center justify-center rounded-full p-2 text-black transition hover:bg-black/5 active:scale-[0.98]"
+          >
+            <Search className="h-6 w-6" />
+          </button>
 
           <WishlistButton />
           <CartButton />
