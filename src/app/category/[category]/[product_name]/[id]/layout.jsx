@@ -1,6 +1,8 @@
 // src/app/category/[category]/[product_name]/[id]/layout.jsx
-// ✅ Fix ONLY the Meta warning: title should be <= 65 chars
-// ✅ We cap: metadata.title, OG title, Twitter title, AND schema name
+// ✅ Meta Commerce: Product JSON-LD + metadata
+// ✅ Title <= 65 chars (fix warning)
+// ✅ Default availability ALWAYS InStock (your request)
+// ✅ Server-only (no hydration issues)
 
 const SITE = "https://mirayfashions.com";
 const BRAND_NAME = "Miray Fashions";
@@ -16,11 +18,8 @@ const cap = (txt, n) => {
   return x.length > n ? `${x.slice(0, Math.max(0, n - 3)).trim()}...` : x;
 };
 
-// ✅ Meta wants the *Product title* <= 65 chars (not the " | Miray Fashions" part)
+// ✅ Meta warning: product title <= 65 chars
 const productTitle65 = (name) => cap(name, 65);
-
-// ✅ If you still want brand in SERP, keep it short overall (optional)
-const pageTitle65 = (name) => cap(`${name} | ${BRAND_NAME}`, 65);
 
 async function getJson(url) {
   try {
@@ -32,6 +31,7 @@ async function getJson(url) {
   }
 }
 
+// ✅ Works for Mongo _id OR productCode
 async function fetchProductSmart(id) {
   const base = s(process.env.NEXT_PUBLIC_API_URL).replace(/\/$/, "");
   if (!base) return null;
@@ -51,17 +51,23 @@ async function fetchProductSmart(id) {
   return null;
 }
 
-function buildSchema({ product, url, product_name }) {
-  if (!product) return null;
-
-  const rawName =
+function pickName(product, product_name) {
+  const raw =
     product?.name ||
     product?.title ||
     product?.productName ||
     (product?.slug ? toTitle(product.slug) : "") ||
     (product_name ? toTitle(product_name) : "") ||
     "Product";
+  return { raw, name65: productTitle65(raw) };
+}
 
+function buildSchema({ product, url, product_name }) {
+  if (!product) return null;
+
+  const { raw, name65 } = pickName(product, product_name);
+
+  // ✅ Meta required "id" equivalent
   const pid = product?.productId || product?._id || product?.id || product?.productCode || "";
 
   const imgs = Array.isArray(product?.images) ? product.images.filter(Boolean).map(String) : [];
@@ -72,14 +78,13 @@ function buildSchema({ product, url, product_name }) {
   const priceNum = Number(product?.price || 0);
   const price = Number.isFinite(priceNum) && priceNum > 0 ? String(priceNum) : "0";
 
-  const stock = Number(product?.stock || 0);
-  const inStock = Boolean(product?.isInStock ?? (stock > 0));
-  const availability = inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
+  // ✅ Your request: ALWAYS mark in stock
+  const availability = "https://schema.org/InStock";
 
   return {
     "@context": "https://schema.org/",
     "@type": "Product",
-    name: productTitle65(rawName), // ✅ <= 65
+    name: name65, // ✅ <= 65
     image: imageList,
     description: cap(product?.shortDescription || product?.description || "", 5000),
     sku: s(pid),
@@ -90,7 +95,7 @@ function buildSchema({ product, url, product_name }) {
       url,
       priceCurrency: currency,
       price,
-      availability,
+      availability, // ✅ always InStock
       itemCondition: "https://schema.org/NewCondition",
     },
   };
@@ -100,15 +105,7 @@ export async function generateMetadata({ params }) {
   const { id, category, product_name } = await params;
   const product = await fetchProductSmart(id);
 
-  const rawName =
-    product?.name ||
-    product?.title ||
-    product?.productName ||
-    (product?.slug ? toTitle(product.slug) : "") ||
-    (product_name ? toTitle(product_name) : "") ||
-    "Product";
-
-  const name65 = productTitle65(rawName); // ✅ <= 65
+  const { raw, name65 } = pickName(product || {}, product_name);
 
   const url = `${SITE}/category/${s(category)}/${product?.slug || product_name}/${s(id)}`;
   const image =
@@ -119,11 +116,10 @@ export async function generateMetadata({ params }) {
   const description =
     product?.shortDescription ||
     (product?.description ? cap(product.description, 160) : "") ||
-    `Shop ${rawName} online at ${BRAND_NAME}.`;
+    `Shop ${raw} online at ${BRAND_NAME}.`;
 
   return {
-    // ✅ IMPORTANT: keep this <= 65 to satisfy Meta's title check
-    title: name65,
+    title: name65, // ✅ <= 65 (Meta warning fix)
     description,
     alternates: { canonical: url },
     openGraph: {
@@ -159,11 +155,9 @@ export default async function ProductLayout({ children, params }) {
 
   return (
     <>
+      {/* ✅ Server rendered: no hydration mismatch */}
       {schema ? (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-        />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
       ) : null}
       {children}
     </>
