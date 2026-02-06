@@ -1,102 +1,79 @@
 // src/app/sitemap.js
-// Served at: https://mirayfashions.com/sitemap.xml
+// ✅ Sitemap built by crawling /all-clothing pages (server-side)
+// ✅ Works even if backend API is gone
+// ✅ Meta Commerce compatible
 
-const SITE_URL = "https://mirayfashions.com";
+const SITE = "https://www.mirayfashions.com";
 
-async function safeJson(url) {
+async function fetchHTML(url) {
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } }); // cache 1h
-    if (!res.ok) return null;
-    return await res.json();
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return "";
+    return await res.text();
   } catch {
-    return null;
+    return "";
   }
 }
 
-function slugify(input) {
-  if (!input) return "";
-  return String(input)
-    .toLowerCase()
-    .trim()
-    // remove quotes etc
-    .replace(/['"]/g, "")
-    // replace non-alphanum with hyphen
-    .replace(/[^a-z0-9]+/g, "-")
-    // trim hyphens
-    .replace(/^-+|-+$/g, "");
-}
+// ✅ Extract product URLs from HTML
+function extractProductUrls(html) {
+  const urls = new Set();
 
-function pickPrimaryCategorySlug(product) {
-  // WooCommerce commonly provides categories: [{ id, name, slug }]
-  const cats = product?.categories;
-  if (Array.isArray(cats) && cats.length) {
-    // Prefer first category; if you have a "primary category" concept, we can improve logic.
-    const first = cats[0];
-    return first?.slug || slugify(first?.name);
+  // matches: /category/xxx/yyy/123
+  const regex = /href="(\/category\/[^"]+)"/g;
+  let match;
+
+  while ((match = regex.exec(html)) !== null) {
+    const path = match[1];
+    if (path.includes("/category/")) {
+      urls.add(`${SITE}${path}`);
+    }
   }
-  // fallback
-  return "all-clothing";
+
+  return Array.from(urls);
 }
 
 export default async function sitemap() {
   const now = new Date();
 
-  // 1) Static public routes (include)
-  // NOTE: we intentionally DO NOT include /products in sitemap now,
-  // because you're choosing the category-based product URL as canonical.
+  /* ---------- Static pages ---------- */
   const staticRoutes = [
     "/",
-    "/about",
     "/all-clothing",
+    "/new-arrivals",
     "/bestseller",
-    "/blog",
-    "/cancellation-and-refund",
     "/collections",
     "/contact",
-    "/exchange-and-return",
-    "/faq",
-    "/mission",
-    "/new-arrivals",
-    "/privacy-policy",
-    "/recommendation",
+    "/support",
     "/returns",
     "/shipping-policy",
-    "/support",
+    "/privacy-policy",
     "/terms-and-conditions",
-  ].map((path) => ({
-    url: `${SITE_URL}${path}`,
+  ].map((p) => ({
+    url: `${SITE}${p}`,
     lastModified: now,
   }));
 
-  // 2) Dynamic: Products -> /category/[category]/[product_name]/[id]
-  const products = await safeJson(`${SITE_URL}/api/wc/products`);
+  /* ---------- Crawl all-clothing pagination ---------- */
+  const productUrls = new Set();
+  const MAX_PAGES = 20; // enough for 285 products
 
-  const productRoutes = Array.isArray(products)
-    ? products
-        .filter((p) => p && p.id)
-        .map((p) => {
-          const id = p.id;
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const html = await fetchHTML(`${SITE}/all-clothing?page=${page}`);
+    if (!html) break;
 
-          // product_name segment:
-          // Prefer WooCommerce slug; fallback to name slugified
-          const productName = p.slug ? slugify(p.slug) : slugify(p.name);
+    const urls = extractProductUrls(html);
+    if (urls.length === 0) break; // ✅ no more products
 
-          // category segment:
-          const categorySlug = pickPrimaryCategorySlug(p);
+    urls.forEach((u) => productUrls.add(u));
+  }
 
-          // lastmod:
-          const lastmodRaw =
-            p.date_modified || p.modified || p.updated_at || p.updatedAt || p.date_created;
-          const lastModified = lastmodRaw ? new Date(lastmodRaw) : now;
+  const productRoutes = Array.from(productUrls).map((url) => ({
+    url,
+    lastModified: now,
+  }));
 
-          return {
-            url: `${SITE_URL}/category/${categorySlug}/${productName}/${id}`,
-            lastModified,
-          };
-        })
-        // safety: remove empty productName just in case
-        .filter((x) => !x.url.endsWith("//"))
-    : [];
+  console.log("🧭 Sitemap products:", productRoutes.length);
 
   return [...staticRoutes, ...productRoutes];
 }
