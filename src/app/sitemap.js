@@ -1,42 +1,74 @@
 // src/app/sitemap.js
-// ✅ Sitemap built by crawling /all-clothing pages (server-side)
-// ✅ Works even if backend API is gone
-// ✅ Meta Commerce compatible
+// ✅ Uses backend: https://error.mirayfashions.com/api/products
+// ✅ Fetches ALL pages (total/pages) and returns ALL product URLs
+// ✅ Meta will discover all products via sitemap
+// ✅ No hydration issues (server-only)
 
-const SITE = "https://www.mirayfashions.com";
+const SITE_URL = "https://www.mirayfashions.com";
+const API_BASE = "https://error.mirayfashions.com";
 
-async function fetchHTML(url) {
+async function safeJson(url) {
   try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return "";
-    return await res.text();
+    const res = await fetch(url, { cache: "no-store" }); // ✅ crawl-friendly
+    if (!res.ok) return null;
+    return await res.json();
   } catch {
-    return "";
+    return null;
   }
 }
 
-// ✅ Extract product URLs from HTML
-function extractProductUrls(html) {
-  const urls = new Set();
+function slugify(input) {
+  if (!input) return "";
+  return String(input)
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
-  // matches: /category/xxx/yyy/123
-  const regex = /href="(\/category\/[^"]+)"/g;
-  let match;
+function pickCategorySlug(p) {
+  // your backend: categories: ["trousers"] OR could be objects in some cases
+  const cats = p?.categories;
+  if (Array.isArray(cats) && cats.length) {
+    const first = cats[0];
+    if (typeof first === "string") return slugify(first) || "all-clothing";
+    return slugify(first?.slug || first?.name) || "all-clothing";
+  }
+  return "all-clothing";
+}
 
-  while ((match = regex.exec(html)) !== null) {
-    const path = match[1];
-    if (path.includes("/category/")) {
-      urls.add(`${SITE}${path}`);
-    }
+async function fetchAllProducts() {
+  const out = [];
+  const LIMIT = 20; // your API seems to paginate (pages=15). Keep safe.
+  const first = await safeJson(`${API_BASE}/api/products?page=1&limit=${LIMIT}`);
+  if (!first) return out;
+
+  const pages = Number(first?.pages || 1);
+  const firstBatch = Array.isArray(first?.products) ? first.products : [];
+  out.push(...firstBatch);
+
+  for (let page = 2; page <= pages; page++) {
+    const data = await safeJson(`${API_BASE}/api/products?page=${page}&limit=${LIMIT}`);
+    const batch = Array.isArray(data?.products) ? data.products : [];
+    if (batch.length === 0) break;
+    out.push(...batch);
   }
 
-  return Array.from(urls);
+  // ✅ de-dupe by _id
+  const seen = new Set();
+  return out.filter((p) => {
+    const id = String(p?._id || "");
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
 export default async function sitemap() {
   const now = new Date();
 
-  /* ---------- Static pages ---------- */
+  // ✅ static routes (optional)
   const staticRoutes = [
     "/",
     "/all-clothing",
@@ -49,31 +81,23 @@ export default async function sitemap() {
     "/shipping-policy",
     "/privacy-policy",
     "/terms-and-conditions",
-  ].map((p) => ({
-    url: `${SITE}${p}`,
-    lastModified: now,
-  }));
+  ].map((path) => ({ url: `${SITE_URL}${path}`, lastModified: now }));
 
-  /* ---------- Crawl all-clothing pagination ---------- */
-  const productUrls = new Set();
-  const MAX_PAGES = 20; // enough for 285 products
+  const products = await fetchAllProducts();
 
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const html = await fetchHTML(`${SITE}/all-clothing?page=${page}`);
-    if (!html) break;
+  const productRoutes = products.map((p) => {
+    const id = String(p?._id || "");
+    const category = pickCategorySlug(p);
+    const slug = slugify(p?.slug || p?.title || "product");
 
-    const urls = extractProductUrls(html);
-    if (urls.length === 0) break; // ✅ no more products
+    const lastmodRaw = p?.updatedAt || p?.createdAt || p?.publishAt;
+    const lastModified = lastmodRaw ? new Date(lastmodRaw) : now;
 
-    urls.forEach((u) => productUrls.add(u));
-  }
-
-  const productRoutes = Array.from(productUrls).map((url) => ({
-    url,
-    lastModified: now,
-  }));
-
-  console.log("🧭 Sitemap products:", productRoutes.length);
+    return {
+      url: `${SITE_URL}/category/${category}/${slug}/${id}`,
+      lastModified,
+    };
+  });
 
   return [...staticRoutes, ...productRoutes];
 }
