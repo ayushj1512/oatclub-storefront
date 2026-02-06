@@ -1,134 +1,170 @@
 // src/app/category/[category]/[product_name]/[id]/layout.jsx
+// ✅ Server layout: inject Product JSON-LD in initial HTML (Meta Commerce friendly)
+// ✅ Avoid hydration issues: no window/navigator, no client hooks, pure server logic
 
-export async function generateMetadata({ params }) {
-  const { id, category, product_name } = await params;
+const SITE = "https://mirayfashions.com";
+const BRAND_NAME = "Miray Fashions";
 
+const s = (v) => (v == null ? "" : String(v));
+const isObjectId = (v) => /^[a-f\d]{24}$/i.test(s(v));
+
+const titleFromSlug = (slug = "") =>
+  decodeURIComponent(s(slug)).replace(/-/g, " ").trim().replace(/\b\w/g, (c) => c.toUpperCase());
+
+const cap = (txt, n) => {
+  const x = s(txt).trim();
+  return x.length > n ? `${x.slice(0, Math.max(0, n - 3)).trim()}...` : x;
+};
+
+async function getJson(url) {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/products/${id}`,
-      { cache: "no-store" }
-    );
-
-    if (!res.ok) return fallbackMetadata(category, product_name, id);
-
-    const product = await res.json();
-
-    // ✅ Safe Product Name (No undefined)
-    const safeName =
-      product?.name ||
-      product?.title ||
-      product?.productName ||
-      (product?.slug ? slugToTitle(product.slug) : "") ||
-      (product_name ? slugToTitle(product_name) : "") ||
-      "Product";
-
-    const title = `${safeName} | Miray Fashions`;
-
-    const description =
-      product?.shortDescription ||
-      product?.description?.slice(0, 160) ||
-      `Shop ${safeName} online at Miray Fashions.`;
-
-    const image =
-      product?.thumbnail ||
-      product?.images?.[0] ||
-      "https://mirayfashions.com/og-default.jpg";
-
-    // ✅ Canonical URL (same as your folder route)
-    const url = `https://mirayfashions.com/category/${category}/${product?.slug || product_name}/${id}`;
-
-    return {
-      title,
-      description,
-
-      alternates: {
-        canonical: url,
-      },
-
-      openGraph: {
-        title, // ✅ safe title
-        description,
-        url,
-        siteName: "Miray Fashions",
-        type: "website",
-        locale: "en_IN",
-        images: [
-          {
-            url: image,
-            width: 1200,
-            height: 630,
-            alt: safeName,
-          },
-        ],
-      },
-
-      twitter: {
-        card: "summary_large_image",
-        title, // ✅ safe title
-        description,
-        images: [image],
-      },
-
-      robots: {
-        index: product?.isActive !== false,
-        follow: true,
-        googleBot: {
-          index: product?.isActive !== false,
-          follow: true,
-        },
-      },
-    };
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+    return await res.json();
   } catch {
-    return fallbackMetadata(category, product_name, id);
+    return null;
   }
 }
 
-// ✅ Fallback metadata should also NOT show undefined
-function fallbackMetadata(category, product_name, id) {
-  const safeCategory = category ? slugToTitle(category) : "Category";
-  const safeProduct = product_name ? slugToTitle(product_name) : "Product";
+// ✅ Tries multiple endpoints so it works even if backend differs
+async function fetchProductSmart(id) {
+  const base = s(process.env.NEXT_PUBLIC_API_URL).replace(/\/$/, "");
+  if (!base) return null;
 
-  const title = `${safeProduct} | Miray Fashions`;
-  const description = `Shop ${safeProduct} in ${safeCategory} online at Miray Fashions.`;
+  const candidates = isObjectId(id)
+    ? [
+        `${base}/api/products/${id}`,
+        `${base}/api/product/${id}`,
+        `${base}/api/v1/products/${id}`,
+      ]
+    : [
+        // ✅ If you have a "by code" route, keep these
+        `${base}/api/products/code/${encodeURIComponent(id)}`,
+        `${base}/api/product/code/${encodeURIComponent(id)}`,
+        // fallback (some backends accept code on same route)
+        `${base}/api/products/${encodeURIComponent(id)}`,
+      ];
 
-  const url = `https://mirayfashions.com/category/${category || ""}/${product_name || ""}/${id || ""}`;
+  for (const u of candidates) {
+    const data = await getJson(u);
+    if (data) return data;
+  }
+  return null;
+}
+
+function buildSchema({ product, url, product_name }) {
+  if (!product) return null;
+
+  // ✅ Safe title (Meta warning: keep <= 65 chars in schema)
+  const name =
+    product?.name ||
+    product?.title ||
+    product?.productName ||
+    (product?.slug ? titleFromSlug(product.slug) : "") ||
+    (product_name ? titleFromSlug(product_name) : "") ||
+    "Product";
+
+  // ✅ ID: Meta requires unique identifier (use productId/_id/productCode)
+  const pid = product?.productId || product?._id || product?.id || product?.productCode || "";
+
+  const imgs = Array.isArray(product?.images) ? product.images.filter(Boolean).map(String) : [];
+  const image = product?.thumbnail || imgs[0] || `${SITE}/og-default.jpg`;
+  const imageList = Array.from(new Set([image, ...imgs])).slice(0, 10);
+
+  const currency = product?.currency || "INR";
+  const priceNum = Number(product?.price || 0);
+  const price = Number.isFinite(priceNum) && priceNum > 0 ? String(priceNum) : "0";
+
+  const stock = Number(product?.stock || 0);
+  const inStock = Boolean(product?.isInStock ?? (stock > 0));
+  const availability = inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
 
   return {
-    title,
-    description,
-    alternates: {
-      canonical: url,
-    },
-    robots: {
-      index: true,
-      follow: true,
-    },
-    openGraph: {
-      title,
-      description,
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    name: cap(name, 65),
+    image: imageList,
+    description: cap(product?.shortDescription || product?.description || "", 5000),
+    sku: s(pid),
+    productID: s(pid),
+    brand: { "@type": "Brand", name: BRAND_NAME },
+    offers: {
+      "@type": "Offer",
       url,
-      siteName: "Miray Fashions",
-      type: "website",
-      images: [
-        {
-          url: "https://mirayfashions.com/og-default.jpg",
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
+      priceCurrency: currency,
+      price,
+      availability,
+      itemCondition: "https://schema.org/NewCondition",
     },
   };
 }
 
-// ✅ Converts: "blue-saree" -> "Blue Saree"
-function slugToTitle(slug = "") {
-  return decodeURIComponent(String(slug))
-    .replace(/-/g, " ")
-    .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+// ✅ Metadata stays server-side (no hydration risk)
+export async function generateMetadata({ params }) {
+  const { id, category, product_name } = await params;
+  const product = await fetchProductSmart(id);
+
+  const name =
+    product?.name ||
+    product?.title ||
+    product?.productName ||
+    (product?.slug ? titleFromSlug(product.slug) : "") ||
+    (product_name ? titleFromSlug(product_name) : "") ||
+    "Product";
+
+  const url = `${SITE}/category/${s(category)}/${product?.slug || product_name}/${s(id)}`;
+  const image =
+    product?.thumbnail ||
+    (Array.isArray(product?.images) ? product.images[0] : "") ||
+    `${SITE}/og-default.jpg`;
+
+  const title = `${name} | ${BRAND_NAME}`;
+  const description =
+    product?.shortDescription ||
+    (product?.description ? cap(product.description, 160) : "") ||
+    `Shop ${name} online at ${BRAND_NAME}.`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: BRAND_NAME,
+      type: "website",
+      locale: "en_IN",
+      images: [{ url: image, width: 1200, height: 630, alt: name }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
+    robots: {
+      index: product?.isActive !== false,
+      follow: true,
+      googleBot: { index: product?.isActive !== false, follow: true },
+    },
+  };
 }
 
-export default function ProductLayout({ children }) {
-  return children;
+// ✅ Server Layout: inject JSON-LD in initial HTML so Meta crawler picks it up
+export default async function ProductLayout({ children, params }) {
+  const { id, category, product_name } = await params;
+  const product = await fetchProductSmart(id);
+
+  const url = `${SITE}/category/${s(category)}/${product?.slug || product_name}/${s(id)}`;
+  const schema = buildSchema({ product, url, product_name });
+
+  return (
+    <>
+      {/* ✅ No hydration issues: server renders this <script> once */}
+      {schema ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ) : null}
+
+      {children}
+    </>
+  );
 }
