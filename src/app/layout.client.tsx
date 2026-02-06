@@ -7,6 +7,7 @@ import { useEffect, Suspense } from "react";
 import GTMPageView from "@/components/tracking/GTMPageView";
 import GoogleTagManager from "@/components/tracking/GoogleTagManager";
 import MetaPixel from "@/components/tracking/MetaPixel";
+import SnapPixel from "@/components/tracking/SnapPixel";
 import ClarityProvider from "@/components/clarity/ClarityProvider";
 
 import DesktopHeader from "@/components/layout/DesktopHeader";
@@ -18,25 +19,6 @@ import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
 
 import { useAuthStore } from "@/store/authStore";
 import { useCustomerCartStore } from "@/store/customerCartStore";
-
-/* -----------------------------
-   ✅ Snaptr (Snapchat Pixel) types
-   - no `any`
-   - no `arguments`
-   - no `.apply`
------------------------------- */
-type SnaptrArgs = unknown[];
-
-type SnaptrFn = ((...args: SnaptrArgs) => void) & {
-  queue?: SnaptrArgs[];
-  handleRequest?: (...args: SnaptrArgs) => void;
-};
-
-declare global {
-  interface Window {
-    snaptr?: SnaptrFn;
-  }
-}
 
 /* -----------------------------
    🔥 Init auth + customer cart
@@ -64,46 +46,9 @@ function AuthInit() {
   return null;
 }
 
-/* -----------------------------
-   👻 Snapchat Pixel (Snaptr)
-   Fixes:
-   ✅ no-explicit-any
-   ✅ no-unused-expressions
-   ✅ prefer-rest-params
-   ✅ prefer-spread
-   ✅ TS: handleRequest/queue typing
------------------------------- */
-function SnapPixel() {
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.snaptr) return; // already present
-
-    // Create the stub function first (typed)
-    const stub: SnaptrFn = (...args: SnaptrArgs) => {
-      if (stub.handleRequest) stub.handleRequest(...args);
-      else (stub.queue ??= []).push(args);
-    };
-    stub.queue = [];
-    window.snaptr = stub;
-
-    // Inject Snap script
-    const script = document.createElement("script");
-    script.async = true;
-    script.src = "https://sc-static.net/scevent.min.js";
-    const firstScript = document.getElementsByTagName("script")[0];
-    if (firstScript?.parentNode) firstScript.parentNode.insertBefore(script, firstScript);
-    else document.head.appendChild(script);
-
-    // Init + track page view
-    window.snaptr("init", "b91dd232-d18e-4555-9224-ea52d736d290");
-    window.snaptr("track", "PAGE_VIEW");
-  }, []);
-
-  return null;
-}
-
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
+  const SNAP_PIXEL_ID = process.env.NEXT_PUBLIC_SNAP_PIXEL_ID || "";
 
   return (
     <>
@@ -112,10 +57,10 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       <Suspense fallback={null}>
         {/* ✅ Tracking (client only) */}
         <MetaPixel pixelId={META_PIXEL_ID} trackPageView debug />
+        <SnapPixel pixelId={SNAP_PIXEL_ID} trackPageView debug />
         <GoogleTagManager gtmId="GTM-5CTM95TR" />
         <GTMPageView />
         <ClarityProvider />
-        <SnapPixel />
       </Suspense>
 
       <ClientProviders>

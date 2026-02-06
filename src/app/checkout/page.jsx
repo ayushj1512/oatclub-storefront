@@ -20,6 +20,7 @@ import { useCouponStore } from "@/store/couponStore";
 
 import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
+import { trackSnap } from "@/lib/snap/track.js";
 
 /* ---------- tiny UI ---------- */
 const Chip = ({ children }) => (
@@ -204,40 +205,46 @@ const payable = useMemo(() => {
   }, [items]);
 
   /* ---------------- TRACK begin_checkout (once) ---------------- */
-  const checkoutTracked = useRef(false);
-  useEffect(() => {
-    if (checkoutTracked.current || !items?.length) return;
-    checkoutTracked.current = true;
+  /* ---------------- TRACK begin_checkout + Snap START_CHECKOUT (once) ---------------- */
+const checkoutTracked = useRef(false);
 
-    try {
-      pushEcomEvent("begin_checkout", {
-        currency: "INR",
-        value: Number(payable || 0),
-        coupon: coupon?.code || undefined,
-        items: ga4Items,
-      });
-    } catch {}
-  }, [items?.length, payable, coupon?.code, ga4Items]);
+useEffect(() => {
+  if (checkoutTracked.current || !items?.length) return;
+  checkoutTracked.current = true;
 
-  /* ---------------- TRACK add_shipping_info ---------------- */
-  const lastShipKey = useRef("");
-  useEffect(() => {
-    if (!selectedAddressObj?._id || !items?.length) return;
+  // ✅ GA4 begin_checkout (existing)
+  try {
+    pushEcomEvent("begin_checkout", {
+      currency: "INR",
+      value: Number(payable || 0),
+      coupon: coupon?.code || undefined,
+      items: ga4Items,
+    });
+    console.log("📈 GA4 begin_checkout fired", { value: Number(payable || 0), coupon: coupon?.code || null });
+  } catch (e) {
+    console.warn("📈 GA4 begin_checkout failed", e);
+  }
 
-    const key = `${selectedAddressObj._id}_${payable}`;
-    if (lastShipKey.current === key) return;
-    lastShipKey.current = key;
+  // 👻 Snapchat START_CHECKOUT (Pixel + CAPI)
+  try {
+    const itemIds = (items || [])
+      .map((it) => it?.productId || it?.id)
+      .filter(Boolean)
+      .map((x) => String(x));
 
-    try {
-      trackAddShippingInfo?.({
-        currency: "INR",
-        value: Number(payable || 0),
-        addressId: selectedAddressObj._id,
-        shippingTier: "standard",
-        items: ga4Items,
-      });
-    } catch {}
-  }, [selectedAddressObj?._id, payable, items?.length, ga4Items]);
+    trackSnap("START_CHECKOUT", {
+      currency: "INR",
+      price: Number(payable || 0),
+      item_ids: itemIds,
+      ...(coupon?.code ? { coupon: String(coupon.code) } : {}),
+    });
+
+    console.log("👻 Snap START_CHECKOUT fired", { price: Number(payable || 0), item_ids: itemIds });
+  } catch (e) {
+    console.warn("👻 Snap START_CHECKOUT failed", e);
+  }
+}, [items?.length, payable, coupon?.code, ga4Items, items]);
+
 
   /* ---------------- PINCODE LOOKUP ---------------- */
   const pinTimer = useRef(null);

@@ -6,7 +6,9 @@ import { notify } from "@/lib/notify";
 import { useAnalyticsStore } from "@/store/analyticsStore";
 import { useAbandonedCartStore } from "@/store/abandonedCartStore";
 import { useAuthStore } from "@/store/authStore";
-import { trackMeta } from "@/lib/meta/track.js"; // adjust path based on your project
+import { trackMeta } from "@/lib/meta/track.js"; // adjust path based on your project|
+import { trackSnap } from "../lib/snap/track.js";
+
 import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
 import { useCouponStore } from "@/store/couponStore"; // ✅ adjust path
@@ -509,7 +511,7 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
       console.warn("📊 Analytics cart_add failed (buyNow ensure)", e);
     }
 
-    /* ---------------- META (PIXEL + CAPI) ---------------- */
+    /* ---------------- META (PIXEL + CAPI) + SNAPCHAT (PIXEL + CAPI) ---------------- */
     try {
       const pid =
         originalProduct?.sku ||
@@ -520,13 +522,33 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
       const price = Number(builtItem?.price ?? originalProduct?.price ?? 0) || 0;
       const quantity = Number(builtItem?.quantity ?? 1) || 1;
 
-      await trackMeta("AddToCart", {
+      const currency = getCartCurrency(builtItem, originalProduct?.currency || "INR");
+
+      const metaEventId = await trackMeta("AddToCart", {
         content_type: "product",
         content_ids: pid ? [String(pid)] : [],
         contents: pid ? [{ id: String(pid), quantity, item_price: price }] : [],
         value: price * quantity,
-        currency: getCartCurrency(builtItem, originalProduct?.currency || "INR"),
+        currency,
       });
+
+      // ✅ Snapchat: ADD_CART (dedupe id = metaEventId)
+      try {
+        await trackSnap(
+          "ADD_CART",
+          {
+            currency,
+            price: price * quantity,
+            item_ids: pid ? [String(pid)] : [],
+            description:
+              builtItem?.name || originalProduct?.name || originalProduct?.title || "Item",
+          },
+          {},
+          { event_id: metaEventId }
+        );
+      } catch (e) {
+        console.warn("👻 Snap ADD_CART failed (buyNow ensure)", e);
+      }
     } catch (e) {
       console.warn("🧾 Meta AddToCart failed (buyNow ensure)", e);
     }
@@ -573,6 +595,7 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
     return { added: false, error: e };
   }
 },
+
 
 
 
@@ -713,20 +736,39 @@ addToCart: async ({
       console.warn("📊 Analytics cart_add failed", e);
     }
 
-    /* ---------------- META (PIXEL + CAPI) ---------------- */
+    /* ---------------- META (PIXEL + CAPI) + SNAPCHAT (PIXEL + CAPI) ---------------- */
     try {
       const pid = product?.sku || product?._id || product?.id || built?.productId;
 
       const price = Number(built?.price ?? product?.price ?? product?.salePrice ?? 0) || 0;
       const quantity = Number(built?.quantity ?? qty ?? 1) || 1;
 
-      await trackMeta("AddToCart", {
+      const currency = getCartCurrency(built, product?.currency || "INR");
+
+      const metaEventId = await trackMeta("AddToCart", {
         content_type: "product",
         content_ids: pid ? [String(pid)] : [],
         contents: pid ? [{ id: String(pid), quantity, item_price: price }] : [],
         value: price * quantity,
-        currency: "INR",
+        currency,
       });
+
+      // ✅ Snapchat: ADD_CART (dedupe id = metaEventId)
+      try {
+        await trackSnap(
+          "ADD_CART",
+          {
+            currency,
+            price: price * quantity,
+            item_ids: pid ? [String(pid)] : [],
+            description: built?.name || product?.name || product?.title || "Item",
+          },
+          {},
+          { event_id: metaEventId }
+        );
+      } catch (e) {
+        console.warn("👻 Snap ADD_CART failed (addToCart)", e);
+      }
     } catch (e) {
       console.warn("🧾 Meta AddToCart failed", e);
     }

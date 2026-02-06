@@ -1,4 +1,4 @@
-"use client";
+  "use client";
 
 /** Generate event_id for dedup */
 function eventId() {

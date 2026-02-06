@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { useAnalyticsStore } from "@/store/analyticsStore";
 import { trackMeta } from "@/lib/meta/track";
 import { pushEcomEvent } from "@/components/tracking/gtm"; // ✅ ADD THIS
+import { trackSnap } from "@/lib/snap/track.js";
 
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -86,16 +87,15 @@ createOrder: async ({
   set({ placing: true, error: null });
 
   try {
+    /* ---------------- guards ---------------- */
     if (!customerId) throw new Error("customerId is required");
     if (!shippingAddressId) throw new Error("shippingAddressId is required");
     if (!items?.length) throw new Error("Order items missing");
 
     const pm = String(paymentMethod).toLowerCase();
-    if (!["cod", "razorpay"].includes(pm)) {
-      throw new Error("Invalid payment method");
-    }
+    if (!["cod", "razorpay"].includes(pm)) throw new Error("Invalid payment method");
 
-    /* ✅ coupon safe normalize */
+    /* ---------------- coupon normalize ---------------- */
     const couponCode =
       coupon && typeof coupon === "object"
         ? String(coupon.code || "").trim()
@@ -103,34 +103,29 @@ createOrder: async ({
         ? String(coupon).trim()
         : null;
 
-    /* ✅ normalize items for backend */
-    const normalizedItems = items.map((it) => {
+    /* ---------------- normalize items (backend needs minimal shape) ---------------- */
+    const normalizedItems = (items || []).map((it) => {
       const productId = it?.productId || it?.id;
       const quantity = Number(it?.quantity ?? it?.qty ?? 0);
       const variantId = it?.variantId || null;
 
       if (!productId) throw new Error("Each item must have productId");
-      if (!Number.isFinite(quantity) || quantity < 1) {
-        throw new Error("Invalid item quantity");
-      }
+      if (!Number.isFinite(quantity) || quantity < 1) throw new Error("Invalid item quantity");
 
       return { productId, quantity, ...(variantId ? { variantId } : {}) };
     });
 
-    /* ✅ build contents for tracking (GA4/Meta) */
+    /* ---------------- build tracking contents (GA4/Meta/Snap) ---------------- */
     const contents = (items || [])
       .map((it) => {
         const productId = it?.productId || it?.id;
         if (!productId) return null;
 
         const quantity = Number(it?.quantity ?? it?.qty ?? 1) || 1;
-        const price =
-          Number(it?.price ?? it?.item_price ?? it?.salePrice ?? 0) || 0;
+        const price = Number(it?.price ?? it?.item_price ?? it?.salePrice ?? 0) || 0;
 
         const variantId = it?.variantId || it?.variant?._id || null;
-        const variantText = [it?.selectedSize, it?.selectedColor]
-          .filter(Boolean)
-          .join(" / ");
+        const variantText = [it?.selectedSize, it?.selectedColor].filter(Boolean).join(" / ");
 
         return {
           id: String(productId),
@@ -144,74 +139,89 @@ createOrder: async ({
 
     const itemsTotal = contents.reduce((s, c) => s + c.item_price * c.quantity, 0);
 
-    /* ✅ Razorpay extra 5% off (applied on itemsTotal/subtotal) */
-    const razorpayExtraDiscount =
-      pm === "razorpay" ? Math.round(itemsTotal * 0.05) : 0;
-
-    /* ✅ Total discount to send to backend */
+    /* ---------------- razorpay extra discount (frontend estimate only) ---------------- */
+    const razorpayExtraDiscount = pm === "razorpay" ? Math.round(itemsTotal * 0.05) : 0;
     const finalDiscount = Number(discount || 0) + razorpayExtraDiscount;
 
-    /* ✅ Compute frontend estimate (used only for checkout events) */
     const orderValue = Math.max(
       0,
-      itemsTotal +
-        Number(shippingFee || 0) +
-        Number(tax || 0) -
-        Number(finalDiscount || 0)
+      itemsTotal + Number(shippingFee || 0) + Number(tax || 0) - Number(finalDiscount || 0)
     );
 
-    /* ✅ Meta needs only id/qty/price (best practice) */
     const metaContents = contents.map((c) => ({
       id: c.id,
       quantity: c.quantity,
       item_price: c.item_price,
     }));
 
-    /* ✅✅ FIX: Meta InitiateCheckout + AddPaymentInfo should NOT use backendValue */
+    const itemIds = contents.map((c) => String(c.id));
+    const numItems = metaContents.reduce((s, c) => s + (c.quantity || 0), 0);
+
+    /* ---------------- TRACK: Checkout Start (Meta + Snap) ---------------- */
     try {
-      await trackMeta("InitiateCheckout", {
+      const metaCheckoutEventId = await trackMeta("InitiateCheckout", {
         currency,
-        value: orderValue, // ✅ use frontend estimate
+        value: orderValue,
         content_type: "product",
-        content_ids: contents.map((c) => c.id),
+        content_ids: itemIds,
         contents: metaContents,
-        num_items: metaContents.reduce((s, c) => s + c.quantity, 0),
+        num_items: numItems,
         ...(couponCode ? { coupon: couponCode } : {}),
-        ...(pm === "razorpay"
-          ? { razorpay_extra_discount: razorpayExtraDiscount } // optional debug
-          : {}),
+        ...(pm === "razorpay" ? { razorpay_extra_discount: razorpayExtraDiscount } : {}),
       });
+
+      // 👻 Snapchat: START_CHECKOUT (dedupe with meta event id)
+      try {
+        await trackSnap(
+          "START_CHECKOUT",
+          { currency, price: orderValue, item_ids: itemIds, ...(couponCode ? { coupon: couponCode } : {}) },
+          {},
+          { event_id: metaCheckoutEventId }
+        );
+      } catch (e) {
+        console.warn("👻 Snap START_CHECKOUT failed", e);
+      }
     } catch (e) {
       console.warn("🧾 Meta InitiateCheckout failed", e);
     }
 
+    /* ---------------- TRACK: Payment Info (Meta + Snap) ---------------- */
     try {
-      await trackMeta("AddPaymentInfo", {
+      const metaPaymentEventId = await trackMeta("AddPaymentInfo", {
         currency,
-        value: orderValue, // ✅ use frontend estimate
+        value: orderValue,
         content_type: "product",
-        content_ids: contents.map((c) => c.id),
+        content_ids: itemIds,
         contents: metaContents,
         payment_method: pm,
-        ...(pm === "razorpay"
-          ? { razorpay_extra_discount: razorpayExtraDiscount } // optional debug
-          : {}),
+        ...(pm === "razorpay" ? { razorpay_extra_discount: razorpayExtraDiscount } : {}),
       });
+
+      // 👻 Snapchat: ADD_BILLING (optional but useful)
+      try {
+        await trackSnap(
+          "ADD_BILLING",
+          { currency, price: orderValue, item_ids: itemIds, payment_method: pm },
+          {},
+          { event_id: metaPaymentEventId }
+        );
+      } catch (e) {
+        console.warn("👻 Snap ADD_BILLING failed", e);
+      }
     } catch (e) {
       console.warn("🧾 Meta AddPaymentInfo failed", e);
     }
 
-    /* ✅ create order on backend */
+    /* ---------------- create order on backend ---------------- */
     const payload = {
       customerId,
       shippingAddressId,
       billingAddressId: billingAddressId || shippingAddressId,
       items: normalizedItems,
 
-      // ✅ IMPORTANT: send combined discount (coupon discount + razorpay extra)
+      // ✅ send combined discount (coupon + razorpay extra)
       discount: finalDiscount,
 
-      // ✅ keep coupon object clean (don't send frontend finalTotal ideally)
       coupon:
         coupon && typeof coupon === "object"
           ? { code: String(coupon.code || "").trim() }
@@ -227,19 +237,14 @@ createOrder: async ({
       isGiftOrder,
       customerMessage,
 
-      // ✅ optional: let backend know why discount increased (helps audit)
       razorpayExtraDiscount: pm === "razorpay" ? razorpayExtraDiscount : 0,
       razorpayExtraDiscountPct: pm === "razorpay" ? 5 : 0,
     };
 
-    const data = await api("/api/orders", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-
+    const data = await api("/api/orders", { method: "POST", body: JSON.stringify(payload) });
     const order = data?.order;
 
-    // ✅ Prefer backend computed totals (fix value=0)
+    /* ---------------- prefer backend totals (for purchase) ---------------- */
     const backendValue =
       Number(
         order?.finalTotal ??
@@ -251,24 +256,22 @@ createOrder: async ({
           0
       ) || 0;
 
-    /* ✅ COD ONLY: Purchase tracking (keeping your current behavior) */
+    /* ---------------- COD ONLY: purchase now (razorpay purchase happens after verify elsewhere) ---------------- */
     if (pm === "cod") {
       await get().trackPurchaseSuccess({
         orderId: order?._id || order?.orderNumber || customerId,
         currency,
         value: backendValue || orderValue,
-        contents, // ✅ keep full contents for GA4
+        contents,
         coupon: couponCode,
         paymentMethod: pm,
       });
     }
 
-    /* ✅ Internal analytics checkout */
+    /* ---------------- internal analytics ---------------- */
     try {
       const analytics = useAnalyticsStore.getState();
-      normalizedItems.forEach((it) =>
-        analytics.trackInitiateCheckout?.(it.productId)
-      );
+      normalizedItems.forEach((it) => analytics.trackInitiateCheckout?.(it.productId));
     } catch (e) {
       console.warn("📊 Analytics checkout tracking failed", e);
     }
@@ -280,6 +283,7 @@ createOrder: async ({
     throw e;
   }
 },
+
 
 
 
@@ -303,7 +307,7 @@ trackPurchaseSuccess: async ({
 
     const { _lastPurchaseKey, _lastPurchaseAt } = get();
     const sameKey = _lastPurchaseKey === key;
-    const tooSoon = _lastPurchaseAt && now - _lastPurchaseAt < 8000; // slightly higher window
+    const tooSoon = _lastPurchaseAt && now - _lastPurchaseAt < 8000;
     if (sameKey && tooSoon) return;
 
     set({ _lastPurchaseKey: key, _lastPurchaseAt: now });
@@ -323,7 +327,6 @@ trackPurchaseSuccess: async ({
         return {
           id,
           quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
-          // only include item_price if valid >0 (Meta accepts it, but 0 pollutes signal)
           ...(Number.isFinite(itemPrice) && itemPrice > 0 ? { item_price: itemPrice } : {}),
         };
       })
@@ -344,7 +347,6 @@ trackPurchaseSuccess: async ({
           item_variant: c?.variant ? String(c.variant) : undefined,
           variant_id: c?.variantId ? String(c.variantId) : undefined,
           quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
-          // GA4 expects number; if unknown keep undefined instead of 0
           ...(Number.isFinite(price) && price > 0 ? { price } : {}),
         };
       })
@@ -355,7 +357,7 @@ trackPurchaseSuccess: async ({
       pushEcomEvent("purchase", {
         transaction_id: String(orderId),
         currency,
-        value: finalValue, // ✅
+        value: finalValue,
         payment_type: paymentMethod,
         coupon: couponCode || undefined,
         items: ga4Items,
@@ -364,12 +366,11 @@ trackPurchaseSuccess: async ({
       console.warn("📈 GA4 Purchase failed", e);
     }
 
-    /* ✅ META PURCHASE */
+    /* ✅ META PURCHASE + SNAP PURCHASE */
     try {
-      // ✅ If you have no contents pricing, still send Purchase with value
       const payload = {
         currency,
-        value: finalValue, // ✅
+        value: finalValue,
         content_type: "product",
         content_ids: metaContents.map((c) => c.id),
         contents: metaContents,
@@ -379,9 +380,31 @@ trackPurchaseSuccess: async ({
         ...(couponCode ? { coupon: couponCode } : {}),
       };
 
-      // ✅ If you want the purchase to be attributed to success URL (optional)
-      // trackMeta supports opts param in your implementation
-      await trackMeta("Purchase", payload, {}, event_source_url ? { event_source_url } : {});
+      const metaPurchaseEventId = await trackMeta(
+        "Purchase",
+        payload,
+        {},
+        event_source_url ? { event_source_url } : {}
+      );
+
+      // ✅ Snapchat PURCHASE (Pixel + CAPI) — dedupe id = metaPurchaseEventId
+      try {
+        await trackSnap(
+          "PURCHASE",
+          {
+            currency,
+            price: finalValue,
+            transaction_id: String(orderId),
+            item_ids: metaContents.map((c) => String(c.id)),
+            payment_method: paymentMethod,
+            ...(couponCode ? { coupon: couponCode } : {}),
+          },
+          {},
+          { event_id: metaPurchaseEventId }
+        );
+      } catch (e) {
+        console.warn("👻 Snap PURCHASE failed", e);
+      }
     } catch (e) {
       console.warn("🧾 Meta Purchase failed", e);
     }
@@ -397,6 +420,7 @@ trackPurchaseSuccess: async ({
     console.warn("Purchase tracking failed", e);
   }
 },
+
 
   /**
    * GET ORDERS BY CUSTOMER
