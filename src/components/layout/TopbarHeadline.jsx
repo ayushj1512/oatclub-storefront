@@ -12,9 +12,11 @@ const items = useMemo(
     "Extra 10% off on online payments",
     "Use code FIRST10 for 10% off",
     "₹500 OFF on purchase of ₹1,999 and above",
+    "Extra 14% OFF — Valentine’s Week Special (7th–14th Feb) ❤️",
   ],
   []
 );
+
 
 
 
