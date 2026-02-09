@@ -15,8 +15,6 @@ import { useProductStore } from "@/store/productStore";
 import FiltersDrawer from "@/components/category/FiltersDrawer";
 import FilterSortBar from "@/components/category/FilterSortBar";
 
-
-
 const PAGE_SIZE = 20;
 
 const SORT_OPTIONS = [
@@ -25,11 +23,6 @@ const SORT_OPTIONS = [
   { label: "Price: Low → High", value: "priceLowHigh" },
   { label: "Price: High → Low", value: "priceHighLow" },
 ];
-
-const toNum = (v, fb = 0) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fb;
-};
 
 const buildFacets = (products = []) => {
   const prices = [];
@@ -43,15 +36,6 @@ const buildFacets = (products = []) => {
     priceMin: prices.length ? prices[0] : 0,
     priceMax: prices.length ? prices[prices.length - 1] : 0,
   };
-};
-
-const getStockCount = (p) => {
-  const productStock = toNum(p?.stock_quantity ?? p?.stock, 0);
-  const variantStock = Array.isArray(p?.variants)
-    ? Math.max(...p.variants.map((v) => toNum(v?.stock, 0)))
-    : 0;
-
-  return Math.max(productStock, variantStock);
 };
 
 const getTimeValue = (p) => {
@@ -88,13 +72,11 @@ export default function AllClothingPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest");
 
-  // ✅ Applied filters
-  const [onlyInStock, setOnlyInStock] = useState(true);
+  // ✅ Applied filters (ONLY price now)
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
 
-  // ✅ Draft filters
-  const [draftOnlyInStock, setDraftOnlyInStock] = useState(true);
+  // ✅ Draft filters (ONLY price now)
   const [draftPriceMin, setDraftPriceMin] = useState(null);
   const [draftPriceMax, setDraftPriceMax] = useState(null);
 
@@ -147,11 +129,6 @@ export default function AllClothingPage() {
     clearError?.();
     setDrawerOpen(false);
 
-    setOnlyInStock(true);
-    setDraftOnlyInStock(true);
-
-    // ✅ THIS is the API you asked:
-    // /api/products?page=1&limit=20&sort=newest&isActive=true
     fetchProducts({
       isActive: true,
       page: 1,
@@ -175,7 +152,6 @@ export default function AllClothingPage() {
 
   // ✅ Apply filters
   const applyFilters = () => {
-    setOnlyInStock(draftOnlyInStock);
     setPriceMin(draftPriceMin);
     setPriceMax(draftPriceMax);
     setDrawerOpen(false);
@@ -183,22 +159,18 @@ export default function AllClothingPage() {
 
   // ✅ Reset filters
   const resetFilters = useCallback(() => {
-    setOnlyInStock(true);
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
-    setDraftOnlyInStock(true);
     setDraftPriceMin(facets.priceMin);
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  // ✅ Filter + sort list (client-side only)
+  // ✅ Filter + sort list (client-side only) — NO STOCK FILTERING
   const list = useMemo(() => {
     let arr = Array.isArray(displayProducts) ? [...displayProducts] : [];
 
     const getPrice = (p) =>
       Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
-
-    if (onlyInStock) arr = arr.filter((p) => getStockCount(p) > 0);
 
     const lo = priceMin ?? facets.priceMin;
     const hi = priceMax ?? facets.priceMax;
@@ -219,18 +191,7 @@ export default function AllClothingPage() {
       arr.sort((a, b) => getTimeValue(b) - getTimeValue(a));
 
     return arr;
-  }, [
-    displayProducts,
-    onlyInStock,
-    priceMin,
-    priceMax,
-    facets.priceMin,
-    facets.priceMax,
-    sort,
-  ]);
-
-  const inStockCount =
-    displayProducts?.filter((p) => getStockCount(p) > 0)?.length || 0;
+  }, [displayProducts, priceMin, priceMax, facets.priceMin, facets.priceMax, sort]);
 
   // ✅ Load more (still uses fetchProducts)
   const loadingMoreRef = useRef(false);
@@ -293,15 +254,13 @@ export default function AllClothingPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* ✅ Drawer */}
+      {/* ✅ Drawer (stock props removed) */}
       <FiltersDrawer
         open={drawerOpen}
         setOpen={setDrawerOpen}
         drawerTop={drawerTop}
         drawerHeight={drawerHeight}
         facets={facets}
-        draftOnlyInStock={draftOnlyInStock}
-        setDraftOnlyInStock={setDraftOnlyInStock}
         draftPriceMin={draftPriceMin}
         setDraftPriceMin={setDraftPriceMin}
         draftPriceMax={draftPriceMax}
@@ -318,15 +277,13 @@ export default function AllClothingPage() {
           </h1>
         </div>
 
-        {/* ✅ Sort Bar */}
+        {/* ✅ Sort Bar (inStockCount removed) */}
         <FilterSortBar
           category={pageTitle}
-          inStockCount={inStockCount}
           showInitialLoading={showInitialLoading}
           sort={sort}
           setSort={setSort}
           sortOptions={SORT_OPTIONS}
-          // keep consistent with your category page if you want:
           hideFilterButton={true}
         />
 

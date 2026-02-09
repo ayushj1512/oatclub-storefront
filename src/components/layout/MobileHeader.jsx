@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Menu, ShoppingBag, User, Search } from "lucide-react";
 
 import WishlistButton from "@/components/header/WishlistButton";
@@ -35,11 +35,21 @@ const ga4CartItem = (it) =>
 
 export default function MobileHeader() {
   const router = useRouter();
+  const pathname = usePathname();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   const lastViewCartRef = useRef({ key: null, at: 0 });
   const cartCount = useCartStore((s) => s.totalCount());
+
+  const handleOpenMenu = useCallback(() => setMenuOpen(true), []);
+  const handleCloseMenu = useCallback(() => setMenuOpen(false), []);
+
+  // ✅ Close drawer on route change (prevents stuck states)
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   // ✅ Freeze-safe scroll: throttle + update only when value changes
   useEffect(() => {
@@ -50,7 +60,7 @@ export default function MobileHeader() {
       if (raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
-        const y = Math.max(0, window.scrollY || 0); // iOS bounce safe
+        const y = Math.max(0, window.scrollY || 0);
         const next = y > 10;
         if (next !== last) {
           last = next;
@@ -67,7 +77,7 @@ export default function MobileHeader() {
     };
   }, []);
 
-  // ✅ Header height var (guarded) -> used by spacer so content doesn't jump
+  // ✅ Header height var -> used by spacer so content doesn't jump
   useEffect(() => {
     const el = document.getElementById("mobile-header");
     if (!el) return;
@@ -86,24 +96,8 @@ export default function MobileHeader() {
     return () => ro.disconnect();
   }, []);
 
-  // ✅ Prevent background scroll conflicts when drawer open (no “freeze” feel)
-  useEffect(() => {
-    const body = document.body;
-    if (!body) return;
-
-    if (menuOpen) {
-      const prevOverflow = body.style.overflow;
-      const prevTouch = body.style.touchAction;
-
-      body.style.overflow = "hidden";
-      body.style.touchAction = "none";
-
-      return () => {
-        body.style.overflow = prevOverflow;
-        body.style.touchAction = prevTouch;
-      };
-    }
-  }, [menuOpen]);
+  // ❌ IMPORTANT: Remove body scroll lock from here.
+  // Drawer itself will handle lock/unlock safely (with exit animation).
 
   const fireViewCart = useCallback(async () => {
     try {
@@ -131,11 +125,7 @@ export default function MobileHeader() {
 
       const key = `m_viewcart_${contents.map((c) => c.id).join("_")}_${value}`;
       const now = Date.now();
-      if (
-        lastViewCartRef.current.key === key &&
-        now - lastViewCartRef.current.at < 2000
-      )
-        return;
+      if (lastViewCartRef.current.key === key && now - lastViewCartRef.current.at < 2000) return;
       lastViewCartRef.current = { key, at: now };
 
       try {
@@ -144,9 +134,7 @@ export default function MobileHeader() {
           value,
           items: cartItems.slice(0, 50).map(ga4CartItem),
         });
-      } catch (e) {
-        console.warn("📈 GA4 view_cart failed", e);
-      }
+      } catch {}
 
       await trackMeta("ViewCart", {
         currency: "INR",
@@ -156,9 +144,7 @@ export default function MobileHeader() {
         contents,
         num_items: contents.reduce((s, c) => s + (c.quantity || 0), 0),
       });
-    } catch (e) {
-      console.warn("🧾 ViewCart tracking failed", e);
-    }
+    } catch {}
   }, []);
 
   const handleCartClick = useCallback(() => {
@@ -168,31 +154,24 @@ export default function MobileHeader() {
 
   return (
     <>
-      {/* ✅ Spacer so fixed header doesn't cover page content */}
-      <div
-        className="md:hidden"
-        style={{ height: "var(--app-header-h, 56px)" }}
-      />
+      {/* Spacer */}
+      <div className="md:hidden" style={{ height: "var(--app-header-h, 56px)" }} />
 
-      {/* ✅ FIXED HEADER (works even when parent has overflow/transform) */}
       <header
         id="mobile-header"
         className={[
           "md:hidden w-full bg-white border-b border-black/10",
           "fixed top-0 left-0 right-0 z-[9999]",
-          "isolate",
-          "will-change-transform",
+          "isolate will-change-transform",
           scrolled ? "shadow-sm" : "",
         ].join(" ")}
-        style={{
-          transform: "translateZ(0)",
-        }}
+        style={{ transform: "translateZ(0)" }}
       >
         <TopbarHeadline />
 
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <button
-            onClick={() => setMenuOpen(true)}
+            onClick={handleOpenMenu}
             aria-label="Open menu"
             className="shrink-0 text-black transition hover:opacity-70"
           >
@@ -252,7 +231,8 @@ export default function MobileHeader() {
         </div>
       </header>
 
-      <MobileSidebarDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
+      {/* Drawer controls body scroll lock/unlock itself */}
+      <MobileSidebarDrawer open={menuOpen} onClose={handleCloseMenu} />
     </>
   );
 }
