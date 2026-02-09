@@ -13,16 +13,8 @@ import ProductGrid from "@/components/common/ProductGrid";
 import { useProductStore } from "@/store/productStore";
 
 import FiltersDrawer from "@/components/category/FiltersDrawer";
-import FilterSortBar from "@/components/category/FilterSortBar";
 
 const PAGE_SIZE = 20;
-
-const SORT_OPTIONS = [
-  { label: "Default", value: "default" },
-  { label: "Newest", value: "newest" },
-  { label: "Price: Low → High", value: "priceLowHigh" },
-  { label: "Price: High → Low", value: "priceHighLow" },
-];
 
 const toNum = (v, fb = 0) => {
   const n = Number(v);
@@ -43,15 +35,6 @@ const buildFacets = (products = []) => {
   };
 };
 
-const getStockCount = (p) => {
-  const productStock = toNum(p?.stock_quantity ?? p?.stock, 0);
-  const variantStock = Array.isArray(p?.variants)
-    ? Math.max(...p.variants.map((v) => toNum(v?.stock, 0)))
-    : 0;
-
-  return Math.max(productStock, variantStock);
-};
-
 const getTimeValue = (p) => {
   const t =
     p?.createdAt ||
@@ -65,7 +48,6 @@ const getTimeValue = (p) => {
   return Number.isFinite(ms) ? ms : 0;
 };
 
-// ✅ slug -> Proper Collection Name
 const prettyName = (slug = "") =>
   decodeURIComponent(String(slug))
     .replace(/[-_]+/g, " ")
@@ -86,25 +68,20 @@ export default function CollectionPage() {
   const allProducts = useProductStore((s) => s.allProducts);
   const isLoading = useProductStore((s) => s.isLoading);
   const error = useProductStore((s) => s.error);
-
   const fetchProductsByCollection = useProductStore(
     (s) => s.fetchProductsByCollection
   );
-
   const hasMore = useProductStore((s) => s.hasMore);
   const clearError = useProductStore((s) => s.clearError);
-
   const page = useProductStore((s) => s.page);
   const lastParams = useProductStore((s) => s.lastParams);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest");
 
-  const [onlyInStock, setOnlyInStock] = useState(true);
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
 
-  const [draftOnlyInStock, setDraftOnlyInStock] = useState(true);
   const [draftPriceMin, setDraftPriceMin] = useState(null);
   const [draftPriceMax, setDraftPriceMax] = useState(null);
 
@@ -117,9 +94,6 @@ export default function CollectionPage() {
   );
 
   const lastFetchRef = useRef("");
-
-  const drawerTop = `calc(var(--app-topbar-h,0px) + var(--app-header-h,0px))`;
-  const drawerHeight = `calc(100dvh - var(--app-topbar-h,0px) - var(--app-header-h,0px))`;
 
   useEffect(() => {
     setPriceMin(facets.priceMin);
@@ -166,17 +140,14 @@ export default function CollectionPage() {
   }, [isLoading, allProducts, error]);
 
   const applyFilters = () => {
-    setOnlyInStock(draftOnlyInStock);
     setPriceMin(draftPriceMin);
     setPriceMax(draftPriceMax);
     setDrawerOpen(false);
   };
 
   const resetFilters = useCallback(() => {
-    setOnlyInStock(true);
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
-    setDraftOnlyInStock(true);
     setDraftPriceMin(facets.priceMin);
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
@@ -185,8 +156,6 @@ export default function CollectionPage() {
     let arr = [...displayProducts];
 
     const getPrice = (p) => Number(p?.price) || 0;
-
-    if (onlyInStock) arr = arr.filter((p) => getStockCount(p) > 0);
 
     const lo = priceMin ?? facets.priceMin;
     const hi = priceMax ?? facets.priceMax;
@@ -207,16 +176,12 @@ export default function CollectionPage() {
     return arr;
   }, [
     displayProducts,
-    onlyInStock,
     priceMin,
     priceMax,
     facets.priceMin,
     facets.priceMax,
     sort,
   ]);
-
-  const inStockCount =
-    displayProducts.filter((p) => getStockCount(p) > 0).length;
 
   const loadingMoreRef = useRef(false);
 
@@ -282,11 +247,7 @@ export default function CollectionPage() {
       <FiltersDrawer
         open={drawerOpen}
         setOpen={setDrawerOpen}
-        drawerTop={drawerTop}
-        drawerHeight={drawerHeight}
         facets={facets}
-        draftOnlyInStock={draftOnlyInStock}
-        setDraftOnlyInStock={setDraftOnlyInStock}
         draftPriceMin={draftPriceMin}
         setDraftPriceMin={setDraftPriceMin}
         draftPriceMax={draftPriceMax}
@@ -297,8 +258,6 @@ export default function CollectionPage() {
 
       <div className="px-4 py-6">
         <h1 className="text-2xl font-bold">{collectionName}</h1>
-<div className="mt-2"> </div>
-      
 
         {error && !showInitialLoading && (
           <div className="mt-6 rounded-xl bg-red-50 p-4 text-red-700">
@@ -318,23 +277,6 @@ export default function CollectionPage() {
           products={list}
           loading={showInitialLoading}
         />
-
-        {!error && displayProducts.length > 0 && (
-          <div className="mt-8 text-center">
-            {hasMore() ? (
-              <button
-                onClick={loadMore}
-                className="rounded-lg border px-4 py-2"
-              >
-                Load more
-              </button>
-            ) : (
-              <div className="text-sm text-zinc-600">
-                You’ve reached the end.
-              </div>
-            )}
-          </div>
-        )}
 
         <div ref={sentinelRef} className="h-1" />
       </div>

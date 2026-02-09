@@ -56,7 +56,6 @@ export default function TagPage() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest");
-  const [onlyInStock, setOnlyInStock] = useState(true);
   const [selectedTags, setSelectedTags] = useState(() => new Set());
 
   const facets = useMemo(() => buildFacets(allProducts), [allProducts]);
@@ -74,7 +73,6 @@ export default function TagPage() {
 
     clearError?.();
     setDrawerOpen(false);
-    setOnlyInStock(true);
     setSelectedTags(new Set());
 
     fetchProductsByTag({
@@ -84,14 +82,10 @@ export default function TagPage() {
       limit: PAGE_SIZE,
       sort,
     });
-  }, [tagName, sort]);
+  }, [tagName, sort, clearError, fetchProductsByTag]);
 
   const list = useMemo(() => {
     let arr = [...allProducts];
-
-    if (onlyInStock) {
-      arr = arr.filter((p) => p?.isInStock !== false && Number(p?.stock ?? 0) > 0);
-    }
 
     const lo = priceMin ?? facets.priceMin;
     const hi = priceMax ?? facets.priceMax;
@@ -116,7 +110,6 @@ export default function TagPage() {
     return arr;
   }, [
     allProducts,
-    onlyInStock,
     priceMin,
     priceMax,
     facets.priceMin,
@@ -126,14 +119,12 @@ export default function TagPage() {
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
-    if (!onlyInStock) n++;
     if (selectedTags.size) n++;
     if (priceMin !== facets.priceMin || priceMax !== facets.priceMax) n++;
     return n;
-  }, [onlyInStock, selectedTags, priceMin, priceMax, facets.priceMin, facets.priceMax]);
+  }, [selectedTags, priceMin, priceMax, facets.priceMin, facets.priceMax]);
 
   const resetFilters = useCallback(() => {
-    setOnlyInStock(true);
     setSelectedTags(new Set());
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
@@ -194,7 +185,10 @@ export default function TagPage() {
           <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
             <div className="font-semibold">Error</div>
             <div className="text-sm mt-1">{error}</div>
-            <button onClick={retry} className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white">
+            <button
+              onClick={retry}
+              className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
+            >
               Retry
             </button>
           </div>

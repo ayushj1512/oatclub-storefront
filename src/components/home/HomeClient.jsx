@@ -22,6 +22,7 @@ import InfoStrip from "@/components/home/InfoStrip";
 import Newsletter from "@/components/home/Newsletter";
 import LeopardFeatureCollection from "@/components/home/LeopardFeatureCollection";
 import PolkadotFeatureCollection from "@/components/home/PolkadotFeatureCollection";
+import StyleByOccasion from "@/components/home/StyleByOccasion";
 
 export default function HomeClient() {
   const { structuredData } = generateSEO({
