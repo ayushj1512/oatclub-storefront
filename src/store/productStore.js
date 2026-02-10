@@ -457,8 +457,6 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
 
   const { page = 1, limit = get().limit } = params;
 
-  // ✅ IMPORTANT: hit backend controller route
-  // GET /api/products/by-collection/:collection
   const qs = new URLSearchParams();
   const setIf = (k, v) => {
     if (v === undefined || v === null) return;
@@ -475,18 +473,21 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
   setIf("minPrice", params.minPrice);
   setIf("maxPrice", params.maxPrice);
 
+  // ✅ removed "newest/new arrivals" sort mapping completely
   const sortMap = {
     default: "",
     priceLowHigh: "price_asc",
     priceHighLow: "price_desc",
-    newest: "newest",
     rating: "rating",
     popularity: "popularity",
   };
 
-  if (params.sort) setIf("sort", sortMap[params.sort] || params.sort);
-  else if (params.sortOption && sortMap[params.sortOption])
-    setIf("sort", sortMap[params.sortOption]);
+  // ✅ only allow supported sorts (no accidental "newest")
+  const rawSort = params.sort ?? params.sortOption;
+  const mappedSort = sortMap[String(rawSort || "default")] ?? "";
+
+  if (mappedSort) setIf("sort", mappedSort);
+  // else: no sort param -> backend default (keeps your manual positions intact)
 
   // ✅ DEFAULT: only published products
   if (params.isActive != null) setIf("isActive", params.isActive);
@@ -494,37 +495,32 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
 
   if (params.sku) setIf("sku", params.sku);
 
-  // ✅ Optional: if you later add backend support
-  if (params.mode) setIf("mode", params.mode); // e.g. "card"
+  if (params.mode) setIf("mode", params.mode);
 
   const q = qs.toString();
   const url = `${BACKEND}/api/products/by-collection/${encodeURIComponent(
     collection
   )}${q ? `?${q}` : ""}`;
 
-  // ✅ DO NOT abort global ctrl here (multiple widgets on homepage)
   const controller = new AbortController();
   const myId = ++reqId;
 
-  /* ✅ detect collection + sort change */
   const prevCollection = String(get().activeCollection || "").toLowerCase();
   const nextCollection = collection.toLowerCase();
   const collectionChanged = prevCollection !== nextCollection;
 
   const prevParams = get().lastParams || {};
   const sortChanged =
-    String(params.sort || "") !== String(prevParams.sort || "");
+    String(mappedSort || "") !==
+    String(sortMap[String(prevParams.sort || prevParams.sortOption || "default")] || "");
 
   const shouldReset = page === 1 || collectionChanged || sortChanged;
 
-  // ✅ NEW: collection-wise caches (prevents Leopard/Polka overwriting)
-  // ensure state has these keys in your initial store too:
-  // productsByCollection: {}, collectionsBySlug: {}
   set(() => ({
     isLoading: true,
     error: null,
     activeCollection: collection,
-    lastParams: { ...params, collection },
+    lastParams: { ...params, collection, sort: rawSort || "default" }, // keep UI state
     ...(shouldReset ? { page: 1, hasMoreFlag: true } : {}),
   }));
 
@@ -569,8 +565,7 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
         const key = `view_collection_${nextCollection}`;
 
         const { _lastMetaCategoryKey, _lastMetaCategoryAt } = get();
-        const tooSoon =
-          _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
+        const tooSoon = _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
         const sameKey = _lastMetaCategoryKey === key;
 
         if (!(sameKey && tooSoon)) {
@@ -592,8 +587,6 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
       console.warn("🧾 Meta Collection View failed", e);
     }
 
-    // ✅ NEW: write into productsByCollection so each widget reads its own list
-    // ✅ keep allProducts too (backward compatible), but DO NOT rely on it for widgets
     set((state) => {
       const prev = state.productsByCollection?.[nextCollection] || [];
       const nextList = page === 1 ? incoming : [...prev, ...incoming];
@@ -605,10 +598,10 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
         },
         collectionsBySlug: {
           ...(state.collectionsBySlug || {}),
-          [nextCollection]: data?.collection || state.collectionsBySlug?.[nextCollection] || null,
+          [nextCollection]:
+            data?.collection || state.collectionsBySlug?.[nextCollection] || null,
         },
 
-        // backward compatible
         allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
 
         page,
@@ -617,7 +610,6 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
       };
     });
 
-    // ✅ IMPORTANT: return backend payload for components (collection name etc.)
     return data;
   } catch (e) {
     if (e?.name !== "AbortError")
@@ -627,6 +619,7 @@ fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
     return null;
   }
 },
+
 
 
 

@@ -1,25 +1,12 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import ProductGrid from "@/components/common/ProductGrid";
 import { useProductStore } from "@/store/productStore";
-
 import FiltersDrawer from "@/components/category/FiltersDrawer";
 
 const PAGE_SIZE = 20;
-
-const toNum = (v, fb = 0) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fb;
-};
 
 const buildFacets = (products = []) => {
   const prices = [];
@@ -28,7 +15,6 @@ const buildFacets = (products = []) => {
     if (Number.isFinite(pr) && pr > 0) prices.push(pr);
   }
   prices.sort((a, b) => a - b);
-
   return {
     priceMin: prices.length ? prices[0] : 0,
     priceMax: prices.length ? prices[prices.length - 1] : 0,
@@ -36,14 +22,7 @@ const buildFacets = (products = []) => {
 };
 
 const getTimeValue = (p) => {
-  const t =
-    p?.createdAt ||
-    p?.updatedAt ||
-    p?.created_at ||
-    p?.updated_at ||
-    p?.dateCreated ||
-    p?.date;
-
+  const t = p?.createdAt || p?.updatedAt || p?.created_at || p?.updated_at || p?.dateCreated || p?.date;
   const ms = new Date(t).getTime();
   return Number.isFinite(ms) ? ms : 0;
 };
@@ -60,38 +39,32 @@ export default function CollectionPage() {
   const collection = params?.collection_name;
   const ready = Boolean(collection);
 
-  const collectionName = useMemo(
-    () => prettyName(collection),
-    [collection]
-  );
+  const collectionName = useMemo(() => prettyName(collection), [collection]);
 
   const allProducts = useProductStore((s) => s.allProducts);
   const isLoading = useProductStore((s) => s.isLoading);
   const error = useProductStore((s) => s.error);
-  const fetchProductsByCollection = useProductStore(
-    (s) => s.fetchProductsByCollection
-  );
+  const fetchProductsByCollection = useProductStore((s) => s.fetchProductsByCollection);
   const hasMore = useProductStore((s) => s.hasMore);
   const clearError = useProductStore((s) => s.clearError);
   const page = useProductStore((s) => s.page);
   const lastParams = useProductStore((s) => s.lastParams);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sort, setSort] = useState("newest");
+
+  // ✅ removed "new arrivals" / newest sorting
+  // (keep store sort param as default / empty, and avoid local newest sorting too)
+  const [sort, setSort] = useState("default");
 
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
-
   const [draftPriceMin, setDraftPriceMin] = useState(null);
   const [draftPriceMax, setDraftPriceMax] = useState(null);
 
   const [displayProducts, setDisplayProducts] = useState([]);
   const [isInitialFetching, setIsInitialFetching] = useState(false);
 
-  const facets = useMemo(
-    () => buildFacets(allProducts || []),
-    [allProducts]
-  );
+  const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
 
   const lastFetchRef = useRef("");
 
@@ -123,7 +96,7 @@ export default function CollectionPage() {
       isActive: true,
       page: 1,
       limit: PAGE_SIZE,
-      sort,
+      sort, // ✅ now "default"
     });
   }, [ready, collection, sort, fetchProductsByCollection, clearError]);
 
@@ -154,7 +127,6 @@ export default function CollectionPage() {
 
   const list = useMemo(() => {
     let arr = [...displayProducts];
-
     const getPrice = (p) => Number(p?.price) || 0;
 
     const lo = priceMin ?? facets.priceMin;
@@ -168,20 +140,11 @@ export default function CollectionPage() {
     });
 
     if (sort === "priceLowHigh") arr.sort((a, b) => getPrice(a) - getPrice(b));
-    else if (sort === "priceHighLow")
-      arr.sort((a, b) => getPrice(b) - getPrice(a));
-    else if (sort === "newest")
-      arr.sort((a, b) => getTimeValue(b) - getTimeValue(a));
+    else if (sort === "priceHighLow") arr.sort((a, b) => getPrice(b) - getPrice(a));
+    // ✅ removed newest sorting completely
 
     return arr;
-  }, [
-    displayProducts,
-    priceMin,
-    priceMax,
-    facets.priceMin,
-    facets.priceMax,
-    sort,
-  ]);
+  }, [displayProducts, priceMin, priceMax, facets.priceMin, facets.priceMax, sort]);
 
   const loadingMoreRef = useRef(false);
 
@@ -194,21 +157,12 @@ export default function CollectionPage() {
       ...(lastParams || {}),
       page: (page || 1) + 1,
       limit: PAGE_SIZE,
-      sort,
+      sort, // ✅ default / price sorts only
       isActive: true,
     });
 
     setTimeout(() => (loadingMoreRef.current = false), 350);
-  }, [
-    ready,
-    isLoading,
-    hasMore,
-    fetchProductsByCollection,
-    collection,
-    lastParams,
-    page,
-    sort,
-  ]);
+  }, [ready, isLoading, hasMore, fetchProductsByCollection, collection, lastParams, page, sort]);
 
   const sentinelRef = useRef(null);
 
@@ -216,17 +170,15 @@ export default function CollectionPage() {
     const node = sentinelRef.current;
     if (!node) return;
 
-    const io = new IntersectionObserver(
-      ([e]) => e.isIntersecting && loadMore(),
-      { rootMargin: "900px 0px" }
-    );
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && loadMore(), {
+      rootMargin: "900px 0px",
+    });
 
     io.observe(node);
     return () => io.disconnect();
   }, [loadMore]);
 
-  const showInitialLoading =
-    (isLoading || isInitialFetching) && displayProducts.length === 0;
+  const showInitialLoading = (isLoading || isInitialFetching) && displayProducts.length === 0;
 
   const retry = () => {
     clearError?.();
@@ -263,20 +215,13 @@ export default function CollectionPage() {
           <div className="mt-6 rounded-xl bg-red-50 p-4 text-red-700">
             <div className="font-semibold">Something went wrong</div>
             <div className="text-sm">{error}</div>
-            <button
-              onClick={retry}
-              className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-white"
-            >
+            <button onClick={retry} className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-white">
               Retry
             </button>
           </div>
         )}
 
-        <ProductGrid
-          key={`${collection}-${sort}`}
-          products={list}
-          loading={showInitialLoading}
-        />
+        <ProductGrid key={`${collection}-${sort}`} products={list} loading={showInitialLoading} />
 
         <div ref={sentinelRef} className="h-1" />
       </div>
