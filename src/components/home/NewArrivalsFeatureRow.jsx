@@ -5,10 +5,14 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import ProductCard from "@/components/common/ProductCard";
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+/**
+ * NewArrivalsFeatureRow.jsx (DIRECT FETCH)
+ * ✅ Same UI as BestsellerFeatureRow
+ * ✅ Simple black header + minimal View All (like bestseller)
+ */
 
-const DEFAULT_IDS_ENDPOINTS = ["/api/bestseller/ids", "/api/bestseller"];
-const PRODUCTS_BY_IDS_ENDPOINT = "/api/products/by-ids";
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+const PAGE_ENDPOINT = "/api/products";
 
 const slugify = (s = "") =>
   String(s)
@@ -56,45 +60,25 @@ const normalizeCard = (p) => {
     thumbnail: p?.thumbnail || image,
     images: imagesArr.length ? imagesArr : [image],
     slug: p?.slug || slugify(p?.title || p?.name || code),
-    category: "bestseller",
+    category: "new-arrivals",
     currency: p?.currency || "INR",
     raw: p?.raw || p,
   };
 };
 
-const extractIds = (payload) => {
-  const raw = payload?.ids ?? payload;
-
-  if (Array.isArray(raw)) {
-    if (raw.length && typeof raw[0] === "string") return raw.map(String);
-    return raw
-      .map((x) => x?.productId || x?._id || x?.id)
-      .filter(Boolean)
-      .map(String);
-  }
-
+const extractProducts = (payload) => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.products)) return payload.products;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
   return [];
 };
 
-async function fetchFirstOkJson(base, paths, signal) {
-  let lastErr = null;
-  for (const p of paths) {
-    try {
-      const res = await fetch(`${base}${p}`, { cache: "no-store", signal });
-      const data = await safeJson(res);
-      if (!res.ok) throw new Error(data?.message || `Request failed: ${p}`);
-      return data;
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  throw lastErr || new Error("Failed to load bestseller ids");
-}
-
-export default function BestsellerFeatureRow({
-  title = "Bestsellers",
+export default function NewArrivalsFeatureRow({
+  title = "New Arrivals",
   limit = 12,
-  idsEndpoints = DEFAULT_IDS_ENDPOINTS,
+  showOnlyActive = true,
 }) {
   const router = useRouter();
   const scrollRef = useRef(null);
@@ -113,30 +97,21 @@ export default function BestsellerFeatureRow({
 
         if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
 
-        const idsPayload = await fetchFirstOkJson(
-          BACKEND,
-          idsEndpoints,
-          controller.signal
-        );
+        const qs = new URLSearchParams();
+        qs.set("page", "1");
+        qs.set("limit", String(limit));
+        qs.set("sort", "newest");
+        if (showOnlyActive) qs.set("isActive", "true");
 
-        const ids = extractIds(idsPayload);
-        if (!ids.length) {
-          setItems([]);
-          return;
-        }
-
-        const res = await fetch(`${BACKEND}${PRODUCTS_BY_IDS_ENDPOINT}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch(`${BACKEND}${PAGE_ENDPOINT}?${qs.toString()}`, {
           cache: "no-store",
           signal: controller.signal,
-          body: JSON.stringify({ ids: ids.slice(0, limit) }),
         });
 
         const data = await safeJson(res);
-        if (!res.ok) throw new Error(data?.message || "Failed to load products");
+        if (!res.ok) throw new Error(data?.message || "Failed to load new arrivals");
 
-        setItems(Array.isArray(data?.products) ? data.products : []);
+        setItems(extractProducts(data));
       } catch (e) {
         if (e?.name === "AbortError") return;
         setError(e?.message || "Something went wrong");
@@ -147,7 +122,7 @@ export default function BestsellerFeatureRow({
     })();
 
     return () => controller.abort();
-  }, [limit, idsEndpoints]);
+  }, [limit, showOnlyActive]);
 
   const products = useMemo(() => {
     const mapped = (Array.isArray(items) ? items : []).map(normalizeCard);
@@ -170,6 +145,7 @@ export default function BestsellerFeatureRow({
       className={`absolute ${
         dir === "left" ? "left-2" : "right-2"
       } top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition`}
+      aria-label={`Scroll ${dir}`}
     >
       {dir === "left" ? "←" : "→"}
     </button>
@@ -179,36 +155,39 @@ export default function BestsellerFeatureRow({
 
   return (
     <motion.section
-      className="bg-white"
+      className={`bg-white ${showShimmer ? "px-4" : ""}`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
     >
-      {/* ✅ SIMPLE HEADER + Minimal View All */}
+      {/* ✅ SIMPLE HEADER + minimal View All (like bestseller) */}
       <div className="w-full bg-black text-center mb-6 relative">
         <h2 className="text-white py-3 text-lg md:text-2xl font-semibold uppercase tracking-[0.25em]">
           {title}
         </h2>
 
         <button
-          onClick={() => router.push("/bestseller")}
+          type="button"
+          onClick={() => router.push("/new-arrivals")}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-white text-xs md:text-sm font-medium opacity-80 hover:opacity-100 transition"
         >
           View All →
         </button>
       </div>
 
-      {error && (
+      {error ? (
         <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p>
-      )}
+      ) : null}
 
       <div className="relative">
-        {showArrows && (
+        {showArrows ? (
           <>
             <ArrowBtn dir="left" />
             <ArrowBtn dir="right" />
+            <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white to-transparent z-10" />
+            <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white to-transparent z-10" />
           </>
-        )}
+        ) : null}
 
         <div
           ref={scrollRef}

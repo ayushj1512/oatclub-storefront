@@ -115,7 +115,7 @@ export default function NewArrivalsPage() {
   );
 
   // ✅ Init price once facets update
-  useEffect(() => {
+  useEffect(() => {P
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
     setDraftPriceMin(facets.priceMin);

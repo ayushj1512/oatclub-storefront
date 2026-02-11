@@ -23,6 +23,7 @@ import Newsletter from "@/components/home/Newsletter";
 import LeopardFeatureCollection from "@/components/home/LeopardFeatureCollection";
 import PolkadotFeatureCollection from "@/components/home/PolkadotFeatureCollection";
 import StyleByOccasion from "@/components/home/StyleByOccasion";
+import NewArrivalsFeatureRow from "@/components/home/NewArrivalsFeatureRow";
 
 export default function HomeClient() {
   const { structuredData } = generateSEO({
@@ -51,12 +52,13 @@ export default function HomeClient() {
         </div>
 
         <HeroSection />
-        {/* <StyleByOccasion /> */}
+        <StyleByOccasion />
+       <BestSellerSection />
+        <NewArrivalsFeatureRow title="NEW ARRIVALS" limit={12} />
+        {/* <LeopardFeatureCollection />
+        <PolkadotFeatureCollection /> */}
 
-        <LeopardFeatureCollection />
-        <PolkadotFeatureCollection />
-
-        <BestSellerSection />
+ 
 
         {/* ✅ NEW: Recommendation row after Bestseller */}
         <RecommendationFeatureRow limit={12} seedCount={6} />
