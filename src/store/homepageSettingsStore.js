@@ -9,7 +9,7 @@ export const useHomepageSettingsStore = create((set, get) => ({
   success: null,
 
   /* ============================
-     Fetch Settings
+     Fetch Homepage Settings
   ============================ */
   fetchHomepageSettings: async () => {
     try {
@@ -27,7 +27,7 @@ export const useHomepageSettingsStore = create((set, get) => ({
   },
 
   /* ============================
-     Update Full Settings
+     Update Full Homepage Settings
   ============================ */
   updateHomepageSettings: async (payload) => {
     try {
@@ -56,23 +56,30 @@ export const useHomepageSettingsStore = create((set, get) => ({
   },
 
   /* ============================
-     Update Hero Banners Only
+     Update Hero Banners
   ============================ */
-  updateHeroBanners: async (heroBanners) => {
+  updateHeroBanners: async (heroBanners = []) => {
     try {
       set({ loading: true, error: null, success: null });
 
-      const res = await fetch(`${BASE_URL}/api/homepage-settings/hero-banners`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ heroBanners }),
-      });
+      const res = await fetch(
+        `${BASE_URL}/api/homepage-settings/hero-banners`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ heroBanners }),
+        }
+      );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to update hero banners");
+      if (!res.ok)
+        throw new Error(data.message || "Failed to update hero banners");
 
       set((state) => ({
-        settings: { ...state.settings, heroBanners: data.heroBanners },
+        settings: {
+          ...state.settings,
+          heroBanners: data.heroBanners,
+        },
         loading: false,
         success: "Hero banners updated ✅",
       }));
@@ -85,23 +92,31 @@ export const useHomepageSettingsStore = create((set, get) => ({
   },
 
   /* ============================
-     Update Category Row Only
+     Update Category Row
+     (navigationType supported)
   ============================ */
-  updateCategoryRow: async (categoryRow) => {
+  updateCategoryRow: async (categoryRow = []) => {
     try {
       set({ loading: true, error: null, success: null });
 
-      const res = await fetch(`${BASE_URL}/api/homepage-settings/category-row`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoryRow }),
-      });
+      const res = await fetch(
+        `${BASE_URL}/api/homepage-settings/category-row`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ categoryRow }),
+        }
+      );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to update category row");
+      if (!res.ok)
+        throw new Error(data.message || "Failed to update category row");
 
       set((state) => ({
-        settings: { ...state.settings, categoryRow: data.categoryRow },
+        settings: {
+          ...state.settings,
+          categoryRow: data.categoryRow,
+        },
         loading: false,
         success: "Category row updated ✅",
       }));

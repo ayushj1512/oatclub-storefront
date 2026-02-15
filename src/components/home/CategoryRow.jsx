@@ -39,37 +39,46 @@ export default function CategoryRow() {
   const { settings, loading, fetchHomepageSettings } =
     useHomepageSettingsStore();
 
-  // ✅ Fetch only once
+  /* -------- Fetch once -------- */
   useEffect(() => {
     if (!settings) fetchHomepageSettings();
   }, [settings, fetchHomepageSettings]);
 
-  // ✅ Premium feel shimmer delay
+  /* -------- Premium shimmer delay -------- */
   useEffect(() => {
     const t = setTimeout(() => setShimmerLoading(false), 300);
     return () => clearTimeout(t);
   }, []);
 
-  // ✅ Extract categoryRow safely + filter + sort
-  const categories = useMemo(() => {
+  /* -------- Safe extract + sort -------- */
+  const items = useMemo(() => {
     const row = settings?.categoryRow || [];
     return row
-      .filter((item) => item?.isActive && item?.name)
+      .filter((i) => i?.isActive && i?.name && i?.slug)
       .sort((a, b) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
   }, [settings]);
 
-  const handleNavigate = (cat) => {
-  // slugs that are pages (not categories)
-  if (cat?.slug === "all-clothing") return router.push("/all-clothing");
-  if (cat?.slug === "new-arrivals") return router.push("/new-arrivals");
+  /* =======================
+     NAVIGATION (FIXED)
+  ======================= */
+  const handleNavigate = (item) => {
+    if (!item?.slug) return;
 
-  if (cat?.slug) return router.push(`/category/${cat.slug}`);
-  if (cat?.tag) return router.push(`/tag/${cat.tag}`);
-};
+    // legacy standalone pages
+    if (item.slug === "all-clothing") return router.push("/all-clothing");
+    if (item.slug === "new-arrivals") return router.push("/new-arrivals");
 
+    // ✅ STRICT routing by navigationType
+    if (item.navigationType === "collection") {
+      return router.push(`/collection/${item.slug}`);
+    }
 
-  // ✅ If no categories, don't render row
-  if (!loading && !categories.length) return null;
+    // default = category
+    return router.push(`/category/${item.slug}`);
+  };
+
+  /* -------- No render if empty -------- */
+  if (!loading && !items.length) return null;
 
   return (
     <section className="w-full bg-white py-4">
@@ -98,21 +107,18 @@ export default function CategoryRow() {
             md:justify-between
           "
         >
-          {categories.map((cat, idx) => (
+          {items.map((item, idx) => (
             <button
-              key={`${cat?.name}-${idx}`}
+              key={`${item.slug}-${idx}`}
               type="button"
-              onClick={() => handleNavigate(cat)}
-              aria-label={cat?.name}
+              onClick={() => handleNavigate(item)}
+              aria-label={item.name}
               className="
                 shrink-0 md:flex-1 md:min-w-0
                 flex flex-col items-center select-none
-
-                cursor-pointer
                 transition
                 hover:opacity-90
                 active:scale-[0.97]
-
                 focus-visible:outline-none
                 focus-visible:ring-2
                 focus-visible:ring-black/30
@@ -124,20 +130,19 @@ export default function CategoryRow() {
                 className="
                   w-[72px] h-[72px] md:w-[92px] md:h-[92px]
                   rounded-full overflow-hidden bg-black/5
-                  cursor-pointer
                 "
               >
-                {cat?.image ? (
+                {item.image ? (
                   <Image
-                    src={cat.image}
-                    alt={cat.name}
+                    src={item.image}
+                    alt={item.name}
                     width={200}
                     height={200}
                     className="w-full h-full object-cover"
                   />
-                ) : cat?.video ? (
+                ) : item.video ? (
                   <video
-                    src={cat.video}
+                    src={item.video}
                     autoPlay
                     loop
                     muted
@@ -150,7 +155,7 @@ export default function CategoryRow() {
               </div>
 
               <p className="mt-1 w-full px-1 text-center text-[12px] md:text-[13px] font-semibold leading-tight text-black/75 truncate">
-                {cat?.name}
+                {item.name}
               </p>
             </button>
           ))}
