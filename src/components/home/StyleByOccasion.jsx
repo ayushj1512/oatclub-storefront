@@ -1,114 +1,74 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHomeCollectionDesignStore, toImgSrc } from "@/store/homecollectiondesignstore";
 
-/* =======================
-   SHIMMER CARDS
-======================= */
-function OccasionShimmer({ count = 5 }) {
-  return (
-    <div className="no-scrollbar flex gap-4 px-4 overflow-x-auto md:justify-center md:overflow-visible md:max-w-[1400px] md:mx-auto md:px-6">
-      {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="flex-shrink-0 w-[150px] md:w-[260px]"
-        >
-          <div className="relative w-full h-[190px] md:h-[320px] rounded-2xl bg-gray-200 overflow-hidden">
-            <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
-          </div>
-          <div className="h-4 mt-3 bg-gray-200 rounded w-3/4 animate-pulse mx-auto" />
-        </div>
-      ))}
-    </div>
-  );
-}
+/* helpers */
+const cap = (s = "") => s.toLowerCase().trim().replace(/\s+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
-/* =======================
-   MAIN COMPONENT
-======================= */
+/* shimmer */
+const OccasionShimmer = ({ count = 5 }) => (
+  <div className="no-scrollbar flex gap-5 px-4 overflow-x-auto">
+    {Array.from({ length: count }).map((_, i) => (
+      <div key={i} className="flex-shrink-0 w-[150px] md:w-[260px]">
+        <div className="h-[190px] md:h-[320px] rounded-2xl bg-gray-200 animate-pulse" />
+        <div className="h-4 mt-4 w-2/3 mx-auto rounded bg-gray-200 animate-pulse" />
+      </div>
+    ))}
+  </div>
+);
 
 export default function StyleByOccasion() {
   const router = useRouter();
+  const scrollRef = useRef(null);
 
-  const isLoading = useHomeCollectionDesignStore((s) => s.isLoading);
-  const activeHomeCollections = useHomeCollectionDesignStore((s) => s.activeHomeCollections);
-  const fetchActiveHomeCollections = useHomeCollectionDesignStore((s) => s.fetchActiveHomeCollections);
+  const { isLoading, activeHomeCollections, fetchActiveHomeCollections } = useHomeCollectionDesignStore();
 
-  const [minShimmer, setMinShimmer] = useState(true);
-
-  useEffect(() => {
-    const t = setTimeout(() => setMinShimmer(false), 250);
-    return () => clearTimeout(t);
-  }, []);
+  const [minLoad, setMinLoad] = useState(true);
 
   useEffect(() => {
     fetchActiveHomeCollections?.();
+    const t = setTimeout(() => setMinLoad(false), 250);
+    return () => clearTimeout(t);
   }, [fetchActiveHomeCollections]);
 
-  const loading = isLoading || minShimmer;
+  const items = useMemo(
+    () => [...(activeHomeCollections || [])].sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0)),
+    [activeHomeCollections]
+  );
 
-  const items = useMemo(() => {
-    const arr = Array.isArray(activeHomeCollections) ? activeHomeCollections : [];
-    return [...arr].sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0));
-  }, [activeHomeCollections]);
-
-  const handleClick = (slug) => {
-    if (!slug) return;
-    router.push(`/collection/${slug}`);
-  };
+  const scroll = (x) => scrollRef.current?.scrollBy({ left: x, behavior: "smooth" });
 
   return (
-    <section className="w-full bg-gray-50 pb-8 md:py-10">
-      <div className="w-full bg-black text-center mb-6">
-        <h2 className="text-white py-3 text-lg md:text-2xl font-semibold uppercase tracking-[0.25em]">
-          Style by Collection
-        </h2>
+    <section className="w-full bg-gray-50 pb-10 relative">
+      <div className="bg-black text-center mb-8">
+        <h2 className="py-4 text-white text-lg md:text-2xl font-medium uppercase tracking-[0.3em]">Style by Collection</h2>
       </div>
 
-      {/* Hide scrollbar */}
-      <style
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{
-          __html: `
-            .no-scrollbar::-webkit-scrollbar { display: none; }
-            .no-scrollbar {
-              -ms-overflow-style: none;
-              scrollbar-width: none;
-            }
-          `,
-        }}
-      />
+      <style dangerouslySetInnerHTML={{ __html: `.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}` }} />
 
-      {loading ? (
+      {isLoading || minLoad ? (
         <OccasionShimmer />
       ) : (
-        <div className="no-scrollbar flex gap-4 px-4 overflow-x-auto md:justify-center md:overflow-visible md:max-w-[1400px] md:mx-auto md:px-6">
-          {items.map((item) => (
-            <div
-              key={item?._id || item?.slug}
-              onClick={() => handleClick(item?.slug)}
-              className="flex-shrink-0 w-[150px] md:w-[260px] cursor-pointer group"
-            >
-              {/* Image */}
-              <div className="relative w-full h-[190px] md:h-[320px] rounded-2xl overflow-hidden bg-gray-200 border border-gray-200 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
-                <Image
-                  src={toImgSrc(item?.imageUrl)}
-                  alt={item?.name || "Collection"}
-                  fill
-                  className="object-cover object-center transition-transform duration-700 group-hover:scale-[1.05]"
-                  sizes="(max-width: 768px) 150px, 260px"
-                />
-              </div>
+        <div className="relative">
+          <button onClick={() => scroll(-320)} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-10 h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-md hover:bg-black hover:text-white transition">←</button>
+          <button onClick={() => scroll(320)} className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 z-10 h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-md hover:bg-black hover:text-white transition">→</button>
 
-              {/* Heading */}
-              <h3 className="mt-3 text-center text-sm md:text-base font-medium text-gray-800 tracking-wide transition-colors duration-300 group-hover:text-black">
-                {item?.name}
-              </h3>
-            </div>
-          ))}
+          <div ref={scrollRef} className="no-scrollbar flex gap-5 px-4 md:px-16 overflow-x-auto scroll-smooth">
+            {items.map((item) => {
+              const title = cap(item?.name);
+              return (
+                <div key={item?._id || item?.slug} onClick={() => router.push(`/collection/${item?.slug}`)} className="flex-shrink-0 w-[150px] md:w-[260px] cursor-pointer group">
+                  <div className="relative h-[190px] md:h-[320px] rounded-2xl overflow-hidden bg-gray-100 transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-lg">
+                    <Image src={toImgSrc(item?.imageUrl)} alt={title} fill className="object-cover transition-transform duration-700 group-hover:scale-[1.05]" sizes="(max-width:768px) 150px, 260px" />
+                  </div>
+                  <h3 className="mt-4 text-center text-sm md:text-base font-medium text-gray-900 tracking-wide transition-all duration-300 group-hover:tracking-wider">{title}</h3>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </section>

@@ -1,3 +1,4 @@
+// src/store/searchStore.js
 "use client";
 
 import { create } from "zustand";
@@ -6,8 +7,9 @@ import { trackMeta } from "@/lib/meta/track";
 import { pushToDataLayer, pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
+const API_BASE = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "");
 
+/* ---------------- analytics helpers ---------------- */
 const stableStringify = (obj) => {
   try {
     return JSON.stringify(obj, Object.keys(obj).sort());
@@ -35,6 +37,10 @@ const ga4Item = (p) =>
     1
   );
 
+/* ---------------- helpers ---------------- */
+const norm = (v) => String(v ?? "").trim().toLowerCase();
+const safeArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+
 const uniqById = (arr = []) => {
   const map = new Map();
   for (const p of arr) {
@@ -45,53 +51,69 @@ const uniqById = (arr = []) => {
   return Array.from(map.values());
 };
 
-const norm = (v) => String(v ?? "").trim().toLowerCase();
-const safeArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+const splitCSV = (q = "") =>
+  Array.from(
+    new Set(
+      String(q || "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+    )
+  );
 
-const normalizeDigits = (s) => String(s || "").replace(/\D/g, "");
-const stripLeadingZeros = (s) => String(s || "").replace(/^0+/, "") || "0";
+// ✅ productCode is 5 digits in your DB (e.g. "00219")
+const pad5 = (s) => {
+  const d = String(s ?? "").replace(/\D/g, "");
+  if (!d) return "";
+  return d.slice(-5).padStart(5, "0"); // "219" -> "00219", "FEA-00219-XS" -> "00219"
+};
 
 const matchesProductCode = (productCode, q) => {
-  const pc = norm(productCode);
-  const qq = norm(q);
+  const pc = pad5(productCode);
+  const qq = pad5(q);
   if (!pc || !qq) return false;
-
-  // exact (case-insensitive)
-  if (pc === qq) return true;
-
-  // numeric normalization: "000260" == "260"
-  const pcNum = stripLeadingZeros(normalizeDigits(pc));
-  const qNum = stripLeadingZeros(normalizeDigits(qq));
-  if (pcNum && qNum && pcNum === qNum) return true;
-
-  return false;
+  return pc === qq;
 };
 
 const matchesText = (text, q) => {
   const t = norm(text);
   const qq = norm(q);
-  if (!t || !qq) return false;
-  return t.includes(qq);
+  return !!(t && qq && t.includes(qq));
 };
 
-const productMatchesQuery = (p, q) => {
+/**
+ * Strict matcher (client safety):
+ * ✅ productCode (5-digit normalize; supports "219", "00219", "FEA-00219-XS")
+ * ✅ title/name
+ * ✅ tags
+ * ✅ categories / category.name/slug
+ * ✅ colors
+ * ✅ sku + variants.sku (exact/contains)
+ */
+const productMatchesToken = (p, token) => {
   if (!p) return false;
+  const q = String(token || "").trim();
+  if (!q) return false;
 
-  // productCode match
+  // ✅ productCode match (handles 219 / 00219 / sku-with-code)
   if (matchesProductCode(p.productCode, q)) return true;
 
-  // title/name match
+  // ✅ sku contains / exact
+  if (matchesText(p.sku, q)) return true;
+
+  // ✅ variants.sku contains / exact
+  const vSkus = safeArr(p.variants).map((v) => v?.sku).filter(Boolean);
+  if (vSkus.some((s) => matchesText(s, q) || norm(s) === norm(q))) return true;
+
+  // ✅ title/name
   if (matchesText(p.title || p.name, q)) return true;
 
-  // tags match
+  // ✅ tags
   const tags = safeArr(p.tags).map(norm);
   if (tags.some((t) => t.includes(norm(q)))) return true;
 
-  // category / categories match
-  // your sample response has: categories: ["all-clothing", ...]
+  // ✅ categories + category object
   const categories = safeArr(p.categories).map(norm);
-
-  // sometimes category could be object or string
   const catField = p.category;
   const catCandidates = [
     ...(typeof catField === "string" ? [catField] : []),
@@ -106,18 +128,23 @@ const productMatchesQuery = (p, q) => {
     return true;
   }
 
+  // ✅ colors
+  const colors = safeArr(p.colors).map(norm);
+  if (colors.some((c) => c.includes(norm(q)))) return true;
+
   return false;
 };
 
-const looksLikeCodeQuery = (q = "") => {
-  const s = String(q).trim();
-  // numbers or alpha-num with hyphen/underscore
-  if (!s) return false;
-  const isSimple = /^[a-z0-9-_]+$/i.test(s);
-  const hasDigit = /\d/.test(s);
-  return isSimple && hasDigit && s.length >= 3;
+const productMatchesQuery = (p, tokens = []) => {
+  if (!tokens?.length) return true;
+  // ✅ comma-separated: ANY token match
+  return tokens.some((t) => productMatchesToken(p, t));
 };
 
+// ✅ token is code-like if it contains any digits at all
+const tokenLooksLikeProductCode = (t) => !!pad5(t);
+
+/* ---------------- store ---------------- */
 export const useSearchStore = create((set, get) => ({
   query: "",
   results: [],
@@ -125,7 +152,13 @@ export const useSearchStore = create((set, get) => ({
   page: 1,
   pages: 1,
   limit: 20,
-  filters: { category: null, tags: [], minPrice: null, maxPrice: null, sort: "newest" },
+  filters: {
+    category: null,
+    tags: [],
+    minPrice: null,
+    maxPrice: null,
+    sort: "newest",
+  },
   loading: false,
   error: null,
   lastSearchedAt: null,
@@ -162,8 +195,9 @@ export const useSearchStore = create((set, get) => ({
 
     if (!API_BASE) return set({ error: "Search API not configured" });
 
-    const q = (query || "").trim();
-    if (!q || q.length < 2) {
+    const raw = (query || "").trim();
+    const tokens = splitCSV(raw);
+    if (!raw || raw.length < 2) {
       return set({
         results: [],
         total: 0,
@@ -198,80 +232,67 @@ export const useSearchStore = create((set, get) => ({
       return params;
     };
 
+    // ✅ Build codes (5-digit normalized + deduped) from any token containing digits
+    const codes = Array.from(
+      new Set(tokens.map((t) => pad5(t)).filter(Boolean))
+    );
+
+    // ✅ "skus" helper tokens: the raw non-code tokens (names etc.)
+    const skus = tokens.filter((t) => !tokenLooksLikeProductCode(t));
+
+    const primaryExtra = {
+      // preferred keys (if backend supports)
+      q: raw,
+      codes: codes.length ? codes.join(",") : undefined,
+      skus: skus.length ? skus.join(",") : undefined,
+
+      // backwards compatible keys (if backend uses these)
+      search: raw,
+      searchIn:
+        "title,name,productCode,sku,tags,categories,category,slug,colors,variants.sku",
+    };
+
     const fetchProducts = async (extraParams = {}) => {
       const params = buildParams(extraParams);
-
-      const res = await fetch(`${API_BASE}/api/products?${params.toString()}`, {
-        cache: "no-store",
-      });
-
+      const res = await fetch(
+        `${API_BASE}/api/products?${params.toString()}`,
+        { cache: "no-store" }
+      );
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.message || "Search request failed");
 
-      const incoming = Array.isArray(data?.products) ? data.products : [];
+      const incoming = Array.isArray(data?.products)
+        ? data.products
+        : Array.isArray(data?.items)
+        ? data.items
+        : [];
 
-      // ✅ drop inactive (extra safety)
+      // extra safety: published only
       const publishedOnly = incoming.filter((p) => p?.isActive !== false);
 
       return {
         products: publishedOnly,
-        total: data?.total || 0,
         page: data?.page || page,
         pages: data?.pages || 1,
       };
     };
 
     try {
-      // ✅ Pass 1: backend "search"
-      const primary = await fetchProducts({
-        search: q,
-        // backend can ignore this safely
-        searchIn: "title,name,productCode,tags,categories,category,slug",
-      });
+      const primary = await fetchProducts(primaryExtra);
 
-      // ✅ Client-side validate primary results too (prevents "latest 20" bug)
-      const primaryMatched = primary.products.filter((p) => productMatchesQuery(p, q));
-
-      let merged = primaryMatched;
-
-      // ✅ Only run multi-pass on first page (pagination stays sane)
-      if (page === 1) {
-        const codeLike = looksLikeCodeQuery(q);
-
-        // We try multiple strategies, but ALWAYS validate response before merging
-        const calls = [];
-
-        // productCode/sku are useful for code-like queries
-        calls.push(fetchProducts({ productCode: q }));
-        calls.push(fetchProducts({ sku: q }));
-
-        // tags/category/name based fallbacks help normal words too
-        // (if backend supports these params)
-        if (!codeLike) {
-          calls.push(fetchProducts({ tags: q }));
-          calls.push(fetchProducts({ category: q }));
-          calls.push(fetchProducts({ name: q }));
-          calls.push(fetchProducts({ title: q }));
-          calls.push(fetchProducts({ slug: q }));
-        }
-
-        const settled = await Promise.allSettled(calls);
-
-        const extras = settled
-          .filter((r) => r.status === "fulfilled")
-          .flatMap((r) => r.value.products)
-          // ✅ CRITICAL: only merge those which actually match query
-          .filter((p) => productMatchesQuery(p, q));
-
-        merged = uniqById([...merged, ...extras]);
-      }
+      // ✅ ALWAYS strict match (prevents "latest 20" bug)
+      const matched = primary.products.filter((p) =>
+        productMatchesQuery(p, tokens)
+      );
 
       const finalResults =
-        page === 1 ? merged : uniqById([...(get().results || []), ...merged]);
+        page === 1
+          ? uniqById(matched)
+          : uniqById([...(get().results || []), ...matched]);
 
       set({
         results: finalResults,
-        total: page === 1 ? finalResults.length : Math.max(get().total || 0, finalResults.length),
+        total: finalResults.length,
         page: primary.page || page,
         pages: primary.pages || 1,
         loading: false,
@@ -281,14 +302,22 @@ export const useSearchStore = create((set, get) => ({
       /* ✅ Analytics appearance */
       try {
         const analytics = useAnalyticsStore.getState();
-        merged.forEach((p) => analytics.trackSearchAppearance(p._id || p.id));
+        matched.forEach((p) => analytics.trackSearchAppearance(p._id || p.id));
       } catch (e) {
         console.warn("📊 Search analytics failed", e);
       }
 
-      /* ✅ GA4: search + view_search_results (ONLY for page=1 + deduped) */
+      /* ✅ GA4: only page 1 (deduped) */
       try {
-        const ga4Key = stableStringify({ q, category, tags, minPrice, maxPrice, sort, isActive: true });
+        const ga4Key = stableStringify({
+          raw,
+          category,
+          tags,
+          minPrice,
+          maxPrice,
+          sort,
+          isActive: true,
+        });
         const now = Date.now();
         const { _lastGA4SearchKey, _lastGA4SearchAt } = get();
 
@@ -296,11 +325,11 @@ export const useSearchStore = create((set, get) => ({
         const sameKey = _lastGA4SearchKey && _lastGA4SearchKey === ga4Key;
 
         if (page === 1 && !(sameKey && tooSoon)) {
-          pushToDataLayer({ event: "search", search_term: q });
+          pushToDataLayer({ event: "search", search_term: raw });
 
           pushEcomEvent("view_search_results", {
             currency: "INR",
-            items: merged.slice(0, 20).map(ga4Item),
+            items: finalResults.slice(0, 20).map(ga4Item),
           });
 
           set({ _lastGA4SearchKey: ga4Key, _lastGA4SearchAt: now });
@@ -309,9 +338,17 @@ export const useSearchStore = create((set, get) => ({
         console.warn("📈 GA4 search events failed", e);
       }
 
-      /* ✅ Meta Search */
+      /* ✅ Meta Search: only page 1 */
       try {
-        const metaKey = stableStringify({ q, category, tags, minPrice, maxPrice, sort, isActive: true });
+        const metaKey = stableStringify({
+          raw,
+          category,
+          tags,
+          minPrice,
+          maxPrice,
+          sort,
+          isActive: true,
+        });
         const now = Date.now();
         const { _lastMetaSearchKey, _lastMetaSearchAt } = get();
 
@@ -320,9 +357,9 @@ export const useSearchStore = create((set, get) => ({
 
         if (page === 1 && !(sameKey && tooSoon)) {
           await trackMeta("Search", {
-            search_string: q,
+            search_string: raw,
             content_category: category ? String(category) : undefined,
-            content_ids: merged
+            content_ids: finalResults
               .slice(0, 20)
               .map((p) => String(p._id || p.id))
               .filter(Boolean),
