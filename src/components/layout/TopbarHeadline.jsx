@@ -6,7 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 export default function TopbarHeadline({ interval = 2800 }) {
   const items = useMemo(
     () => [
-      "Extra 14% OFF — Valentine’s Week Special (7th–14th Feb) ❤️",
+      "Use code FIRST10 to get 10% OFF on your first order 🎉",
+      "Summer Collection is Live ☀️",
+      "Curated with Love ❤️",
     ],
     []
   );
