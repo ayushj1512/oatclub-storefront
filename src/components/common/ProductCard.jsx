@@ -8,6 +8,7 @@ import { useWishlistStore } from "@/store/wishlistStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { useAnalyticsStore } from "@/store/analyticsStore";
 import { motion } from "framer-motion";
+import { Crown } from "lucide-react";
 
 /* ----------------------------- Shimmer ----------------------------- */
 const ShimmerCard = () => (
@@ -138,6 +139,8 @@ function getBestCompareAtPrice(product) {
   return compareBase > 0 ? compareBase : variantMax;
 }
 
+
+
 export default function ProductCard({
   product,
   loading = false,
@@ -169,6 +172,11 @@ if (!pcode) return null;
   if (!sale || sale <= 0) return null;
 
   const compareAt = getBestCompareAtPrice(product);
+
+    const isBestSeller = !!(
+    product?.isBestSeller ??
+    product?.raw?.isBestSeller
+  );
 
   // ✅ safer showCompare + discount calc
   const showCompare = compareAt > 0 && sale > 0 && compareAt > sale;
@@ -248,6 +256,27 @@ const productLink = `/category/${category}/${formattedName}/${encodeURIComponent
       >
         {/* IMAGE */}
         <div className="relative w-full aspect-[3/4] bg-white overflow-hidden">
+     {isBestSeller && (
+  <div className="absolute top-2 left-2 z-10">
+    <span className="
+      inline-flex items-center gap-1.5
+      px-2.5 py-1
+      text-[10px] md:text-[11px]
+      font-semibold tracking-wide
+      text-white
+      bg-black/40
+      backdrop-blur-md
+      rounded-full
+      border border-white/20
+      shadow-sm
+    ">
+      <Crown className="w-3.5 h-3.5 text-yellow-400" />
+      BESTSELLER
+    </span>
+  </div>
+)}
+
+
           <Image
             src={image}
             alt={productName}

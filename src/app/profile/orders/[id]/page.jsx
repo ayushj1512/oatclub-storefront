@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import {
@@ -11,12 +12,15 @@ import {
   CheckCircle2,
   RotateCcw,
   AlertTriangle,
+  Star,
 } from "lucide-react";
 
+import OrderItemReviewSection from "@/components/reviews/OrderItemReviewSection";
 import { useAuthStore } from "@/store/authStore";
 import { useOrderStore } from "@/store/orderStore";
 import { useRmaStore } from "@/store/useRmaStore";
 import CancelOrderModal from "@/components/orders/CancelOrderModal";
+import { useReviewStore } from "@/store/useReviewStore"; // ✅ NEW
 
 /* -------------------------------------------
    ✅ UI Helpers
@@ -52,9 +56,25 @@ const STATUS_ICON = {
 const CANCEL_ALLOWED = ["processing", "packed", "picked", "shipped"];
 const RMA_ALLOWED = ["delivered"];
 
-function formatDate(d) {
+const money = (n) => {
+  const x = Number(n);
+  return Number.isFinite(x) ? x.toLocaleString("en-IN") : "0";
+};
+
+const safe = (v) => (v == null ? "" : String(v));
+const s = (v) => safe(v).trim();
+
+function prettyStatus(sv) {
+  const v = String(sv || "").toLowerCase();
+  if (!v) return "Pending";
+  return v.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatDateIST(d) {
+  if (!d) return "";
   try {
     return new Date(d).toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
       year: "numeric",
       month: "short",
       day: "2-digit",
@@ -64,34 +84,22 @@ function formatDate(d) {
   }
 }
 
-function prettyStatus(s) {
-  const v = String(s || "").toLowerCase();
-  if (!v) return "Pending";
-  return v.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-const money = (n) => {
-  const x = Number(n);
-  return Number.isFinite(x) ? x.toLocaleString("en-IN") : "0";
-};
-
 const Chip = ({ children }) => (
-  <span className="inline-flex items-center rounded-full bg-black/5 px-3 py-1 text-xs font-semibold text-gray-700">
+  <span className="inline-flex items-center rounded-full bg-black/5 px-3 py-1 text-[11px] font-semibold text-gray-700">
     {children}
   </span>
 );
 
-
-
 /* -------------------------------------------
-   ✅ Modal Wrapper
+   ✅ Modal Wrapper (mobile-first)
 -------------------------------------------- */
 const Modal = ({ children, onClose }) => (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[99999] p-4">
-    <div className="bg-white rounded-3xl p-6 max-w-sm w-full relative shadow-2xl">
+  <div className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-6">
+    <div className="bg-white w-full rounded-3xl p-4 sm:p-6 relative shadow-2xl">
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 bg-black/5 p-2 rounded-full hover:bg-black/10 transition"
+        className="absolute top-3 right-3 bg-black/5 p-2 rounded-full hover:bg-black/10 transition"
+        aria-label="Close"
       >
         <X size={18} />
       </button>
@@ -107,17 +115,26 @@ export default function OrderDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
 
-  const { customer, loading: authLoading, isAuthenticated } = useAuthStore();
+  const { customer, loading: authLoading, isAuthenticated, token } = useAuthStore();
 
-  const {
-    order,
-    fetchOrderById,
-    updateOrderStatus,
-    loading: orderLoading,
-    error: orderError,
-  } = useOrderStore();
+  const { order, fetchOrderById, updateOrderStatus, loading: orderLoading, error: orderError } =
+    useOrderStore();
 
   const { rmas, fetchRmasByOrder, createRma, error: rmaError } = useRmaStore();
+
+  // ✅ NEW: reviewed check state (per order line)
+  const [reviewedByLineId, setReviewedByLineId] = useState({});
+  const [checkingReviews, setCheckingReviews] = useState(false);
+
+  // try to use store if it has any checker function
+  const reviewStore = useReviewStore();
+  const reviewCheckFn =
+    reviewStore?.checkReviewed ||
+    reviewStore?.hasReviewed ||
+    reviewStore?.isReviewed ||
+    reviewStore?.getMyReviewByProduct ||
+    reviewStore?.fetchMyReviewByProduct ||
+    null;
 
   const [showCancelModal, setShowCancelModal] = useState(false);
 
@@ -128,8 +145,11 @@ export default function OrderDetailsPage() {
   const [selectedSize, setSelectedSize] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
+
   const [remarkDraft, setRemarkDraft] = useState("");
-const [savingRemark, setSavingRemark] = useState(false);
+  const [savingRemark, setSavingRemark] = useState(false);
+
+  const [openReviewLineId, setOpenReviewLineId] = useState(null);
 
   /* -------------------------------------------
      ✅ LOAD ORDER + RMAs
@@ -150,13 +170,11 @@ const [savingRemark, setSavingRemark] = useState(false);
     return () => clearInterval(interval);
   }, [authLoading, isAuthenticated, id, fetchOrderById, fetchRmasByOrder, router]);
 
-
   useEffect(() => {
-  if (order?.customerSupportRemark != null) {
-    setRemarkDraft(String(order.customerSupportRemark));
-  }
-}, [order?._id]);
-
+    if (order?.customerSupportRemark != null) {
+      setRemarkDraft(String(order.customerSupportRemark));
+    }
+  }, [order?._id]);
 
   const safeItems = useMemo(() => {
     const list = order?.items || [];
@@ -170,11 +188,103 @@ const [savingRemark, setSavingRemark] = useState(false);
   }, [order, customer?._id]);
 
   /* -------------------------------------------
+     ✅ Already reviewed check (best-effort)
+     - First: sessionStorage marker (fast)
+     - Then: if your useReviewStore has a checker fn, we call it
+-------------------------------------------- */
+  const storageKeyFor = useCallback(
+    (pid) => {
+      const cid = s(customer?._id);
+      const p = s(pid);
+      if (!cid || !p) return "";
+      return `review_submitted:${cid}:${p}`;
+    },
+    [customer?._id]
+  );
+
+  const markReviewed = useCallback(
+    (lineId, productId) => {
+      setReviewedByLineId((prev) => ({ ...prev, [String(lineId)]: true }));
+      const k = storageKeyFor(productId);
+      if (k) {
+        try {
+          sessionStorage.setItem(k, "1");
+        } catch {}
+      }
+    },
+    [storageKeyFor]
+  );
+
+  useEffect(() => {
+    const run = async () => {
+      if (!order?._id || !customer?._id) return;
+      if (!safeItems.length) return;
+
+      setCheckingReviews(true);
+
+      const nextMap = {};
+      for (const item of safeItems) {
+        const lineKey = String(item?.lineId || "");
+        const pid = item?.productId?._id || item?.productId;
+
+        if (!lineKey || !pid) continue;
+
+        // 1) local marker
+        const k = storageKeyFor(pid);
+        if (k) {
+          try {
+            if (sessionStorage.getItem(k) === "1") {
+              nextMap[lineKey] = true;
+              continue;
+            }
+          } catch {}
+        }
+
+        // 2) store checker (if available)
+        if (typeof reviewCheckFn === "function") {
+          try {
+            // supports either:
+            // - (productId)
+            // - ({ token, productId, customerId })
+            // - returns boolean OR a review object
+            const out =
+              reviewCheckFn.length >= 1
+                ? await reviewCheckFn({ token, productId: pid, customerId: customer._id })
+                : await reviewCheckFn(pid);
+
+            const reviewed =
+              out === true ||
+              (!!out && typeof out === "object" && (out._id || out.review || out.data));
+
+            if (reviewed) {
+              nextMap[lineKey] = true;
+              // also persist marker
+              if (k) {
+                try {
+                  sessionStorage.setItem(k, "1");
+                } catch {}
+              }
+            }
+          } catch {
+            // silent: best-effort
+          }
+        }
+      }
+
+      setReviewedByLineId((prev) => ({ ...prev, ...nextMap }));
+      setCheckingReviews(false);
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?._id, customer?._id, safeItems]);
+
+  /* -------------------------------------------
      ✅ Loading + Errors
   -------------------------------------------- */
   if (authLoading || orderLoading) {
     return (
-      <section className="min-h-screen bg-[#F7F7FA] p-6 md:p-10">
+      <section className="min-h-screen bg-[#F7F7FA] p-4 sm:p-6">
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
         <p className="text-gray-500">Loading order...</p>
       </section>
@@ -183,15 +293,13 @@ const [savingRemark, setSavingRemark] = useState(false);
 
   if (orderError) {
     return (
-      <section className="min-h-screen bg-[#F7F7FA] p-6 md:p-10">
+      <section className="min-h-screen bg-[#F7F7FA] p-4 sm:p-6">
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
-        <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-sm p-6">
-          <p className="text-red-600 font-semibold">
-            Failed to load order: {orderError}
-          </p>
+        <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6">
+          <p className="text-red-600 font-semibold">Failed to load order: {orderError}</p>
           <button
             onClick={() => fetchOrderById(id)}
-            className="mt-4 px-5 py-2.5 rounded-2xl bg-black text-white text-sm font-semibold hover:opacity-90"
+            className="mt-4 w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-black text-white text-sm font-semibold hover:opacity-90"
           >
             Retry
           </button>
@@ -202,21 +310,19 @@ const [savingRemark, setSavingRemark] = useState(false);
 
   if (!order) {
     return (
-      <section className="min-h-screen bg-[#F7F7FA] p-10">
+      <section className="min-h-screen bg-[#F7F7FA] p-6">
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
-        <h1 className="text-2xl font-semibold">Order Not Found</h1>
+        <h1 className="text-xl font-semibold">Order Not Found</h1>
       </section>
     );
   }
 
   if (!isOwner) {
     return (
-      <section className="min-h-screen bg-[#F7F7FA] p-10">
+      <section className="min-h-screen bg-[#F7F7FA] p-6">
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
-        <h1 className="text-2xl font-semibold">Not Allowed</h1>
-        <p className="text-sm text-gray-500 mt-2">
-          This order doesn’t belong to your account.
-        </p>
+        <h1 className="text-xl font-semibold">Not Allowed</h1>
+        <p className="text-sm text-gray-500 mt-2">This order doesn’t belong to your account.</p>
       </section>
     );
   }
@@ -227,8 +333,11 @@ const [savingRemark, setSavingRemark] = useState(false);
   const canCancel = CANCEL_ALLOWED.includes(statusKey);
   const canShowRma = RMA_ALLOWED.includes(statusKey);
 
+  const deliveredAt = order?.trackingDetails?.deliveredAt || order?.shipment?.deliveredAt || null;
+  const deliveredDateText = formatDateIST(deliveredAt);
+
   /* -------------------------------------------
-     ✅ RMA Submit Handlers
+     ✅ Actions
   -------------------------------------------- */
   const submitReturn = async (item) => {
     let toastId = null;
@@ -243,7 +352,7 @@ const [savingRemark, setSavingRemark] = useState(false);
         items: [{ orderLineId: item.lineId, quantity: 1 }],
       });
 
-      toast.success("✅ Return request created!", { id: toastId });
+      toast.success("Return request created!", { id: toastId });
       setShowReturnModal(null);
       setReturnReason("");
 
@@ -276,8 +385,7 @@ const [savingRemark, setSavingRemark] = useState(false);
         },
       });
 
-      toast.success("✅ Exchange request created!", { id: toastId });
-
+      toast.success("Exchange request created!", { id: toastId });
       setShowExchangeModal(null);
       setSelectedSize(null);
 
@@ -291,160 +399,153 @@ const [savingRemark, setSavingRemark] = useState(false);
   };
 
   const handleCancelConfirm = async (reasonText) => {
-  let toastId = null;
+    let toastId = null;
+    try {
+      if (!order?._id) throw new Error("Order not found");
 
-  try {
-    if (!order?._id) throw new Error("Order not found");
+      setSubmitting(true);
+      toastId = toast.loading("Cancelling your order...");
 
-    setSubmitting(true);
-    toastId = toast.loading("Cancelling your order...");
+      const clean = String(reasonText ?? "").trim();
+      const finalReason = clean ? `Cancelled by customer: ${clean}` : "Cancelled by customer";
 
-    const clean = String(reasonText ?? "").trim();
-    const finalReason = clean ? `Cancelled by customer: ${clean}` : "Cancelled by customer";
+      await updateOrderStatus(order._id, {
+        fulfillmentStatus: "cancelled",
+        adminRemarks: finalReason,
+      });
 
-    await updateOrderStatus(order._id, {
-      fulfillmentStatus: "cancelled",
-      adminRemarks: finalReason,
-    });
+      toast.success("Order cancelled successfully!", { id: toastId });
+      setShowCancelModal(false);
+      await fetchOrderById(order._id);
+    } catch (e) {
+      toast.error(e?.message || "Cancel failed", { id: toastId });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-    toast.success("Order cancelled successfully!", { id: toastId });
-    setShowCancelModal(false);
+  const saveOrderRemark = async () => {
+    let toastId = null;
+    try {
+      if (!order?._id) return;
 
-    // optional: refresh local order
-    await fetchOrderById(order._id);
-  } catch (e) {
-    toast.error(e?.message || "Cancel failed", { id: toastId });
-  } finally {
-    setSubmitting(false);
-  }
-};
+      setSavingRemark(true);
+      toastId = toast.loading("Saving remark...");
 
-const saveOrderRemark = async () => {
-  let toastId = null;
-  try {
-    if (!order?._id) return;
+      await updateOrderStatus(order._id, { customerSupportRemark: remarkDraft });
 
-    setSavingRemark(true);
-    toastId = toast.loading("Saving remark...");
+      toast.success("Remark saved", { id: toastId });
+      await fetchOrderById(order._id);
+    } catch (e) {
+      toast.error(e?.message || "Failed to save remark", { id: toastId });
+    } finally {
+      setSavingRemark(false);
+    }
+  };
 
-    await updateOrderStatus(order._id, {
-      customerSupportRemark: remarkDraft,
-    });
-
-    toast.success("Remark saved", { id: toastId });
-    await fetchOrderById(order._id);
-  } catch (e) {
-    toast.error(e?.message || "Failed to save remark", { id: toastId });
-  } finally {
-    setSavingRemark(false);
-  }
-};
-
-
-
+  const orderLabel = order.orderNumber ? `#${order.orderNumber}` : `#${String(order._id).slice(-6)}`;
+  const placedOn = formatDateIST(order.orderDate || order.createdAt);
 
   /* -------------------------------------------
-     ✅ UI
+     ✅ UI (mobile-first)
   -------------------------------------------- */
   return (
-    <section className="min-h-screen bg-[#F7F7FA] p-6 md:p-10">
+    <section className="min-h-screen bg-[#F7F7FA] px-3 py-4 sm:px-6 sm:py-6">
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
 
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* BACK */}
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-black transition"
-        >
-          <ChevronLeft size={18} />
-          Back
-        </button>
+      {/* Back */}
+      <button
+        onClick={() => router.back()}
+        className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-black transition mb-4"
+      >
+        <ChevronLeft size={18} />
+        Back
+      </button>
 
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-              Order{" "}
-              {order.orderNumber
-                ? `#${order.orderNumber}`
-                : `#${String(order._id).slice(-6)}`}
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Placed on {formatDate(order.orderDate || order.createdAt)}
-            </p>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Chip>Items: {safeItems.length}</Chip>
-              <Chip>Payment: {prettyStatus(order.paymentMethod)}</Chip>
-              <Chip>Status: {prettyStatus(order.paymentStatus)}</Chip>
+      {/* Header Card */}
+      <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
+                Order {orderLabel}
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                Placed on {placedOn}
+                {statusKey === "delivered" && deliveredDateText ? ` • Delivered on ${deliveredDateText}` : ""}
+              </p>
             </div>
-          </div>
 
-          <div className="flex items-center gap-3">
-            <span
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${badgeClass}`}
-            >
-              <StatusIcon size={16} />
+            <span className={`shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${badgeClass}`}>
+              <StatusIcon size={14} />
               {prettyStatus(order.fulfillmentStatus)}
             </span>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">Final Payable</p>
-              <p className="text-2xl font-bold text-gray-900">
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Chip>Items: {safeItems.length}</Chip>
+            <Chip>Payment: {prettyStatus(order.paymentMethod)}</Chip>
+            <Chip>Status: {prettyStatus(order.paymentStatus)}</Chip>
+          </div>
+
+          <div className="rounded-2xl bg-gray-50 p-3 sm:p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] sm:text-xs text-gray-500">Final Payable</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">
                 ₹{money(order.finalPayable ?? order.totalAmount ?? 0)}
               </p>
             </div>
+            {canCancel ? (
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="px-4 py-2 rounded-2xl text-xs sm:text-sm font-semibold bg-red-500/10 text-red-700 hover:bg-red-500/15 active:scale-[0.99] transition"
+              >
+                Cancel
+              </button>
+            ) : null}
           </div>
+
+          {canCancel ? (
+            <p className="text-center text-[11px] sm:text-xs text-black/45">
+              You can cancel only before <span className="font-medium text-black/70">Out for Delivery</span>.
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Order Remark */}
+      <div className="mt-4 bg-white rounded-3xl shadow-sm p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">Order Remark</h2>
+          <button
+            onClick={saveOrderRemark}
+            disabled={savingRemark}
+            className="px-4 py-2 rounded-2xl text-xs sm:text-sm font-semibold bg-black text-white hover:opacity-90 disabled:opacity-40 transition"
+          >
+            {savingRemark ? "Saving..." : "Save"}
+          </button>
         </div>
 
-   {/* ✅ ORDER REMARK (Customer Support) */}
-<div className="bg-white rounded-3xl shadow-sm p-6">
-  <div className="flex items-center justify-between gap-3">
-    <h2 className="text-lg font-semibold text-gray-900">Order Remark</h2>
+        <textarea
+          value={remarkDraft}
+          onChange={(e) => setRemarkDraft(e.target.value)}
+          placeholder="Add internal remark for this order…"
+          rows={4}
+          className="mt-3 w-full rounded-2xl border border-gray-200 bg-gray-50 p-3 sm:p-4 text-sm text-gray-900 outline-none resize-none focus:bg-white focus:border-black/20"
+        />
+      </div>
 
-    <button
-      onClick={saveOrderRemark}
-      disabled={savingRemark}
-      className="
-        px-4 py-2 rounded-xl text-sm font-semibold
-        bg-black text-white
-        hover:opacity-90
-        disabled:opacity-40
-        transition
-      "
-    >
-      {savingRemark ? "Saving..." : "Save"}
-    </button>
-  </div>
+      {/* RMAs */}
+      {Array.isArray(rmas) && rmas.length > 0 ? (
+        <div className="mt-4 bg-white rounded-3xl shadow-sm p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
+            Your Return / Exchange Requests
+          </h2>
 
-  <textarea
-    value={remarkDraft}
-    onChange={(e) => setRemarkDraft(e.target.value)}
-    placeholder="Add internal remark for this order…"
-    rows={4}
-    className="
-      mt-4 w-full rounded-2xl border border-gray-200
-      bg-gray-50 p-4 text-sm text-gray-900
-      outline-none resize-none
-      focus:bg-white focus:border-black/20
-    "
-  />
-</div>
-
-
-
-        {/* RMAs */}
-        {Array.isArray(rmas) && rmas.length > 0 ? (
-          <div className="bg-white rounded-3xl shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Your Return / Exchange Requests
-            </h2>
-
-            <div className="space-y-3">
-              {rmas.map((r) => (
-                <div
-                  key={r.rmaNumber}
-                  className="rounded-2xl bg-gray-50 p-4 flex items-center justify-between"
-                >
+          <div className="space-y-3">
+            {rmas.map((r) => (
+              <div key={r.rmaNumber} className="rounded-2xl bg-gray-50 p-4">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-semibold text-gray-900">{r.rmaNumber}</p>
                     <p className="text-sm text-gray-500">
@@ -453,54 +554,61 @@ const saveOrderRemark = async () => {
                   </div>
 
                   {r.fee?.amount > 0 ? (
-                    <span className="text-xs px-3 py-1 rounded-full bg-black text-white font-semibold">
+                    <span className="text-[11px] px-3 py-1 rounded-full bg-black text-white font-semibold">
                       Fee ₹{money(r.fee.amount)} ({prettyStatus(r.fee.status)})
                     </span>
                   ) : (
-                    <span className="text-xs px-3 py-1 rounded-full bg-black/5 text-gray-700 font-semibold">
+                    <span className="text-[11px] px-3 py-1 rounded-full bg-black/5 text-gray-700 font-semibold">
                       No Fee
                     </span>
                   )}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        ) : null}
+        </div>
+      ) : null}
 
-        {/* ORDER ITEMS */}
-        <div className="space-y-4">
-          {safeItems.map((item, idx) => {
-            const snap = item?.productSnapshot || {};
-            const v = item?.variant || {};
-            const title = snap?.title || "Product";
-            const thumb = snap?.thumbnail || "/placeholder.png";
-            const qty = item?.quantity ?? 1;
-            const price = item?.price ?? 0;
+      {/* Items */}
+      <div className="mt-4 space-y-3">
+        {safeItems.map((item, idx) => {
+          const snap = item?.productSnapshot || {};
+          const v = item?.variant || {};
+          const title = snap?.title || "Product";
+          const thumb = snap?.thumbnail || "/placeholder.png";
+          const qty = item?.quantity ?? 1;
+          const price = item?.price ?? 0;
 
-            const size = item?.selectedSize || v?.attributes?.find((a) => String(a?.key).toLowerCase() === "size")?.value || "";
-            const color = item?.selectedColor || v?.attributes?.find((a) => String(a?.key).toLowerCase() === "color")?.value || "";
+          const size =
+            item?.selectedSize ||
+            v?.attributes?.find((a) => String(a?.key).toLowerCase() === "size")?.value ||
+            "";
 
-            return (
-              <div
-                key={item.lineId || idx}
-                className="bg-white rounded-3xl shadow-sm p-5 flex gap-5"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={thumb}
-                  alt={title}
-                  className="w-24 h-28 rounded-2xl bg-gray-100 object-cover"
-                />
+          const color =
+            item?.selectedColor ||
+            v?.attributes?.find((a) => String(a?.key).toLowerCase() === "color")?.value ||
+            "";
+
+          const lineKey = item.lineId || idx;
+          const open = openReviewLineId === lineKey;
+
+          const alreadyReviewed = !!reviewedByLineId[String(lineKey)];
+          const canWriteReview = statusKey === "delivered" && !alreadyReviewed;
+
+          return (
+            <div key={lineKey} className="bg-white rounded-3xl shadow-sm p-4 sm:p-5">
+              {/* Top row */}
+              <div className="flex gap-3 sm:gap-5">
+                <div className="relative w-20 h-24 sm:w-24 sm:h-28 shrink-0 overflow-hidden rounded-2xl bg-gray-100">
+                  <Image src={thumb} alt={title} fill className="object-contain" sizes="96px" />
+                </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-semibold text-lg text-gray-900 truncate">
-                        {title}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        SKU: {v?.sku || snap?.sku || "-"} • Code:{" "}
-                        {snap?.productCode || "-"}
+                      <p className="font-semibold text-base sm:text-lg text-gray-900 truncate">{title}</p>
+                      <p className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                        SKU: {v?.sku || snap?.sku || "-"} • Code: {snap?.productCode || "-"}
                       </p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -511,19 +619,47 @@ const saveOrderRemark = async () => {
                     </div>
 
                     <div className="text-right shrink-0">
-                      <p className="text-sm text-gray-500">Price</p>
-                      <p className="text-lg font-bold text-gray-900">
-                        ₹{money(price)}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-[11px] sm:text-sm text-gray-500">Price</p>
+                      <p className="text-base sm:text-lg font-bold text-gray-900">₹{money(price)}</p>
+                      <p className="text-[11px] sm:text-xs text-gray-500 mt-1">
                         Subtotal ₹{money(item?.subtotal)}
                       </p>
                     </div>
                   </div>
+                </div>
+              </div>
 
-                  {/* ✅ Actions */}
+              {/* Actions */}
+              <div className="mt-4 flex flex-col gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    onClick={() => {
+                      if (alreadyReviewed) return;
+                      setOpenReviewLineId((prev) => (prev === lineKey ? null : lineKey));
+                    }}
+                    disabled={!canWriteReview}
+                    title={
+                      alreadyReviewed
+                        ? "Thanks! You’ve already reviewed this item."
+                        : statusKey !== "delivered"
+                        ? "You can review after delivery"
+                        : "Write a review"
+                    }
+                    className={`inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all duration-200 ${
+                      canWriteReview
+                        ? "bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 text-white shadow-sm hover:shadow-md hover:brightness-105 active:scale-[0.99]"
+                        : "bg-black/10 text-black/40 cursor-not-allowed"
+                    }`}
+                  >
+                    <Star
+                      size={16}
+                      className={`${canWriteReview ? "fill-white text-white" : "text-black/40"}`}
+                    />
+                    {alreadyReviewed ? "Already Reviewed" : checkingReviews ? "Checking..." : "Write Review"}
+                  </button>
+
                   {canShowRma ? (
-                    <div className="flex flex-wrap gap-3 mt-5">
+                    <>
                       <button
                         onClick={() =>
                           setShowExchangeModal({
@@ -532,48 +668,47 @@ const saveOrderRemark = async () => {
                             availableSizes: ["XS", "S", "M", "L", "XL"],
                           })
                         }
-                        className="px-5 py-2.5 rounded-2xl bg-black text-white text-sm font-semibold hover:opacity-90 transition"
+                        className="w-full px-4 py-2.5 rounded-2xl bg-black text-white text-sm font-semibold hover:opacity-90 transition"
                       >
                         Exchange Size
                       </button>
 
                       <button
                         onClick={() => setShowReturnModal({ item, name: title })}
-                        className="px-5 py-2.5 rounded-2xl bg-black/5 text-gray-900 text-sm font-semibold hover:bg-black/10 transition"
+                        className="w-full px-4 py-2.5 rounded-2xl bg-black/5 text-gray-900 text-sm font-semibold hover:bg-black/10 transition"
                       >
                         Return Item
                       </button>
-                    </div>
-                  ) : null}
+                    </>
+                  ) : (
+                    <div className="hidden sm:block" />
+                  )}
                 </div>
+
+                {/* polite hint */}
+                {alreadyReviewed ? (
+                  <p className="text-[11px] text-gray-500">
+                    Thanks! You’ve already shared your review for this item.
+                  </p>
+                ) : null}
+
+                {/* Review section (only open if not reviewed) */}
+                <OrderItemReviewSection
+                  open={open && !alreadyReviewed}
+                  onToggle={(next) => setOpenReviewLineId(next ? lineKey : null)}
+                  delivered={statusKey === "delivered"}
+                  customerId={customer?._id}
+                  productId={item.productId?._id || item.productId}
+                  productCode={item?.productSnapshot?.productCode || ""}
+                  productName={title}
+                  verifiedPurchase={statusKey === "delivered"}
+                  // ✅ optional: if your component calls this on success, UI updates instantly
+                  onSubmitted={() => markReviewed(lineKey, item.productId?._id || item.productId)}
+                />
               </div>
-            );
-          })}
-        </div>
-
-        {/* CANCEL ORDER */}
-    {canCancel ? (
-  <div className="pt-4">
-    <button
-      onClick={() => setShowCancelModal(true)}
-      className="
-        w-full py-3.5 rounded-2xl text-sm font-semibold
-        bg-red-500/10 text-red-700
-        hover:bg-red-500/15
-        active:scale-[0.99]
-        transition
-      "
-    >
-      Cancel Entire Order
-    </button>
-
-    <p className="mt-2.5 text-center text-xs text-black/45">
-      You can cancel only before{" "}
-      <span className="font-medium text-black/70">Out for Delivery</span>.
-    </p>
-  </div>
-) : null}
-
+            </div>
+          );
+        })}
       </div>
 
       {/* Cancel Modal */}
@@ -593,17 +728,13 @@ const saveOrderRemark = async () => {
             setReturnReason("");
           }}
         >
-          <h2 className="text-xl font-bold text-gray-900 mb-3">Return Item</h2>
-
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Return Item</h2>
           <p className="text-sm text-gray-500 mb-4">
-            Select reason for returning{" "}
-            <span className="font-semibold text-gray-900">
-              {showReturnModal.name}
-            </span>
+            Select reason for returning <span className="font-semibold text-gray-900">{showReturnModal.name}</span>
           </p>
 
           <select
-            className="w-full rounded-2xl bg-gray-100 p-3 text-sm outline-none mb-5"
+            className="w-full rounded-2xl bg-gray-100 p-3 text-sm outline-none mb-4"
             onChange={(e) => setReturnReason(e.target.value)}
             value={returnReason}
           >
@@ -621,9 +752,7 @@ const saveOrderRemark = async () => {
             disabled={!returnReason || submitting}
             onClick={() => submitReturn(showReturnModal.item)}
             className={`w-full rounded-2xl py-3 text-sm font-semibold transition ${
-              returnReason
-                ? "bg-black text-white hover:opacity-90"
-                : "bg-black/10 text-black/40 cursor-not-allowed"
+              returnReason ? "bg-black text-white hover:opacity-90" : "bg-black/10 text-black/40 cursor-not-allowed"
             }`}
           >
             {submitting ? "Submitting..." : "Submit Return Request"}
@@ -639,24 +768,18 @@ const saveOrderRemark = async () => {
             setSelectedSize(null);
           }}
         >
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Exchange Size</h2>
-
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Exchange Size</h2>
           <p className="text-sm text-gray-500 mb-4">
-            Select new size for{" "}
-            <span className="font-semibold text-gray-900">
-              {showExchangeModal.name}
-            </span>
+            Select new size for <span className="font-semibold text-gray-900">{showExchangeModal.name}</span>
           </p>
 
-          <div className="mb-6 flex flex-wrap gap-2">
+          <div className="mb-5 flex flex-wrap gap-2">
             {showExchangeModal.availableSizes.map((sz) => (
               <button
                 key={sz}
                 onClick={() => setSelectedSize(sz)}
                 className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
-                  selectedSize === sz
-                    ? "bg-black text-white"
-                    : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                  selectedSize === sz ? "bg-black text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                 }`}
               >
                 {sz}
@@ -668,9 +791,7 @@ const saveOrderRemark = async () => {
             disabled={!selectedSize || submitting}
             onClick={() => submitExchange(showExchangeModal.item)}
             className={`w-full rounded-2xl py-3 text-sm font-semibold transition ${
-              selectedSize
-                ? "bg-black text-white hover:opacity-90"
-                : "bg-black/10 text-black/40 cursor-not-allowed"
+              selectedSize ? "bg-black text-white hover:opacity-90" : "bg-black/10 text-black/40 cursor-not-allowed"
             }`}
           >
             {submitting ? "Submitting..." : "Submit Exchange"}
@@ -679,9 +800,7 @@ const saveOrderRemark = async () => {
       ) : null}
 
       {rmaError ? (
-        <p className="text-red-600 text-sm mt-6 font-medium text-center">
-          RMA Error: {rmaError}
-        </p>
+        <p className="text-red-600 text-sm mt-6 font-medium text-center">RMA Error: {rmaError}</p>
       ) : null}
     </section>
   );
