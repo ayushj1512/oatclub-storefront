@@ -21,45 +21,60 @@ const nextConfig: NextConfig = {
       // Cloudinary
       { protocol: "https", hostname: "res.cloudinary.com", pathname: "/**" },
 
-      // ⭐ Your WordPress site (OLD + NEW)
+      // ⭐ Your WordPress site
       { protocol: "https", hostname: "mirayfashions.com", pathname: "/**" },
       { protocol: "https", hostname: "mirayfashions.in", pathname: "/**" },
 
       // ⭐ WordPress / Gravatar CDN
       { protocol: "https", hostname: "secure.gravatar.com", pathname: "/**" },
 
-      // ✅ wp.com CDN (use explicit hostnames instead of wildcard)
+      // wp.com CDN
       { protocol: "https", hostname: "i0.wp.com", pathname: "/**" },
       { protocol: "https", hostname: "i1.wp.com", pathname: "/**" },
       { protocol: "https", hostname: "i2.wp.com", pathname: "/**" },
+
+      /* ==============================
+         ✅ NEW EXTERNAL IMAGE SOURCES
+      ============================== */
+
+      // KW CDN
+      { protocol: "https", hostname: "img.kwcdn.com", pathname: "/**" },
+
+      // LT Webstatic
+      { protocol: "https", hostname: "img.ltwebstatic.com", pathname: "/**" },
+
+      // Shop Cider
+      { protocol: "https", hostname: "img1.shopcider.com", pathname: "/**" },
+
+      // Princess Polly
+      { protocol: "https", hostname: "us.princesspolly.com", pathname: "/**" },
     ],
   },
 
   async redirects() {
-  return [
-    {
-      source: "/category/all-clothing",
-      destination: "/all-clothing",
-      permanent: true,
-    },
-    {
-      source: "/category/new-arrivals",
-      destination: "/new-arrivals",
-      permanent: true,
-    },
-    {
-      source: "/category/best-sellers",
-      destination: "/bestseller",
-      permanent: true,
-    },
-    {
+    return [
+      {
+        source: "/category/all-clothing",
+        destination: "/all-clothing",
+        permanent: true,
+      },
+      {
+        source: "/category/new-arrivals",
+        destination: "/new-arrivals",
+        permanent: true,
+      },
+      {
+        source: "/category/best-sellers",
+        destination: "/bestseller",
+        permanent: true,
+      },
+      {
         source: "/category/party-wear",
         destination: "/collection/party-protocol",
         permanent: true,
       },
-  ];
-},
-
+    ];
+  },
 };
 
 export default nextConfig;
