@@ -24,7 +24,7 @@ import ShippingHighlights from "@/components/productDetail/ShippingHighlights";
 import CrossSellProducts from "@/components/productDetail/CrossSellProducts";
 import LepordCollectionAnnouncement from "@/components/productDetail/LepordCollectionAnnouncement";
 
-const BRAND = {  black: "#111111" };
+const BRAND = { black: "#111111" };
 
 const money = (n) => {
   const num = Number(n);
@@ -85,38 +85,38 @@ function SizeGuideSection() {
                 <th className="py-2">Hips</th>
               </tr>
             </thead>
-           <tbody>
-  <tr className="border-b">
-    <td className="py-2">XS</td>
-    <td>30-32&quot;</td>
-    <td>24-26&quot;</td>
-    <td>32-34&quot;</td>
-  </tr>
-  <tr className="border-b">
-    <td className="py-2">S</td>
-    <td>32-34&quot;</td>
-    <td>26-28&quot;</td>
-    <td>34-36&quot;</td>
-  </tr>
-  <tr className="border-b">
-    <td className="py-2">M</td>
-    <td>34-36&quot;</td>
-    <td>28-30&quot;</td>
-    <td>36-38&quot;</td>
-  </tr>
-  <tr className="border-b">
-    <td className="py-2">L</td>
-    <td>36-38&quot;</td>
-    <td>30-32&quot;</td>
-    <td>38-40&quot;</td>
-  </tr>
-  <tr>
-    <td className="py-2">XL</td>
-    <td>38-40&quot;</td>
-    <td>32-34&quot;</td>
-    <td>40-42&quot;</td>
-  </tr>
-</tbody>
+            <tbody>
+              <tr className="border-b">
+                <td className="py-2">XS</td>
+                <td>30-32&quot;</td>
+                <td>24-26&quot;</td>
+                <td>32-34&quot;</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2">S</td>
+                <td>32-34&quot;</td>
+                <td>26-28&quot;</td>
+                <td>34-36&quot;</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2">M</td>
+                <td>34-36&quot;</td>
+                <td>28-30&quot;</td>
+                <td>36-38&quot;</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2">L</td>
+                <td>36-38&quot;</td>
+                <td>30-32&quot;</td>
+                <td>38-40&quot;</td>
+              </tr>
+              <tr>
+                <td className="py-2">XL</td>
+                <td>38-40&quot;</td>
+                <td>32-34&quot;</td>
+                <td>40-42&quot;</td>
+              </tr>
+            </tbody>
 
           </table>
         </div>
@@ -125,7 +125,7 @@ function SizeGuideSection() {
   );
 }
 const str = (v) => (v == null ? "" : String(v));
-const SIZE_ORDER = ["XXS","XS","S","M","L","XL","XXL","3XL","4XL","5XL"];
+const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
 
 const getSizeFromSku = (sku) => {
   const parts = str(sku).toUpperCase().split("-").filter(Boolean);
@@ -333,17 +333,17 @@ export default function ProductPage({ params }) {
   const cartInitialize = useCartStore((s) => s.initialize);
   const cartItems = useCartStore((s) => s.items);
   const addToCart = useCartStore((s) => s.addToCart);
-const setBuyNow = useCartStore((s) => s.setBuyNow);
+  const setBuyNow = useCartStore((s) => s.setBuyNow);
 
   const wishlistStore = useWishlistStore();
   const { addToWishlist, removeFromWishlist, isInWishlist, initialize: initWishlist } = wishlistStore;
 
   const recentlyViewedStore = useRecentlyViewedStore();
 
-const fetchProductDetails = useProductStore((s) => s.fetchProductDetails);
-const fetchProductDetailsByCode = useProductStore(
-  (s) => s.fetchProductDetailsByCode
-);
+  const fetchProductDetails = useProductStore((s) => s.fetchProductDetails);
+  const fetchProductDetailsByCode = useProductStore(
+    (s) => s.fetchProductDetailsByCode
+  );
   const storeLoading = useProductStore((s) => s.isLoading);
 
   const [normalized, setNormalized] = useState(null);
@@ -351,8 +351,8 @@ const fetchProductDetailsByCode = useProductStore(
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [loading, setLoading] = useState(true);
-const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-const [selectedColor, setSelectedColor] = useState(null);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [selectedColor, setSelectedColor] = useState(null);
 
   useEffect(() => {
     cartInitialize?.();
@@ -360,111 +360,111 @@ const [selectedColor, setSelectedColor] = useState(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-useEffect(() => {
-  let mounted = true;
+  useEffect(() => {
+    let mounted = true;
 
-  async function load() {
-    if (!id) return;
-    setLoading(true);
+    async function load() {
+      if (!id) return;
+      setLoading(true);
 
-    try {
-      let p = null;
+      try {
+        let p = null;
 
-      // ✅ auto-detect: Mongo ObjectId vs productCode
-      if (/^[a-f\d]{24}$/i.test(id)) {
-        p = await fetchProductDetails(id);
-      } else {
-        p = await fetchProductDetailsByCode(id);
-      }
+        // ✅ auto-detect: Mongo ObjectId vs productCode
+        if (/^[a-f\d]{24}$/i.test(id)) {
+          p = await fetchProductDetails(id);
+        } else {
+          p = await fetchProductDetailsByCode(id);
+        }
 
-      if (!mounted || !p) return;
+        if (!mounted || !p) return;
 
-      setNormalized(p);
+        setNormalized(p);
 
-      const sizes = deriveSizesFromBackend(p);
-      const colors = deriveColorsFromBackend(p);
-      const images = deriveImageList(p);
+        const sizes = deriveSizesFromBackend(p);
+        const colors = deriveColorsFromBackend(p);
+        const images = deriveImageList(p);
 
-      const mapped = {
-        id: p.productId,
-        productId: p.productId,
-        productCode: p.productCode,
-        name: p.name,
-        slug: p.slug,
-        price: Number(p.price || 0),
-        regularPrice: Number(p.compareAtPrice ?? p.price ?? 0),
-        onSale:
-          Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
-        images,
-        description: p.raw?.description || p.description || "",
-        shortDescription: p.raw?.shortDescription || "",
-        sizes,
-        colors,
-        isInStock: Boolean(p.isInStock ?? true),
-        stock: Number(p.stock ?? 0),
-        productType: p.productType,
-        raw: p.raw || p,
-      };
+        const mapped = {
+          id: p.productId,
+          productId: p.productId,
+          productCode: p.productCode,
+          name: p.name,
+          slug: p.slug,
+          price: Number(p.price || 0),
+          regularPrice: Number(p.compareAtPrice ?? p.price ?? 0),
+          onSale:
+            Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
+          images,
+          description: p.raw?.description || p.description || "",
+          shortDescription: p.raw?.shortDescription || "",
+          sizes,
+          colors,
+          isInStock: Boolean(p.isInStock ?? true),
+          stock: Number(p.stock ?? 0),
+          productType: p.productType,
+          raw: p.raw || p,
+        };
 
-      setProduct(mapped);
+        setProduct(mapped);
 
-      // ✅ reset default selection
-      let nextSize = null;
-      let nextColor = null;
+        // ✅ reset default selection
+        let nextSize = null;
+        let nextColor = null;
 
-      // auto-select size if single
-      if (sizes.length === 1) nextSize = sizes[0];
+        // auto-select size if single
+        if (sizes.length === 1) nextSize = sizes[0];
 
-      // auto-select color only if needed and single
-      if (nextSize) {
-        const needsColor = hasColorForSize(p, nextSize);
-        if (needsColor && colors.length === 1) nextColor = colors[0];
-      }
+        // auto-select color only if needed and single
+        if (nextSize) {
+          const needsColor = hasColorForSize(p, nextSize);
+          if (needsColor && colors.length === 1) nextColor = colors[0];
+        }
 
-      setSelectedSize(nextSize);
-      setSelectedColor(nextColor);
+        setSelectedSize(nextSize);
+        setSelectedColor(nextColor);
 
-      // ✅ resolve variantId
-      let vid = null;
+        // ✅ resolve variantId
+        let vid = null;
 
-      if (nextSize) {
-        const needsColor = hasColorForSize(p, nextSize);
+        if (nextSize) {
+          const needsColor = hasColorForSize(p, nextSize);
 
-        if (needsColor) {
-          vid = nextColor
-            ? findVariantIdByAttributes(p, {
+          if (needsColor) {
+            vid = nextColor
+              ? findVariantIdByAttributes(p, {
                 size: nextSize,
                 color: nextColor,
               })
-            : null;
-        } else {
-          vid = findVariantIdByAttributes(p, { size: nextSize });
+              : null;
+          } else {
+            vid = findVariantIdByAttributes(p, { size: nextSize });
+          }
         }
-      }
 
-      setSelectedVariantId(vid);
-    } catch (e) {
-      console.error("[ProductPage] load failed", e);
-      notify.error(e?.message || "Failed to load product");
+        setSelectedVariantId(vid);
+      } catch (e) {
+        console.error("[ProductPage] load failed", e);
+        notify.error(e?.message || "Failed to load product");
 
-      if (mounted) {
-        setProduct(null);
-        setNormalized(null);
-        setSelectedSize(null);
-        setSelectedColor(null);
-        setSelectedVariantId(null);
+        if (mounted) {
+          setProduct(null);
+          setNormalized(null);
+          setSelectedSize(null);
+          setSelectedColor(null);
+          setSelectedVariantId(null);
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
-    } finally {
-      if (mounted) setLoading(false);
     }
-  }
 
-  load();
+    load();
 
-  return () => {
-    mounted = false;
-  };
-}, [id, fetchProductDetails, fetchProductDetailsByCode]);
+    return () => {
+      mounted = false;
+    };
+  }, [id, fetchProductDetails, fetchProductDetailsByCode]);
 
 
   useEffect(() => {
@@ -472,11 +472,11 @@ useEffect(() => {
     recentlyViewedStore.addProduct?.(product);
   }, [product, recentlyViewedStore]);
 
-const requireColor = useMemo(() => {
-  if (!normalized) return false;
-  if (!selectedSize) return false; // ✅ size choose nahi -> color kabhi force mat karo
-  return hasColorForSize(normalized, selectedSize);
-}, [normalized, selectedSize]);
+  const requireColor = useMemo(() => {
+    if (!normalized) return false;
+    if (!selectedSize) return false; // ✅ size choose nahi -> color kabhi force mat karo
+    return hasColorForSize(normalized, selectedSize);
+  }, [normalized, selectedSize]);
 
 
 
@@ -501,34 +501,34 @@ const requireColor = useMemo(() => {
   }, [cartItems, selectedCartKey]);
 
   const handleAddToCart = useCallback(() => {
-      console.log("🛒 [ADD TO CART CLICK]");
-  console.log("productType:", product?.productType);
-  console.log("requireSize:", requireSize, "requireColor:", requireColor);
-  console.log("selectedSize:", selectedSize);
-  console.log("selectedColor:", selectedColor);
-  console.log("selectedVariantId:", selectedVariantId);
+    console.log("🛒 [ADD TO CART CLICK]");
+    console.log("productType:", product?.productType);
+    console.log("requireSize:", requireSize, "requireColor:", requireColor);
+    console.log("selectedSize:", selectedSize);
+    console.log("selectedColor:", selectedColor);
+    console.log("selectedVariantId:", selectedVariantId);
 
-  console.log("normalized.raw?.variants len:", normalized?.raw?.variants?.length);
-  console.log("normalized?.variants len:", normalized?.variants?.length);
+    console.log("normalized.raw?.variants len:", normalized?.raw?.variants?.length);
+    console.log("normalized?.variants len:", normalized?.variants?.length);
     if (!normalized || !product) return;
 
-if (requireSize && !selectedSize) return notify.error("Please select a size");
-if (requireColor && !selectedColor) return notify.error("Please select a color");
+    if (requireSize && !selectedSize) return notify.error("Please select a size");
+    if (requireColor && !selectedColor) return notify.error("Please select a color");
 
-if (product.productType === "variable" && !selectedVariantId) {
-  return notify.error(requireColor ? "Please select size & color" : "Please select a size");
-}
-const allowed = new Set(["XS", "S", "M", "L", "XL"]);
+    if (product.productType === "variable" && !selectedVariantId) {
+      return notify.error(requireColor ? "Please select size & color" : "Please select a size");
+    }
+    const allowed = new Set(["XS", "S", "M", "L", "XL"]);
 
-const finalColor = requireColor ? selectedColor : null;
-addToCart({
-  product: normalized,
-  qty: 1,
-  selectedSize,
-  selectedColor: finalColor,  // ✅ yahi important
-  variantId: product.productType === "variable" || requireSize ? selectedVariantId : null,
-});
-console.log("FINAL COLOR", requireColor, selectedColor, finalColor);
+    const finalColor = requireColor ? selectedColor : null;
+    addToCart({
+      product: normalized,
+      qty: 1,
+      selectedSize,
+      selectedColor: finalColor,  // ✅ yahi important
+      variantId: product.productType === "variable" || requireSize ? selectedVariantId : null,
+    });
+    console.log("FINAL COLOR", requireColor, selectedColor, finalColor);
 
 
     // cartStore also calls notify.cartAdded, but this is OK to keep minimal feedback:
@@ -537,58 +537,58 @@ console.log("FINAL COLOR", requireColor, selectedColor, finalColor);
 
     // no timer state: buttons stay because selectionInCart is derived from store
   }, [
-  addToCart,
-  normalized,
-  product,
-  requireSize,
-  requireColor,
-  selectedSize,
-  selectedColor,
-  selectedVariantId,
-]);
+    addToCart,
+    normalized,
+    product,
+    requireSize,
+    requireColor,
+    selectedSize,
+    selectedColor,
+    selectedVariantId,
+  ]);
 
   const handleViewCart = () => router.push("/cart");
 
   // ✅ Your request: Buy Now button should become "View Cart"
   const handleBuyNowOrViewCart = async () => {
-  // ✅ If already in cart -> go cart
-  if (selectionInCart) {
-    router.push("/cart");
-    return;
-  }
+    // ✅ If already in cart -> go cart
+    if (selectionInCart) {
+      router.push("/cart");
+      return;
+    }
 
-  if (!normalized || !product) return;
+    if (!normalized || !product) return;
 
-  if (requireSize && !selectedSize) {
-    notify.error("Please select a size");
-    return;
-  }
+    if (requireSize && !selectedSize) {
+      notify.error("Please select a size");
+      return;
+    }
 
-  if (requireColor && !selectedColor) {
-    notify.error("Please select a color");
-    return;
-  }
+    if (requireColor && !selectedColor) {
+      notify.error("Please select a color");
+      return;
+    }
 
-  if ((product.productType === "variable" || requireSize || requireColor) && !selectedVariantId) {
-    notify.error(requireColor ? "Please select size & color" : "Please select a size");
-    return;
-  }
-const finalColor = requireColor ? selectedColor : null;
-  // ✅ BUY NOW SHOULD NOT TOUCH CART
-  setBuyNow({
-  product: normalized,
-  qty: 1,
-  selectedSize,
-  selectedColor: finalColor,  // ✅ yahi important
-  variantId:
-    product.productType === "variable" || requireSize || requireColor
-      ? selectedVariantId
-      : null,
-});
+    if ((product.productType === "variable" || requireSize || requireColor) && !selectedVariantId) {
+      notify.error(requireColor ? "Please select size & color" : "Please select a size");
+      return;
+    }
+    const finalColor = requireColor ? selectedColor : null;
+    // ✅ BUY NOW SHOULD NOT TOUCH CART
+    setBuyNow({
+      product: normalized,
+      qty: 1,
+      selectedSize,
+      selectedColor: finalColor,  // ✅ yahi important
+      variantId:
+        product.productType === "variable" || requireSize || requireColor
+          ? selectedVariantId
+          : null,
+    });
 
-  await new Promise((r) => setTimeout(r, 150));
-  router.push("/checkout");
-};
+    await new Promise((r) => setTimeout(r, 150));
+    router.push("/checkout");
+  };
 
   const handleToggleWishlist = () => {
     if (!product) return;
@@ -606,10 +606,9 @@ const finalColor = requireColor ? selectedColor : null;
 
   const shareMessage = useMemo(() => {
     if (!product) return "";
-const link = typeof window !== "undefined" ? window.location.href : "";
-    return `✨ ${product.name}\n₹${money(product.price)}${
-  selectedSize ? ` • Size: ${selectedSize}` : ""
-}${selectedColor ? ` • Color: ${selectedColor}` : ""}\n${link}`;
+    const link = typeof window !== "undefined" ? window.location.href : "";
+    return `✨ ${product.name}\n₹${money(product.price)}${selectedSize ? ` • Size: ${selectedSize}` : ""
+      }${selectedColor ? ` • Color: ${selectedColor}` : ""}\n${link}`;
 
   }, [product, selectedSize, selectedColor]);
 
@@ -625,32 +624,32 @@ const link = typeof window !== "undefined" ? window.location.href : "";
         await navigator.clipboard.writeText(shareMessage);
         notify.copied("Share text copied ✅");
       }
-    } catch {}
+    } catch { }
   };
 
   if (loading || storeLoading) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <UniversalLuxuryLoader />
-    </div>
-  );
-}
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <UniversalLuxuryLoader />
+      </div>
+    );
+  }
 
- if (!product) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <p className="text-xs tracking-[0.4em] uppercase text-black/60">
-        Product not found
-      </p>
-    </div>
-  );
-}
+  if (!product) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <p className="text-xs tracking-[0.4em] uppercase text-black/60">
+          Product not found
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full px-4 md:px-12 py-6 md:py-12">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {/* LEFT */}
-<div className="w-full md:max-w-none">
+        <div className="w-full md:max-w-none">
           <ProductGallery images={product.images || []} />
         </div>
 
@@ -658,201 +657,207 @@ const link = typeof window !== "undefined" ? window.location.href : "";
         <aside className="space-y-4 w-full">
           {/* Breadcrumb */}
           {/* Breadcrumb */}
-<div className="text-xs md:text-sm text-gray-500">
-  <a href="/" className="hover:underline">
-    Home
-  </a>{" "}
-  /{" "}
-  <a
-    href={`/category/${category}`}
-    className="hover:underline capitalize"
-  >
-    {product?.raw?.categories?.[0]?.name
-      ? decodeURIComponent(product.raw.categories[0].name)
-          .replace(/-/g, " ")
-          .trim()
-      : decodeURIComponent(category || "")
-          .replace(/-/g, " ")
-          .trim()}
-  </a>{" "}
-  / <span className="text-gray-900">{product.name}</span>
-</div>
+          <div className="text-xs md:text-sm text-gray-500">
+            <a href="/" className="hover:underline">
+              Home
+            </a>{" "}
+            /{" "}
+            <a
+              href={`/category/${category}`}
+              className="hover:underline capitalize"
+            >
+              {product?.raw?.categories?.[0]?.name
+                ? decodeURIComponent(product.raw.categories[0].name)
+                  .replace(/-/g, " ")
+                  .trim()
+                : decodeURIComponent(category || "")
+                  .replace(/-/g, " ")
+                  .trim()}
+            </a>{" "}
+            / <span className="text-gray-900">{product.name}</span>
+          </div>
 
           <h1 className="text-2xl md:text-3xl font-semibold text-black leading-tight">{product.name}</h1>
-<LepordCollectionAnnouncement collections={product?.raw?.collections || []} />
-{/* PRICE + icons */}
-<div className="flex items-center justify-between gap-3 flex-wrap">
-  <div className="flex items-center gap-3 flex-wrap">
-    <span className="text-2xl md:text-3xl font-semibold text-black">
-      ₹{money(product.price)}
-    </span>
 
-    {product.regularPrice > product.price ? (
-      <>
-        <span className="line-through text-base text-gray-500">
-          ₹{money(product.regularPrice)}
-        </span>
+          {/* ✅ Product Code */}
+          {product?.productCode ? (
+            <p className="text-xs md:text-sm text-black/60 mt-1">
+              Product Code: <span className="font-semibold text-black">{product.productCode}</span>
+            </p>
+          ) : null}
+          <LepordCollectionAnnouncement collections={product?.raw?.collections || []} />
+          {/* PRICE + icons */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-2xl md:text-3xl font-semibold text-black">
+                ₹{money(product.price)}
+              </span>
 
-       <span className="text-sm font-semibold text-[#800020] bg-[#800020]/10 px-2 py-1 rounded">
-  {Math.round(((product.regularPrice - product.price) / product.regularPrice) * 100)}% OFF
-</span>
+              {product.regularPrice > product.price ? (
+                <>
+                  <span className="line-through text-base text-gray-500">
+                    ₹{money(product.regularPrice)}
+                  </span>
 
-      </>
-    ) : null}
-  </div>
+                  <span className="text-sm font-semibold text-[#800020] bg-[#800020]/10 px-2 py-1 rounded">
+                    {Math.round(((product.regularPrice - product.price) / product.regularPrice) * 100)}% OFF
+                  </span>
 
-  <div className="flex items-center gap-3">
-    <button
-      onClick={handleToggleWishlist}
-      className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
-      aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-      title={wishlisted ? "Wishlisted" : "Add to wishlist"}
-    >
-      <Heart size={20} className={wishlisted ? "fill-current text-black" : "text-black/70"} />
-    </button>
+                </>
+              ) : null}
+            </div>
 
-    <button
-      onClick={handleShare}
-      className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
-      aria-label="Share"
-      title="Share"
-    >
-      <Share2 size={20} className="text-gray-900" />
-    </button>
-  </div>
-</div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleToggleWishlist}
+                className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
+                aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                title={wishlisted ? "Wishlisted" : "Add to wishlist"}
+              >
+                <Heart size={20} className={wishlisted ? "fill-current text-black" : "text-black/70"} />
+              </button>
 
-
- {/* SIZE SELECTOR */}
-{(product.sizes || []).length > 0 && (
-  <div className="space-y-1.5 pt-1">
-    {/* Title + Size Guide link */}
-    <div className="flex items-center justify-between">
-      <h3 className="text-xs font-medium text-black">Select Size</h3>
-
-      <button
-        type="button"
-        onClick={() => setSizeGuideOpen(true)}
-        className="text-xs font-semibold underline text-black/70 hover:text-black"
-      >
-        Size Guide
-      </button>
-    </div>
-
-    {/* ✅ Sorted Size Buttons */}
-    <div className="flex flex-wrap gap-2">
-      {(() => {
-        // ✅ predefined order
-const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
-const allowed = new Set(["XS", "S", "M", "L", "XL"]);
-
-const sortedSizes = [...(product.sizes || [])]
-  .map((x) => str(x).trim().toUpperCase())
-  .filter((x) => x && allowed.has(x))   // ✅ ONLY XS/S/M/L/XL
-  .sort((a, b) => {
-    const ia = sizeOrder.indexOf(a);
-    const ib = sizeOrder.indexOf(b);
-    if (ia !== -1 && ib !== -1) return ia - ib;
-    if (ia !== -1) return -1;
-    if (ib !== -1) return 1;
-    return a.localeCompare(b);
-  });
-
-        return sortedSizes.map((s) => {
-          const active = selectedSize === s;
-
-          return (
-            <button
-              key={s}
-             onClick={() => {
-  setSelectedSize(s);
-
-  const needsColor = normalized ? hasColorForSize(normalized, s) : false;
-
-  // ✅ Size doesn't need color => reset color + resolve variant by size only
-  if (!needsColor) {
-    setSelectedColor(null);
-
-    const vid = normalized
-      ? findVariantIdByAttributes(normalized, { size: s })
-      : null;
-
-    setSelectedVariantId(vid);
-    return;
-  }
-
-  // ✅ Size needs color => check if existing selectedColor is valid for this size
-  const validColors = normalized ? getColorsForSize(normalized, s) : [];
-  const current = str(selectedColor).trim().toLowerCase();
-  const stillValid = current && validColors.includes(current);
-
-  // ❌ current color is not valid for this size -> reset and wait for user to select
-  if (!stillValid) {
-    setSelectedColor(null);
-    setSelectedVariantId(null);
-    return;
-  }
-
-  // ✅ current color is valid -> resolve variant
-  const vid = normalized
-    ? findVariantIdByAttributes(normalized, { size: s, color: selectedColor })
-    : null;
-
-  setSelectedVariantId(vid);
-}}
+              <button
+                onClick={handleShare}
+                className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
+                aria-label="Share"
+                title="Share"
+              >
+                <Share2 size={20} className="text-gray-900" />
+              </button>
+            </div>
+          </div>
 
 
-              className={`px-3 py-1.5 text-sm font-medium rounded-md border transition ${
-                active
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-black border-black/20 hover:bg-black/5"
-              }`}
-            >
-              {s}
-            </button>
-          );
-        });
-      })()}
-    </div>
-  </div>
-)}
+          {/* SIZE SELECTOR */}
+          {(product.sizes || []).length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              {/* Title + Size Guide link */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-medium text-black">Select Size</h3>
 
-{/* COLOR SELECTOR */}
-{requireColor && (
-  <ColorSelector
-    colors={product.colors}
-    selectedColor={selectedColor}
-    onSelect={(c) => {
-      setSelectedColor(c);
+                <button
+                  type="button"
+                  onClick={() => setSizeGuideOpen(true)}
+                  className="text-xs font-semibold underline text-black/70 hover:text-black"
+                >
+                  Size Guide
+                </button>
+              </div>
 
-      const vid = normalized
-        ? findVariantIdByAttributes(normalized, { size: selectedSize, color: c })
-        : null;
+              {/* ✅ Sorted Size Buttons */}
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  // ✅ predefined order
+                  const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
+                  const allowed = new Set(["XS", "S", "M", "L", "XL"]);
 
-      setSelectedVariantId(vid);
-    }}
-  />
-)}
+                  const sortedSizes = [...(product.sizes || [])]
+                    .map((x) => str(x).trim().toUpperCase())
+                    .filter((x) => x && allowed.has(x))   // ✅ ONLY XS/S/M/L/XL
+                    .sort((a, b) => {
+                      const ia = sizeOrder.indexOf(a);
+                      const ib = sizeOrder.indexOf(b);
+                      if (ia !== -1 && ib !== -1) return ia - ib;
+                      if (ia !== -1) return -1;
+                      if (ib !== -1) return 1;
+                      return a.localeCompare(b);
+                    });
+
+                  return sortedSizes.map((s) => {
+                    const active = selectedSize === s;
+
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          setSelectedSize(s);
+
+                          const needsColor = normalized ? hasColorForSize(normalized, s) : false;
+
+                          // ✅ Size doesn't need color => reset color + resolve variant by size only
+                          if (!needsColor) {
+                            setSelectedColor(null);
+
+                            const vid = normalized
+                              ? findVariantIdByAttributes(normalized, { size: s })
+                              : null;
+
+                            setSelectedVariantId(vid);
+                            return;
+                          }
+
+                          // ✅ Size needs color => check if existing selectedColor is valid for this size
+                          const validColors = normalized ? getColorsForSize(normalized, s) : [];
+                          const current = str(selectedColor).trim().toLowerCase();
+                          const stillValid = current && validColors.includes(current);
+
+                          // ❌ current color is not valid for this size -> reset and wait for user to select
+                          if (!stillValid) {
+                            setSelectedColor(null);
+                            setSelectedVariantId(null);
+                            return;
+                          }
+
+                          // ✅ current color is valid -> resolve variant
+                          const vid = normalized
+                            ? findVariantIdByAttributes(normalized, { size: s, color: selectedColor })
+                            : null;
+
+                          setSelectedVariantId(vid);
+                        }}
+
+
+                        className={`px-3 py-1.5 text-sm font-medium rounded-md border transition ${active
+                            ? "bg-black text-white border-black"
+                            : "bg-white text-black border-black/20 hover:bg-black/5"
+                          }`}
+                      >
+                        {s}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* COLOR SELECTOR */}
+          {requireColor && (
+            <ColorSelector
+              colors={product.colors}
+              selectedColor={selectedColor}
+              onSelect={(c) => {
+                setSelectedColor(c);
+
+                const vid = normalized
+                  ? findVariantIdByAttributes(normalized, { size: selectedSize, color: c })
+                  : null;
+
+                setSelectedVariantId(vid);
+              }}
+            />
+          )}
 
 
 
 
           <CrossSellProducts
-  category={category}
-  items={product?.raw?.crossSellProducts || []}
-/>
+            category={category}
+            items={product?.raw?.crossSellProducts || []}
+          />
 
           {/* CTA row */}
           <div className="flex gap-2 flex-wrap pt-2">
             {!selectionInCart ? (
               <button
                 onClick={handleAddToCart
-                  
+
                 }
                 className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
                 style={{ backgroundColor: BRAND.black }}
               >
-                
+
                 <ShoppingCart size={18} />
                 Add to Cart
               </button>
@@ -868,29 +873,29 @@ const sortedSizes = [...(product.sizes || [])]
             )}
 
             {/* ✅ Buy Now becomes View Cart when already in cart */}
-         <button
-  onClick={handleBuyNowOrViewCart}
-  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99]"
->
-  {selectionInCart ? (
-    <>
-      <ShoppingCart size={18} />
-      View Cart
-    </>
-  ) : (
-    <>
-      <Zap size={18} />
-      Buy Now
-    </>
-  )}
-</button>
+            <button
+              onClick={handleBuyNowOrViewCart}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99]"
+            >
+              {selectionInCart ? (
+                <>
+                  <ShoppingCart size={18} />
+                  View Cart
+                </>
+              ) : (
+                <>
+                  <Zap size={18} />
+                  Buy Now
+                </>
+              )}
+            </button>
 
           </div>
 
 
           <div className="pt-3">
-  <ShippingHighlights />
-</div>
+            <ShippingHighlights />
+          </div>
 
           {/* DETAILS */}
           <ProductDetailSection title="Product Details" content={product.description} />
@@ -912,7 +917,7 @@ const sortedSizes = [...(product.sizes || [])]
         </aside>
       </div>
 
- {/* ✅ Size Guide Modal */}
+      {/* ✅ Size Guide Modal */}
       <SizeGuideModal
         open={sizeGuideOpen}
         onClose={() => setSizeGuideOpen(false)}
@@ -920,12 +925,12 @@ const sortedSizes = [...(product.sizes || [])]
       />
 
       <div className="mt-2">
-<RelatedProducts currentProduct={normalized?.raw || normalized || product?.raw || product} />
+        <RelatedProducts currentProduct={normalized?.raw || normalized || product?.raw || product} />
       </div>
 
-       <RecentlyViewedProducts />
+      <RecentlyViewedProducts />
 
-      
+
     </div>
   );
 }
