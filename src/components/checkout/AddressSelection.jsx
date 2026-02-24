@@ -60,8 +60,28 @@ function FormField({
 }
 
 /* ---------------- Validation ---------------- */
+/* ---------------- Validation ---------------- */
 const isValidEmail = (v = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim());
-const isValidPhone = (v = "") => /^[0-9]{10}$/.test(String(v));
+
+// ✅ NEW: normalize India phone (+91 / 91 / 0 prefix)
+const normalizeIndianPhone = (input = "") => {
+  let digits = String(input || "").replace(/\D/g, ""); // keep only numbers
+
+  // If user typed 91XXXXXXXXXX (12 digits) or +91..., drop 91
+  if (digits.startsWith("91") && digits.length > 10) digits = digits.slice(2);
+
+  // Optional: handle leading 0 (0XXXXXXXXXX)
+  if (digits.startsWith("0") && digits.length > 10) digits = digits.slice(1);
+
+  // If still longer than 10, keep last 10 digits
+  if (digits.length > 10) digits = digits.slice(-10);
+
+  return digits; // can be <10 while typing
+};
+
+// ✅ UPDATED: accepts 10-digit after normalization
+const isValidPhone = (v = "") => /^[0-9]{10}$/.test(normalizeIndianPhone(v));
+
 const isValidPassword = (v = "") => {
   const s = String(v);
   return s.length >= 6 && /[a-zA-Z]/.test(s) && /[0-9]/.test(s);
@@ -397,18 +417,26 @@ if (res.ok && data?.exists && data?.customer?.firebaseUID) {
                 )}
 
                 <FormField
-                  label="Phone"
-                  name="phone"
-                  value={addressForm.phone}
-                  onChange={(e) => {
-                    const cleaned = String(e.target.value || "").replace(/\D/g, "").slice(0, 10);
-                    updateAddressField({ target: { name: "phone", value: cleaned } });
-                  }}
-                  onBlur={() => setTouched((p) => ({ ...p, phone: true }))}
-                  inputMode="numeric"
-                  placeholder="10-digit mobile"
-                  error={showErr("phone") ? errors.phone : ""}
-                />
+  label="Phone"
+  name="phone"
+  value={addressForm.phone}
+  onChange={(e) => {
+    const raw = e.target.value || "";
+    const normalized = normalizeIndianPhone(raw);
+
+    // ✅ store only the normalized digits (max 10 eventually)
+    updateAddressField({ target: { name: "phone", value: normalized } });
+  }}
+  onBlur={() => {
+    // ✅ ensure final cleanup on blur (safety)
+    const final10 = normalizeIndianPhone(addressForm.phone);
+    updateAddressField({ target: { name: "phone", value: final10 } });
+    setTouched((p) => ({ ...p, phone: true }));
+  }}
+  inputMode="numeric"
+  placeholder="10-digit mobile (or +91 / 91)"
+  error={showErr("phone") ? errors.phone : ""}
+/>
 
                 <FormField
                   label="City"
