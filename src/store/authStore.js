@@ -875,11 +875,146 @@ console.log("🔥 Firebase SIGNUP attempt", { email });
 },
 
 
+/* ---------------------------------------------
+   ✅ NEW: UPDATE PAYOUT / BANKING DETAILS
+   PATCH /api/customers/:id/payout-details
+--------------------------------------------- */
+updateCustomerPayoutDetails: async (payload = {}) => {
+  const existingCustomer = get().customer;
+  if (!existingCustomer?._id) {
+    console.error("❌ No customer loaded");
+    return null;
+  }
+
+  if (!BACKEND) {
+    console.error("❌ NEXT_PUBLIC_BACKEND_URL missing");
+    return null;
+  }
+
+  try {
+    // ✅ Accept payload shapes:
+    // 1) { bank: { accountHolderName, accountNumber, ifscCode } }
+    // 2) { upi: { upiId } }
+    // 3) { payoutDetails: { bank: {...}, upi: {...} } }  (if UI sends this)
+    const bankIn =
+      payload?.bank || payload?.payoutDetails?.bank || {};
+    const upiIn =
+      payload?.upi || payload?.payoutDetails?.upi || {};
+
+    const accountHolderName = bankIn?.accountHolderName
+      ? String(bankIn.accountHolderName).trim()
+      : "";
+    const accountNumber = bankIn?.accountNumber
+      ? String(bankIn.accountNumber).trim()
+      : "";
+    const ifscCode = bankIn?.ifscCode
+      ? String(bankIn.ifscCode).trim().toUpperCase()
+      : "";
+
+    const upiId = upiIn?.upiId
+      ? String(upiIn.upiId).trim().toLowerCase()
+      : "";
+
+    const hasAnyBank = !!(accountHolderName || accountNumber || ifscCode);
+    const hasUpi = !!upiId;
+
+    // ✅ must provide at least one method
+    if (!hasAnyBank && !hasUpi) {
+      toast.error("Provide either UPI ID or Bank details");
+      return null;
+    }
+
+    // ✅ if using bank method → enforce required fields (matches backend)
+    if (hasAnyBank && (!accountHolderName || !accountNumber || !ifscCode)) {
+      toast.error("Bank details need Name, Account No. & IFSC");
+      return null;
+    }
+
+    // ✅ build request body in backend-expected format
+    const body = {};
+    if (hasAnyBank) body.bank = { accountHolderName, accountNumber, ifscCode };
+    if (hasUpi) body.upi = { upiId };
+
+    const res = await fetch(
+      `${BACKEND}/api/customers/${existingCustomer._id}/payout-details`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+
+    // parse safely
+    const raw = await res.text();
+    let data = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      data = null;
+    }
+
+    if (!res.ok) {
+      const msg =
+        data?.message || `Payout update failed (${res.status})`;
+      console.error("❌ updateCustomerPayoutDetails error:", msg, data);
+      toast.error(msg);
+      return null;
+    }
+
+    // backend returns { payoutDetails, customer } in your controller
+    const updatedCustomer = data?.customer || null;
+    if (!updatedCustomer?._id) {
+      console.error("❌ payout update: customer missing in response", data);
+      toast.error("Payout updated, but customer not returned");
+      return null;
+    }
+
+    // ✅ update Zustand store
+    set({
+      customer: updatedCustomer,
+      activeCartId: updatedCustomer?.cart?.activeCartId || null,
+      activeCartType: updatedCustomer?.cart?.activeCartType || "cart",
+    });
+
+    // ✅ update cookie
+    const { user, token } = get();
+    Cookies.set(
+      COOKIE_KEY,
+      JSON.stringify({
+        user,
+        customer: updatedCustomer,
+        token,
+        activeCartId: updatedCustomer?.cart?.activeCartId || null,
+        activeCartType: updatedCustomer?.cart?.activeCartType || "cart",
+        isGuest: !user,
+      }),
+      { expires: 7 }
+    );
+
+    toast.success("Payout details saved");
+    return updatedCustomer?.payoutDetails || updatedCustomer;
+  } catch (err) {
+    console.error("❌ updateCustomerPayoutDetails exception:", err);
+    toast.error("Server error while saving payout details");
+    return null;
+  }
+},
 
 
 
+hasPayoutDetails: () => {
+  const c = get().customer;
 
+  const bank = c?.payoutDetails?.bank || c?.bankDetails?.bank || c?.bankDetails; // supports both schemas
+  const upi = c?.payoutDetails?.upi || c?.bankDetails?.upi;
 
+  const hasBank =
+    !!(bank?.accountHolderName && bank?.accountNumber && bank?.ifscCode);
+
+  const hasUpi = !!(upi?.upiId);
+
+  return hasBank || hasUpi;
+},
 
 
 

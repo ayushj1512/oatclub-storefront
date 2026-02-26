@@ -18,6 +18,9 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
+// ✅ NEW: use your extracted component
+import PayoutDetailsCard from "@/components/profile/PayoutDetailsCard";
+
 const FALLBACK_IMG =
   "https://i.pinimg.com/736x/54/5c/c1/545cc16292db0d62ac333fc422e4aff4.jpg";
 
@@ -57,14 +60,23 @@ function Notice({ notice, onClose }) {
   return (
     <div
       className={`mt-5 p-3 border text-sm flex items-start justify-between gap-3 ${
-        isErr ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-700"
+        isErr
+          ? "border-red-200 bg-red-50 text-red-700"
+          : "border-green-200 bg-green-50 text-green-700"
       }`}
     >
       <div className="flex items-start gap-2">
-        {isErr ? <AlertTriangle size={16} className="mt-0.5" /> : <CheckCircle2 size={16} className="mt-0.5" />}
+        {isErr ? (
+          <AlertTriangle size={16} className="mt-0.5" />
+        ) : (
+          <CheckCircle2 size={16} className="mt-0.5" />
+        )}
         <div>{notice.text}</div>
       </div>
-      <button onClick={onClose} className="text-xs underline opacity-90 hover:opacity-100">
+      <button
+        onClick={onClose}
+        className="text-xs underline opacity-90 hover:opacity-100"
+      >
         Close
       </button>
     </div>
@@ -162,7 +174,8 @@ export default function ProfileEditPage() {
     if (!nameOk) return "Please enter your full name.";
 
     const p = digitsOnly(form.phone);
-    if (p && p.length < 10) return "Please enter a valid phone number (10 digits).";
+    if (p && p.length < 10)
+      return "Please enter a valid phone number (10 digits).";
 
     return "";
   };
@@ -239,10 +252,19 @@ export default function ProfileEditPage() {
             {/* Compact identity */}
             <div className="flex items-center gap-3">
               <div className="w-14 h-14 sm:w-16 sm:h-16 overflow-hidden border shadow-inner bg-gray-50 rounded-full relative">
-                <Image src={profileImg} alt="Profile" fill unoptimized className="object-cover" priority />
+                <Image
+                  src={profileImg}
+                  alt="Profile"
+                  fill
+                  unoptimized
+                  className="object-cover"
+                  priority
+                />
               </div>
               <div className="text-sm">
-                <div className="font-semibold text-gray-900">{String(form.name || "").trim() || "Your Name"}</div>
+                <div className="font-semibold text-gray-900">
+                  {String(form.name || "").trim() || "Your Name"}
+                </div>
                 <div className="text-gray-500 flex items-center gap-1">
                   <Mail size={14} />
                   {email || "—"}
@@ -254,18 +276,26 @@ export default function ProfileEditPage() {
           {/* Completion meter (nice UX) */}
           <div className="mt-6">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-medium text-gray-900">Setup progress</div>
+              <div className="text-sm font-medium text-gray-900">
+                Setup progress
+              </div>
               <div className="text-sm text-gray-700">{progress.pct}%</div>
             </div>
             <div className="mt-2 h-2 w-full bg-gray-200 overflow-hidden">
-              <div className="h-2 bg-black" style={{ width: `${progress.pct}%` }} />
+              <div
+                className="h-2 bg-black"
+                style={{ width: `${progress.pct}%` }}
+              />
             </div>
             <div className="mt-2 text-xs text-gray-500">
               Tip: Adding phone + city/state makes deliveries & support faster.
             </div>
           </div>
 
-          <Notice notice={notice} onClose={() => setNotice({ type: "", text: "" })} />
+          <Notice
+            notice={notice}
+            onClose={() => setNotice({ type: "", text: "" })}
+          />
         </div>
 
         {/* Form Card */}
@@ -331,12 +361,25 @@ export default function ProfileEditPage() {
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="State" name="state" value={form.state} onChange={handleChange} placeholder="State" />
-                <Field label="City" name="city" value={form.city} onChange={handleChange} placeholder="City" />
+                <Field
+                  label="State"
+                  name="state"
+                  value={form.state}
+                  onChange={handleChange}
+                  placeholder="State"
+                />
+                <Field
+                  label="City"
+                  name="city"
+                  value={form.city}
+                  onChange={handleChange}
+                  placeholder="City"
+                />
               </div>
 
               <div className="text-xs text-gray-500">
-                Accurate details help us deliver faster and resolve support tickets quicker.
+                Accurate details help us deliver faster and resolve support
+                tickets quicker.
               </div>
             </div>
           </div>
@@ -360,6 +403,9 @@ export default function ProfileEditPage() {
             </button>
           </div>
         </div>
+
+        {/* ✅ Payout details component */}
+        <PayoutDetailsCard />
       </div>
     </section>
   );
