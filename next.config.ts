@@ -14,6 +14,13 @@ const nextConfig: NextConfig = {
         hostname: "lh3.googleusercontent.com",
         pathname: "/**",
       },
+      
+      // Amazon Media CDN
+{
+  protocol: "https",
+  hostname: "m.media-amazon.com",
+  pathname: "/**",
+},
 
       // Unsplash
       { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
@@ -48,6 +55,29 @@ const nextConfig: NextConfig = {
 
       // Princess Polly
       { protocol: "https", hostname: "us.princesspolly.com", pathname: "/**" },
+
+      /* ==============================
+         ✅ NEW (StreetStyleStore + Cloudfront)
+      ============================== */
+
+      // Cloudfront
+      {
+        protocol: "https",
+        hostname: "d1flfk77wl2xk4.cloudfront.net",
+        pathname: "/**",
+      },
+
+      // StreetStyleStore CDN
+      {
+        protocol: "https",
+        hostname: "cdn.streetstylestore.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "images.streetstylestore.com",
+        pathname: "/**",
+      },
     ],
   },
 
@@ -58,6 +88,7 @@ const nextConfig: NextConfig = {
         destination: "/all-clothing",
         permanent: true,
       },
+      
       {
         source: "/category/new-arrivals",
         destination: "/new-arrivals",
