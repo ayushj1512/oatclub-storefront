@@ -176,7 +176,7 @@ export default function CollectionPage() {
     <div className={`min-h-screen ${PEACH.pageBg}`}>
       {/* ✅ Compact Header */}
       <div className="px-4 pt-4">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto ">
           <div className={`rounded-2xl border border-white/60 ${PEACH.heroBg} shadow-sm`}>
             <div className="p-4 sm:px-6 sm:py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
