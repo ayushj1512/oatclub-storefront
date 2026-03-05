@@ -216,7 +216,7 @@ export default function CollectionPage() {
 
       {/* Products */}
       <div className="px-4 pb-6 pt-5">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto ">
           <ProductGrid key={`${collection}-${sort}`} products={list} loading={isInitialFetching} />
           <div ref={sentinelRef} className="h-1" />
         </div>
