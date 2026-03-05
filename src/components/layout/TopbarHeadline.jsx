@@ -5,13 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 
 export default function TopbarHeadline({ interval = 2800 }) {
   const items = useMemo(
-    () => [
-      "Use code FIRST10 to get 10% OFF on your first order 🎉",
-      "Summer Collection is Live ☀️",
-      "Curated with Love ❤️",
-    ],
-    []
-  );
+  () => [
+    "Happy Women’s Day 💖",
+    "Women’s Day Collection Is Live ✨",
+    "Use Code SHE20 To Get 20% Off 🎉",
+    "Celebrating Strength, Style & Sisterhood 🌸",
+  ],
+  []
+);
 
   const [active, setActive] = useState(0);
 
