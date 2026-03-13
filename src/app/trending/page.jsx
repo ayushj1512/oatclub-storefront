@@ -55,6 +55,7 @@ const toNum = (v, fb = 0) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : fb;
 };
+// testing comment
 
 const getPrice = (p) => toNum(p?.price, 0);
 
@@ -181,7 +182,6 @@ export default function TrendingPage() {
             </button>
           </div>
         )}
-
         <div className="mt-5 sm:mt-6">
           <ProductGrid products={list} loading={showInitialLoading} />
         </div>
