@@ -2,27 +2,26 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart } from "lucide-react";
+import { Heart, Crown, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { useAnalyticsStore } from "@/store/analyticsStore";
 import { motion } from "framer-motion";
-import { Crown } from "lucide-react";
 
 /* ----------------------------- Shimmer ----------------------------- */
 const ShimmerCard = () => (
-  <div className="w-full bg-white overflow-hidden flex flex-col h-full">
-    <div className="relative aspect-[3/4] bg-black/5 overflow-hidden">
+  <div className="flex h-full w-full flex-col overflow-hidden bg-white">
+    <div className="relative aspect-[3/4] overflow-hidden bg-black/5">
       <div className="absolute inset-0 shimmer" />
     </div>
 
-    <div className="p-2 md:p-3 space-y-2">
-      <div className="relative h-3 w-4/5 bg-black/5 overflow-hidden rounded">
+    <div className="space-y-2 p-2.5 md:p-3">
+      <div className="relative h-3 w-4/5 overflow-hidden rounded bg-black/5">
         <div className="absolute inset-0 shimmer" />
       </div>
 
-      <div className="relative h-3.5 w-2/5 bg-black/5 overflow-hidden rounded">
+      <div className="relative h-3.5 w-2/5 overflow-hidden rounded bg-black/5">
         <div className="absolute inset-0 shimmer" />
       </div>
     </div>
@@ -90,8 +89,8 @@ function getCategorySlug(product) {
   const arr = Array.isArray(product?.categories)
     ? product.categories
     : Array.isArray(product?.raw?.categories)
-    ? product.raw.categories
-    : [];
+      ? product.raw.categories
+      : [];
 
   const banned = ["all-clothing", "featured", "uncategorized"];
 
@@ -139,8 +138,6 @@ function getBestCompareAtPrice(product) {
   return compareBase > 0 ? compareBase : variantMax;
 }
 
-
-
 export default function ProductCard({
   product,
   loading = false,
@@ -159,9 +156,9 @@ export default function ProductCard({
   if (!pid) return null;
 
   const pcode = String(
-  product?.productCode || product?.raw?.productCode || ""
-).trim();
-if (!pcode) return null;
+    product?.productCode || product?.raw?.productCode || ""
+  ).trim();
+  if (!pcode) return null;
 
   const productName = product?.title || product?.name || "Product";
 
@@ -173,10 +170,18 @@ if (!pcode) return null;
 
   const compareAt = getBestCompareAtPrice(product);
 
-    const isBestSeller = !!(
+  const isBestSeller = !!(
     product?.isBestSeller ??
     product?.raw?.isBestSeller
   );
+
+  const isTrendingRaw = !!(
+    product?.isTrending ??
+    product?.raw?.isTrending
+  );
+
+  // ✅ if bestseller is present, do not show trending
+  const isTrending = !isBestSeller && isTrendingRaw;
 
   // ✅ safer showCompare + discount calc
   const showCompare = compareAt > 0 && sale > 0 && compareAt > sale;
@@ -222,7 +227,7 @@ if (!pcode) return null;
     [product?.slug, productName]
   );
 
-const productLink = `/category/${category}/${formattedName}/${encodeURIComponent(pcode)}`;
+  const productLink = `/category/${category}/${formattedName}/${encodeURIComponent(pcode)}`;
   const wishlisted = isInWishlist?.(pid);
 
   const toggleWishlist = (e) => {
@@ -247,42 +252,39 @@ const productLink = `/category/${category}/${formattedName}/${encodeURIComponent
     <Link
       href={productLink}
       onClick={handleProductClick}
-      className="block w-full bg-white overflow-hidden h-full"
+      className="block h-full w-full overflow-hidden bg-white"
     >
       <div
-        className="flex flex-col h-full transition-transform duration-300 hover:-translate-y-1"
+        className="flex h-full flex-col transition-transform duration-300 md:hover:-translate-y-1"
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
         {/* IMAGE */}
-        <div className="relative w-full aspect-[3/4] bg-white overflow-hidden">
-     {isBestSeller && (
-  <div className="absolute top-2 left-2 z-10">
-    <span className="
-      inline-flex items-center gap-1.5
-      px-2.5 py-1
-      text-[10px] md:text-[11px]
-      font-semibold tracking-wide
-      text-white
-      bg-black/40
-      backdrop-blur-md
-      rounded-full
-      border border-white/20
-      shadow-sm
-    ">
-      <Crown className="w-3.5 h-3.5 text-yellow-400" />
-      BESTSELLER
-    </span>
-  </div>
-)}
+        <div className="relative w-full aspect-[3/4] overflow-hidden bg-white">
+          {(isBestSeller || isTrending) && (
+            <div className="absolute left-2 top-2 z-10 flex max-w-[70%] flex-col items-start gap-1.5 md:left-2 md:top-2 md:gap-2">
+              {isBestSeller && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/40 px-2 py-1 text-[9px] font-semibold tracking-wide text-white shadow-sm backdrop-blur-md md:gap-1.5 md:px-2.5 md:py-1 md:text-[11px]">
+                  <Crown className="h-3 w-3 text-yellow-400 md:h-3.5 md:w-3.5" />
+                  <span className="truncate">BESTSELLER</span>
+                </span>
+              )}
 
+              {isTrending && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/30 px-2 py-1 text-[9px] font-semibold tracking-wide text-white shadow-sm backdrop-blur-md md:gap-1.5 md:px-2.5 md:py-1 md:text-[11px]">
+                  <TrendingUp className="h-3 w-3 text-white md:h-3.5 md:w-3.5" />
+                  <span className="truncate">TRENDING</span>
+                </span>
+              )}
+            </div>
+          )}
 
           <Image
             src={image}
             alt={productName}
             fill
             loading="lazy"
-            sizes="(max-width: 600px) 45vw, 220px"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
             className={`object-cover transition-opacity duration-300 ${
               isHovered ? "opacity-0" : "opacity-100"
             }`}
@@ -294,7 +296,7 @@ const productLink = `/category/${category}/${formattedName}/${encodeURIComponent
               alt={`${productName} Hover`}
               fill
               loading="lazy"
-              sizes="(max-width: 600px) 45vw, 220px"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
               className={`object-cover transition-opacity duration-300 ${
                 isHovered ? "opacity-100" : "opacity-0"
               }`}
@@ -304,16 +306,16 @@ const productLink = `/category/${category}/${formattedName}/${encodeURIComponent
           {!hideWishlistIcon && (
             <motion.button
               type="button"
-              onMouseDown={(e) => e.preventDefault()} // ✅ prevent focus weirdness
+              onMouseDown={(e) => e.preventDefault()}
               onClick={toggleWishlist}
               whileTap={{ scale: 0.9 }}
-              className="absolute top-2 right-2 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/80 backdrop-blur-md border border-black/10 shadow-sm flex items-center justify-center z-10 transition hover:bg-white"
+              className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-white/80 shadow-sm backdrop-blur-md transition hover:bg-white md:h-9 md:w-9"
             >
               <Heart
                 className={
                   wishlisted
-                    ? "w-4 h-4 md:w-5 md:h-5 text-[#800020] fill-[#800020]"
-                    : "w-4 h-4 md:w-5 md:h-5 text-black/60"
+                    ? "h-4 w-4 fill-[#800020] text-[#800020] md:h-5 md:w-5"
+                    : "h-4 w-4 text-black/60 md:h-5 md:w-5"
                 }
               />
             </motion.button>
@@ -321,28 +323,27 @@ const productLink = `/category/${category}/${formattedName}/${encodeURIComponent
         </div>
 
         {/* CONTENT */}
-        <div className="p-2 md:p-3 flex flex-col gap-1.5 md:gap-2">
-          <h3 className="text-[13px] md:text-[15px] font-semibold text-black leading-snug line-clamp-2">
+        <div className="flex flex-col gap-1.5 p-2.5 md:gap-2 md:p-3">
+          <h3 className="line-clamp-2 min-h-[2.4rem] text-[12.5px] font-semibold leading-snug text-black md:min-h-[2.8rem] md:text-[15px]">
             {productName}
           </h3>
 
-          <div className="flex items-baseline gap-2">
-            <span className="text-[14px] md:text-[16px] font-semibold text-black">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="text-[13px] font-semibold text-black md:text-[16px]">
               ₹{formatMoney(sale)}
             </span>
 
             {showCompare && (
-              <span className="text-[12px] md:text-[14px] text-gray-500 line-through">
+              <span className="text-[11px] text-gray-500 line-through md:text-[14px]">
                 ₹{formatMoney(compareAt)}
               </span>
             )}
 
-           {discount > 0 && (
-  <span className="text-[11px] md:text-[12px] font-semibold text-[#800020]">
-    {discount}% OFF
-  </span>
-)}
-
+            {discount > 0 && (
+              <span className="text-[10.5px] font-semibold text-[#800020] md:text-[12px]">
+                {discount}% OFF
+              </span>
+            )}
           </div>
         </div>
       </div>
