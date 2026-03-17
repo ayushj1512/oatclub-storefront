@@ -5,24 +5,28 @@ import { useEffect, useMemo, useState } from "react";
 
 export default function TopbarHeadline({ interval = 2800 }) {
   const items = useMemo(
-  () => [
-    "Happy Women’s Day 💖",
-    "Women’s Day Collection Is Live ✨",
-    "Use Code SHE20 To Get 20% Off 🎉",
-    "Celebrating Strength, Style & Sisterhood 🌸",
-  ],
-  []
-);
+    () => [
+      "Summer Arrivals Are Here ☀️",
+      "Fresh Fits For The Heat 🌴",
+      "Stay Cool, Stay Stylish 😎",
+      "New Season, New Vibes ✨",
+      "Lightweight Styles Just Dropped 🧊",
+    ],
+    []
+  );
 
   const [active, setActive] = useState(0);
 
   useEffect(() => {
+    if (!items.length) return;
+
     const t = setInterval(
       () => setActive((p) => (p + 1) % items.length),
       interval
     );
+
     return () => clearInterval(t);
-  }, [items.length, interval]);
+  }, [items, interval]);
 
   return (
     <div
@@ -31,8 +35,11 @@ export default function TopbarHeadline({ interval = 2800 }) {
       className="w-full overflow-hidden bg-black text-white"
     >
       <div className="relative flex h-8 items-center justify-center px-3 md:h-9 md:px-10">
+        {/* subtle borders */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+        {/* glow */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.07),transparent_60%)]" />
 
         <div className="relative flex w-full items-center justify-center">
