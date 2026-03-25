@@ -1,10 +1,42 @@
 import { create } from "zustand";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+const API_BASE = `${BASE_URL}/api/homepage-settings`;
 
-export const useHomepageSettingsStore = create((set, get) => ({
+/* ============================
+   Helpers
+============================ */
+const normalizeCategoryRow = (row = []) =>
+  [...row]
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+    .map((item, index) => {
+      const navigationType = item?.navigationType || "category";
+
+      return {
+        ...item,
+        name: item?.name || "",
+        navigationType,
+        slug:
+          navigationType === "category" || navigationType === "collection"
+            ? item?.slug || ""
+            : "",
+        customRoute: navigationType === "custom" ? item?.customRoute || "" : "",
+        image: item?.image || "",
+        video: item?.video || "",
+        tag: item?.tag || "",
+        isActive: item?.isActive !== false,
+        sortOrder: index + 1,
+      };
+    });
+
+export const useHomepageSettingsStore = create((set) => ({
   settings: null,
+
+  heroBanners: [],
+  categoryRow: [],
+
   loading: false,
+  saving: false,
   error: null,
   success: null,
 
@@ -15,42 +47,75 @@ export const useHomepageSettingsStore = create((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-      const res = await fetch(`${BASE_URL}/api/homepage-settings`);
-      const data = await res.json();
+      const res = await fetch(API_BASE, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
 
-      if (!res.ok) throw new Error(data.message || "Failed to fetch settings");
+      const data = await res.json().catch(() => ({}));
 
-      set({ settings: data, loading: false });
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to fetch settings");
+      }
+
+      set({
+        settings: data,
+        heroBanners: data.heroBanners || [],
+        categoryRow: normalizeCategoryRow(data.categoryRow || []),
+        loading: false,
+      });
+
+      return data;
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({
+        loading: false,
+        error: err.message || "Something went wrong",
+      });
+      return null;
     }
   },
 
   /* ============================
      Update Full Homepage Settings
   ============================ */
-  updateHomepageSettings: async (payload) => {
+  updateHomepageSettings: async (payload = {}) => {
     try {
-      set({ loading: true, error: null, success: null });
+      set({ saving: true, error: null, success: null });
 
-      const res = await fetch(`${BASE_URL}/api/homepage-settings`, {
+      const finalPayload = {
+        ...payload,
+        categoryRow: payload.categoryRow
+          ? normalizeCategoryRow(payload.categoryRow)
+          : payload.categoryRow,
+      };
+
+      const res = await fetch(API_BASE, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(finalPayload),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to update settings");
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to update settings");
+      }
 
       set({
         settings: data,
-        loading: false,
-        success: "Homepage settings updated successfully ✅",
+        heroBanners: data.heroBanners || [],
+        categoryRow: normalizeCategoryRow(data.categoryRow || []),
+        saving: false,
+        success: "Homepage settings updated ✅",
       });
 
       return data;
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({
+        saving: false,
+        error: err.message || "Something went wrong",
+      });
       return null;
     }
   },
@@ -60,73 +125,88 @@ export const useHomepageSettingsStore = create((set, get) => ({
   ============================ */
   updateHeroBanners: async (heroBanners = []) => {
     try {
-      set({ loading: true, error: null, success: null });
+      set({ saving: true, error: null, success: null });
 
-      const res = await fetch(
-        `${BASE_URL}/api/homepage-settings/hero-banners`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ heroBanners }),
-        }
-      );
+      const res = await fetch(`${API_BASE}/hero-banners`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroBanners }),
+      });
 
-      const data = await res.json();
-      if (!res.ok)
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
         throw new Error(data.message || "Failed to update hero banners");
+      }
 
       set((state) => ({
         settings: {
           ...state.settings,
-          heroBanners: data.heroBanners,
+          heroBanners: data.heroBanners || [],
         },
-        loading: false,
+        heroBanners: data.heroBanners || [],
+        saving: false,
         success: "Hero banners updated ✅",
       }));
 
       return data;
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({
+        saving: false,
+        error: err.message || "Something went wrong",
+      });
       return null;
     }
   },
 
   /* ============================
      Update Category Row
-     (navigationType supported)
   ============================ */
   updateCategoryRow: async (categoryRow = []) => {
     try {
-      set({ loading: true, error: null, success: null });
+      set({ saving: true, error: null, success: null });
 
-      const res = await fetch(
-        `${BASE_URL}/api/homepage-settings/category-row`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ categoryRow }),
-        }
-      );
+      const normalized = normalizeCategoryRow(categoryRow);
 
-      const data = await res.json();
-      if (!res.ok)
+      const res = await fetch(`${API_BASE}/category-row`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryRow: normalized }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
         throw new Error(data.message || "Failed to update category row");
+      }
 
       set((state) => ({
         settings: {
           ...state.settings,
-          categoryRow: data.categoryRow,
+          categoryRow: data.categoryRow || normalized,
         },
-        loading: false,
+        categoryRow: normalizeCategoryRow(data.categoryRow || normalized),
+        saving: false,
         success: "Category row updated ✅",
       }));
 
       return data;
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({
+        saving: false,
+        error: err.message || "Something went wrong",
+      });
       return null;
     }
   },
+
+  /* ============================
+     Local Setters
+  ============================ */
+  setHeroBannersLocal: (heroBanners = []) => set({ heroBanners }),
+
+  setCategoryRowLocal: (categoryRow = []) =>
+    set({ categoryRow: normalizeCategoryRow(categoryRow) }),
 
   /* ============================
      Helpers
