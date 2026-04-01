@@ -5,15 +5,15 @@
 
   export default function TopbarHeadline({ interval = 2800 }) {
     const items = useMemo(
-      () => [
-        "Summer Arrivals Are Here ☀️",
-        "Fresh Fits For The Heat 🌴",
-        "Stay Cool, Stay Stylish 😎",
-        "New Season, New Vibes ✨",
-        "Lightweight Styles Just Dropped 🧊",
-      ],
-      []
-    );
+  () => [
+    "PAYDAY SALE IS LIVE 🔥",
+    "Flat 20% OFF — Use Code PAYDAY20 💸",
+    "Your Payday = Your Wardrobe Upgrade 😎",
+    "Best Sellers + Denim Now On Sale 👖",
+    "Extra 20% Off — Limited Time Only ⏳",
+  ],
+  []
+);
 
     const [active, setActive] = useState(0);
 
