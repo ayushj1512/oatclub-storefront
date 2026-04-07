@@ -2,174 +2,144 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, ArrowRight } from "lucide-react";
 
 import { useSearchStore } from "@/store/searchStore";
 import ProductGrid from "@/components/common/ProductGrid";
 
-/* ---------- NORMALIZER (short + robust) ---------- */
-const imgSrc = (x) =>
-  typeof x === "string"
-    ? x
-    : x?.src || x?.url || x?.secure_url || x?.path || x?.location || "";
-
-const toNum = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-
+/* =========================================================
+   HELPERS
+========================================================= */
 const normalizeProductForGrid = (p) => {
-  if (!p) return null;
+  if (!p?._id) return null;
+
+  const imageList =
+    Array.isArray(p.images) && p.images.length
+      ? p.images
+      : p.thumbnail
+        ? [p.thumbnail]
+        : [];
 
   return {
     id: p._id,
     _id: p._id,
-
-    // ✅ ProductCard expects title/name both
-    title: p.title,
-    name: p.title,
-    slug: p.slug,
-
-    // ✅ VERY IMPORTANT: ProductCard needs productCode
-    productCode: p.productCode || p?.raw?.productCode || "",
-
+    title: p.title || "",
+    name: p.title || "",
+    slug: p.slug || "",
+    productCode: p.productCode || "",
     price: String(p.price ?? ""),
     sale_price:
       p.compareAtPrice && p.compareAtPrice > p.price ? String(p.price) : null,
-    regular_price: p.compareAtPrice ? String(p.compareAtPrice) : String(p.price),
-
-    // ✅ ProductCard reads: images[0].src OR images[0]
-    images: (p.images?.length ? p.images : p.thumbnail ? [p.thumbnail] : []).map(
-      (src) => ({ src })
-    ),
-
+    regular_price: p.compareAtPrice
+      ? String(p.compareAtPrice)
+      : String(p.price ?? ""),
+    images: imageList.map((src) => ({ src })),
     thumbnail: p.thumbnail || "",
     image: p.thumbnail || p.images?.[0] || "",
-
-    categories: Array.isArray(p.categories)
-      ? p.categories
-      : [],
-
-    stock_status: p.isInStock ? "instock" : "outofstock",
-    stock_quantity: p.stock ?? 0,
-
-    // ✅ IMPORTANT: ProductCard checks product.raw.productCode
-    raw: p,        // 👈 add this
-    __raw: p,      // keep existing
+    categories: Array.isArray(p.categories) ? p.categories : [],
+    isBestSeller: !!p.isBestSeller,
+    isTrending: !!p.isTrending,
+    raw: p,
+    __raw: p,
   };
 };
 
-
-
 export default function SearchPageClient() {
   const router = useRouter();
-  const params = useSearchParams();
-  const initialQuery = params.get("q") || "";
+  const searchParams = useSearchParams();
 
-  const { query, setQuery, results, loading, total, searchProducts, resetSearch } =
-    useSearchStore();
+  const initialQuery = (searchParams.get("q") || "").trim();
+
+  const {
+    query,
+    setQuery,
+    results,
+    total,
+    loading,
+    searchProducts,
+    resetSearch,
+  } = useSearchStore();
 
   const didInitRef = useRef(false);
-  const lastUrlQueryRef = useRef(initialQuery.trim());
 
-  const queryTrim = (query || "").trim();
+  const queryTrim = String(query || "").trim();
   const canSearch = queryTrim.length >= 2;
   const effectiveLoading = canSearch ? loading : false;
 
-  /* URL → Store sync (mount only) */
   useEffect(() => {
-    const iq = initialQuery.trim();
+    if (didInitRef.current) return;
     didInitRef.current = true;
-    lastUrlQueryRef.current = iq;
 
-    if (iq) {
-      setQuery(iq);
-      if (iq.length >= 2) searchProducts({ page: 1 });
-    } else {
+    if (!initialQuery) {
       resetSearch();
+      return;
+    }
+
+    setQuery(initialQuery);
+
+    if (initialQuery.length >= 2) {
+      searchProducts({ page: 1 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Debounced search */
-  useEffect(() => {
-    if (!didInitRef.current) return;
-
-    if (!queryTrim) {
-      resetSearch();
-      if (lastUrlQueryRef.current) {
-        router.replace("/search");
-        lastUrlQueryRef.current = "";
-      }
-      return;
-    }
-
-    if (!canSearch) {
-      if (lastUrlQueryRef.current) {
-        router.replace("/search");
-        lastUrlQueryRef.current = "";
-      }
-      return;
-    }
-
-    const t = setTimeout(() => {
-      searchProducts({ page: 1 });
-
-      const nextUrl = `/search?q=${encodeURIComponent(queryTrim)}`;
-      if (lastUrlQueryRef.current !== queryTrim) {
-        router.replace(nextUrl);
-        lastUrlQueryRef.current = queryTrim;
-      }
-    }, 350);
-
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryTrim]);
-
   const gridProducts = useMemo(
-    () => (results || []).map(normalizeProductForGrid).filter((x) => x?.id),
+    () => (results || []).map(normalizeProductForGrid).filter(Boolean),
     [results]
   );
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!queryTrim) {
+      resetSearch();
+      router.replace("/search");
+      return;
+    }
+
+    if (!canSearch) return;
+
+    await searchProducts({ page: 1 });
+    router.replace(`/search?q=${encodeURIComponent(queryTrim)}`);
+  };
+
+  const helperText = !queryTrim
+    ? "Search for products"
+    : !canSearch
+      ? "Type at least 2 characters..."
+      : effectiveLoading
+        ? "Searching..."
+        : gridProducts.length
+          ? `Found ${total} products`
+          : `No results for "${queryTrim}"`;
+
   return (
-    <section className="w-full min-h-screen bg-white px-4 py-6">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!canSearch) return;
+    <section className="min-h-screen w-full bg-white px-3 py-4 sm:px-4 sm:py-6">
+      <form onSubmit={handleSubmit} className="mb-4 w-full">
+        <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm sm:flex-row sm:items-center">
+          <div className="flex h-11 w-full items-center gap-3 rounded-xl bg-gray-50 px-3 sm:flex-1">
+            <Search className="h-4.5 w-4.5 shrink-0 text-gray-500" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by code, title, tag, category, color..."
+              className="w-full bg-transparent text-sm text-black outline-none placeholder:text-gray-400"
+            />
+          </div>
 
-          searchProducts({ page: 1 });
-
-          const nextUrl = `/search?q=${encodeURIComponent(queryTrim)}`;
-          if (lastUrlQueryRef.current !== queryTrim) {
-            router.replace(nextUrl);
-            lastUrlQueryRef.current = queryTrim;
-          }
-        }}
-        className="flex items-center bg-gray-100 border border-gray-300 px-4 py-2 rounded-md shadow-sm mb-4"
-      >
-        <Search className="text-gray-700 w-5 h-5" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search for products..."
-          className="flex-1 px-3 bg-transparent outline-none text-sm text-black"
-        />
+          <button
+            type="submit"
+            disabled={!canSearch || loading}
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-black px-4 text-sm font-medium text-white transition hover:bg-black/90 disabled:cursor-not-allowed disabled:bg-gray-300 sm:w-auto sm:min-w-[130px]"
+          >
+            <Search className="h-4 w-4" />
+            <span>{loading ? "Searching..." : "Search"}</span>
+            {!loading && <ArrowRight className="h-4 w-4" />}
+          </button>
+        </div>
       </form>
 
-      <h2 className="text-sm text-black mb-4 text-center">
-        {!queryTrim
-          ? "Search for products"
-          : !canSearch
-          ? "Type at least 2 characters…"
-          : effectiveLoading
-          ? "Searching..."
-          : gridProducts.length
-          ? `Found ${total} products`
-          : `No results for "${queryTrim}"`}
-      </h2>
-
-    
+      <p className="mb-5 px-1 text-center text-sm text-gray-700">{helperText}</p>
 
       {canSearch && (
         <ProductGrid products={gridProducts} loading={effectiveLoading} />
