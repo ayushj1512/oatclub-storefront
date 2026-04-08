@@ -6,11 +6,11 @@
   export default function TopbarHeadline({ interval = 2800 }) {
     const items = useMemo(
   () => [
-    "PAYDAY SALE IS LIVE 🔥",
-    "Flat 20% OFF — Use Code PAYDAY20 💸",
-    "Your Payday = Your Wardrobe Upgrade 😎",
-    "Best Sellers + Denim Now On Sale 👖",
-    "Extra 20% Off — Limited Time Only ⏳",
+    "New Gingham Collection is Live ✨",
+    "Flat 10% OFF on First Order — Use Code FIRST10 🛍️",
+    "Shop Above ₹2499 & Get ₹500 OFF 💸",
+    "Denim Collection is Now Live 👖",
+    "Fresh Fits Dropped — Upgrade Your Wardrobe 😎",
   ],
   []
 );
