@@ -171,16 +171,16 @@ createOrder: async ({
       });
 
       // 👻 Snapchat: START_CHECKOUT (dedupe with meta event id)
-      try {
-        await trackSnap(
-          "START_CHECKOUT",
-          { currency, price: orderValue, item_ids: itemIds, ...(couponCode ? { coupon: couponCode } : {}) },
-          {},
-          { event_id: metaCheckoutEventId }
-        );
-      } catch (e) {
-        console.warn("👻 Snap START_CHECKOUT failed", e);
-      }
+      // try {
+      //   await trackSnap(
+      //     "START_CHECKOUT",
+      //     { currency, price: orderValue, item_ids: itemIds, ...(couponCode ? { coupon: couponCode } : {}) },
+      //     {},
+      //     { event_id: metaCheckoutEventId }
+      //   );
+      // } catch (e) {
+      //   console.warn("👻 Snap START_CHECKOUT failed", e);
+      // }
     } catch (e) {
       console.warn("🧾 Meta InitiateCheckout failed", e);
     }

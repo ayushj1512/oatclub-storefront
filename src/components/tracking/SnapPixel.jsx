@@ -5,11 +5,18 @@ import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
-export default function SnapPixel({ pixelId, trackPageView = true, debug = false }) {
+export default function SnapPixel({
+  pixelId,
+  trackPageView = true,
+  debug = false,
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const cleanedPixelId = useMemo(() => (typeof pixelId === "string" ? pixelId.trim() : ""), [pixelId]);
+  const cleanedPixelId = useMemo(
+    () => (typeof pixelId === "string" ? pixelId.trim() : ""),
+    [pixelId]
+  );
 
   const url = useMemo(() => {
     const qs = searchParams?.toString();
@@ -21,19 +28,22 @@ export default function SnapPixel({ pixelId, trackPageView = true, debug = false
     return `https://tr.snapchat.com/p?pid=${pid}&ev=PAGE_VIEW&noscript=1`;
   }, [cleanedPixelId]);
 
-  if (!cleanedPixelId) {
-    console.warn("⚠️ Snapchat Pixel ID is missing");
-    return null;
-  }
-
   useEffect(() => {
     if (!trackPageView) return;
     if (typeof window === "undefined") return;
     if (typeof window.snaptr !== "function") return;
 
     window.snaptr("track", "PAGE_VIEW");
-    if (debug) console.log("✅ Snap Pixel: PAGE_VIEW tracked", url);
+
+    if (debug) {
+      console.log("✅ Snap Pixel: PAGE_VIEW tracked", url);
+    }
   }, [url, trackPageView, debug]);
+
+  if (!cleanedPixelId) {
+    console.warn("⚠️ Snapchat Pixel ID is missing");
+    return null;
+  }
 
   return (
     <>
@@ -44,17 +54,24 @@ export default function SnapPixel({ pixelId, trackPageView = true, debug = false
           __html: `
             (function(e,t,n){
               if(e.snaptr) return;
-              var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};
+              var a=e.snaptr=function(){
+                a.handleRequest
+                  ? a.handleRequest.apply(a,arguments)
+                  : a.queue.push(arguments);
+              };
               a.queue=[];
-              var s=t.createElement("script"); s.async=true; s.src=n;
-              var r=t.getElementsByTagName("script")[0]; r.parentNode.insertBefore(s,r);
+              var s=t.createElement("script");
+              s.async=true;
+              s.src=n;
+              var r=t.getElementsByTagName("script")[0];
+              r.parentNode.insertBefore(s,r);
             })(window,document,"https://sc-static.net/scevent.min.js");
 
             window.__SNAP_PIXEL_ID__ = window.__SNAP_PIXEL_ID__ || '${cleanedPixelId}';
+
             if (!window.__SNAP_PIXEL_LOADED__) {
               window.__SNAP_PIXEL_LOADED__ = true;
-              snaptr('init','${cleanedPixelId}');
-              ${trackPageView ? "snaptr('track','PAGE_VIEW');" : ""}
+              snaptr("init", "${cleanedPixelId}");
             }
           `,
         }}
@@ -62,7 +79,14 @@ export default function SnapPixel({ pixelId, trackPageView = true, debug = false
 
       <noscript>
         <span style={{ display: "none" }}>
-          <Image src={noscriptSrc} alt="" width={1} height={1} unoptimized priority />
+          <Image
+            src={noscriptSrc}
+            alt=""
+            width={1}
+            height={1}
+            unoptimized
+            priority
+          />
         </span>
       </noscript>
     </>
