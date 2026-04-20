@@ -24,7 +24,6 @@ export default function InstagramDownModal() {
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 px-3 py-4 sm:px-4">
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-black/10 bg-white shadow-[0_20px_70px_rgba(0,0,0,0.18)] animate-[modalIn_.28s_ease]">
         {/* top accent */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-black via-gray-500 to-gray-200" />
 
         {/* close */}
         <button
