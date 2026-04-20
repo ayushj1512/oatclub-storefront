@@ -1,20 +1,21 @@
 "use client";
 
 import Script from "next/script";
-import Image from "next/image";
 import { generateSEO } from "@/utils/seoConfig";
+
+// ⭐ MODAL
+import InstagramDownModal from "@/components/common/InstagramDownModal";
 
 // ⭐ ABOVE THE FOLD
 import HeroSection from "@/components/home/HeroSection";
 import CategoryRow from "@/components/home/CategoryRow";
-// import StyleByOccasion from "@/components/home/StyleByOccasion";
 
-// ⭐ BELOW THE FOLD (NORMAL RENDER)
+// ⭐ BELOW THE FOLD
 import TrendingSection from "@/components/home/TrendingSection";
 import WinterFeatureSection from "@/components/home/WinterFeatureSection";
-import TopSectionFeatured from "@/components/home/TopSection"; // ✅ NEW
+import TopSectionFeatured from "@/components/home/TopSection";
 import BestSellerSection from "@/components/home/BestSellerSection";
-import RecommendationFeatureRow from "@/components/home/RecommendationFeatureRow"; // ✅ NEW
+import RecommendationFeatureRow from "@/components/home/RecommendationFeatureRow";
 import VideoRow from "@/components/home/VideoRow";
 import BlogSection from "@/components/home/BlogSection";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
@@ -45,7 +46,9 @@ export default function HomeClient() {
         />
       )}
 
-      <main className="flex flex-col w-full min-h-screen overflow-x-hidden bg-white text-gray-900">
+      <InstagramDownModal />
+
+      <main className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white text-gray-900">
         {/* ABOVE THE FOLD */}
         <div className="pt-4">
           <CategoryRow />
@@ -53,31 +56,25 @@ export default function HomeClient() {
 
         <HeroSection />
         <StyleByOccasion />
-       <BestSellerSection />
+        <BestSellerSection />
         <NewArrivalsFeatureRow title="NEW ARRIVALS" limit={12} />
+
         {/* <LeopardFeatureCollection />
         <PolkadotFeatureCollection /> */}
 
- 
-
-        {/* ✅ NEW: Recommendation row after Bestseller */}
+        {/* Recommendation row */}
         <RecommendationFeatureRow limit={12} seedCount={6} />
 
-        {/* BELOW THE FOLD — NORMAL SECTIONS */}
+        {/* BELOW THE FOLD */}
         {/* <TrendingSection /> */}
-
-        {/* ✅ NEW TOP SECTION (Featured Category) */}
         {/* <TopSectionFeatured /> */}
-
         {/* <WinterFeatureSection /> */}
-
         {/* <VideoRow /> */}
+
         <BlogSection />
         <RecentlyViewed />
         <InfoStrip />
         <Newsletter />
-
-        {/* ✅ MobiKwik Banner (after Trending) - responsive (phone vs md+) */}
       </main>
     </>
   );
