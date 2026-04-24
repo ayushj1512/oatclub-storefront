@@ -1,6 +1,6 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Poppins, Bebas_Neue, } from "next/font/google";
+import { Poppins, Bebas_Neue } from "next/font/google";
 import LayoutClient from "./layout.client";
 
 /* ------------------------------
@@ -33,17 +33,17 @@ export const metadata: Metadata = {
   },
 
   title: {
-    default: "Miray Fashions | Premium Women’s Fashion Online",
+    default: "Miray Fashions | Trending Women’s Fashion Online",
     template: "%s | Miray Fashions",
   },
 
   description:
-    "Shop premium women’s fashion at Miray Fashions. Discover kurtis, western wear, trendy outfits, and Gen-Z styles with fast delivery across India.",
+    "Shop trending women’s fashion at Miray Fashions. Discover stylish tops, dresses, shirts, co-ord sets, and fresh Gen-Z styles designed for confident, effortless everyday wear.",
 
   openGraph: {
-    title: "Miray Fashions | Premium Women’s Fashion Online",
+    title: "Miray Fashions | Trending Women’s Fashion Online",
     description:
-      "Shop premium women’s fashion at Miray Fashions. Discover kurtis, western wear, trendy outfits, and Gen-Z styles with fast delivery across India.",
+      "Discover customer-first women’s fashion for Gen-Z and millennials. Shop trending tops, dresses, shirts, co-ord sets, and statement styles made for confident everyday wear.",
     type: "website",
     siteName: "Miray Fashions",
     locale: "en_IN",
@@ -53,16 +53,16 @@ export const metadata: Metadata = {
         url: "https://mirayfashions.com/og-default.jpg",
         width: 1200,
         height: 630,
-        alt: "Miray Fashions – Premium Women’s Fashion",
+        alt: "Miray Fashions – Trending Women’s Fashion",
       },
     ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "Miray Fashions | Premium Women’s Fashion Online",
+    title: "Miray Fashions | Trending Women’s Fashion Online",
     description:
-      "Discover premium women’s fashion and Gen-Z styles at Miray Fashions.",
+      "Shop trending tops, dresses, shirts, co-ord sets, and Gen-Z women’s fashion at Miray Fashions.",
     images: ["https://mirayfashions.com/og-default.jpg"],
   },
 
@@ -77,7 +77,6 @@ export const metadata: Metadata = {
 
   manifest: "/site.webmanifest",
 };
-
 
 /* ------------------------------
    Root Layout
