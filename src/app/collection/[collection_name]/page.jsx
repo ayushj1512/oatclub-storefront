@@ -1,62 +1,51 @@
 "use client";
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import ProductGrid from "@/components/common/ProductGrid";
 import { useProductStore } from "@/store/productStore";
 import { useCollectionStore } from "@/store/collectionStore";
-import { Sparkles, ChevronDown } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
-/* ✅ Compact Peach Theme */
-const PEACH = {
-  pageBg: "bg-gradient-to-b from-[#FFF7F2] via-[#FFFDFB] to-[#F7FAFF]",
-  heroBg:
-    "bg-[radial-gradient(900px_350px_at_10%_0%,rgba(255,200,170,0.40),transparent_55%),radial-gradient(700px_320px_at_95%_15%,rgba(196,225,255,0.50),transparent_50%),linear-gradient(to_bottom,rgba(255,255,255,0.88),rgba(255,255,255,0.75))]",
-  badge: "bg-[#FFE8DC] text-[#7A3E2B] border-[#FFD5C2]",
+const theme = {
+  page: "bg-gradient-to-b from-[#FFF7F2] via-[#FFFDFB] to-[#F7FAFF]",
+  hero:
+    "bg-[radial-gradient(900px_350px_at_10%_0%,rgba(255,200,170,.4),transparent_55%),radial-gradient(700px_320px_at_95%_15%,rgba(196,225,255,.5),transparent_50%),linear-gradient(to_bottom,rgba(255,255,255,.88),rgba(255,255,255,.75))]",
+  badge: "border-[#FFD5C2] bg-[#FFE8DC] text-[#7A3E2B]",
 };
 
-const clampText = (t = "", max = 180) => {
-  const s = String(t || "").trim();
-  if (!s) return "";
-  if (s.length <= max) return s;
-  return s.slice(0, max).replace(/\s+\S*$/, "") + "…";
-};
-
-const titleCase = (input = "") => {
-  const s = String(input || "")
-    .trim()
-    .replace(/[-_]+/g, " ")
-    .replace(/\s+/g, " ");
-
-  if (!s) return "";
-  return s
-    .toLowerCase()
-    .split(" ")
-    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : ""))
-    .join(" ");
-};
-
-const prettyName = (slug = "") => titleCase(decodeURIComponent(String(slug || "")));
-
-const SORT_OPTIONS = [
+const sorts = [
   { value: "default", label: "Featured" },
   { value: "priceLowHigh", label: "Price: Low to High" },
   { value: "priceHighLow", label: "Price: High to Low" },
 ];
+
+const titleCase = (v = "") =>
+  String(v)
+    .trim()
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+
+const shortText = (v = "", max = 180) => {
+  const s = String(v || "").trim();
+  return s.length > max ? `${s.slice(0, max).replace(/\s+\S*$/, "")}…` : s;
+};
 
 function SortSelect({ value, onChange }) {
   return (
     <div className="relative w-full sm:w-auto">
       <select
         value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        className="w-full appearance-none rounded-xl border border-black/10 bg-white/80 px-3 py-2 pr-9 text-xs font-semibold text-zinc-900 shadow-sm outline-none focus:border-black/20"
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full appearance-none rounded-xl border border-black/10 bg-white/80 px-3 py-2 pr-9 text-xs font-semibold text-zinc-900 shadow-sm outline-none"
       >
-        {SORT_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
+        {sorts.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
           </option>
         ))}
       </select>
@@ -66,160 +55,129 @@ function SortSelect({ value, onChange }) {
 }
 
 export default function CollectionPage() {
-  const params = useParams();
-  const collection = params?.collection_name;
+  const { collection_name } = useParams();
+
+  const collection = String(collection_name || "").trim();
+  const key = collection.toLowerCase();
   const ready = Boolean(collection);
 
-  const fallbackName = useMemo(() => prettyName(collection), [collection]);
+  const [sort, setSort] = useState("default");
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
 
   const fetchCollection = useCollectionStore((s) => s.fetchOne);
   const collectionCurrent = useCollectionStore((s) => s.current);
   const collectionLoading = useCollectionStore((s) => s.loading);
 
-  const allProducts = useProductStore((s) => s.allProducts);
-  const isLoading = useProductStore((s) => s.isLoading);
-  const error = useProductStore((s) => s.error);
-  const fetchProductsByCollection = useProductStore((s) => s.fetchProductsByCollection);
-  const hasMore = useProductStore((s) => s.hasMore);
-  const page = useProductStore((s) => s.page);
-  const lastParams = useProductStore((s) => s.lastParams);
+  const {
+    fetchProductsByCollection,
+    productsByCollection = {},
+    collectionPageBySlug = {},
+    collectionHasMoreBySlug = {},
+    collectionLoadingBySlug = {},
+    error,
+  } = useProductStore();
 
-  const [sort, setSort] = useState("default");
-  const [displayProducts, setDisplayProducts] = useState([]);
-  const [isInitialFetching, setIsInitialFetching] = useState(false);
-
-  const lastFetchRef = useRef("");
+  const products = productsByCollection[key] || [];
+  const page = collectionPageBySlug[key] || 1;
+  const hasMore = collectionHasMoreBySlug[key] ?? true;
+  const isLoading = collectionLoadingBySlug[key] || false;
 
   useEffect(() => {
     if (!ready) return;
+
     fetchCollection(collection);
-  }, [ready, collection, fetchCollection]);
-
-  useLayoutEffect(() => {
-    if (!ready) return;
-    setDisplayProducts([]);
-    setIsInitialFetching(true);
-  }, [ready, collection, sort]);
-
-  useEffect(() => {
-    if (!ready) return;
-
-    const key = JSON.stringify({ collection, sort });
-    if (lastFetchRef.current === key) return;
-    lastFetchRef.current = key;
-
     fetchProductsByCollection(collection, {
-      isActive: true,
       page: 1,
       limit: PAGE_SIZE,
       sort,
+      isActive: true,
     });
-  }, [ready, collection, sort, fetchProductsByCollection]);
+  }, [ready, collection, sort, fetchCollection, fetchProductsByCollection]);
 
-  useEffect(() => {
-    if (isLoading) return;
-    setDisplayProducts(Array.isArray(allProducts) ? allProducts : []);
-    setIsInitialFetching(false);
-  }, [isLoading, allProducts]);
-
-  const list = useMemo(() => {
-    const arr = Array.isArray(displayProducts) ? [...displayProducts] : [];
-    const getPrice = (p) => Number(p?.price) || 0;
-
-    if (sort === "priceLowHigh") arr.sort((a, b) => getPrice(a) - getPrice(b));
-    else if (sort === "priceHighLow") arr.sort((a, b) => getPrice(b) - getPrice(a));
-
-    return arr;
-  }, [displayProducts, sort]);
-
-  const loadingMoreRef = useRef(false);
-
-  const loadMore = useCallback(() => {
-    if (!ready || isLoading || loadingMoreRef.current || !hasMore()) return;
+  const loadMore = useCallback(async () => {
+    if (!ready || isLoading || !hasMore || loadingMoreRef.current) return;
 
     loadingMoreRef.current = true;
 
-    fetchProductsByCollection(collection, {
-      ...(lastParams || {}),
-      page: (page || 1) + 1,
+    await fetchProductsByCollection(collection, {
+      page: page + 1,
       limit: PAGE_SIZE,
       sort,
       isActive: true,
     });
 
-    setTimeout(() => (loadingMoreRef.current = false), 300);
-  }, [ready, isLoading, hasMore, fetchProductsByCollection, collection, lastParams, page, sort]);
-
-  const sentinelRef = useRef(null);
+    loadingMoreRef.current = false;
+  }, [ready, isLoading, hasMore, fetchProductsByCollection, collection, page, sort]);
 
   useEffect(() => {
     const node = sentinelRef.current;
     if (!node) return;
 
-    const io = new IntersectionObserver(([e]) => e.isIntersecting && loadMore(), {
-      rootMargin: "800px 0px",
-    });
+    const observer = new IntersectionObserver(
+      ([entry]) => entry.isIntersecting && loadMore(),
+      { rootMargin: "800px 0px" }
+    );
 
-    io.observe(node);
-    return () => io.disconnect();
+    observer.observe(node);
+    return () => observer.disconnect();
   }, [loadMore]);
 
-  const titleToShow = useMemo(() => {
-    const n = collectionCurrent?.name || fallbackName;
-    return titleCase(n);
-  }, [collectionCurrent?.name, fallbackName]);
+  const title = titleCase(
+    collectionCurrent?.name || decodeURIComponent(collection || "")
+  );
 
-  const descRaw = (collectionCurrent?.description || "").trim();
-  const descToShow = descRaw ? clampText(descRaw, 180) : "";
+  const description = shortText(collectionCurrent?.description || "");
 
   return (
-    <div className={`min-h-screen ${PEACH.pageBg}`}>
-      {/* ✅ Compact Header */}
+    <div className={`min-h-screen ${theme.page}`}>
       <div className="px-4 pt-4">
-        <div className="mx-auto ">
-          <div className={`rounded-2xl border border-white/60 ${PEACH.heroBg} shadow-sm`}>
-            <div className="p-4 sm:px-6 sm:py-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${PEACH.badge}`}>
-                      <Sparkles className="h-3 w-3" />
-                      Collection
-                    </span>
-                  </div>
+        <div className={`rounded-2xl border border-white/60 ${theme.hero} shadow-sm`}>
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="min-w-0">
+              <span
+                className={`mb-1 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${theme.badge}`}
+              >
+                <Sparkles className="h-3 w-3" />
+                Collection
+              </span>
 
-                  <h1 className="text-lg sm:text-xl font-bold text-zinc-900 leading-snug">
-                    {titleToShow}
-                  </h1>
+              <h1 className="text-lg font-bold leading-snug text-zinc-900 sm:text-xl">
+                {title}
+              </h1>
 
-                  {!!descToShow && !collectionLoading && (
-                    <p className="mt-1 text-xs sm:text-sm text-zinc-700 leading-relaxed">
-                      {descToShow}
-                    </p>
-                  )}
-                </div>
-
-                <div className="w-full sm:w-auto">
-                  <SortSelect value={sort} onChange={(v) => setSort(v)} />
-                </div>
-              </div>
+              {!!description && !collectionLoading && (
+                <p className="mt-1 text-xs leading-relaxed text-zinc-700 sm:text-sm">
+                  {description}
+                </p>
+              )}
             </div>
+
+            <SortSelect value={sort} onChange={setSort} />
           </div>
-
-          {error && (
-            <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-700">
-              Something went wrong
-            </div>
-          )}
         </div>
+
+        {error && (
+          <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-700">
+            {error}
+          </div>
+        )}
       </div>
 
-      {/* Products */}
       <div className="px-4 pb-6 pt-5">
-        <div className="mx-auto ">
-          <ProductGrid key={`${collection}-${sort}`} products={list} loading={isInitialFetching} />
-          <div ref={sentinelRef} className="h-1" />
-        </div>
+        <ProductGrid
+          key={`${collection}-${sort}`}
+          products={products}
+          loading={isLoading && page === 1}
+        />
+
+        {isLoading && page > 1 && (
+          <div className="py-5 text-center text-xs font-medium text-zinc-500">
+            Loading more...
+          </div>
+        )}
+
+        <div ref={sentinelRef} className="h-1" />
       </div>
     </div>
   );
