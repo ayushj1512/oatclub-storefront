@@ -12,6 +12,8 @@
   let ctrl = null;
   let reqId = 0;
 
+  
+
   /* ---------------- helpers ---------------- */
   const normalize = (p) => {
   const id = p?._id ? String(p._id) : "";
@@ -28,13 +30,7 @@
 
     name: p?.name || p?.title || "",
     slug: p?.slug || "",
-activeCollection: null,
-productsByCollection: {},
-collectionsBySlug: {},
-collectionPageBySlug: {},
-collectionHasMoreBySlug: {},
-collectionLoadingBySlug: {},
-collectionParamsBySlug: {},
+
 
     price: Number(p?.price || 0),
     compareAtPrice: p?.compareAtPrice ?? null,
@@ -315,8 +311,17 @@ const buildCollectionUrl = (collection, p = {}) => {
     String(m).includes('path "category"');
 
   export const useProductStore = create(
+
+    
     persist(
       (set, get) => ({
+        activeCollection: null,
+productsByCollection: {},
+collectionsBySlug: {},
+collectionPageBySlug: {},
+collectionHasMoreBySlug: {},
+collectionLoadingBySlug: {},
+collectionParamsBySlug: {},
         allProducts: [],
         page: 1,
         limit: 20,
@@ -449,173 +454,89 @@ collectionsBySlug: {},
 
 
 fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
-  if (!BACKEND)
-    return set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
+  if (!BACKEND) {
+    set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
+    return null;
+  }
 
   const collection = String(collectionSlugOrId || "").trim();
   if (!collection) return null;
 
-  const { page = 1, limit = get().limit } = params;
+  const key = collection.toLowerCase();
+  const { page = 1, limit = 100 } = params;
 
-  const qs = new URLSearchParams();
-  const setIf = (k, v) => {
-    if (v === undefined || v === null) return;
-    const s = String(v).trim();
-    if (!s) return;
-    qs.set(k, s);
-  };
+  const url = buildCollectionUrl(collection, {
+    ...params,
+    page,
+    limit,
+    isActive: params.isActive ?? true,
+    isDraft: params.isDraft ?? false,
+  });
 
-  setIf("page", page);
-  setIf("limit", limit);
-  setIf("search", params.search);
-  setIf("category", params.category);
-  setIf("tags", Array.isArray(params.tags) ? params.tags.join(",") : params.tags);
-  setIf("minPrice", params.minPrice);
-  setIf("maxPrice", params.maxPrice);
-
-  // ✅ removed "newest/new arrivals" sort mapping completely
-  const sortMap = {
-    default: "",
-    priceLowHigh: "price_asc",
-    priceHighLow: "price_desc",
-    rating: "rating",
-    popularity: "popularity",
-  };
-
-  // ✅ only allow supported sorts (no accidental "newest")
-  const rawSort = params.sort ?? params.sortOption;
-  const mappedSort = sortMap[String(rawSort || "default")] ?? "";
-
-  if (mappedSort) setIf("sort", mappedSort);
-  // else: no sort param -> backend default (keeps your manual positions intact)
-
-  // ✅ DEFAULT: only published products
-  if (params.isActive != null) setIf("isActive", params.isActive);
-  else setIf("isActive", true);
-
-  if (params.sku) setIf("sku", params.sku);
-
-  if (params.mode) setIf("mode", params.mode);
-
-  const q = qs.toString();
-  const url = `${BACKEND}/api/products/by-collection/${encodeURIComponent(
-    collection
-  )}${q ? `?${q}` : ""}`;
-
-  const controller = new AbortController();
-  const myId = ++reqId;
-
-  const prevCollection = String(get().activeCollection || "").toLowerCase();
-  const nextCollection = collection.toLowerCase();
-  const collectionChanged = prevCollection !== nextCollection;
-
-  const prevParams = get().lastParams || {};
-  const sortChanged =
-    String(mappedSort || "") !==
-    String(sortMap[String(prevParams.sort || prevParams.sortOption || "default")] || "");
-
-  const shouldReset = page === 1 || collectionChanged || sortChanged;
-
-  set(() => ({
+  set((state) => ({
     isLoading: true,
     error: null,
     activeCollection: collection,
-    lastParams: { ...params, collection, sort: rawSort || "default" }, // keep UI state
-    ...(shouldReset ? { page: 1, hasMoreFlag: true } : {}),
+    collectionLoadingBySlug: {
+      ...(state.collectionLoadingBySlug || {}),
+      [key]: true,
+    },
   }));
 
   try {
-    const res = await fetch(url, {
-      cache: "no-store",
-      signal: controller.signal,
-    });
-
+    const res = await fetch(url, { cache: "no-store" });
     const data = await safeJson(res);
 
-    if (!res.ok) throw new Error(data?.message || "Failed to load products");
-    if (myId !== reqId) return null;
+    if (!res.ok) {
+      throw new Error(data?.message || "Failed to load collection products");
+    }
 
     const incoming = uniqBySlug((data?.products || []).map(normalize));
 
-    /* ✅ GA4: view_item_list */
-    try {
-      if (page === 1 && incoming.length) {
-        const listId = `col_${nextCollection}`;
-        const key = `vil_${listId}_${incoming
-          .slice(0, 15)
-          .map((p) => p.id)
-          .join("_")}`;
-
-        if (!shouldSkipGA4(get, set, key, 1500)) {
-          pushEcomEvent("view_item_list", {
-            item_list_id: listId,
-            item_list_name: String(collection),
-            items: incoming.slice(0, 50).map((p) => ga4Item(p, 1)),
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("📈 GA4 collection view_item_list failed", e);
-    }
-
-    /* 🧾 META: Collection View (deduped) */
-    try {
-      if (collection && page === 1 && collectionChanged) {
-        const now = Date.now();
-        const key = `view_collection_${nextCollection}`;
-
-        const { _lastMetaCategoryKey, _lastMetaCategoryAt } = get();
-        const tooSoon = _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
-        const sameKey = _lastMetaCategoryKey === key;
-
-        if (!(sameKey && tooSoon)) {
-          await trackMeta("ViewContent", {
-            content_type: "product_group",
-            content_ids: [String(collection)],
-            content_name: String(collection),
-            currency: "INR",
-            content_ids_product: incoming
-              .slice(0, 10)
-              .map((p) => String(p?.id))
-              .filter(Boolean),
-          });
-
-          set({ _lastMetaCategoryKey: key, _lastMetaCategoryAt: now });
-        }
-      }
-    } catch (e) {
-      console.warn("🧾 Meta Collection View failed", e);
-    }
-
     set((state) => {
-      const prev = state.productsByCollection?.[nextCollection] || [];
-      const nextList = page === 1 ? incoming : [...prev, ...incoming];
+      const prev = state.productsByCollection?.[key] || [];
+      const nextList = Number(page) === 1 ? incoming : [...prev, ...incoming];
 
       return {
         productsByCollection: {
           ...(state.productsByCollection || {}),
-          [nextCollection]: nextList,
+          [key]: nextList,
         },
         collectionsBySlug: {
           ...(state.collectionsBySlug || {}),
-          [nextCollection]:
-            data?.collection || state.collectionsBySlug?.[nextCollection] || null,
+          [key]: data?.collection || null,
         },
-
-        allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
-
-        page,
-        hasMoreFlag: incoming.length === limit,
+        collectionPageBySlug: {
+          ...(state.collectionPageBySlug || {}),
+          [key]: Number(page),
+        },
+        collectionHasMoreBySlug: {
+          ...(state.collectionHasMoreBySlug || {}),
+          [key]: Boolean(data?.hasMore),
+        },
+        collectionParamsBySlug: {
+          ...(state.collectionParamsBySlug || {}),
+          [key]: params,
+        },
+        collectionLoadingBySlug: {
+          ...(state.collectionLoadingBySlug || {}),
+          [key]: false,
+        },
         isLoading: false,
       };
     });
 
     return data;
   } catch (e) {
-    if (e?.name !== "AbortError")
-      set({ error: e.message || "Failed to load products" });
+    set((state) => ({
+      error: e.message || "Failed to load collection products",
+      isLoading: false,
+      collectionLoadingBySlug: {
+        ...(state.collectionLoadingBySlug || {}),
+        [key]: false,
+      },
+    }));
 
-    set({ isLoading: false });
     return null;
   }
 },

@@ -11,7 +11,7 @@ import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
 import { trackMeta } from "@/lib/meta/track";
 import { useCouponStore } from "@/store/couponStore";
-
+import BudgetBeesCartSection from "@/components/cart/BudgetBeesCartSection";
 const BRAND = "#111111";
 
 const money = (n) => {
@@ -288,6 +288,8 @@ const removeCoupon = useCouponStore((s) => s.removeCoupon);
             </div>
           </div>
         </GlassCard>
+
+        {/* <BudgetBeesCartSection />  */}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6">
           <div className="lg:col-span-8">
