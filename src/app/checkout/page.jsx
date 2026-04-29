@@ -39,6 +39,7 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((s) => s.clearCart);
   const completeCheckout = useCartStore((s) => s.completeCheckout);
   const getCheckoutPayload = useCartStore((s) => s.getCheckoutPayload);
+  const getCouponCartItems = useCartStore((s) => s.getCouponCartItems);
 
   const user = useAuthStore((s) => s.user);
   const customer = useAuthStore((s) => s.customer);
@@ -122,6 +123,39 @@ export default function CheckoutPage() {
       return sum + price * qty;
     }, 0);
   }, [items]);
+
+
+  const couponCartItems = useMemo(() => {
+  if (buyNowItem) {
+    const price = Number(buyNowItem?.price ?? buyNowItem?.productSnapshot?.price ?? 0) || 0;
+
+    return [
+      {
+        productId: buyNowItem.productId,
+        productCode: buyNowItem.productSnapshot?.productCode || buyNowItem.productCode || "",
+        title: buyNowItem.name || buyNowItem.productSnapshot?.title || "",
+        quantity: Number(buyNowItem.quantity || 1),
+        price,
+        isPrimaryProduct: Boolean(
+          buyNowItem.isPrimaryProduct || buyNowItem.productSnapshot?.isPrimaryProduct
+        ),
+        categories: buyNowItem.categories || buyNowItem.productSnapshot?.categories || [],
+        collections: buyNowItem.collections || buyNowItem.productSnapshot?.collections || [],
+        product: {
+          _id: buyNowItem.productId,
+          price,
+          isPrimaryProduct: Boolean(
+            buyNowItem.isPrimaryProduct || buyNowItem.productSnapshot?.isPrimaryProduct
+          ),
+          categories: buyNowItem.categories || buyNowItem.productSnapshot?.categories || [],
+          collections: buyNowItem.collections || buyNowItem.productSnapshot?.collections || [],
+        },
+      },
+    ];
+  }
+
+  return typeof getCouponCartItems === "function" ? getCouponCartItems() : [];
+}, [buyNowItem, getCouponCartItems, cartItems]);
 
 // coupon discount
 const couponDiscount = useMemo(() => {
@@ -591,8 +625,12 @@ const resetGuestContext = () => {
         items: orderItems,
         source: "website",
         discount: Number(discount || 0),
-        coupon: coupon ? { code: coupon.code } : null,
-      });
+coupon: coupon
+  ? {
+      code: coupon.code,
+      discount: Number(discount || 0),
+    }
+  : null,      });
 
       if (buyNowItem) completeCheckout?.();
       else clearCart?.();
@@ -665,6 +703,7 @@ const resetGuestContext = () => {
   email={addressForm.email}
   phone={addressForm.phone}
   customerId={user?.uid || null}
+  cartItems={couponCartItems}
 />
 
 

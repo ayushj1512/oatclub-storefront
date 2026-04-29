@@ -54,6 +54,55 @@ function Accordion({ title, children, defaultOpen = false, borderTop = true }) {
   );
 }
 
+function SizeAvailabilityNotice({ product, selectedSize }) {
+  if (!selectedSize) return null;
+
+  const raw = product?.raw || product;
+  const variants = Array.isArray(raw?.variants) ? raw.variants : [];
+
+  const selectedVariant = variants.find((v) => {
+    const size =
+      str(getAttrValue(v?.attributes, "size")).trim().toUpperCase() ||
+      getSizeFromSku(v?.sku);
+
+    return size === str(selectedSize).trim().toUpperCase();
+  });
+
+  const availableQty = Number(selectedVariant?.stock ?? 0);
+  const isAvailable = availableQty > 0;
+
+  return (
+    <div className="mt-4 rounded-2xl bg-white px-4 py-3.5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+      <div className="flex items-start gap-3">
+        
+        {/* ICON */}
+        <div
+          className={`flex h-9 w-9 items-center justify-center rounded-full ${
+            isAvailable ? "bg-black text-white" : "bg-neutral-200 text-black"
+          }`}
+        >
+          <Zap className="h-4 w-4" />
+        </div>
+
+        {/* TEXT */}
+        <div className="min-w-0">
+          <p className="text-sm font-semibold tracking-tight text-black">
+            {isAvailable
+              ? "Dispatch within 48 hours"
+              : "Dispatch within 5–7 days"}
+          </p>
+
+          <p className="mt-0.5 text-xs text-neutral-500 leading-relaxed">
+            {isAvailable
+              ? "Ready to ship. Your selected size is in stock."
+              : "Made specially for you. Slightly longer dispatch time."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SizeGuideSection() {
   return (
     <Accordion title="Size Guide">
@@ -744,6 +793,8 @@ export default function ProductPage({ params }) {
                   Size Guide
                 </button>
               </div>
+
+              <SizeAvailabilityNotice product={product} selectedSize={selectedSize} />
 
               {/* ✅ Sorted Size Buttons */}
               <div className="flex flex-wrap gap-2">

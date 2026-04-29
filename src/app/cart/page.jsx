@@ -93,6 +93,33 @@ export default function CartPage() {
   const { decreaseQty, updateQty, removeFromCart } = useCartStore();
 
   const items = useCartStore((s) => s.items) || [];
+
+  useEffect(() => {
+  try {
+    const cartItems = useCartStore.getState().getCouponCartItems?.();
+
+    console.log("🧪 ================================");
+    console.log("🧪 RAW CART ITEMS:", items);
+    console.log("🧪 COUPON CART ITEMS:", cartItems);
+
+    if (Array.isArray(cartItems)) {
+      cartItems.forEach((it, idx) => {
+        console.log(`🧪 ITEM ${idx + 1}`, {
+          title: it.title,
+          productCode: it.productCode,
+          isPrimaryProduct: it.isPrimaryProduct,
+          categories: it.categories,
+          collections: it.collections,
+        });
+      });
+    }
+
+    console.log("🧪 ================================");
+  } catch (e) {
+    console.warn("❌ COUPON DEBUG FAILED", e);
+  }
+}, [items]);
+
   const initialize = useCartStore((s) => s.initialize);
   const totalPriceFn = useCartStore((s) => s.totalPrice);
   const totalCompareAtPriceFn = useCartStore((s) => s.totalCompareAtPrice);
@@ -106,9 +133,11 @@ export default function CartPage() {
   const initAuth = useAuthStore((s) => s.initialize);
 
   const coupon = useCouponStore((s) => s.coupon);
-  const couponFinalTotal = useCouponStore((s) => s.finalTotal);
-  const couponDiscount = useCouponStore((s) => s.discount);
-  const removeCoupon = useCouponStore((s) => s.removeCoupon);
+const couponFinalTotal = useCouponStore((s) => s.finalTotal);
+const couponDiscount = useCouponStore((s) => s.discount);
+const couponEligibleTotal = useCouponStore((s) => s.eligibleTotal);
+const couponBreakdown = useCouponStore((s) => s.discountBreakdown);
+const removeCoupon = useCouponStore((s) => s.removeCoupon);
 
   const hasCoupon = Boolean(coupon?.code);
 
@@ -523,12 +552,56 @@ export default function CartPage() {
                     <span className="font-semibold text-green-600">Free</span>
                   </div>
 
-                  {hasCoupon && Number(couponDiscount || 0) > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Discount</span>
-                      <span className="font-semibold tabular-nums text-green-700">-₹{money(couponDiscount)}</span>
-                    </div>
-                  )}
+                {hasCoupon && Number(couponDiscount || 0) > 0 && (
+  <div className="rounded-2xl bg-green-50 p-3 ring-1 ring-green-100">
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-green-800">
+        Coupon {coupon?.code ? `(${coupon.code})` : ""}
+      </span>
+      <span className="font-semibold tabular-nums text-green-700">
+        -₹{money(couponDiscount)}
+      </span>
+    </div>
+
+    {Number(couponEligibleTotal || 0) > 0 && (
+      <p className="mt-1 text-[11px] text-green-700/80">
+        Applied on eligible items worth ₹{money(couponEligibleTotal)}
+      </p>
+    )}
+
+    {Array.isArray(couponBreakdown) && couponBreakdown.length > 0 && (
+      <div className="mt-2 space-y-1">
+        {couponBreakdown.slice(0, 3).map((row, idx) => (
+          <div
+            key={`${row.productId || row.productCode || idx}`}
+            className="flex items-center justify-between gap-3 text-[11px] text-green-800/80"
+          >
+            <span className="truncate">
+              {row.title || row.productCode || "Item"}
+            </span>
+            <span className="shrink-0 font-medium">
+              -₹{money(row.discount)}
+            </span>
+          </div>
+        ))}
+
+        {couponBreakdown.length > 3 && (
+          <p className="text-[11px] text-green-700/70">
+            +{couponBreakdown.length - 3} more eligible item(s)
+          </p>
+        )}
+      </div>
+    )}
+
+    <button
+      type="button"
+      onClick={() => removeCoupon?.()}
+      className="mt-2 text-[11px] font-semibold text-green-900 underline underline-offset-4"
+    >
+      Remove coupon
+    </button>
+  </div>
+)}
 
                   <div className="h-px bg-black/5 my-2" />
 

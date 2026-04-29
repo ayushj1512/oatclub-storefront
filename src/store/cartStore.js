@@ -23,6 +23,49 @@ const toNum = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const normalizeIds = (...values) =>
+  values
+    .flat(Infinity)
+    .filter(Boolean)
+    .map((v) => str(v?._id || v?.id || v))
+    .filter(Boolean);
+
+const getProductCategories = (product = {}) =>
+  normalizeIds(
+    product.categories,
+    product.category,
+    product.categoryId,
+    product.category?._id,
+    product.categoryId?._id,
+    product.raw?.categories,
+    product.raw?.category,
+    product.raw?.categoryId
+  );
+
+const getProductCollections = (product = {}) =>
+  normalizeIds(
+    product.collections,
+    product.collection,
+    product.collectionId,
+    product.collection?._id,
+    product.collectionId?._id,
+    product.raw?.collections,
+    product.raw?.collection,
+    product.raw?.collectionId
+  );
+
+const getIsPrimaryProduct = (product = {}) =>
+  Boolean(
+    product.isPrimaryProduct ??
+      product.isPrimary ??
+      product.primaryProduct ??
+      product.raw?.isPrimaryProduct ??
+      product.raw?.isPrimary ??
+      product.raw?.primaryProduct ??
+      product.productRole === "primary" ??
+      product.raw?.productRole === "primary"
+  );
+
 const pickAttr = (variant, keys = []) => {
   const attrs = Array.isArray(variant?.attributes) ? variant.attributes : [];
   const keySet = keys.map((k) => str(k).trim().toLowerCase());
@@ -95,33 +138,25 @@ const buildCartItem = ({
 
   const productType =
     product.productType ||
-    (Array.isArray(product.variants) && product.variants.length ? "variable" : "simple");
+    (Array.isArray(product.variants) && product.variants.length
+      ? "variable"
+      : "simple");
 
   let variant = null;
   const variants = Array.isArray(product.variants) ? product.variants : [];
 
-  /* ---------------- SANITIZE INPUTS ---------------- */
   const rawSize = str(selectedSize).trim();
   const rawColor = str(selectedColor).trim();
 
-  // ✅ If "color" looks like numeric productCode (e.g. 00131 / 00218) => treat as NO color
   const safeSelectedColor =
     rawColor && /^[0-9]+$/.test(rawColor) ? "" : rawColor;
 
-  const safeSelectedSize = rawSize; // keep as-is (string)
+  const safeSelectedSize = rawSize;
 
-  /* ---------------- FIND VARIANT ---------------- */
-
-  // ✅ 1) If variantId passed → direct match
   if (variantId) {
     variant = variants.find((v) => str(v?._id) === str(variantId)) || null;
-
-    // ✅ normalize variantId if variant found
     variantId = variant?._id ? str(variant._id) : str(variantId);
-  }
-
-  // ✅ 2) Else match using size + color (using sanitized color)
-  else if (safeSelectedSize || safeSelectedColor) {
+  } else if (safeSelectedSize || safeSelectedColor) {
     const s = safeSelectedSize.toLowerCase();
     const c = safeSelectedColor.toLowerCase();
 
@@ -139,22 +174,18 @@ const buildCartItem = ({
     variantId = variant?._id ? str(variant._id) : null;
   }
 
-  /* ---------------- ENFORCE RULES ---------------- */
-
-  // ✅ enforce: variable must match a real variant
   if (productType === "variable" && !variant) {
     return { __error: "variant_not_found" };
   }
 
-  // ✅ enforce: variable must have variantId
   if (productType === "variable" && !variantId) {
     return { __error: "variant_required" };
   }
 
-  /* ---------------- PRICING ---------------- */
-
   const unitPrice =
-    variant && toNum(variant.price) > 0 ? toNum(variant.price) : toNum(product.price);
+    variant && toNum(variant.price) > 0
+      ? toNum(variant.price)
+      : toNum(product.price);
 
   const compareAtPrice =
     variant?.compareAtPrice != null
@@ -173,7 +204,19 @@ const buildCartItem = ({
 
   const safeQty = Math.max(1, toNum(qty) || 1);
 
-  /* ---------------- SNAPSHOT ---------------- */
+  // ✅ Coupon essentials
+  const categoryIds = getProductCategories(product);
+  const collectionIds = getProductCollections(product);
+  const isPrimaryProduct = getIsPrimaryProduct(product);
+
+  console.log("🧪 [COUPON CART BUILD]", {
+  title: product?.name || product?.title || product?.raw?.title,
+  productCode: product?.productCode || product?.raw?.productCode,
+  isPrimaryProduct,
+  categoryIds,
+  collectionIds,
+  rawCollections: product?.raw?.collections,
+});
 
   const snapshot = {
     productCode: str(product.productCode),
@@ -181,8 +224,21 @@ const buildCartItem = ({
     slug: str(product.slug),
     thumbnail: str(product.thumbnail || product.image || ""),
     images: Array.isArray(product.images) ? product.images : [],
-    category: str(product.categoryId || ""),
-    subcategory: str(product.subcategoryId || ""),
+
+    // ✅ Coupon essentials
+    isPrimaryProduct,
+
+    category: categoryIds[0] || "",
+    categoryId: categoryIds[0] || "",
+    categories: categoryIds,
+
+    collection: collectionIds[0] || "",
+    collectionId: collectionIds[0] || "",
+    collections: collectionIds,
+
+    subcategory: str(product.subcategoryId || product.subcategory || ""),
+    subcategoryId: str(product.subcategoryId || product.subcategory || ""),
+
     productType,
     sku: str(product.sku || ""),
     tags: Array.isArray(product.tags) ? product.tags : [],
@@ -213,8 +269,6 @@ const buildCartItem = ({
       }
     : null;
 
-  /* ---------------- FINAL ITEM ---------------- */
-
   const item = {
     productId,
     productType,
@@ -228,13 +282,23 @@ const buildCartItem = ({
     price: unitPrice,
     compareAtPrice,
 
+    // ✅ Coupon essentials on root
+    isPrimaryProduct,
+
+    category: snapshot.category,
+    categoryId: snapshot.categoryId,
+    categories: snapshot.categories,
+
+    collection: snapshot.collection,
+    collectionId: snapshot.collectionId,
+    collections: snapshot.collections,
+
     selectedSize: safeSelectedSize
       ? str(safeSelectedSize)
       : variant
       ? extractSize(variant)
       : "",
 
-    // ✅ use sanitized color (never productCode)
     selectedColor: safeSelectedColor
       ? str(safeSelectedColor)
       : variant
@@ -1231,4 +1295,73 @@ totalSavings: () =>
       quantity: toNum(it.quantity || 1),
       ...(it.variantId ? { variantId: it.variantId } : {}),
     })),
+
+
+    getCouponCartItems: () =>
+  (get().items || []).map((it) => {
+    const categories = normalizeIds(
+      it.categories,
+      it.category,
+      it.categoryId,
+      it.productSnapshot?.categories,
+      it.productSnapshot?.category,
+      it.productSnapshot?.categoryId
+    );
+
+    const collections = normalizeIds(
+      it.collections,
+      it.collection,
+      it.collectionId,
+      it.productSnapshot?.collections,
+      it.productSnapshot?.collection,
+      it.productSnapshot?.collectionId
+    );
+
+    const isPrimaryProduct = Boolean(
+      it.isPrimaryProduct ?? it.productSnapshot?.isPrimaryProduct
+    );
+
+    const price = toNum(it.price || it.productSnapshot?.price || 0);
+
+    console.log("🧪 [COUPON CART ITEM]", {
+  title: it.name || it.productSnapshot?.title,
+  productCode: it.productSnapshot?.productCode || it.productCode,
+  isPrimaryProduct,
+  categories,
+  collections,
+});
+
+    return {
+      
+      productId: it.productId,
+      productCode: it.productSnapshot?.productCode || it.productCode || "",
+      title: it.name || it.productSnapshot?.title || "",
+      quantity: toNum(it.quantity || 1),
+      price,
+
+      isPrimaryProduct,
+
+      category: categories[0] || "",
+      categoryId: categories[0] || "",
+      categories,
+
+      collection: collections[0] || "",
+      collectionId: collections[0] || "",
+      collections,
+
+      product: {
+        _id: it.productId,
+        price,
+        isPrimaryProduct,
+        category: categories[0] || "",
+        categoryId: categories[0] || "",
+        categories,
+        collection: collections[0] || "",
+        collectionId: collections[0] || "",
+        collections,
+      },
+
+      
+    };
+  }),
 }));
