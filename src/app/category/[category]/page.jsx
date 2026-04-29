@@ -11,35 +11,27 @@ import React, {
 import { useParams } from "next/navigation";
 import ProductGrid from "@/components/common/ProductGrid";
 import { useProductStore } from "@/store/productStore";
-
 import FiltersDrawer from "@/components/category/FiltersDrawer";
 import FilterSortBar from "@/components/category/FilterSortBar";
 
 const PAGE_SIZE = 20;
 
 const SORT_OPTIONS = [
-  { label: "Default", value: "default" },
+  { label: "Default", value: "newest" },
   { label: "Newest", value: "newest" },
-  { label: "Price: Low → High", value: "priceLowHigh" },
-  { label: "Price: High → Low", value: "priceHighLow" },
+  { label: "Price: Low → High", value: "price_asc" },
+  { label: "Price: High → Low", value: "price_desc" },
 ];
 
-const toNum = (v, fb = 0) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fb;
-};
+const getPrice = (p) =>
+  Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
 
 const buildFacets = (products = []) => {
-  const prices = [];
-  for (const p of products || []) {
-    const pr = Number(p?.price);
-    if (Number.isFinite(pr) && pr > 0) prices.push(pr);
-  }
-  prices.sort((a, b) => a - b);
+  const prices = products.map(getPrice).filter((p) => p > 0).sort((a, b) => a - b);
 
   return {
-    priceMin: prices.length ? prices[0] : 0,
-    priceMax: prices.length ? prices[prices.length - 1] : 0,
+    priceMin: prices[0] || 0,
+    priceMax: prices.at(-1) || 0,
   };
 };
 
@@ -56,7 +48,6 @@ const getTimeValue = (p) => {
   return Number.isFinite(ms) ? ms : 0;
 };
 
-// ✅ slug -> Proper Category Name
 const prettyCategory = (slug = "") =>
   decodeURIComponent(String(slug))
     .replace(/[-_]+/g, " ")
@@ -66,7 +57,7 @@ const prettyCategory = (slug = "") =>
 
 export default function CategoryPage() {
   const params = useParams();
-  const category = params?.category;
+  const category = String(params?.category || "").trim();
   const ready = Boolean(category);
 
   const categoryName = useMemo(() => prettyCategory(category), [category]);
@@ -74,50 +65,48 @@ export default function CategoryPage() {
   const allProducts = useProductStore((s) => s.allProducts);
   const isLoading = useProductStore((s) => s.isLoading);
   const error = useProductStore((s) => s.error);
-
-  // ✅ NEW: use category fetch
+  const page = useProductStore((s) => s.page);
+  const lastParams = useProductStore((s) => s.lastParams);
+  const hasMore = useProductStore((s) => s.hasMore);
+  const clearError = useProductStore((s) => s.clearError);
   const fetchProductsByCategory = useProductStore(
     (s) => s.fetchProductsByCategory
   );
 
-  const hasMore = useProductStore((s) => s.hasMore);
-  const clearError = useProductStore((s) => s.clearError);
-
-  // ✅ needed for proper loadMore
-  const page = useProductStore((s) => s.page);
-  const lastParams = useProductStore((s) => s.lastParams);
-
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest");
 
-  // ✅ Applied filters
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
-
-  // ✅ Draft filters (drawer ke liye)
   const [draftPriceMin, setDraftPriceMin] = useState(null);
   const [draftPriceMax, setDraftPriceMax] = useState(null);
 
-  // ✅ IMPORTANT: local list which prevents flashing
   const [displayProducts, setDisplayProducts] = useState([]);
   const [isInitialFetching, setIsInitialFetching] = useState(false);
 
-  const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
   const lastFetchRef = useRef("");
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
 
-  const drawerTop = useMemo(
-    () =>
-      `calc(var(--app-topbar-h,0px) + var(--app-header-h,0px) + env(safe-area-inset-top,0px))`,
-    []
+  const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
+
+  const drawerTop =
+    "calc(var(--app-topbar-h,0px) + var(--app-header-h,0px) + env(safe-area-inset-top,0px))";
+
+  const drawerHeight =
+    "calc(100dvh - var(--app-topbar-h,0px) - var(--app-header-h,0px) - env(safe-area-inset-top,0px))";
+
+  const baseParams = useMemo(
+    () => ({
+      isActive: true,
+      page: 1,
+      limit: PAGE_SIZE,
+      sort,
+      card: 1,
+    }),
+    [sort]
   );
 
-  const drawerHeight = useMemo(
-    () =>
-      `calc(100dvh - var(--app-topbar-h,0px) - var(--app-header-h,0px) - env(safe-area-inset-top,0px))`,
-    []
-  );
-
-  // ✅ Init price once facets update
   useEffect(() => {
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
@@ -125,66 +114,45 @@ export default function CategoryPage() {
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  /**
-   * ✅ FIX #1 (MAIN FIX): Clear UI BEFORE PAINT
-   * useLayoutEffect runs before browser paints, so old products never show.
-   */
   useLayoutEffect(() => {
-  if (!ready) return;
+    if (!ready) return;
 
-  // ✅ clear error + list BEFORE paint (prevents flash)
-  clearError?.();
+    clearError?.();
+    setDisplayProducts([]);
+    setIsInitialFetching(true);
+  }, [ready, category, sort, clearError]);
 
-  // category/sort change = clear immediately before paint
-  setDisplayProducts([]);
-  setIsInitialFetching(true);
-}, [ready, category, sort, clearError]);
-
-
-  // ✅ Fetch products when category/sort changes (NEW: category route)
   useEffect(() => {
     if (!ready) return;
 
     const key = JSON.stringify({ category, sort });
     if (lastFetchRef.current === key) return;
-    lastFetchRef.current = key;
 
+    lastFetchRef.current = key;
     clearError?.();
     setDrawerOpen(false);
 
-   
+    fetchProductsByCategory(category, baseParams);
+  }, [ready, category, sort, baseParams, clearError, fetchProductsByCategory]);
 
-    fetchProductsByCategory(category, {
-      isActive: true,
-      page: 1,
-      limit: PAGE_SIZE,
-      sort,
-    });
-  }, [ready, category, sort, fetchProductsByCategory, clearError]);
+  useEffect(() => {
+    if (isLoading) return;
 
-  // ✅ Sync store -> displayProducts only after loading ends
- useEffect(() => {
-  if (isLoading) return;
+    if (error) {
+      setIsInitialFetching(false);
+      return;
+    }
 
-  // ✅ if error, keep old displayProducts so page doesn't blink empty
-  if (error) {
+    setDisplayProducts(Array.isArray(allProducts) ? allProducts : []);
     setIsInitialFetching(false);
-    return;
-  }
+  }, [isLoading, allProducts, error]);
 
-  setDisplayProducts(Array.isArray(allProducts) ? allProducts : []);
-  setIsInitialFetching(false);
-}, [isLoading, allProducts, error]);
-
-
-  // ✅ Apply filters
   const applyFilters = () => {
     setPriceMin(draftPriceMin);
     setPriceMax(draftPriceMax);
     setDrawerOpen(false);
   };
 
-  // ✅ Reset filters
   const resetFilters = useCallback(() => {
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
@@ -192,49 +160,27 @@ export default function CategoryPage() {
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  // ✅ Filter + sort list (use displayProducts)
   const list = useMemo(() => {
-    let arr = Array.isArray(displayProducts) ? [...displayProducts] : [];
-
-    const getPrice = (p) =>
-      Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
-
-
     const lo = priceMin ?? facets.priceMin;
     const hi = priceMax ?? facets.priceMax;
     const minV = Math.min(lo, hi);
     const maxV = Math.max(lo, hi);
 
-    arr = arr.filter((p) => {
-      const pr = getPrice(p);
-      if (!Number.isFinite(pr) || pr === 0) return true;
-      return pr >= minV && pr <= maxV;
+    const arr = [...(displayProducts || [])].filter((p) => {
+      const price = getPrice(p);
+      if (!price) return true;
+      return price >= minV && price <= maxV;
     });
 
-    if (sort === "priceLowHigh") arr.sort((a, b) => getPrice(a) - getPrice(b));
-    else if (sort === "priceHighLow")
-      arr.sort((a, b) => getPrice(b) - getPrice(a));
-    else if (sort === "newest")
-      arr.sort((a, b) => getTimeValue(b) - getTimeValue(a));
+    if (sort === "price_asc") arr.sort((a, b) => getPrice(a) - getPrice(b));
+    if (sort === "price_desc") arr.sort((a, b) => getPrice(b) - getPrice(a));
+    if (sort === "newest") arr.sort((a, b) => getTimeValue(b) - getTimeValue(a));
 
     return arr;
-  }, [
-    displayProducts,
-    priceMin,
-    priceMax,
-    facets.priceMin,
-    facets.priceMax,
-    sort,
-  ]);
-
-
-
-  // ✅ NEW: category load more handler
-  const loadingMoreRef = useRef(false);
+  }, [displayProducts, priceMin, priceMax, facets.priceMin, facets.priceMax, sort]);
 
   const loadMoreCategory = useCallback(() => {
-    if (!ready) return;
-    if (isLoading || loadingMoreRef.current || !hasMore()) return;
+    if (!ready || isLoading || loadingMoreRef.current || !hasMore()) return;
 
     loadingMoreRef.current = true;
 
@@ -244,9 +190,14 @@ export default function CategoryPage() {
       limit: PAGE_SIZE,
       sort,
       isActive: true,
+      card: 1,
+    }).finally?.(() => {
+      loadingMoreRef.current = false;
     });
 
-    setTimeout(() => (loadingMoreRef.current = false), 350);
+    setTimeout(() => {
+      loadingMoreRef.current = false;
+    }, 500);
   }, [
     ready,
     isLoading,
@@ -258,17 +209,13 @@ export default function CategoryPage() {
     sort,
   ]);
 
-  // ✅ Infinite scroll
-  const sentinelRef = useRef(null);
-
   useEffect(() => {
     const node = sentinelRef.current;
     if (!node) return;
 
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting) return;
-        loadMoreCategory();
+        if (entry.isIntersecting) loadMoreCategory();
       },
       { rootMargin: "900px 0px" }
     );
@@ -277,30 +224,22 @@ export default function CategoryPage() {
     return () => io.disconnect();
   }, [loadMoreCategory]);
 
-  // ✅ show shimmer only if displayProducts empty
   const showInitialLoading =
-    (isLoading || isInitialFetching) && (displayProducts?.length || 0) === 0;
+    (isLoading || isInitialFetching) && !displayProducts.length;
 
   const retry = useCallback(() => {
     if (!ready) return;
+
     clearError?.();
     lastFetchRef.current = "";
-
-    // ✅ clear BEFORE paint on retry too
     setDisplayProducts([]);
     setIsInitialFetching(true);
 
-    fetchProductsByCategory(category, {
-      isActive: true,
-      page: 1,
-      limit: PAGE_SIZE,
-      sort,
-    });
-  }, [ready, category, sort, clearError, fetchProductsByCategory]);
+    fetchProductsByCategory(category, baseParams);
+  }, [ready, category, baseParams, clearError, fetchProductsByCategory]);
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* ✅ Drawer */}
       <FiltersDrawer
         open={drawerOpen}
         setOpen={setDrawerOpen}
@@ -315,41 +254,36 @@ export default function CategoryPage() {
         resetFilters={resetFilters}
       />
 
-      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8">
-        {/* ✅ Category Heading */}
-        <div className="mb-2 sm:mb-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-zinc-900">
+      <div className="w-full px-3 py-6 sm:px-4 sm:py-8 md:px-6 lg:px-8">
+        <div className="mb-2">
+          <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl md:text-3xl">
             {categoryName}
           </h1>
         </div>
 
-        {/* ✅ Sort Bar */}
         <FilterSortBar
           category={categoryName}
           showInitialLoading={showInitialLoading}
           sort={sort}
           setSort={setSort}
           sortOptions={SORT_OPTIONS}
-          hideFilterButton={true}
+          hideFilterButton
         />
 
         {!showInitialLoading && error && (
-  <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
-    <div className="font-semibold">Something went wrong</div>
-    <div className="text-sm mt-1">{error}</div>
-    <button
-      onClick={retry}
-      className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
-    >
-      Retry
-    </button>
-  </div>
-)}
+          <div className="mt-6 rounded-2xl bg-red-50 p-4 text-red-700 ring-1 ring-red-200">
+            <div className="font-semibold">Something went wrong</div>
+            <div className="mt-1 text-sm">{error}</div>
+            <button
+              onClick={retry}
+              className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
-
-        {/* Products */}
         <div className="mt-6">
-          {/* ✅ FIX #2: key makes ProductGrid remount on category/sort change */}
           <ProductGrid
             key={`${category}-${sort}`}
             products={list}
@@ -357,21 +291,20 @@ export default function CategoryPage() {
           />
         </div>
 
-        {/* Load More */}
-        {!error && (displayProducts?.length || 0) > 0 && (
+        {!error && displayProducts.length > 0 && (
           <div className="mt-8 flex flex-col items-center gap-3">
             {hasMore() ? (
               <>
                 <button
                   onClick={loadMoreCategory}
                   disabled={isLoading}
-                  className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                  className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-black/10 disabled:opacity-50"
                 >
                   {isLoading ? "Loading..." : "Load more"}
                 </button>
+
                 <div className="text-xs text-zinc-500">
-                  Showing {list.length} items —{" "}
-                  {hasMore() ? "more items will load as you scroll" : "end"}
+                  Showing {list.length} items — more items will load as you scroll
                 </div>
               </>
             ) : (

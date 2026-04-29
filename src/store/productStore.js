@@ -742,81 +742,122 @@ getProductsForCollection: (collectionSlugOrId) => {
 
 
         // Add this inside your zustand create store:
-      fetchProductsByCategory: async (categorySlugOrId, params = {}) => {
-  if (!BACKEND)
-    return set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
+     fetchProductsByCategory: async (categorySlugOrId, params = {}) => {
+  if (!BACKEND) {
+    return set({
+      error: "NEXT_PUBLIC_BACKEND_URL missing",
+      isLoading: false,
+    });
+  }
 
   const category = String(categorySlugOrId || "").trim();
   if (!category) return;
 
-  const { page = 1, limit = get().limit } = params;
+  const page = Number(params.page || 1);
+  const limit = Number(params.limit || get().limit || 20);
 
-  const url = buildCategoryUrl(category, { ...params, page, limit });
+  const url = buildCategoryUrl(category, {
+    ...params,
+    page,
+    limit,
+    card: 1,
+  });
 
   if (ctrl) ctrl.abort();
   ctrl = new AbortController();
+
   const myId = ++reqId;
 
-  // ✅ reset logic same like tag/category
-  const prevActiveCategory = get().activeCategory;
-  const categoryChanged = String(prevActiveCategory || "") !== category;
+  const state = get();
+  const prevParams = state.lastParams || {};
 
-  const prevParams = get().lastParams || {};
-  const sortChanged =
-    String(params.sort || "") !== String(prevParams.sort || "");
-
+  const categoryChanged = String(state.activeCategory || "") !== category;
+  const sortChanged = String(params.sort || "") !== String(prevParams.sort || "");
   const shouldReset = page === 1 || categoryChanged || sortChanged;
 
-  set(() => ({
+  set({
     isLoading: true,
     error: null,
     activeCategory: category,
-    lastParams: params,
+    lastParams: { ...params, page, limit, card: 1 },
     ...(shouldReset ? { allProducts: [], page: 1, hasMoreFlag: true } : {}),
-  }));
+  });
 
   try {
-    const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+    const res = await fetch(url, {
+      cache: "no-store",
+      signal: ctrl.signal,
+    });
+
     const data = await safeJson(res);
 
-    if (!res.ok) throw new Error(data?.message || "Failed to load products");
+    if (!res.ok) {
+      throw new Error(data?.message || "Failed to load products");
+    }
+
     if (myId !== reqId) return;
 
-    const incoming = uniqBySlug((data?.products || []).map(normalize));
+    const incoming = uniqBySlug(
+      (Array.isArray(data?.products) ? data.products : [])
+        .map((p) =>
+          normalize({
+            ...p,
 
-    /* ✅ GA4 view_item_list */
-    try {
-      if (page === 1 && incoming.length) {
+            id: p?.id || p?._id,
+            _id: p?._id || p?.id,
+
+            title: p?.title || p?.name || "Product",
+            name: p?.name || p?.title || "Product",
+
+            image: p?.image || p?.thumbnail || p?.images?.[0],
+            thumbnail: p?.thumbnail || p?.image || p?.images?.[0],
+            hoverImage: p?.hoverImage || p?.images?.[1],
+
+            price: p?.price,
+            compareAtPrice: p?.compareAtPrice,
+
+            slug: p?.slug,
+            categorySlug: p?.categorySlug,
+            productLink: p?.productLink,
+            productCode: p?.productCode,
+
+            isBestSeller: Boolean(p?.isBestSeller),
+            isTrending: Boolean(p?.isTrending),
+            isPrimaryProduct: Boolean(p?.isPrimaryProduct),
+          })
+        )
+        .filter((p) => p?.id || p?._id)
+    );
+
+    if (page === 1 && incoming.length) {
+      try {
         const listId = `cat_${category}`;
         const key = `vil_${listId}_${incoming
           .slice(0, 15)
-          .map((p) => p.id)
+          .map((p) => p.id || p._id)
+          .filter(Boolean)
           .join("_")}`;
 
         if (!shouldSkipGA4(get, set, key, 1500)) {
           pushEcomEvent("view_item_list", {
             item_list_id: listId,
-            item_list_name: String(category),
+            item_list_name: category,
             items: incoming.slice(0, 50).map((p) => ga4Item(p, 1)),
           });
         }
+      } catch (e) {
+        console.warn("📈 GA4 category view_item_list failed", e);
       }
-    } catch (e) {
-      console.warn("📈 GA4 category view_item_list failed", e);
-    }
 
-    /* 🧾 META category view */
-    try {
-      if (category && page === 1 && categoryChanged) {
+      try {
         const now = Date.now();
         const key = `view_category_${category.toLowerCase()}`;
+        const meta = get();
 
-        const { _lastMetaCategoryKey, _lastMetaCategoryAt } = get();
         const tooSoon =
-          _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
-        const sameKey = _lastMetaCategoryKey === key;
+          meta._lastMetaCategoryAt && now - meta._lastMetaCategoryAt < 1500;
 
-        if (!(sameKey && tooSoon)) {
+        if (!(meta._lastMetaCategoryKey === key && tooSoon) && categoryChanged) {
           await trackMeta("ViewContent", {
             content_type: "product_group",
             content_ids: [category],
@@ -824,28 +865,37 @@ getProductsForCollection: (collectionSlugOrId) => {
             currency: "INR",
             content_ids_product: incoming
               .slice(0, 10)
-              .map((p) => String(p?.id))
+              .map((p) => String(p?.id || p?._id || ""))
               .filter(Boolean),
           });
 
-          set({ _lastMetaCategoryKey: key, _lastMetaCategoryAt: now });
+          set({
+            _lastMetaCategoryKey: key,
+            _lastMetaCategoryAt: now,
+          });
         }
+      } catch (e) {
+        console.warn("🧾 Meta Category View failed", e);
       }
-    } catch (e) {
-      console.warn("🧾 Meta Category View failed", e);
     }
 
     set((state) => ({
-      allProducts: page === 1 ? incoming : [...state.allProducts, ...incoming],
+      allProducts:
+        page === 1 ? incoming : uniqBySlug([...state.allProducts, ...incoming]),
       page,
-      hasMoreFlag: incoming.length === limit,
+      hasMoreFlag: incoming.length >= limit,
       isLoading: false,
+      error: null,
     }));
   } catch (e) {
-    if (e?.name !== "AbortError")
-      set({ error: e.message || "Failed to load products" });
+    if (e?.name === "AbortError") {
+      return set({ isLoading: false });
+    }
 
-    set({ isLoading: false });
+    set({
+      error: e?.message || "Failed to load products",
+      isLoading: false,
+    });
   }
 },
 

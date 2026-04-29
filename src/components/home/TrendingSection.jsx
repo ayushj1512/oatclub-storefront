@@ -11,8 +11,6 @@ export default function TrendingSection() {
 
   const fetchedRef = useRef(false);
   const scrollRef = useRef(null);
-
-  // ✅ this makes shuffle change every time (on mount + interval)
   const [shuffleTick, setShuffleTick] = useState(0);
 
   useEffect(() => {
@@ -24,48 +22,32 @@ export default function TrendingSection() {
       limit: 60,
       isActive: true,
       sort: "newest",
+      card: 1,
     });
   }, [fetchProductsByCategory]);
 
-  // ✅ reshuffle every 3 seconds (change duration if needed)
   useEffect(() => {
-    const t = setInterval(() => setShuffleTick((x) => x + 1), 3000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setShuffleTick((x) => x + 1), 3000);
+    return () => clearInterval(timer);
   }, []);
 
   const scrollRow = (dir) => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollBy({
+    scrollRef.current?.scrollBy({
       left: dir === "left" ? -360 : 360,
       behavior: "smooth",
     });
   };
 
   const products = useMemo(() => {
-    const list = (allProducts || []).filter(
-      (p) => p?.raw?.isActive !== false && p?.isInStock !== false
-    );
-
-    const shuffled = [...list].sort(() => Math.random() - 0.5).slice(0, 12);
-
-    return shuffled.map((p) => ({
-      id: p.id,
-      productId: p.productId,
-      name: p.name,
-      price: Number(p.price || 0),
-      originalPrice: p.compareAtPrice ? Number(p.compareAtPrice) : null,
-      image: p.image || "/placeholder.png",
-      slug: p.slug || p.id,
-      on_sale:
-        p.compareAtPrice && Number(p.compareAtPrice) > Number(p.price || 0),
-      category: p.category,
-      currency: p.currency,
-    }));
-    // ✅ depend on shuffleTick so it reshuffles even if allProducts same
+    return [...(allProducts || [])]
+      .filter((p) => p?.isActive !== false && p?.raw?.isActive !== false)
+      .filter((p) => p?.isInStock !== false)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 12);
   }, [allProducts, shuffleTick]);
 
   const showShimmer = isLoading && !products.length;
-  const showArrows = (products?.length || 0) > 2 || showShimmer;
+  const showArrows = products.length > 2 || showShimmer;
 
   if (showShimmer) {
     return (
@@ -74,42 +56,17 @@ export default function TrendingSection() {
           TRENDING
         </h2>
 
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => scrollRow("left")}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition"
-            aria-label="Scroll left"
-          >
-            ←
-          </button>
-
-          <button
-            type="button"
-            onClick={() => scrollRow("right")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition"
-            aria-label="Scroll right"
-          >
-            →
-          </button>
-
-          <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white to-transparent z-10" />
-          <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white to-transparent z-10" />
-
-          <div
-            ref={scrollRef}
-            className="flex gap-3 overflow-x-auto pb-2 no-scrollbar scroll-smooth snap-x snap-mandatory px-1"
-          >
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]"
-              >
-                <ProductCard loading />
-              </div>
-            ))}
-          </div>
-        </div>
+        <ProductRowShell
+          scrollRef={scrollRef}
+          showArrows
+          scrollRow={scrollRow}
+        >
+          {Array.from({ length: 8 }).map((_, i) => (
+            <ProductShell key={i}>
+              <ProductCard loading />
+            </ProductShell>
+          ))}
+        </ProductRowShell>
       </section>
     );
   }
@@ -133,50 +90,67 @@ export default function TrendingSection() {
         <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p>
       )}
 
-      <div className="relative">
-        {showArrows && (
-          <button
-            type="button"
-            onClick={() => scrollRow("left")}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition"
-            aria-label="Scroll left"
-          >
-            ←
-          </button>
-        )}
-
-        {showArrows && (
-          <button
-            type="button"
-            onClick={() => scrollRow("right")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition"
-            aria-label="Scroll right"
-          >
-            →
-          </button>
-        )}
-
-        {showArrows && (
-          <>
-            <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white to-transparent z-10" />
-            <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white to-transparent z-10" />
-          </>
-        )}
-
-        <div
-          ref={scrollRef}
-          className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 no-scrollbar scroll-smooth px-1"
-        >
-          {products.map((p) => (
-            <div
-              key={`${p.id}_${shuffleTick}`} // ✅ force re-render order
-              className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]"
-            >
-              <ProductCard product={p} />
-            </div>
-          ))}
-        </div>
-      </div>
+      <ProductRowShell
+        scrollRef={scrollRef}
+        showArrows={showArrows}
+        scrollRow={scrollRow}
+      >
+        {products.map((product) => (
+          <ProductShell key={`${product?._id || product?.id}_${shuffleTick}`}>
+            <ProductCard product={product} />
+          </ProductShell>
+        ))}
+      </ProductRowShell>
     </motion.section>
+  );
+}
+
+function ProductRowShell({ children, scrollRef, showArrows, scrollRow }) {
+  return (
+    <div className="relative">
+      {showArrows && (
+        <>
+          <ArrowButton side="left" onClick={() => scrollRow("left")}>
+            ←
+          </ArrowButton>
+          <ArrowButton side="right" onClick={() => scrollRow("right")}>
+            →
+          </ArrowButton>
+
+          <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-10 bg-gradient-to-r from-white to-transparent" />
+          <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-10 bg-gradient-to-l from-white to-transparent" />
+        </>
+      )}
+
+      <div
+        ref={scrollRef}
+        className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 no-scrollbar scroll-smooth px-1"
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ProductShell({ children }) {
+  return (
+    <div className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]">
+      {children}
+    </div>
+  );
+}
+
+function ArrowButton({ side, onClick, children }) {
+  const pos = side === "left" ? "left-2" : "right-2";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`absolute ${pos} top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-black/10 bg-white/95 text-xl text-black/70 shadow-sm transition hover:bg-white hover:text-black active:scale-95`}
+      aria-label={`Scroll ${side}`}
+    >
+      {children}
+    </button>
   );
 }
