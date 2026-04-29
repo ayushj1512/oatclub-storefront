@@ -605,48 +605,141 @@ const resetGuestContext = () => {
 
   /* ---------------- PLACE ORDER ---------------- */
     const handlePlaceOrder = async () => {
-    // ✅ ALWAYS ensure customer (logged-in OR guest)
-    const finalCustomer = await ensureCustomer();
-    if (!finalCustomer?._id) return;
+  // ✅ ALWAYS ensure customer (logged-in OR guest)
+  const finalCustomer = await ensureCustomer();
+  if (!finalCustomer?._id) return;
 
-    const err = validateCheckout();
-    if (err) return toast.error(err);
+  const err = validateCheckout();
+  if (err) return toast.error(err);
 
-    const toastId = toast.loading("Placing your order...");
+  const toastId = toast.loading("Placing your order...");
 
-    try {
-      const orderItems = getCheckoutPayload();
+  try {
+    const baseOrderItems = getCheckoutPayload();
 
-      const order = await createOrder({
-        customerId: finalCustomer._id, // ✅ stable
-        shippingAddressId: selectedAddressObj._id,
-        billingAddressId: selectedAddressObj._id,
-        paymentMethod: selectedPayment,
-        items: orderItems,
-        source: "website",
-        discount: Number(discount || 0),
-coupon: coupon
-  ? {
-      code: coupon.code,
-      discount: Number(discount || 0),
-    }
-  : null,      });
+const orderItems = baseOrderItems.map((item) => {
+  const richItem =
+    items.find((x) => String(x?.productId || x?.id) === String(item?.productId || item?.id)) ||
+    couponCartItems.find((x) => String(x?.productId || x?.id) === String(item?.productId || item?.id)) ||
+    {};
 
-      if (buyNowItem) completeCheckout?.();
-      else clearCart?.();
+  const price = Number(
+    richItem?.price ??
+      richItem?.productSnapshot?.price ??
+      item?.price ??
+      item?.productSnapshot?.price ??
+      0
+  );
 
-      removeCoupon?.();
+  return {
+    ...item,
+    ...richItem,
+    productId: item.productId || richItem.productId || richItem.id,
+    quantity: item.quantity || richItem.quantity || 1,
+    variantId: item.variantId || richItem.variantId || richItem?.variant?._id,
 
-      toast.success("Order placed!", { id: toastId });
-      router.push(
-        order?.orderNumber
-          ? `/order-success?order=${order.orderNumber}`
-          : "/order-success"
-      );
-    } catch (e) {
-      toast.error(e?.message || "Failed to place order.", { id: toastId });
-    }
+    price,
+    itemPrice: price,
+    item_price: price,
+
+    collections:
+      richItem.collections ||
+      richItem.productSnapshot?.collections ||
+      item.collections ||
+      item.productSnapshot?.collections ||
+      [],
+
+    isPrimaryProduct: Boolean(
+      richItem.isPrimaryProduct ||
+        richItem.productSnapshot?.isPrimaryProduct ||
+        item.isPrimaryProduct ||
+        item.productSnapshot?.isPrimaryProduct
+    ),
+
+    isSecondaryProduct: Boolean(
+      richItem.isSecondaryProduct ||
+        richItem.productSnapshot?.isSecondaryProduct ||
+        item.isSecondaryProduct ||
+        item.productSnapshot?.isSecondaryProduct
+    ),
+
+    productSnapshot: {
+      ...(item.productSnapshot || {}),
+      ...(richItem.productSnapshot || {}),
+      price,
+      collections:
+        richItem.collections ||
+        richItem.productSnapshot?.collections ||
+        item.collections ||
+        item.productSnapshot?.collections ||
+        [],
+      isPrimaryProduct: Boolean(
+        richItem.isPrimaryProduct ||
+          richItem.productSnapshot?.isPrimaryProduct ||
+          item.isPrimaryProduct ||
+          item.productSnapshot?.isPrimaryProduct
+      ),
+      isSecondaryProduct: Boolean(
+        richItem.isSecondaryProduct ||
+          richItem.productSnapshot?.isSecondaryProduct ||
+          item.isSecondaryProduct ||
+          item.productSnapshot?.isSecondaryProduct
+      ),
+    },
   };
+});
+
+    // ✅ Debug once: checkout vs order payload
+    console.log("🧾 CHECKOUT ORDER DEBUG:", {
+      subtotal,
+      discount,
+      razorpayExtraDiscount,
+      payable,
+      selectedPayment,
+      coupon,
+      cartItems: items,
+      orderItems,
+    });
+
+    const order = await createOrder({
+      customerId: finalCustomer._id,
+      shippingAddressId: selectedAddressObj._id,
+      billingAddressId: selectedAddressObj._id,
+      paymentMethod: selectedPayment,
+      items: orderItems,
+      source: "website",
+
+      // ✅ IMPORTANT: pass exact checkout totals
+      subtotal: Number(subtotal || 0),
+      discount: Number(discount || 0),
+      razorpayExtraDiscount: Number(razorpayExtraDiscount || 0),
+      payable: Number(payable || 0),
+
+      coupon: coupon
+        ? {
+            code: coupon.code,
+            discount: Number(discount || 0),
+          }
+        : null,
+    });
+
+    if (buyNowItem) completeCheckout?.();
+    else clearCart?.();
+
+    removeCoupon?.();
+
+    toast.success("Order placed!", { id: toastId });
+
+    router.push(
+      order?.orderNumber
+        ? `/order-success?order=${order.orderNumber}`
+        : "/order-success"
+    );
+  } catch (e) {
+    console.error("❌ PLACE ORDER FAILED:", e);
+    toast.error(e?.message || "Failed to place order.", { id: toastId });
+  }
+};
 
 
   /* ---------------- UI ---------------- */

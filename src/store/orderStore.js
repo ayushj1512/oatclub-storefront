@@ -74,8 +74,11 @@ createOrder: async ({
   shippingAddressId,
   billingAddressId,
   items,
+  subtotal = 0,
+  payable = null,
   discount = 0,
   coupon = null,
+  razorpayExtraDiscount = 0,
   shippingFee = 0,
   tax = 0,
   paymentMethod = "cod",
@@ -87,15 +90,15 @@ createOrder: async ({
   set({ placing: true, error: null });
 
   try {
-    /* ---------------- guards ---------------- */
     if (!customerId) throw new Error("customerId is required");
     if (!shippingAddressId) throw new Error("shippingAddressId is required");
     if (!items?.length) throw new Error("Order items missing");
 
     const pm = String(paymentMethod).toLowerCase();
-    if (!["cod", "razorpay"].includes(pm)) throw new Error("Invalid payment method");
+    if (!["cod", "razorpay"].includes(pm)) {
+      throw new Error("Invalid payment method");
+    }
 
-    /* ---------------- coupon normalize ---------------- */
     const couponCode =
       coupon && typeof coupon === "object"
         ? String(coupon.code || "").trim()
@@ -103,50 +106,128 @@ createOrder: async ({
         ? String(coupon).trim()
         : null;
 
-    /* ---------------- normalize items (backend needs minimal shape) ---------------- */
     const normalizedItems = (items || []).map((it) => {
       const productId = it?.productId || it?.id;
       const quantity = Number(it?.quantity ?? it?.qty ?? 0);
-      const variantId = it?.variantId || null;
+      const variantId = it?.variantId || it?.variant?._id || null;
+
+      const price =
+        Number(
+          it?.price ??
+            it?.itemPrice ??
+            it?.item_price ??
+            it?.salePrice ??
+            it?.productSnapshot?.price ??
+            it?.productSnapshot?.salePrice ??
+            0
+        ) || 0;
+
+      const collections =
+        it?.collections ||
+        it?.productSnapshot?.collections ||
+        it?.collection ||
+        it?.productSnapshot?.collection ||
+        [];
+
+      const isPrimaryProduct = Boolean(
+        it?.isPrimaryProduct || it?.productSnapshot?.isPrimaryProduct
+      );
+
+      const isSecondaryProduct = Boolean(
+        it?.isSecondaryProduct || it?.productSnapshot?.isSecondaryProduct
+      );
 
       if (!productId) throw new Error("Each item must have productId");
-      if (!Number.isFinite(quantity) || quantity < 1) throw new Error("Invalid item quantity");
+      if (!Number.isFinite(quantity) || quantity < 1) {
+        throw new Error("Invalid item quantity");
+      }
 
-      return { productId, quantity, ...(variantId ? { variantId } : {}) };
+      return {
+        productId,
+        quantity,
+        ...(variantId ? { variantId } : {}),
+
+        price,
+        itemPrice: price,
+        item_price: price,
+
+        collections,
+        isPrimaryProduct,
+        isSecondaryProduct,
+
+        selectedSize: it?.selectedSize || it?.size || "",
+        selectedColor: it?.selectedColor || it?.color || "",
+
+        productSnapshot: {
+          ...(it?.productSnapshot || {}),
+
+          title: it?.name || it?.title || it?.productSnapshot?.title || "",
+          price,
+          salePrice: price,
+
+          productCode:
+            it?.productCode || it?.productSnapshot?.productCode || "",
+
+          collections,
+          isPrimaryProduct,
+          isSecondaryProduct,
+
+          thumbnail:
+            it?.image ||
+            it?.thumbnail ||
+            it?.productSnapshot?.thumbnail ||
+            it?.productSnapshot?.image ||
+            "",
+
+          image:
+            it?.image ||
+            it?.thumbnail ||
+            it?.productSnapshot?.thumbnail ||
+            it?.productSnapshot?.image ||
+            "",
+        },
+      };
     });
 
-    /* ---------------- build tracking contents (GA4/Meta/Snap) ---------------- */
-    const contents = (items || [])
+    console.log("🧾 ORDER NORMALIZED ITEMS:", normalizedItems);
+
+    const contents = normalizedItems
       .map((it) => {
-        const productId = it?.productId || it?.id;
-        if (!productId) return null;
-
-        const quantity = Number(it?.quantity ?? it?.qty ?? 1) || 1;
-        const price = Number(it?.price ?? it?.item_price ?? it?.salePrice ?? 0) || 0;
-
-        const variantId = it?.variantId || it?.variant?._id || null;
-        const variantText = [it?.selectedSize, it?.selectedColor].filter(Boolean).join(" / ");
+        const quantity = Number(it?.quantity || 1);
+        const price = Number(it?.price || 0);
 
         return {
-          id: String(productId),
-          variantId: variantId ? String(variantId) : null,
-          variant: variantText || undefined,
+          id: String(it.productId),
+          variantId: it?.variantId ? String(it.variantId) : null,
+          variant: [it?.selectedSize, it?.selectedColor]
+            .filter(Boolean)
+            .join(" / "),
           quantity,
           item_price: price,
         };
       })
       .filter(Boolean);
 
-    const itemsTotal = contents.reduce((s, c) => s + c.item_price * c.quantity, 0);
-
-    /* ---------------- razorpay extra discount (frontend estimate only) ---------------- */
-    const razorpayExtraDiscount = pm === "razorpay" ? Math.round(itemsTotal * 0.05) : 0;
-    const finalDiscount = Number(discount || 0) + razorpayExtraDiscount;
-
-    const orderValue = Math.max(
-      0,
-      itemsTotal + Number(shippingFee || 0) + Number(tax || 0) - Number(finalDiscount || 0)
+    const itemsTotal = contents.reduce(
+      (s, c) => s + Number(c.item_price || 0) * Number(c.quantity || 1),
+      0
     );
+
+    const extraDiscount =
+      pm === "razorpay" ? Math.max(0, Number(razorpayExtraDiscount || 0)) : 0;
+
+    const finalDiscount = Number(discount || 0) + extraDiscount;
+
+    const orderValue =
+      payable != null
+        ? Number(payable || 0)
+        : Math.max(
+            0,
+            itemsTotal +
+              Number(shippingFee || 0) +
+              Number(tax || 0) -
+              Number(finalDiscount || 0)
+          );
 
     const metaContents = contents.map((c) => ({
       id: c.id,
@@ -157,9 +238,8 @@ createOrder: async ({
     const itemIds = contents.map((c) => String(c.id));
     const numItems = metaContents.reduce((s, c) => s + (c.quantity || 0), 0);
 
-    /* ---------------- TRACK: Checkout Start (Meta + Snap) ---------------- */
     try {
-      const metaCheckoutEventId = await trackMeta("InitiateCheckout", {
+      await trackMeta("InitiateCheckout", {
         currency,
         value: orderValue,
         content_type: "product",
@@ -167,25 +247,14 @@ createOrder: async ({
         contents: metaContents,
         num_items: numItems,
         ...(couponCode ? { coupon: couponCode } : {}),
-        ...(pm === "razorpay" ? { razorpay_extra_discount: razorpayExtraDiscount } : {}),
+        ...(pm === "razorpay"
+          ? { razorpay_extra_discount: extraDiscount }
+          : {}),
       });
-
-      // 👻 Snapchat: START_CHECKOUT (dedupe with meta event id)
-      // try {
-      //   await trackSnap(
-      //     "START_CHECKOUT",
-      //     { currency, price: orderValue, item_ids: itemIds, ...(couponCode ? { coupon: couponCode } : {}) },
-      //     {},
-      //     { event_id: metaCheckoutEventId }
-      //   );
-      // } catch (e) {
-      //   console.warn("👻 Snap START_CHECKOUT failed", e);
-      // }
     } catch (e) {
       console.warn("🧾 Meta InitiateCheckout failed", e);
     }
 
-    /* ---------------- TRACK: Payment Info (Meta + Snap) ---------------- */
     try {
       const metaPaymentEventId = await trackMeta("AddPaymentInfo", {
         currency,
@@ -194,14 +263,20 @@ createOrder: async ({
         content_ids: itemIds,
         contents: metaContents,
         payment_method: pm,
-        ...(pm === "razorpay" ? { razorpay_extra_discount: razorpayExtraDiscount } : {}),
+        ...(pm === "razorpay"
+          ? { razorpay_extra_discount: extraDiscount }
+          : {}),
       });
 
-      // 👻 Snapchat: ADD_BILLING (optional but useful)
       try {
         await trackSnap(
           "ADD_BILLING",
-          { currency, price: orderValue, item_ids: itemIds, payment_method: pm },
+          {
+            currency,
+            price: orderValue,
+            item_ids: itemIds,
+            payment_method: pm,
+          },
           {},
           { event_id: metaPaymentEventId }
         );
@@ -212,21 +287,25 @@ createOrder: async ({
       console.warn("🧾 Meta AddPaymentInfo failed", e);
     }
 
-    /* ---------------- create order on backend ---------------- */
     const payload = {
       customerId,
       shippingAddressId,
       billingAddressId: billingAddressId || shippingAddressId,
       items: normalizedItems,
 
-      // ✅ send combined discount (coupon + razorpay extra)
+      subtotal: Number(subtotal || itemsTotal || 0),
+      payable: payable != null ? Number(payable || 0) : undefined,
+
       discount: finalDiscount,
 
       coupon:
         coupon && typeof coupon === "object"
-          ? { code: String(coupon.code || "").trim() }
+          ? {
+              code: String(coupon.code || "").trim(),
+              discount: Number(coupon.discount || discount || 0),
+            }
           : couponCode
-          ? { code: couponCode }
+          ? { code: couponCode, discount: Number(discount || 0) }
           : null,
 
       shippingFee,
@@ -237,17 +316,23 @@ createOrder: async ({
       isGiftOrder,
       customerMessage,
 
-      razorpayExtraDiscount: pm === "razorpay" ? razorpayExtraDiscount : 0,
-      razorpayExtraDiscountPct: pm === "razorpay" ? 5 : 0,
+      razorpayExtraDiscount: extraDiscount,
+      razorpayExtraDiscountPct: pm === "razorpay" ? 10 : 0,
     };
 
-    const data = await api("/api/orders", { method: "POST", body: JSON.stringify(payload) });
+    console.log("🚀 CREATE ORDER PAYLOAD:", payload);
+
+    const data = await api("/api/orders", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
     const order = data?.order;
 
-    /* ---------------- prefer backend totals (for purchase) ---------------- */
     const backendValue =
       Number(
-        order?.finalTotal ??
+        order?.finalPayable ??
+          order?.finalTotal ??
           order?.grandTotal ??
           order?.total ??
           order?.payableAmount ??
@@ -256,7 +341,6 @@ createOrder: async ({
           0
       ) || 0;
 
-    /* ---------------- COD ONLY: purchase now (razorpay purchase happens after verify elsewhere) ---------------- */
     if (pm === "cod") {
       await get().trackPurchaseSuccess({
         orderId: order?._id || order?.orderNumber || customerId,
@@ -268,10 +352,11 @@ createOrder: async ({
       });
     }
 
-    /* ---------------- internal analytics ---------------- */
     try {
       const analytics = useAnalyticsStore.getState();
-      normalizedItems.forEach((it) => analytics.trackInitiateCheckout?.(it.productId));
+      normalizedItems.forEach((it) =>
+        analytics.trackInitiateCheckout?.(it.productId)
+      );
     } catch (e) {
       console.warn("📊 Analytics checkout tracking failed", e);
     }
@@ -283,7 +368,6 @@ createOrder: async ({
     throw e;
   }
 },
-
 
 
 
