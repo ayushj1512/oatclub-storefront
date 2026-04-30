@@ -3,7 +3,9 @@ import { useAnalyticsStore } from "@/store/analyticsStore";
 import { trackMeta } from "@/lib/meta/track";
 import { pushEcomEvent } from "@/components/tracking/gtm"; // ✅ ADD THIS
 import { trackSnap } from "@/lib/snap/track.js";
+import axios from "axios";
 
+const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 /**
@@ -51,6 +53,10 @@ _lastPurchaseAt: 0,
   order: null,
   orders: [],
   analytics: null,
+  actionOrder: null,
+actionLoading: false,
+actionError: null,
+actionSuccess: null,
 
   // ----------------------------
   // Actions: Customer (COD)
@@ -523,6 +529,108 @@ trackPurchaseSuccess: async ({
   }
 },
 
+fetchOrderByActionToken: async (token) => {
+  set({ actionLoading: true, actionError: null });
+
+  try {
+    const res = await axios.get(`${API}/api/orders/by-number/${token}`);
+
+    set({
+      actionOrder: res.data,
+      actionLoading: false,
+    });
+
+    return res.data;
+  } catch (err) {
+    const msg =
+      err?.response?.data?.message || "Order not found";
+
+    set({
+      actionError: msg,
+      actionLoading: false,
+    });
+
+    throw new Error(msg);
+  }
+},
+
+confirmOrderByActionToken: async () => {
+  const order = get().actionOrder;
+  if (!order?._id) return;
+
+  set({ actionLoading: true, actionError: null, actionSuccess: null });
+
+  try {
+    const res = await axios.post(
+      `${API}/api/orders/${order._id}/confirm`
+    );
+
+    const updated = res.data?.order || res.data;
+
+    set({
+      actionOrder: updated,
+      actionSuccess: "Order confirmed successfully",
+      actionLoading: false,
+    });
+
+    return updated;
+  } catch (err) {
+    const msg =
+      err?.response?.data?.message ||
+      "Unable to confirm order";
+
+    set({
+      actionError: msg,
+      actionLoading: false,
+    });
+
+    throw new Error(msg);
+  }
+},
+
+cancelOrderByActionToken: async (
+  reason = "Cancelled by customer"
+) => {
+  const order = get().actionOrder;
+  if (!order?._id) return;
+
+  set({ actionLoading: true, actionError: null, actionSuccess: null });
+
+  try {
+    const res = await axios.post(
+      `${API}/api/orders/${order._id}/cancel`,
+      {
+        reason,
+        cancelledBy: "customer",
+      }
+    );
+
+    const updated = res.data?.order || res.data;
+
+    set({
+      actionOrder: updated,
+      actionSuccess: "Order cancelled successfully",
+      actionLoading: false,
+    });
+
+    return updated;
+  } catch (err) {
+    const msg =
+      err?.response?.data?.message ||
+      "Unable to cancel order";
+
+    set({
+      actionError: msg,
+      actionLoading: false,
+    });
+
+    throw new Error(msg);
+  }
+},
+
+
+
+
   // ----------------------------
   // Actions: Admin
   // ----------------------------
@@ -713,4 +821,10 @@ cancelOrder: async (id, reason = "") => {
   clearOrder: () => set({ order: null }),
   clearOrders: () => set({ orders: [] }),
   clearLastCreatedOrder: () => set({ lastCreatedOrder: null }),
+  clearActionOrder: () =>
+  set({
+    actionOrder: null,
+    actionError: null,
+    actionSuccess: null,
+  }),
 }));
