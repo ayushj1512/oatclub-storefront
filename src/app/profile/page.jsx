@@ -478,9 +478,9 @@ export default function ProfilePage() {
                 const pill = statusPill(o.fulfillmentStatus);
 
                 return (
-                  <Link
-                    href={`/profile/orders/${o._id}`}
-                    key={o._id}
+                 <Link
+  href={`/profile/orders/${o.orderNumber || o._id}`}
+  key={o._id}
                     className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between hover:bg-white transition"
                   >
                     <div>

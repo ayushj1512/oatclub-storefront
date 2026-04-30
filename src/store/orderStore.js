@@ -540,6 +540,19 @@ trackPurchaseSuccess: async ({
     }
   },
 
+  fetchOrderByNumber: async (orderNumber) => {
+  set({ loading: true, error: null });
+
+  try {
+    const data = await api(`/api/orders/by-number/${orderNumber}`);
+    set({ order: data, loading: false });
+    return data;
+  } catch (e) {
+    set({ error: e.message, loading: false });
+    throw e;
+  }
+},
+
   // ----------------------------
   // Actions: Admin
   // ----------------------------
