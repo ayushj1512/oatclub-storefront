@@ -605,7 +605,6 @@ const resetGuestContext = () => {
 
   /* ---------------- PLACE ORDER ---------------- */
     const handlePlaceOrder = async () => {
-  // ✅ ALWAYS ensure customer (logged-in OR guest)
   const finalCustomer = await ensureCustomer();
   if (!finalCustomer?._id) return;
 
@@ -617,79 +616,65 @@ const resetGuestContext = () => {
   try {
     const baseOrderItems = getCheckoutPayload();
 
-const orderItems = baseOrderItems.map((item) => {
-  const richItem =
-    items.find((x) => String(x?.productId || x?.id) === String(item?.productId || item?.id)) ||
-    couponCartItems.find((x) => String(x?.productId || x?.id) === String(item?.productId || item?.id)) ||
-    {};
+    const orderItems = baseOrderItems.map((item) => {
+      const richItem =
+        items.find(
+          (x) =>
+            String(x?.productId || x?.id) ===
+            String(item?.productId || item?.id)
+        ) ||
+        couponCartItems.find(
+          (x) =>
+            String(x?.productId || x?.id) ===
+            String(item?.productId || item?.id)
+        ) ||
+        {};
 
-  const price = Number(
-    richItem?.price ??
-      richItem?.productSnapshot?.price ??
-      item?.price ??
-      item?.productSnapshot?.price ??
-      0
-  );
+      const price = Number(
+        richItem?.price ??
+          richItem?.productSnapshot?.price ??
+          item?.price ??
+          item?.productSnapshot?.price ??
+          0
+      );
 
-  return {
-    ...item,
-    ...richItem,
-    productId: item.productId || richItem.productId || richItem.id,
-    quantity: item.quantity || richItem.quantity || 1,
-    variantId: item.variantId || richItem.variantId || richItem?.variant?._id,
-
-    price,
-    itemPrice: price,
-    item_price: price,
-
-    collections:
-      richItem.collections ||
-      richItem.productSnapshot?.collections ||
-      item.collections ||
-      item.productSnapshot?.collections ||
-      [],
-
-    isPrimaryProduct: Boolean(
-      richItem.isPrimaryProduct ||
-        richItem.productSnapshot?.isPrimaryProduct ||
-        item.isPrimaryProduct ||
-        item.productSnapshot?.isPrimaryProduct
-    ),
-
-    isSecondaryProduct: Boolean(
-      richItem.isSecondaryProduct ||
-        richItem.productSnapshot?.isSecondaryProduct ||
-        item.isSecondaryProduct ||
-        item.productSnapshot?.isSecondaryProduct
-    ),
-
-    productSnapshot: {
-      ...(item.productSnapshot || {}),
-      ...(richItem.productSnapshot || {}),
-      price,
-      collections:
+      const collections =
         richItem.collections ||
         richItem.productSnapshot?.collections ||
         item.collections ||
         item.productSnapshot?.collections ||
-        [],
-      isPrimaryProduct: Boolean(
-        richItem.isPrimaryProduct ||
-          richItem.productSnapshot?.isPrimaryProduct ||
-          item.isPrimaryProduct ||
-          item.productSnapshot?.isPrimaryProduct
-      ),
-      isSecondaryProduct: Boolean(
-        richItem.isSecondaryProduct ||
-          richItem.productSnapshot?.isSecondaryProduct ||
-          item.isSecondaryProduct ||
-          item.productSnapshot?.isSecondaryProduct
-      ),
-    },
-  };
-});
+        [];
 
-    // ✅ Debug once: checkout vs order payload
+      const isPrimaryProduct =
+        richItem.isPrimaryProduct === true ||
+        richItem.productSnapshot?.isPrimaryProduct === true ||
+        item.isPrimaryProduct === true ||
+        item.productSnapshot?.isPrimaryProduct === true;
+
+      return {
+        ...item,
+        ...richItem,
+        productId: item.productId || richItem.productId || richItem.id,
+        quantity: item.quantity || richItem.quantity || 1,
+        variantId: item.variantId || richItem.variantId || richItem?.variant?._id,
+
+        price,
+        itemPrice: price,
+        item_price: price,
+
+        collections,
+        isPrimaryProduct,
+
+        productSnapshot: {
+          ...(item.productSnapshot || {}),
+          ...(richItem.productSnapshot || {}),
+          price,
+          collections,
+          isPrimaryProduct,
+        },
+      };
+    });
+
     console.log("🧾 CHECKOUT ORDER DEBUG:", {
       subtotal,
       discount,
@@ -708,13 +693,10 @@ const orderItems = baseOrderItems.map((item) => {
       paymentMethod: selectedPayment,
       items: orderItems,
       source: "website",
-
-      // ✅ IMPORTANT: pass exact checkout totals
       subtotal: Number(subtotal || 0),
       discount: Number(discount || 0),
       razorpayExtraDiscount: Number(razorpayExtraDiscount || 0),
       payable: Number(payable || 0),
-
       coupon: coupon
         ? {
             code: coupon.code,

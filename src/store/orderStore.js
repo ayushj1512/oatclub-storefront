@@ -95,6 +95,7 @@ createOrder: async ({
     if (!items?.length) throw new Error("Order items missing");
 
     const pm = String(paymentMethod).toLowerCase();
+
     if (!["cod", "razorpay"].includes(pm)) {
       throw new Error("Invalid payment method");
     }
@@ -103,8 +104,8 @@ createOrder: async ({
       coupon && typeof coupon === "object"
         ? String(coupon.code || "").trim()
         : coupon
-        ? String(coupon).trim()
-        : null;
+          ? String(coupon).trim()
+          : "";
 
     const normalizedItems = (items || []).map((it) => {
       const productId = it?.productId || it?.id;
@@ -129,15 +130,12 @@ createOrder: async ({
         it?.productSnapshot?.collection ||
         [];
 
-      const isPrimaryProduct = Boolean(
-        it?.isPrimaryProduct || it?.productSnapshot?.isPrimaryProduct
-      );
-
-      const isSecondaryProduct = Boolean(
-        it?.isSecondaryProduct || it?.productSnapshot?.isSecondaryProduct
-      );
+      const isPrimaryProduct =
+        it?.isPrimaryProduct === true ||
+        it?.productSnapshot?.isPrimaryProduct === true;
 
       if (!productId) throw new Error("Each item must have productId");
+
       if (!Number.isFinite(quantity) || quantity < 1) {
         throw new Error("Invalid item quantity");
       }
@@ -150,35 +148,26 @@ createOrder: async ({
         price,
         itemPrice: price,
         item_price: price,
-
         collections,
         isPrimaryProduct,
-        isSecondaryProduct,
 
         selectedSize: it?.selectedSize || it?.size || "",
         selectedColor: it?.selectedColor || it?.color || "",
 
         productSnapshot: {
           ...(it?.productSnapshot || {}),
-
           title: it?.name || it?.title || it?.productSnapshot?.title || "",
           price,
           salePrice: price,
-
-          productCode:
-            it?.productCode || it?.productSnapshot?.productCode || "",
-
+          productCode: it?.productCode || it?.productSnapshot?.productCode || "",
           collections,
           isPrimaryProduct,
-          isSecondaryProduct,
-
           thumbnail:
             it?.image ||
             it?.thumbnail ||
             it?.productSnapshot?.thumbnail ||
             it?.productSnapshot?.image ||
             "",
-
           image:
             it?.image ||
             it?.thumbnail ||
@@ -292,32 +281,14 @@ createOrder: async ({
       shippingAddressId,
       billingAddressId: billingAddressId || shippingAddressId,
       items: normalizedItems,
-
-      subtotal: Number(subtotal || itemsTotal || 0),
-      payable: payable != null ? Number(payable || 0) : undefined,
-
-      discount: finalDiscount,
-
-      coupon:
-        coupon && typeof coupon === "object"
-          ? {
-              code: String(coupon.code || "").trim(),
-              discount: Number(coupon.discount || discount || 0),
-            }
-          : couponCode
-          ? { code: couponCode, discount: Number(discount || 0) }
-          : null,
-
-      shippingFee,
-      tax,
+      coupon: couponCode ? { code: couponCode } : null,
+      shippingFee: Number(shippingFee || 0),
+      tax: Number(tax || 0),
       currency,
       paymentMethod: pm,
       source,
       isGiftOrder,
       customerMessage,
-
-      razorpayExtraDiscount: extraDiscount,
-      razorpayExtraDiscountPct: pm === "razorpay" ? 10 : 0,
     };
 
     console.log("🚀 CREATE ORDER PAYLOAD:", payload);
@@ -368,7 +339,6 @@ createOrder: async ({
     throw e;
   }
 },
-
 
 
 trackPurchaseSuccess: async ({
