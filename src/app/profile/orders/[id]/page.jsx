@@ -172,13 +172,14 @@ export default function OrderDetailsPage() {
   } = useAuthStore();
 
   const {
-    order,
-    fetchOrderById,
-    fetchOrderByNumber,
-    updateOrderStatus,
-    loading: orderLoading,
-    error: orderError,
-  } = useOrderStore();
+  order,
+  fetchOrderById,
+  fetchOrderByNumber,
+  updateOrderStatus,
+  cancelOrder,
+  loading: orderLoading,
+  error: orderError,
+} = useOrderStore();
 
   const {
     rmas,
@@ -475,35 +476,27 @@ export default function OrderDetailsPage() {
     }
   };
 
-  const handleCancelConfirm = async (reasonText) => {
-    let toastId = null;
+ const handleCancelConfirm = async (reasonText = "") => {
+  let toastId = null;
 
-    try {
-      if (!order?._id) throw new Error("Order not found");
+  try {
+    if (!order?._id) throw new Error("Order not found");
 
-      setSubmitting(true);
-      toastId = toast.loading("Cancelling your order...");
+    setSubmitting(true);
+    toastId = toast.loading("Cancelling your order...");
 
-      const clean = s(reasonText);
-      const finalReason = clean
-        ? `Cancelled by customer: ${clean}`
-        : "Cancelled by customer";
+    await cancelOrder(order._id, reasonText);
 
-      await updateOrderStatus(order._id, {
-        fulfillmentStatus: "cancelled",
-        adminRemarks: finalReason,
-      });
+    toast.success("Order cancelled successfully!", { id: toastId });
 
-      toast.success("Order cancelled successfully!", { id: toastId });
-
-      setShowCancelModal(false);
-      await refetchOrder();
-    } catch (e) {
-      toast.error(e?.message || "Cancel failed", { id: toastId });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    setShowCancelModal(false);
+    await refetchOrder();
+  } catch (e) {
+    toast.error(e?.message || "Cancel failed", { id: toastId });
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const saveOrderRemark = async () => {
     let toastId = null;
@@ -923,12 +916,12 @@ export default function OrderDetailsPage() {
       </div>
 
       <CancelOrderModal
-        open={showCancelModal}
-        onClose={() => setShowCancelModal(false)}
-        onConfirm={handleCancelConfirm}
-        loading={submitting}
-        orderNumber={order?.orderNumber}
-      />
+  open={showCancelModal}
+  order={order}
+  onClose={() => setShowCancelModal(false)}
+  onConfirm={handleCancelConfirm}
+  loading={submitting}
+/>
 
       {showExchangeModal ? (
         <Modal

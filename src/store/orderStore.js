@@ -611,9 +611,17 @@ trackPurchaseSuccess: async ({
    */
   updateOrderStatus: async (
   id,
-  { fulfillmentStatus, paymentStatus, adminRemarks }
+  {
+    fulfillmentStatus,
+    paymentStatus,
+    adminRemarks,
+    customerMessage,
+    reason,
+    cancelledBy,
+  } = {}
 ) => {
   set({ loading: true, error: null });
+
   try {
     if (!id) throw new Error("Order id is required");
 
@@ -621,6 +629,9 @@ trackPurchaseSuccess: async ({
       ...(fulfillmentStatus ? { fulfillmentStatus } : {}),
       ...(paymentStatus ? { paymentStatus } : {}),
       ...(adminRemarks != null ? { adminRemarks } : {}),
+      ...(customerMessage != null ? { customerMessage } : {}),
+      ...(reason != null ? { reason } : {}),
+      ...(cancelledBy != null ? { cancelledBy } : {}),
     };
 
     const data = await api(`/api/orders/${id}/status`, {
@@ -629,9 +640,12 @@ trackPurchaseSuccess: async ({
     });
 
     const updated = data.order;
+
     set((state) => ({
-      order: state.order?._id === updated._id ? updated : state.order,
-      orders: (state.orders || []).map((o) => (o._id === updated._id ? updated : o)),
+      order: state.order?._id === updated?._id ? updated : state.order,
+      orders: (state.orders || []).map((o) =>
+        o._id === updated?._id ? updated : o
+      ),
       loading: false,
     }));
 
@@ -641,6 +655,19 @@ trackPurchaseSuccess: async ({
     throw e;
   }
 },
+
+cancelOrder: async (id, reason = "") => {
+  if (!id) throw new Error("Order id is required");
+
+  return get().updateOrderStatus(id, {
+    fulfillmentStatus: "cancelled",
+    cancelledBy: "customer",
+    reason: String(reason || "").trim(),
+    customerMessage: String(reason || "").trim(),
+  });
+},
+
+
 
 
   /**

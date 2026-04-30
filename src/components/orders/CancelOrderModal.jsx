@@ -1,109 +1,218 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { X, AlertTriangle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { X, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 const CANCEL_REASONS = [
-  "Ordered by mistake",
-  "Found cheaper elsewhere",
-  "Delivery taking too long",
-  "Need to change address",
-  "Need to change item",
+  "I ordered by mistake",
+  "I want to change size / color",
+  "I want to change delivery address",
+  "I found a better option",
+  "Delivery may take too long",
+  "I placed a duplicate order",
+  "Payment or order issue",
+  "I no longer need this item",
+  "I want to add/remove products",
   "Other",
 ];
 
-export default function CancelOrderModal({ open, onClose, onConfirm, loading = false, orderNumber = "" }) {
+export default function CancelOrderModal({
+  open,
+  onClose,
+  onConfirm,
+  loading = false,
+  order,
+  orderNumber = "",
+}) {
   const [step, setStep] = useState(1);
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
 
-  const canContinue = useMemo(() => !!reason, [reason]);
+  const displayOrderNumber = order?.orderNumber || orderNumber;
+
+  const finalReason = useMemo(() => {
+    const cleanReason = reason.trim();
+    const cleanNote = note.trim();
+
+    if (!cleanReason && !cleanNote) return "";
+    if (cleanReason === "Other") return cleanNote || "Other";
+    if (cleanNote) return `${cleanReason} - ${cleanNote}`;
+
+    return cleanReason;
+  }, [reason, note]);
+
+  useEffect(() => {
+    if (!open) {
+      setStep(1);
+      setReason("");
+      setNote("");
+    }
+  }, [open]);
 
   if (!open) return null;
 
-  const resetAndClose = () => {
+  const closeModal = () => {
+    if (loading) return;
     setStep(1);
     setReason("");
     setNote("");
     onClose?.();
   };
 
-  const fullReason = reason === "Other" ? `Other: ${note}` : note ? `${reason} - ${note}` : reason;
+  const confirmCancel = () => {
+    onConfirm?.(finalReason || "");
+  };
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
-      <div className="relative w-full max-w-sm rounded-3xl bg-white/95 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-        <button onClick={resetAndClose} className="absolute right-4 top-4 rounded-full bg-black/5 p-2 hover:bg-black/10 transition">
-          <X size={18} className="text-black/70" />
-        </button>
-
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5">
-              <AlertTriangle size={18} className="text-black" />
+    <div className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/40 p-3 backdrop-blur-sm sm:items-center sm:p-5">
+      <div className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
+        <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] px-5 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+              <AlertTriangle size={20} />
             </div>
-            <div>
-              <p className="text-xs text-black/50">Step {step} of 2</p>
-              <p className="text-base font-semibold text-black">Cancel Order</p>
-                        {orderNumber ? <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold text-black/70">#{orderNumber}</span> : null}
 
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-black/40">
+                Step {step} of 2
+              </p>
+              <h2 className="text-lg font-semibold tracking-tight text-black">
+                Cancel Order
+              </h2>
+
+              {displayOrderNumber ? (
+                <p className="mt-1 text-xs font-medium text-black/45">
+                  #{displayOrderNumber}
+                </p>
+              ) : null}
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={closeModal}
+            disabled={loading}
+            className="rounded-full p-2 text-black/45 transition hover:bg-black/[0.05] hover:text-black disabled:opacity-40"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        {step === 1 ? (
-          <>
-            <h2 className="text-xl font-semibold text-black mb-2">Why are you cancelling?</h2>
-            <p className="text-sm text-black/60 mb-4">Select a reason. This helps us improve your experience.</p>
+        <div className="overflow-y-auto px-5 py-5">
+          {step === 1 ? (
+            <>
+              <h3 className="text-xl font-semibold tracking-tight text-black">
+                Why do you want to cancel?
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-black/55">
+                Choose a reason. You can skip the note if you don’t want to add
+                anything.
+              </p>
 
-            <div className="space-y-3">
-              <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full rounded-2xl bg-black/5 px-4 py-3 text-sm text-black outline-none focus:ring-2 focus:ring-black/20">
-                <option value="" disabled>
-                  Choose a reason…
-                </option>
-                {CANCEL_REASONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-5 space-y-2">
+                {CANCEL_REASONS.map((item) => {
+                  const active = reason === item;
 
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note (example: want address change)" className="w-full min-h-[90px] rounded-2xl bg-black/5 px-4 py-3 text-sm text-black outline-none focus:ring-2 focus:ring-black/20" />
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setReason(item)}
+                      className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${
+                        active
+                          ? "bg-black text-white"
+                          : "bg-black/[0.035] text-black hover:bg-black/[0.06]"
+                      }`}
+                    >
+                      <span>{item}</span>
+                      {active ? <CheckCircle2 size={17} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={4}
+                placeholder="Optional note, e.g. I want to change my address..."
+                className="mt-4 w-full resize-none rounded-2xl bg-black/[0.035] px-4 py-3 text-sm text-black outline-none transition placeholder:text-black/35 focus:bg-white focus:ring-2 focus:ring-black/10"
+              />
+            </>
+          ) : (
+            <>
+              <h3 className="text-xl font-semibold tracking-tight text-black">
+                Confirm cancellation
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-black/55">
+                Your order will be cancelled. This action cannot be undone.
+              </p>
+
+              <div className="mt-5 rounded-3xl bg-black/[0.035] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
+                  Selected reason
+                </p>
+                <p className="mt-2 text-sm font-semibold text-black">
+                  {reason || "No reason selected"}
+                </p>
+
+                {note.trim() ? (
+                  <p className="mt-2 text-sm leading-6 text-black/55">
+                    {note.trim()}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
+                Please cancel only if you’re sure. Once cancelled, the order
+                cannot be shipped.
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="border-t border-black/[0.06] bg-white px-5 py-4">
+          {step === 1 ? (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={closeModal}
+                disabled={loading}
+                className="rounded-full bg-black/[0.05] px-4 py-3 text-sm font-semibold text-black/70 transition hover:bg-black/[0.08] disabled:opacity-40"
+              >
+                Keep Order
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="rounded-full bg-black px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+              >
+                Continue
+              </button>
             </div>
-
-            <button disabled={!canContinue} onClick={() => setStep(2)} className={`mt-5 w-full rounded-full py-3 text-sm font-semibold transition ${canContinue ? "bg-black text-white hover:opacity-90" : "bg-black/10 text-black/30 cursor-not-allowed"}`}>
-              Continue
-            </button>
-
-            <button onClick={resetAndClose} className="mt-3 w-full rounded-full py-3 text-sm font-semibold bg-black/5 text-black/70 hover:bg-black/10 transition">
-              Keep Order
-            </button>
-          </>
-        ) : (
-          <>
-            <h2 className="text-xl font-semibold text-black mb-2">Confirm cancellation</h2>
-            <p className="text-sm text-black/60 mb-4">This action cannot be undone.</p>
-
-            <div className="rounded-2xl bg-black/5 p-4 mb-6">
-              <p className="text-xs font-semibold text-black/60 mb-1">Reason</p>
-              <p className="text-sm font-semibold text-black">{reason}</p>
-              {note ? <p className="mt-2 text-xs text-black/50">Note: {note}</p> : null}
-            </div>
-
-            <div className="flex gap-3">
-              <button onClick={() => setStep(1)} className="flex-1 rounded-full py-3 text-sm font-semibold bg-black/5 text-black hover:bg-black/10 transition">
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                disabled={loading}
+                className="rounded-full bg-black/[0.05] px-4 py-3 text-sm font-semibold text-black/70 transition hover:bg-black/[0.08] disabled:opacity-40"
+              >
                 Back
               </button>
-              <button disabled={loading} onClick={() => onConfirm?.(fullReason)} className="flex-1 rounded-full py-3 text-sm font-semibold bg-black text-white hover:opacity-90 transition">
+
+              <button
+                type="button"
+                onClick={confirmCancel}
+                disabled={loading}
+                className="rounded-full bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+              >
                 {loading ? "Cancelling..." : "Yes, Cancel"}
               </button>
             </div>
-
-            <button onClick={resetAndClose} className="mt-4 w-full rounded-full py-3 text-sm font-semibold bg-black/5 text-black/70 hover:bg-black/10 transition">
-              Close
-            </button>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

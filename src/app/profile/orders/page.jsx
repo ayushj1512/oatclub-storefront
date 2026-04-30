@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
 import { useOrderStore } from "@/store/orderStore";
-import CancelOrderModal from "@/components/orders/CancelOrderModal";
 
 const STATUS_COLORS = {
   processing: "text-yellow-900 bg-yellow-100",
@@ -49,12 +48,7 @@ const formatDate = (date) => {
 export default function OrdersPage() {
   const router = useRouter();
   const { customer, loading: authLoading, isAuthenticated } = useAuthStore();
-  const { orders, fetchMyOrders, updateOrderStatus, loading, error } =
-    useOrderStore();
-
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [cancelOrder, setCancelOrder] = useState(null);
-  const [cancelLoading, setCancelLoading] = useState(false);
+  const { orders, fetchMyOrders, loading, error } = useOrderStore();
 
   useEffect(() => {
     if (authLoading) return;
@@ -75,38 +69,12 @@ export default function OrdersPage() {
     router.push(`/profile/orders/${orderUrlId}`);
   };
 
-  const handleCancelConfirm = async (reasonText) => {
-    if (!cancelOrder?._id) return;
-
-    let toastId = null;
-
-    try {
-      setCancelLoading(true);
-      toastId = toast.loading("Cancelling your order...");
-
-      await updateOrderStatus(cancelOrder._id, {
-        fulfillmentStatus: "cancelled",
-        adminRemarks: reasonText,
-      });
-
-      toast.success("Order cancelled successfully!", { id: toastId });
-      setCancelOpen(false);
-      setCancelOrder(null);
-
-      if (customer?._id) await fetchMyOrders(customer._id);
-    } catch (e) {
-      toast.error(e?.message || "Cancel failed", { id: toastId });
-    } finally {
-      setCancelLoading(false);
-    }
-  };
-
   return (
     <section className="min-h-screen bg-white px-3 py-6 md:px-8 md:py-10">
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
 
       <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-black">
+        <h1 className="text-2xl font-semibold tracking-tight text-black md:text-3xl">
           My Orders
         </h1>
         <p className="mt-1 text-sm text-black/50">
@@ -175,8 +143,10 @@ export default function OrdersPage() {
                     const price = item?.price ?? 0;
 
                     return (
-                      <div key={item?.lineId || idx} className="flex items-center gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <div
+                        key={item?.lineId || idx}
+                        className="flex items-center gap-3"
+                      >
                         <img
                           src={thumb}
                           alt={title}
@@ -208,7 +178,8 @@ export default function OrdersPage() {
 
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <p className="text-sm font-medium text-black/60">
-                    Total: <span className="font-semibold text-black">₹{total}</span>
+                    Total:{" "}
+                    <span className="font-semibold text-black">₹{total}</span>
                   </p>
 
                   <div className="flex items-center gap-2">
@@ -234,17 +205,6 @@ export default function OrdersPage() {
           })}
         </div>
       )}
-
-      <CancelOrderModal
-        open={cancelOpen}
-        onClose={() => {
-          setCancelOpen(false);
-          setCancelOrder(null);
-        }}
-        onConfirm={handleCancelConfirm}
-        loading={cancelLoading}
-        orderNumber={cancelOrder?.orderNumber}
-      />
     </section>
   );
 }
