@@ -54,7 +54,7 @@ const STATUS_ICON = {
   cancelled: X,
 };
 
-const CANCEL_ALLOWED = ["processing", "packed", "picked", "shipped"];
+const CANCEL_ALLOWED = ["processing", "packed"];
 const RMA_ALLOWED = ["delivered"];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -640,25 +640,31 @@ export default function OrderDetailsPage() {
               </p>
             </div>
 
-            {canCancel ? (
-              <button
-                onClick={() => setShowCancelModal(true)}
-                className="px-4 py-2 rounded-2xl text-xs sm:text-sm font-semibold bg-red-500/10 text-red-700 hover:bg-red-500/15 active:scale-[0.99] transition"
-              >
-                Cancel
-              </button>
-            ) : null}
+            <button
+  onClick={() => canCancel && setShowCancelModal(true)}
+  disabled={!canCancel}
+  className={`px-4 py-2 rounded-2xl text-xs sm:text-sm font-semibold transition ${
+    canCancel
+      ? "bg-red-500/10 text-red-700 hover:bg-red-500/15 active:scale-[0.99]"
+      : "bg-black/5 text-black/35 cursor-not-allowed"
+  }`}
+>
+  Cancel
+</button>
           </div>
 
-          {canCancel ? (
-            <p className="text-center text-[11px] sm:text-xs text-black/45">
-              You can cancel only before{" "}
-              <span className="font-medium text-black/70">
-                Out for Delivery
-              </span>
-              .
-            </p>
-          ) : null}
+          <p className="text-center text-[11px] sm:text-xs text-black/45 leading-relaxed">
+  {canCancel ? (
+    <>
+      You can cancel this order before shipping.
+    </>
+  ) : (
+    <>
+      You can cancel order before shipping. If you don’t want it, you can refuse
+      to take the parcel at delivery or contact support.
+    </>
+  )}
+</p>
         </div>
       </div>
 
