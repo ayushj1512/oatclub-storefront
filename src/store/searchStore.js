@@ -1,4 +1,3 @@
-// src/store/searchStore.js
 "use client";
 
 import { create } from "zustand";
@@ -9,9 +8,6 @@ import { mapItem } from "@/components/tracking/ga4Mapper";
 
 const API_BASE = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "");
 
-/* =========================================================
-   HELPERS
-========================================================= */
 const stableStringify = (obj) => {
   try {
     return JSON.stringify(obj, Object.keys(obj).sort());
@@ -38,9 +34,6 @@ const ga4Item = (p) =>
     1
   );
 
-/* =========================================================
-   STORE
-========================================================= */
 export const useSearchStore = create((set, get) => ({
   query: "",
   results: [],
@@ -56,6 +49,7 @@ export const useSearchStore = create((set, get) => ({
     sortBy: "relevance",
   },
 
+  searched: false,
   loading: false,
   error: null,
   lastSearchedAt: null,
@@ -65,17 +59,14 @@ export const useSearchStore = create((set, get) => ({
   _lastGA4SearchKey: null,
   _lastGA4SearchAt: null,
 
-  /* ---------------- setters ---------------- */
   setQuery: (query) => set({ query }),
+  setLimit: (limit) => set({ limit }),
 
   setFilters: (next) =>
     set((state) => ({
       filters: { ...state.filters, ...next },
     })),
 
-  setLimit: (limit) => set({ limit }),
-
-  /* ---------------- reset ---------------- */
   resetSearch: () =>
     set({
       query: "",
@@ -83,8 +74,9 @@ export const useSearchStore = create((set, get) => ({
       total: 0,
       page: 1,
       pages: 1,
-      error: null,
+      searched: false,
       loading: false,
+      error: null,
       lastSearchedAt: null,
       filters: {
         category: "",
@@ -98,30 +90,31 @@ export const useSearchStore = create((set, get) => ({
       _lastGA4SearchAt: null,
     }),
 
-  /* ---------------- search ---------------- */
-  searchProducts: async ({ page = 1 } = {}) => {
+  searchProducts: async ({ page = 1, query: forcedQuery } = {}) => {
     const state = get();
-    const { query, limit, filters } = state;
-    const { category, tags, color, sortBy } = filters;
+    const filters = state.filters || {};
+    const limit = state.limit;
+
+    const trimmedQuery = String(forcedQuery ?? state.query ?? "").trim();
+    const { category, tags = [], color, sortBy } = filters;
 
     if (!API_BASE) {
-      return set({ error: "Search API not configured" });
+      return set({ error: "Search API not configured", loading: false });
     }
 
-    const trimmedQuery = String(query || "").trim();
-
-    if (!trimmedQuery && !category && !tags?.length && !color) {
+    if (!trimmedQuery && !category && !tags.length && !color) {
       return set({
         results: [],
         total: 0,
         page: 1,
         pages: 1,
+        searched: false,
         loading: false,
         error: null,
       });
     }
 
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, searched: true });
 
     try {
       const params = new URLSearchParams();
@@ -133,40 +126,36 @@ export const useSearchStore = create((set, get) => ({
 
       if (trimmedQuery) params.set("q", trimmedQuery);
       if (category) params.set("category", category);
-      if (tags?.length) params.set("tags", tags.join(","));
+      if (tags.length) params.set("tags", tags.join(","));
       if (color) params.set("color", color);
       if (sortBy) params.set("sortBy", sortBy);
 
-      const response = await fetch(
+      const res = await fetch(
         `${API_BASE}/api/products/card-search?${params.toString()}`,
         { cache: "no-store" }
       );
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.message || "Search failed");
-      }
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || "Search failed");
 
       const incoming = Array.isArray(data?.products) ? data.products : [];
       const pagination = data?.pagination || {};
 
       const finalResults =
-        page === 1
-          ? incoming
-          : [...(get().results || []), ...incoming];
+        page === 1 ? incoming : [...(get().results || []), ...incoming];
 
       set({
+        query: trimmedQuery,
         results: finalResults,
-        total: Number(pagination?.total || 0),
+        total: Number(pagination?.total || incoming.length || 0),
         page: Number(pagination?.page || page),
         pages: Number(pagination?.pages || 1),
         loading: false,
         error: null,
+        searched: true,
         lastSearchedAt: Date.now(),
       });
 
-      /* ---------------- analytics ---------------- */
       try {
         const analytics = useAnalyticsStore.getState();
         incoming.forEach((p) =>
@@ -176,9 +165,8 @@ export const useSearchStore = create((set, get) => ({
         console.warn("Search analytics failed", e);
       }
 
-      /* ---------------- GA4 ---------------- */
       try {
-        const ga4Key = stableStringify({
+        const key = stableStringify({
           query: trimmedQuery,
           category,
           tags,
@@ -189,10 +177,10 @@ export const useSearchStore = create((set, get) => ({
         const now = Date.now();
         const { _lastGA4SearchKey, _lastGA4SearchAt } = get();
 
-        const tooSoon = _lastGA4SearchAt && now - _lastGA4SearchAt < 2500;
-        const sameKey = _lastGA4SearchKey === ga4Key;
-
-        if (page === 1 && !(sameKey && tooSoon)) {
+        if (
+          page === 1 &&
+          !(_lastGA4SearchKey === key && _lastGA4SearchAt && now - _lastGA4SearchAt < 2500)
+        ) {
           pushToDataLayer({
             event: "search",
             search_term: trimmedQuery,
@@ -204,7 +192,7 @@ export const useSearchStore = create((set, get) => ({
           });
 
           set({
-            _lastGA4SearchKey: ga4Key,
+            _lastGA4SearchKey: key,
             _lastGA4SearchAt: now,
           });
         }
@@ -212,9 +200,8 @@ export const useSearchStore = create((set, get) => ({
         console.warn("GA4 search event failed", e);
       }
 
-      /* ---------------- Meta ---------------- */
       try {
-        const metaKey = stableStringify({
+        const key = stableStringify({
           query: trimmedQuery,
           category,
           tags,
@@ -225,10 +212,10 @@ export const useSearchStore = create((set, get) => ({
         const now = Date.now();
         const { _lastMetaSearchKey, _lastMetaSearchAt } = get();
 
-        const tooSoon = _lastMetaSearchAt && now - _lastMetaSearchAt < 2500;
-        const sameKey = _lastMetaSearchKey === metaKey;
-
-        if (page === 1 && !(sameKey && tooSoon)) {
+        if (
+          page === 1 &&
+          !(_lastMetaSearchKey === key && _lastMetaSearchAt && now - _lastMetaSearchAt < 2500)
+        ) {
           await trackMeta("Search", {
             search_string: trimmedQuery,
             content_category: category || undefined,
@@ -239,7 +226,7 @@ export const useSearchStore = create((set, get) => ({
           });
 
           set({
-            _lastMetaSearchKey: metaKey,
+            _lastMetaSearchKey: key,
             _lastMetaSearchAt: now,
           });
         }
@@ -249,12 +236,12 @@ export const useSearchStore = create((set, get) => ({
     } catch (e) {
       set({
         loading: false,
+        searched: true,
         error: e?.message || "Search failed",
       });
     }
   },
 
-  /* ---------------- pagination ---------------- */
   loadMore: async () => {
     const { page, pages, loading } = get();
     if (loading || page >= pages) return;
