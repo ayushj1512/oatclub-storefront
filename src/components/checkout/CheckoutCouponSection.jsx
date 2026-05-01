@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Loader2, Tag, X } from "lucide-react";
 import { useCouponStore } from "@/store/couponStore";
+import useGtmStore from "@/store/gtmStore";
 
 const money = (n) => (Number.isFinite(+n) ? (+n).toLocaleString("en-IN") : "0");
 
@@ -131,7 +132,7 @@ export default function CheckoutCouponSection({
       clearCouponMessages?.();
       setClicked(nextCode);
 
-      await applyCoupon({
+      const res = await applyCoupon({
         code: nextCode,
         cartTotal,
         cartItems,
@@ -140,7 +141,20 @@ export default function CheckoutCouponSection({
         customerId,
       });
 
+      const state = useCouponStore.getState();
+      const appliedCoupon = state.coupon || res?.coupon || null;
+      const appliedDiscount = Number(state.discount ?? res?.discount ?? 0) || 0;
+
+      if (appliedCoupon?.code || appliedDiscount > 0) {
+        useGtmStore.getState().couponApplied({
+          code: appliedCoupon?.code || nextCode,
+          discount: appliedDiscount,
+        });
+      }
+
       setCode("");
+    } catch (e) {
+      console.warn("coupon apply failed", e);
     } finally {
       setClicked("");
     }

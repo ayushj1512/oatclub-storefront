@@ -13,6 +13,7 @@ import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
 import { useCouponStore } from "@/store/couponStore"; // ✅ adjust path
 import { useCustomerCartStore } from "@/store/customerCartStore"; // ✅ NEW
+import useGtmStore from "@/store/gtmStore";
 
 const KEY = "cart_products";
 
@@ -838,20 +839,16 @@ addToCart: async ({
     }
   }
 
-  /* ---------------- GA4: ADD TO CART ---------------- */
-  try {
-    const addQty = Number(built?.quantity ?? qty ?? 1) || 1;
-    const price = Number(built?.price ?? product?.price ?? 0) || 0;
-    const currency = getCartCurrency(built, product?.currency || "INR");
-
-    pushEcomEvent("add_to_cart", {
-      currency,
-      value: price * addQty,
-      items: [toGa4Item(built, addQty)],
-    });
-  } catch (e) {
-    console.warn("📈 GA4 add_to_cart failed", e);
-  }
+/* ---------------- GTM: ADD TO CART ---------------- */
+try {
+  useGtmStore.getState().addToCart({
+    ...built,
+    quantity: Number(built?.quantity ?? qty ?? 1) || 1,
+    currency: getCartCurrency(built, product?.currency || "INR"),
+  });
+} catch (e) {
+  console.warn("📈 GTM add_to_cart failed", e);
+}
 
   /* ---------------- ABANDONED CART SNAPSHOT ---------------- */
   try {
@@ -956,22 +953,18 @@ getCheckoutPayload: () => {
     console.warn("⚠️ customerCartRemove failed (removeFromCart)", e);
   }
 
-  /* ---------- GA4: remove_from_cart ---------- */
-  try {
-    if (removed) {
-      const rmQty = Number(removed?.quantity ?? 1) || 1;
-      const price = Number(removed?.price ?? 0) || 0;
-      const currency = str(removed?.productSnapshot?.currency || "INR") || "INR";
-
-      pushEcomEvent("remove_from_cart", {
-        currency,
-        value: price * rmQty,
-        items: [toGA4ItemFromBuilt(removed, removed?.productSnapshot, rmQty)],
-      });
-    }
-  } catch (e) {
-    console.warn("📈 GA4 remove_from_cart failed", e);
+  /* ---------- GTM: REMOVE FROM CART ---------- */
+try {
+  if (removed) {
+    useGtmStore.getState().removeFromCart({
+      ...removed,
+      quantity: Number(removed?.quantity ?? 1) || 1,
+      currency: str(removed?.productSnapshot?.currency || "INR") || "INR",
+    });
   }
+} catch (e) {
+  console.warn("📈 GTM remove_from_cart failed", e);
+}
 
   /* ---------- Analytics ---------- */
   try {
@@ -1142,11 +1135,19 @@ decreaseQty: (idOrKey, variantId = null) => {
       const ev = delta > 0 ? "add_to_cart" : "remove_from_cart";
       const dQty = Math.abs(delta);
 
-      pushEcomEvent(ev, {
-        currency,
-        value: price * dQty,
-        items: [toGA4ItemFromBuilt(item, item?.productSnapshot, dQty)],
-      });
+      if (ev === "add_to_cart") {
+  useGtmStore.getState().addToCart({
+    ...item,
+    quantity: dQty,
+    currency,
+  });
+} else {
+  useGtmStore.getState().removeFromCart({
+    ...item,
+    quantity: dQty,
+    currency,
+  });
+}
     }
   } catch (e) {
     console.warn("📈 GA4 updateQty delta failed", e);

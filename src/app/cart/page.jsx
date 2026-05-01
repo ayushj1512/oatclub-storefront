@@ -7,8 +7,7 @@ import { Trash2, Plus, Minus, ArrowRight, Sparkles } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
-import { pushEcomEvent } from "@/components/tracking/gtm";
-import { mapItem } from "@/components/tracking/ga4Mapper";
+import useGtmStore from "@/store/gtmStore";
 import { trackMeta } from "@/lib/meta/track";
 import { useCouponStore } from "@/store/couponStore";
 import BudgetBeesCartSection from "@/components/cart/BudgetBeesCartSection";
@@ -50,22 +49,7 @@ const getImageSrc = (item) => {
   return src || null;
 };
 
-const ga4CartItem = (it) =>
-  mapItem(
-    {
-      _id: it?.productId || it?.id || it?._id,
-      id: it?.productId || it?.id || it?._id,
-      name: it?.name,
-      title: it?.name,
-      price: Number(it?.price ?? 0) || 0,
-      category: it?.productSnapshot?.category || "",
-variant: [it?.selectedSize, safeColorLabel(it?.selectedColor)]
-  .filter(Boolean)
-  .join(" / "),
-      sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
-    },
-    Number(it?.qty ?? it?.quantity ?? 1)
-  );
+
 
 function GlassCard({ children, className = "" }) {
   return <div className={`bg-white/75 backdrop-blur-xl border border-black/5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] ${className}`}>{children}</div>;
@@ -238,8 +222,10 @@ const removeCoupon = useCouponStore((s) => s.removeCoupon);
       if (lastViewCartRef.current.key === key && now - (lastViewCartRef.current.at || 0) < 2000) return;
       lastViewCartRef.current = { key, at: now };
 
-      pushEcomEvent("view_cart", { currency: "INR", value, items: items.slice(0, 50).map(ga4CartItem) });
-
+useGtmStore.getState().viewCart({
+  items: items.slice(0, 50),
+  total: value,
+});
       Promise.resolve(trackMeta("ViewCart", { currency: "INR", value, content_type: "product", content_ids: contents.map((c) => c.id), contents, num_items: contents.reduce((s, c) => s + (c.quantity || 0), 0) })).catch(() => { });
     } catch (e) {
       console.warn("view_cart failed", e);

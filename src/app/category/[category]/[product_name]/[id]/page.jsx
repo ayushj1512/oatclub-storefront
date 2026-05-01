@@ -23,6 +23,7 @@ import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 import ShippingHighlights from "@/components/productDetail/ShippingHighlights";
 import CrossSellProducts from "@/components/productDetail/CrossSellProducts";
 import LepordCollectionAnnouncement from "@/components/productDetail/LepordCollectionAnnouncement";
+import useGtmStore from "@/store/gtmStore";
 
 const BRAND = { black: "#111111" };
 
@@ -403,6 +404,8 @@ export default function ProductPage({ params }) {
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState(null);
 
+  const viewItem = useGtmStore((s) => s.viewItem);
+
   useEffect(() => {
     cartInitialize?.();
     initWishlist?.();
@@ -520,6 +523,15 @@ export default function ProductPage({ params }) {
     if (!product) return;
     recentlyViewedStore.addProduct?.(product);
   }, [product, recentlyViewedStore]);
+
+  useEffect(() => {
+  if (!product?.productId) return;
+
+  viewItem({
+    ...product,
+    category: product?.raw?.categories?.[0]?.name || category || "",
+  });
+}, [product?.productId, viewItem, category]);
 
   const requireColor = useMemo(() => {
     if (!normalized) return false;

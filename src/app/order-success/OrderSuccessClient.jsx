@@ -15,12 +15,12 @@ import {
   AlertTriangle,
   Mail,
 } from "lucide-react";
+import useGtmStore from "@/store/gtmStore";
 
 const BRAND = "#16a34a";
 const API =
   process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
 
-/* ---------------- helpers ---------------- */
 const safeJson = async (r) => {
   try {
     return await r.json();
@@ -30,21 +30,18 @@ const safeJson = async (r) => {
 };
 
 const money = (n, cur = "INR") => {
-  const x = Number(n);
-  const v = Number.isFinite(x) ? x : 0;
+  const v = Number.isFinite(Number(n)) ? Number(n) : 0;
   const s = v.toLocaleString("en-IN");
   return cur === "INR" ? `₹${s}` : `${s} ${cur}`;
 };
 
 const sumQty = (items = []) =>
-  (items || []).reduce((s, it) => s + Number(it?.quantity || 0), 0);
+  items.reduce((s, it) => s + Number(it?.quantity || 0), 0);
 
-// Supports both: Mongo ObjectId (24 hex) OR "MIRAY-000005"
 const isObjectIdLike = (v) => /^[a-f\d]{24}$/i.test(String(v || "").trim());
 
-/* ✅ Safe slug maker (for product_name param) */
 const toSlug = (s = "") =>
-  String(s || "")
+  String(s)
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -68,13 +65,8 @@ export default function OrderSuccessClient() {
   const [err, setErr] = useState("");
   const [order, setOrder] = useState(null);
   const [copied, setCopied] = useState(false);
-
-  // ✅ New: store product details fetched by productId
   const [productMap, setProductMap] = useState({});
 
-  /* =========================================================
-     ✅ 1) FETCH ORDER (by id OR by orderNumber)
-  ========================================================= */
   useEffect(() => {
     let mounted = true;
 
@@ -84,10 +76,7 @@ export default function OrderSuccessClient() {
       setOrder(null);
 
       try {
-        if (!API)
-          throw new Error(
-            "NEXT_PUBLIC_BACKEND_URL (or NEXT_PUBLIC_API_URL) missing"
-          );
+        if (!API) throw new Error("NEXT_PUBLIC_BACKEND_URL or NEXT_PUBLIC_API_URL missing");
         if (!orderParam) throw new Error("Missing ?order= in URL");
 
         const path = isObjectIdLike(orderParam)
@@ -96,8 +85,8 @@ export default function OrderSuccessClient() {
 
         const res = await fetch(`${API}${path}`, { cache: "no-store" });
         const data = await safeJson(res);
-        if (!res.ok) throw new Error(data?.message || "Failed to load order");
 
+        if (!res.ok) throw new Error(data?.message || "Failed to load order");
         if (mounted) setOrder(data);
       } catch (e) {
         if (mounted) setErr(e?.message || "Failed to load order");
@@ -111,25 +100,19 @@ export default function OrderSuccessClient() {
     };
   }, [orderParam]);
 
-  /* =========================================================
-     ✅ 2) FETCH PRODUCTS USING productId FROM ORDER ITEMS
-     - fixes missing images/title/category/slug etc.
-  ========================================================= */
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
-        if (!order?.items?.length) return;
+        if (!order?.items?.length || !API) return;
 
         const ids = order.items
           .map((it) => String(it?.productId?._id || it?.productId || ""))
           .filter(Boolean);
 
-        const uniq = [...new Set(ids)];
-
         const results = await Promise.all(
-          uniq.map(async (id) => {
+          [...new Set(ids)].map(async (id) => {
             try {
               const r = await fetch(`${API}/api/products/${id}`, {
                 cache: "no-store",
@@ -137,7 +120,6 @@ export default function OrderSuccessClient() {
               const j = await safeJson(r);
               if (!r.ok) return null;
 
-              // backend may return {product} OR direct doc
               const prod = j?.product || j?.data || j;
               return prod ? { id, prod } : null;
             } catch {
@@ -162,10 +144,64 @@ export default function OrderSuccessClient() {
     };
   }, [order]);
 
-  /* ✅ Copy Order Number */
+  useEffect(() => {
+    if (!order?.orderNumber && !order?._id) return;
+
+    const transactionId = order?.orderNumber || order?._id;
+    const storageKey = `gtm_purchase_${transactionId}`;
+
+    try {
+      if (localStorage.getItem(storageKey)) return;
+
+      const orderItems = Array.isArray(order?.items)
+        ? order.items.map((it) => {
+            const pid = String(it?.productId?._id || it?.productId || "");
+            const prod = productMap?.[pid] || {};
+            const attrs = Array.isArray(it?.variant?.attributes)
+              ? it.variant.attributes
+              : [];
+
+            const variantText =
+              attrs.map((a) => a?.value).filter(Boolean).join(" / ") ||
+              it?.variantId ||
+              "";
+
+            return {
+              productId: pid,
+              productCode: prod?.productCode || it?.productSnapshot?.productCode || "",
+              name: prod?.name || prod?.title || it?.productSnapshot?.title || "Item",
+              price: Number(it?.price || prod?.price || 0),
+              quantity: Number(it?.quantity || 1),
+              category: prod?.category?.name || prod?.categoryName || "",
+              variant: variantText,
+              sku: it?.variant?.sku || prod?.sku || "",
+            };
+          })
+        : [];
+
+      useGtmStore.getState().purchase({
+        order: {
+          _id: order?._id,
+          orderNumber: transactionId,
+          totalAmount: Number(order?.finalPayable ?? order?.payable ?? order?.subtotal ?? 0),
+          taxAmount: Number(order?.taxAmount || 0),
+          shippingAmount: Number(order?.shippingAmount || 0),
+          couponCode: order?.coupon?.code || order?.couponCode || "",
+          paymentMethod: order?.paymentMethod || "",
+        },
+        items: orderItems,
+      });
+
+      localStorage.setItem(storageKey, "1");
+    } catch (e) {
+      console.warn("📈 GTM purchase failed", e);
+    }
+  }, [order, productMap]);
+
   const onCopy = async () => {
     const txt = order?.orderNumber || orderParam;
     if (!txt) return;
+
     try {
       await navigator.clipboard.writeText(txt);
       setCopied(true);
@@ -188,7 +224,6 @@ export default function OrderSuccessClient() {
     <section className="min-h-[85vh] bg-[#F6F6F8]">
       <div className="w-full px-4 sm:px-6 lg:px-10 py-7 sm:py-10">
         <div className="w-full rounded-[22px] overflow-hidden border border-black/5 bg-white shadow-[0_18px_50px_rgba(0,0,0,0.08)] os-fade">
-          {/* ✅ Header */}
           <header
             className="relative w-full px-4 sm:px-7 py-6 sm:py-9"
             style={{ backgroundColor: BRAND }}
@@ -217,7 +252,6 @@ export default function OrderSuccessClient() {
                 </p>
               </div>
 
-              {/* ✅ Order Number + Copy */}
               <div className="mt-1 sm:mt-2 flex flex-wrap items-center justify-center gap-2">
                 <span className="text-[11px] sm:text-xs font-semibold text-white/80">
                   Order:
@@ -237,7 +271,6 @@ export default function OrderSuccessClient() {
                 </button>
               </div>
 
-              {/* ✅ Email Confirmation */}
               <div className="mt-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-[11px] sm:text-xs text-white/90">
                 <Mail className="w-4 h-4" />
                 <span className="font-medium">
@@ -250,7 +283,6 @@ export default function OrderSuccessClient() {
             </div>
           </header>
 
-          {/* ✅ Body */}
           <div className="p-4 sm:p-7">
             {loading ? (
               <div className="text-center text-gray-500 text-sm py-10">
@@ -272,34 +304,29 @@ export default function OrderSuccessClient() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
-                {/* ✅ LEFT: Items */}
                 <div className="lg:col-span-8 space-y-3 sm:space-y-4">
                   <Section title={`Items (${qty} ${qty === 1 ? "item" : "items"})`} Icon={Package}>
                     <div className="space-y-3">
                       {items.map((it, idx) => {
-                        /* ✅ 1) get product from map */
                         const pid = String(it?.productId?._id || it?.productId || "");
                         const prod = productMap?.[pid] || {};
 
-                        /* ✅ 2) extract name + image */
                         const title = prod?.name || prod?.title || "Item";
                         const images = Array.isArray(prod?.images) ? prod.images : [];
                         const thumb = prod?.thumbnail || images?.[0] || "/placeholder.png";
 
-                        /* ✅ 3) ORDER totals always correct */
                         const unit = Number(it?.price || prod?.price || 0);
                         const q = Number(it?.quantity || 0);
                         const sub = Number(it?.subtotal ?? unit * q);
 
-                        /* ✅ 4) Size / Variant attributes (from order item) */
                         const attrs = Array.isArray(it?.variant?.attributes)
                           ? it.variant.attributes
                           : [];
+
                         const attrText = attrs.length
                           ? attrs.map((a) => `${a.key}: ${a.value}`).join(" • ")
                           : "";
 
-                        /* ✅ 5) Build product page path for navigation */
                         const category = prod?.category?.slug || prod?.categorySlug || "all";
                         const productName = prod?.slug || toSlug(title);
                         const href = `/category/${encodeURIComponent(category)}/${encodeURIComponent(
@@ -307,13 +334,8 @@ export default function OrderSuccessClient() {
                         )}/${encodeURIComponent(pid)}`;
 
                         return (
-                          <Link
-                            key={`${pid || idx}-${idx}`}
-                            href={href}
-                            className="block"
-                          >
+                          <Link key={`${pid || idx}-${idx}`} href={href} className="block">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-2xl border border-black/10 bg-white p-3 sm:p-4 hover:bg-black/[0.02] transition cursor-pointer">
-                              {/* ✅ image */}
                               <div className="w-full sm:w-[92px] h-[116px] sm:h-[120px] rounded-2xl overflow-hidden bg-black/[0.03] border border-black/5 shrink-0">
                                 <img
                                   src={thumb}
@@ -329,14 +351,12 @@ export default function OrderSuccessClient() {
                                       {title}
                                     </div>
 
-                                    {/* ✅ show Size/Variant */}
                                     {attrText ? (
                                       <div className="mt-1 text-xs text-gray-600">
                                         {attrText}
                                       </div>
                                     ) : null}
 
-                                    {/* ✅ sku from product */}
                                     {prod?.sku ? (
                                       <div className="mt-1 text-[11px] text-gray-500">
                                         SKU: {prod.sku}
@@ -373,7 +393,6 @@ export default function OrderSuccessClient() {
                     </div>
                   </Section>
 
-                  {/* ✅ Buttons */}
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Link
                       href="/shop"
@@ -392,7 +411,6 @@ export default function OrderSuccessClient() {
                   </div>
                 </div>
 
-                {/* ✅ RIGHT: Payment + Address (same) */}
                 <div className="lg:col-span-4 space-y-3 sm:space-y-4">
                   <Section title="Payment Summary" Icon={ReceiptText}>
                     <div className="space-y-2">
@@ -459,7 +477,6 @@ export default function OrderSuccessClient() {
             )}
           </div>
 
-          {/* ✅ Footer */}
           <div className="px-4 sm:px-7 py-4 border-t border-black/5 bg-white">
             <div className="text-xs text-gray-500 flex items-center gap-2">
               <span className="size-2 rounded-full bg-black/30" />

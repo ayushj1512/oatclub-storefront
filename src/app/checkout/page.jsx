@@ -17,9 +17,7 @@ import { useAddressStore } from "@/store/addressStore";
 import { useAuthStore } from "@/store/authStore";
 import { useOrderStore } from "@/store/orderStore";
 import { useCouponStore } from "@/store/couponStore";
-
-import { pushEcomEvent } from "@/components/tracking/gtm";
-import { mapItem } from "@/components/tracking/ga4Mapper";
+import useGtmStore from "@/store/gtmStore";
 import { trackSnap } from "@/lib/snap/track.js";
 
 /* ---------- tiny UI ---------- */
@@ -207,36 +205,7 @@ const payable = useMemo(() => {
 
 
   /* ---------------- GA4 ITEMS ---------------- */
-  const ga4Items = useMemo(() => {
-    return (items || []).map((it) => {
-      const qty = Math.max(1, Number(it?.quantity ?? it?.qty ?? 1) || 1);
-      const price = Number(it?.price ?? it?.productSnapshot?.price ?? 0) || 0;
 
-      const id =
-        it?.variant?.sku ||
-        it?.productSnapshot?.sku ||
-        it?.variantId ||
-        it?.productId;
-
-      const variantText = [it?.selectedSize, it?.selectedColor]
-        .filter(Boolean)
-        .join(" / ");
-
-      return mapItem(
-        {
-          _id: String(id || ""),
-          id: String(id || ""),
-          name: it?.name || it?.productSnapshot?.title || "Item",
-          title: it?.name || it?.productSnapshot?.title || "Item",
-          price,
-          category: it?.productSnapshot?.category || "",
-          variant: variantText,
-          sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
-        },
-        qty
-      );
-    });
-  }, [items]);
 
   /* ---------------- TRACK begin_checkout (once) ---------------- */
   /* ---------------- TRACK begin_checkout + Snap START_CHECKOUT (once) ---------------- */
@@ -248,12 +217,11 @@ useEffect(() => {
 
   // ✅ GA4 begin_checkout (existing)
   try {
-    pushEcomEvent("begin_checkout", {
-      currency: "INR",
-      value: Number(payable || 0),
-      coupon: coupon?.code || undefined,
-      items: ga4Items,
-    });
+   useGtmStore.getState().beginCheckout({
+  items,
+  total: Number(payable || 0),
+  coupon: coupon?.code || "",
+});
     console.log("📈 GA4 begin_checkout fired", { value: Number(payable || 0), coupon: coupon?.code || null });
   } catch (e) {
     console.warn("📈 GA4 begin_checkout failed", e);
@@ -277,8 +245,7 @@ useEffect(() => {
   } catch (e) {
     console.warn("👻 Snap START_CHECKOUT failed", e);
   }
-}, [items?.length, payable, coupon?.code, ga4Items, items]);
-
+}, [items?.length, payable, coupon?.code, items]);
 
   /* ---------------- PINCODE LOOKUP ---------------- */
   const pinTimer = useRef(null);
