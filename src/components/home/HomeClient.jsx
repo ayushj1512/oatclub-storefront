@@ -25,6 +25,7 @@ import LeopardFeatureCollection from "@/components/home/LeopardFeatureCollection
 import PolkadotFeatureCollection from "@/components/home/PolkadotFeatureCollection";
 import StyleByOccasion from "@/components/home/StyleByOccasion";
 import NewArrivalsFeatureRow from "@/components/home/NewArrivalsFeatureRow";
+import ReturnExchangeHelp from "@/components/home/ReturnExchangeHelp";
 
 export default function HomeClient() {
   const { structuredData } = generateSEO({
@@ -74,6 +75,7 @@ export default function HomeClient() {
         <BlogSection />
         <RecentlyViewed />
         <InfoStrip />
+        <ReturnExchangeHelp />
         <Newsletter />
       </main>
     </>
