@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import RecentlyViewedRow from "@/components/profile/RecentlyViewedRow";
 import SupportTicketsRow from "@/components/profile/SupportTicketsRow";
+import OrderHelpCard from "@/components/profile/OrderHelpCard";
 
 const FALLBACK_IMG =
   "https://i.pinimg.com/736x/54/5c/c1/545cc16292db0d62ac333fc422e4aff4.jpg";
@@ -504,6 +505,9 @@ export default function ProfilePage() {
           )}
         </div>
 
+        {/* ✅ Order Help CTA */}
+<OrderHelpCard />
+
         {/* ✅ Saved Addresses */}
         <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -553,6 +557,7 @@ export default function ProfilePage() {
         <div className="bg-white border border-gray-200 rounded-2xl p-3 sm:p-5 shadow-sm">
           <RecentlyViewedRow />
         </div>
+        
       </div>
     </section>
   );
