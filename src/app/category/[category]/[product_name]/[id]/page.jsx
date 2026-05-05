@@ -24,6 +24,7 @@ import ShippingHighlights from "@/components/productDetail/ShippingHighlights";
 import CrossSellProducts from "@/components/productDetail/CrossSellProducts";
 import LepordCollectionAnnouncement from "@/components/productDetail/LepordCollectionAnnouncement";
 import useGtmStore from "@/store/gtmStore";
+import ProductNotFound from "@/components/productDetail/ProductNotFound";
 
 const BRAND = { black: "#111111" };
 
@@ -696,15 +697,9 @@ export default function ProductPage({ params }) {
     );
   }
 
-  if (!product) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <p className="text-xs tracking-[0.4em] uppercase text-black/60">
-          Product not found
-        </p>
-      </div>
-    );
-  }
+  if (!product || product?.raw?.isActive === false) {
+  return <ProductNotFound />;
+}
 
   return (
     <div className="w-full px-4 md:px-12 py-6 md:py-12">
