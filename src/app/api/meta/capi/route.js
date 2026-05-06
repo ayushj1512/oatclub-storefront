@@ -3,28 +3,80 @@ import crypto from "crypto";
 const API_VERSION = process.env.META_CAPI_API_VERSION || "v21.0";
 const ACCESS_TOKEN = process.env.META_CAPI_ACCESS_TOKEN;
 
-// ✅ Prefer server env var for pixel id
 const PIXEL_ID =
   process.env.META_CAPI_PIXEL_ID || process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
 const TEST_EVENT_CODE = process.env.META_CAPI_TEST_EVENT_CODE;
-
-// ✅ Force canonical site URL if you have it
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL; // e.g. https://mirayfashions.com
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
 
 function sha256(value) {
-  return crypto.createHash("sha256").update(value).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(String(value || ""))
+    .digest("hex");
 }
 
-function normEmail(email) {
-  return email?.trim().toLowerCase();
+function cleanString(value) {
+  if (value === undefined || value === null) return undefined;
+  const v = String(value).trim().toLowerCase();
+  return v || undefined;
 }
 
-function normPhone(phone) {
-  return phone?.replace(/[^\d+]/g, "");
+function normEmail(value) {
+  return cleanString(value);
 }
 
-// ✅ Recursively remove undefined/null/empty keys
+function normPhone(value) {
+  if (!value) return undefined;
+
+  let phone = String(value).replace(/\D/g, "");
+
+  if (phone.length === 10) {
+    phone = `91${phone}`;
+  }
+
+  return phone || undefined;
+}
+
+function normText(value) {
+  return cleanString(value);
+}
+
+function normCountry(value) {
+  return cleanString(value || "in");
+}
+
+function normZip(value) {
+  return String(value || "").replace(/\D/g, "") || undefined;
+}
+
+function normDob(value) {
+  if (!value) return undefined;
+
+  const raw = String(value).trim();
+
+  if (/^\d{8}$/.test(raw)) return raw;
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return undefined;
+
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+
+  return `${yyyy}${mm}${dd}`;
+}
+
+function normGender(value) {
+  const v = cleanString(value);
+  if (!v) return undefined;
+
+  if (["m", "male"].includes(v)) return "m";
+  if (["f", "female"].includes(v)) return "f";
+
+  return undefined;
+}
+
 function clean(obj) {
   if (!obj || typeof obj !== "object") return obj;
 
@@ -32,13 +84,14 @@ function clean(obj) {
     const v = obj[k];
 
     if (v && typeof v === "object" && !Array.isArray(v)) {
-      clean(v); // recursive clean
+      clean(v);
     }
 
     if (
       obj[k] === undefined ||
       obj[k] === null ||
       obj[k] === "" ||
+      (Array.isArray(obj[k]) && obj[k].length === 0) ||
       (typeof obj[k] === "object" &&
         !Array.isArray(obj[k]) &&
         Object.keys(obj[k]).length === 0)
@@ -50,18 +103,77 @@ function clean(obj) {
   return obj;
 }
 
-// ✅ Helper: hash string OR array of strings
-function hashField(value, normalizer) {
-  if (!value) return value;
+function hashField(value, normalizer = normText) {
+  if (!value) return undefined;
 
   if (Array.isArray(value)) {
-    return value
+    const hashed = value
+      .map((v) => normalizer(v))
       .filter(Boolean)
-      .map((v) => sha256(normalizer(v)))
-      .filter(Boolean);
+      .map((v) => sha256(v));
+
+    return hashed.length ? hashed : undefined;
   }
 
-  return sha256(normalizer(value));
+  const normalized = normalizer(value);
+  return normalized ? sha256(normalized) : undefined;
+}
+
+function buildMetaUserData(userData = {}, ip, ua) {
+  const rawName = userData.name || "";
+  const nameParts = String(rawName).trim().split(/\s+/).filter(Boolean);
+
+  const normalized = {
+    external_id:
+      userData.external_id || userData.externalId || userData.customerId,
+
+    em: userData.em || userData.email,
+    ph: userData.ph || userData.phone || userData.mobile,
+
+    fn: userData.fn || userData.firstName || nameParts[0],
+    ln:
+      userData.ln ||
+      userData.lastName ||
+      (nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined),
+
+    ct: userData.ct || userData.city,
+    st: userData.st || userData.state,
+    country: userData.country || "in",
+
+    zp: userData.zp || userData.zip || userData.pincode,
+    db: userData.db || userData.dob,
+    ge: userData.ge || userData.gender || userData.gen,
+
+    fbp: userData.fbp,
+    fbc: userData.fbc,
+
+    client_ip_address: ip,
+    client_user_agent: ua,
+  };
+
+  return clean({
+    external_id: hashField(normalized.external_id, normText),
+
+    em: hashField(normalized.em, normEmail),
+    ph: hashField(normalized.ph, normPhone),
+
+    fn: hashField(normalized.fn, normText),
+    ln: hashField(normalized.ln, normText),
+
+    ct: hashField(normalized.ct, normText),
+    st: hashField(normalized.st, normText),
+    country: hashField(normalized.country, normCountry),
+
+    zp: hashField(normalized.zp, normZip),
+    db: hashField(normalized.db, normDob),
+    ge: hashField(normalized.ge, normGender),
+
+    fbp: normalized.fbp,
+    fbc: normalized.fbc,
+
+    client_ip_address: normalized.client_ip_address,
+    client_user_agent: normalized.client_user_agent,
+  });
 }
 
 export async function POST(req) {
@@ -74,13 +186,10 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-
-    // ✅ Use req.headers directly (always Headers object)
     const h = req.headers;
 
     const now = Math.floor(Date.now() / 1000);
 
-    // ✅ Better IP extraction behind proxy/Vercel/Cloudflare
     const ip =
       h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       h.get("x-real-ip") ||
@@ -88,7 +197,6 @@ export async function POST(req) {
 
     const ua = h.get("user-agent") || undefined;
 
-    // ✅ Detect correct origin behind reverse proxy (fix base url issue)
     const proto = h.get("x-forwarded-proto") || "https";
     const host = h.get("x-forwarded-host") || h.get("host");
     const detectedOrigin = host ? `${proto}://${host}` : undefined;
@@ -108,11 +216,6 @@ export async function POST(req) {
       );
     }
 
-    // ✅ final event_source_url priority:
-    // 1) event_source_url passed by frontend (best)
-    // 2) referer header
-    // 3) NEXT_PUBLIC_SITE_URL (canonical)
-    // 4) detected origin from x-forwarded headers
     const finalEventSourceUrl =
       event_source_url ||
       h.get("referer") ||
@@ -120,19 +223,7 @@ export async function POST(req) {
       detectedOrigin ||
       undefined;
 
-    // ✅ enrich user data with ip + ua
-    const enrichedUserData = clean({
-      ...user_data,
-      client_ip_address: ip,
-      client_user_agent: ua,
-    });
-
-    // ✅ hash raw PII if provided (supports string OR array)
-    if (enrichedUserData.em)
-      enrichedUserData.em = hashField(enrichedUserData.em, normEmail);
-
-    if (enrichedUserData.ph)
-      enrichedUserData.ph = hashField(enrichedUserData.ph, normPhone);
+    const enrichedUserData = buildMetaUserData(user_data, ip, ua);
 
     const payload = {
       data: [
@@ -143,7 +234,7 @@ export async function POST(req) {
           action_source: "website",
           event_source_url: finalEventSourceUrl,
           user_data: enrichedUserData,
-          custom_data,
+          custom_data: clean(custom_data),
         }),
       ],
       ...(TEST_EVENT_CODE ? { test_event_code: TEST_EVENT_CODE } : {}),
@@ -159,7 +250,6 @@ export async function POST(req) {
 
     const json = await res.json();
 
-    // ✅ Return useful error information if Meta rejects
     if (!res.ok) {
       return Response.json(
         {
@@ -183,6 +273,7 @@ export async function POST(req) {
     );
   } catch (err) {
     console.error("Meta CAPI Route Error:", err);
+
     return Response.json(
       { ok: false, error: err?.message || "Unknown error" },
       { status: 500 }

@@ -345,6 +345,38 @@ const toGa4Item = (item, qtyOverride = null) => {
 const toGA4ItemFromBuilt = (built, _snapshot, qtyOverride = null) =>
   toGa4Item(built, qtyOverride);
 
+const metaCartItemData = (item, product = null, qtyOverride = null) => {
+  const pid =
+    product?.sku ||
+    product?._id ||
+    product?.id ||
+    product?.productId ||
+    item?.productSnapshot?.sku ||
+    item?.productId;
+
+  const quantity = Number(qtyOverride ?? item?.quantity ?? 1) || 1;
+  const price = Number(item?.price ?? product?.price ?? product?.salePrice ?? 0) || 0;
+  const currency = getCartCurrency(item, product?.currency || "INR");
+
+  return {
+    content_type: "product",
+    content_ids: pid ? [String(pid)] : [],
+    contents: pid
+      ? [
+          {
+            id: String(pid),
+            quantity,
+            item_price: price,
+          },
+        ]
+      : [],
+    value: price * quantity,
+    currency,
+    content_name: item?.name || product?.name || product?.title || "",
+    content_category: item?.productSnapshot?.category || product?.category || "",
+  };
+};
+
 export const useCartStore = create((set, get) => ({
   items: [],
   buyNowItem: null,   // ✅ NEW
@@ -527,7 +559,9 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
     /* ---------------- CUSTOMER CART ADDS (UPDATED) ---------------- */
     try {
       const code = str(
-        builtItem?.productSnapshot?.productCode || originalProduct?.productCode || ""
+        builtItem?.productSnapshot?.productCode ||
+          originalProduct?.productCode ||
+          ""
       ).trim();
 
       if (code) {
@@ -560,7 +594,7 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
     // ✅ COUPON CLEAR ON CART UPDATE
     await handleCouponOnCartUpdate();
 
-    // ✅ UI feedback (optional but recommended)
+    // ✅ UI feedback
     notify.cartAdded?.(builtItem);
 
     /* ---------------- ANALYTICS ---------------- */
@@ -582,20 +616,28 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
         originalProduct?.sku ||
         originalProduct?._id ||
         originalProduct?.id ||
+        originalProduct?.productId ||
+        builtItem?.productSnapshot?.sku ||
         builtItem?.productId;
 
-      const price = Number(builtItem?.price ?? originalProduct?.price ?? 0) || 0;
       const quantity = Number(builtItem?.quantity ?? 1) || 1;
+      const price =
+        Number(
+          builtItem?.price ??
+            originalProduct?.price ??
+            originalProduct?.salePrice ??
+            0
+        ) || 0;
 
-      const currency = getCartCurrency(builtItem, originalProduct?.currency || "INR");
+      const currency = getCartCurrency(
+        builtItem,
+        originalProduct?.currency || "INR"
+      );
 
-      const metaEventId = await trackMeta("AddToCart", {
-        content_type: "product",
-        content_ids: pid ? [String(pid)] : [],
-        contents: pid ? [{ id: String(pid), quantity, item_price: price }] : [],
-        value: price * quantity,
-        currency,
-      });
+      const metaEventId = await trackMeta(
+        "AddToCart",
+        metaCartItemData(builtItem, originalProduct, quantity)
+      );
 
       // ✅ Snapchat: ADD_CART (dedupe id = metaEventId)
       try {
@@ -606,7 +648,10 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
             price: price * quantity,
             item_ids: pid ? [String(pid)] : [],
             description:
-              builtItem?.name || originalProduct?.name || originalProduct?.title || "Item",
+              builtItem?.name ||
+              originalProduct?.name ||
+              originalProduct?.title ||
+              "Item",
           },
           {},
           { event_id: metaEventId }
@@ -622,7 +667,10 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
     try {
       const addQty = Number(builtItem?.quantity ?? 1) || 1;
       const price = Number(builtItem?.price ?? 0) || 0;
-      const currency = getCartCurrency(builtItem, originalProduct?.currency || "INR");
+      const currency = getCartCurrency(
+        builtItem,
+        originalProduct?.currency || "INR"
+      );
 
       pushEcomEvent("add_to_cart", {
         currency,
@@ -713,7 +761,13 @@ addToCart: async ({
   selectedSize = null,
   selectedColor = null,
 }) => {
-  const built = buildCartItem({ product, qty, variantId, selectedSize, selectedColor });
+  const built = buildCartItem({
+    product,
+    qty,
+    variantId,
+    selectedSize,
+    selectedColor,
+  });
 
   if (!built) return;
 
@@ -737,18 +791,17 @@ addToCart: async ({
         const pk = p.__key || cartKey(p);
         if (pk !== key) return p;
 
-        const nextQty = Math.max(1, toNum(p.quantity || 1) + toNum(built.quantity || 1));
+        const nextQty = Math.max(
+          1,
+          toNum(p.quantity || 1) + toNum(built.quantity || 1)
+        );
 
         return {
           ...p,
           ...built,
-
-          // ✅ preserve old compareAtPrice if new one missing
-          compareAtPrice: built.compareAtPrice != null ? built.compareAtPrice : p.compareAtPrice,
-
-          // ✅ preserve old price if new one missing
+          compareAtPrice:
+            built.compareAtPrice != null ? built.compareAtPrice : p.compareAtPrice,
           price: built.price != null ? built.price : p.price,
-
           quantity: nextQty,
           __key: pk,
         };
@@ -761,20 +814,30 @@ addToCart: async ({
 
   /* ---------------- CUSTOMER CART ADDS (UPDATED) ---------------- */
   try {
-    const code = str(built?.productSnapshot?.productCode || product?.productCode || "").trim();
+    const code = str(
+      built?.productSnapshot?.productCode || product?.productCode || ""
+    ).trim();
 
     if (code) {
       useCustomerCartStore.getState().addCartAdd({
         productCode: code,
         variantId:
-          str(built?.variantId || built?.variant?.variantId || built?.variant?._id || "").trim() ||
-          null,
+          str(
+            built?.variantId ||
+              built?.variant?.variantId ||
+              built?.variant?._id ||
+              ""
+          ).trim() || null,
         size: str(built?.selectedSize || "").trim(),
       });
 
       console.log("🧾 customerCartAdd recorded (addToCart):", {
         productCode: code,
-        variantId: built?.variantId || built?.variant?.variantId || built?.variant?._id || null,
+        variantId:
+          built?.variantId ||
+          built?.variant?.variantId ||
+          built?.variant?._id ||
+          null,
         size: built?.selectedSize || "",
       });
     }
@@ -785,7 +848,8 @@ addToCart: async ({
   await handleCouponOnCartUpdate();
 
   const newQty =
-    updated.find((p) => (p.__key || cartKey(p)) === key)?.quantity || built.quantity;
+    updated.find((p) => (p.__key || cartKey(p)) === key)?.quantity ||
+    built.quantity;
 
   /* ---------------- UI FEEDBACK ---------------- */
   if (exists) {
@@ -803,20 +867,24 @@ addToCart: async ({
 
     /* ---------------- META (PIXEL + CAPI) + SNAPCHAT (PIXEL + CAPI) ---------------- */
     try {
-      const pid = product?.sku || product?._id || product?.id || built?.productId;
+      const pid =
+        product?.sku ||
+        product?._id ||
+        product?.id ||
+        product?.productId ||
+        built?.productSnapshot?.sku ||
+        built?.productId;
 
-      const price = Number(built?.price ?? product?.price ?? product?.salePrice ?? 0) || 0;
       const quantity = Number(built?.quantity ?? qty ?? 1) || 1;
+      const price =
+        Number(built?.price ?? product?.price ?? product?.salePrice ?? 0) || 0;
 
       const currency = getCartCurrency(built, product?.currency || "INR");
 
-      const metaEventId = await trackMeta("AddToCart", {
-        content_type: "product",
-        content_ids: pid ? [String(pid)] : [],
-        contents: pid ? [{ id: String(pid), quantity, item_price: price }] : [],
-        value: price * quantity,
-        currency,
-      });
+      const metaEventId = await trackMeta(
+        "AddToCart",
+        metaCartItemData(built, product, quantity)
+      );
 
       // ✅ Snapchat: ADD_CART (dedupe id = metaEventId)
       try {
@@ -839,16 +907,16 @@ addToCart: async ({
     }
   }
 
-/* ---------------- GTM: ADD TO CART ---------------- */
-try {
-  useGtmStore.getState().addToCart({
-    ...built,
-    quantity: Number(built?.quantity ?? qty ?? 1) || 1,
-    currency: getCartCurrency(built, product?.currency || "INR"),
-  });
-} catch (e) {
-  console.warn("📈 GTM add_to_cart failed", e);
-}
+  /* ---------------- GTM: ADD TO CART ---------------- */
+  try {
+    useGtmStore.getState().addToCart({
+      ...built,
+      quantity: Number(built?.quantity ?? qty ?? 1) || 1,
+      currency: getCartCurrency(built, product?.currency || "INR"),
+    });
+  } catch (e) {
+    console.warn("📈 GTM add_to_cart failed", e);
+  }
 
   /* ---------------- ABANDONED CART SNAPSHOT ---------------- */
   try {

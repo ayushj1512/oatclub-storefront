@@ -76,165 +76,215 @@
    * POST /api/orders
    */
   createOrder: async ({
-    customerId,
-    shippingAddressId,
-    billingAddressId,
-    items,
-    subtotal = 0,
-    payable = null,
-    discount = 0,
-    coupon = null,
-    razorpayExtraDiscount = 0,
-    shippingFee = 0,
-    tax = 0,
-    paymentMethod = "cod",
-    source = "website",
-    isGiftOrder = false,
-    customerMessage = "",
-    currency = "INR",
-  }) => {
-    set({ placing: true, error: null });
+  customerId,
+  customer: customerData = {},
+  shippingAddressId,
+  billingAddressId,
+  items,
+  subtotal = 0,
+  payable = null,
+  discount = 0,
+  coupon = null,
+  razorpayExtraDiscount = 0,
+  shippingFee = 0,
+  tax = 0,
+  paymentMethod = "cod",
+  source = "website",
+  isGiftOrder = false,
+  customerMessage = "",
+  currency = "INR",
+}) => {
+  set({ placing: true, error: null });
 
-    try {
-      if (!customerId) throw new Error("customerId is required");
-      if (!shippingAddressId) throw new Error("shippingAddressId is required");
-      if (!items?.length) throw new Error("Order items missing");
+  try {
+    if (!customerId) throw new Error("customerId is required");
+    if (!shippingAddressId) throw new Error("shippingAddressId is required");
+    if (!items?.length) throw new Error("Order items missing");
 
-      const pm = String(paymentMethod).toLowerCase();
+    const pm = String(paymentMethod).toLowerCase();
+    const customer = customerData || {};
 
-      if (!["cod", "razorpay"].includes(pm)) {
-        throw new Error("Invalid payment method");
+    if (!["cod", "razorpay"].includes(pm)) {
+      throw new Error("Invalid payment method");
+    }
+
+    const metaUserData = {
+      external_id: customer?._id || customerId,
+
+      email: customer?.email || customer?.shippingAddressSnapshot?.email,
+
+      phone:
+        customer?.phone ||
+        customer?.mobile ||
+        customer?.shippingAddressSnapshot?.phone,
+
+      firstName:
+        customer?.firstName ||
+        customer?.shippingAddress?.firstName ||
+        customer?.shippingAddressSnapshot?.fullName?.split?.(" ")?.[0],
+
+      lastName:
+        customer?.lastName ||
+        customer?.shippingAddress?.lastName ||
+        customer?.shippingAddressSnapshot?.fullName
+          ?.split?.(" ")
+          ?.slice?.(1)
+          ?.join?.(" "),
+
+      city:
+        customer?.city ||
+        customer?.shippingAddress?.city ||
+        customer?.shippingAddressSnapshot?.city,
+
+      state:
+        customer?.state ||
+        customer?.shippingAddress?.state ||
+        customer?.shippingAddressSnapshot?.state,
+
+      country:
+        customer?.country ||
+        customer?.shippingAddress?.country ||
+        customer?.shippingAddressSnapshot?.country ||
+        "in",
+
+      zip:
+        customer?.pincode ||
+        customer?.zip ||
+        customer?.shippingAddress?.pincode ||
+        customer?.shippingAddressSnapshot?.pincode,
+    };
+
+    const couponCode =
+      coupon && typeof coupon === "object"
+        ? String(coupon.code || "").trim()
+        : coupon
+        ? String(coupon).trim()
+        : "";
+
+    const normalizedItems = (items || []).map((it) => {
+      const productId = it?.productId || it?.id;
+      const quantity = Number(it?.quantity ?? it?.qty ?? 0);
+      const variantId = it?.variantId || it?.variant?._id || null;
+
+      const price =
+        Number(
+          it?.price ??
+            it?.itemPrice ??
+            it?.item_price ??
+            it?.salePrice ??
+            it?.productSnapshot?.price ??
+            it?.productSnapshot?.salePrice ??
+            0
+        ) || 0;
+
+      const collections =
+        it?.collections ||
+        it?.productSnapshot?.collections ||
+        it?.collection ||
+        it?.productSnapshot?.collection ||
+        [];
+
+      const isPrimaryProduct =
+        it?.isPrimaryProduct === true ||
+        it?.productSnapshot?.isPrimaryProduct === true;
+
+      if (!productId) throw new Error("Each item must have productId");
+
+      if (!Number.isFinite(quantity) || quantity < 1) {
+        throw new Error("Invalid item quantity");
       }
 
-      const couponCode =
-        coupon && typeof coupon === "object"
-          ? String(coupon.code || "").trim()
-          : coupon
-            ? String(coupon).trim()
-            : "";
+      return {
+        productId,
+        quantity,
+        ...(variantId ? { variantId } : {}),
 
-      const normalizedItems = (items || []).map((it) => {
-        const productId = it?.productId || it?.id;
-        const quantity = Number(it?.quantity ?? it?.qty ?? 0);
-        const variantId = it?.variantId || it?.variant?._id || null;
+        price,
+        itemPrice: price,
+        item_price: price,
+        collections,
+        isPrimaryProduct,
 
-        const price =
-          Number(
-            it?.price ??
-              it?.itemPrice ??
-              it?.item_price ??
-              it?.salePrice ??
-              it?.productSnapshot?.price ??
-              it?.productSnapshot?.salePrice ??
-              0
-          ) || 0;
+        selectedSize: it?.selectedSize || it?.size || "",
+        selectedColor: it?.selectedColor || it?.color || "",
 
-        const collections =
-          it?.collections ||
-          it?.productSnapshot?.collections ||
-          it?.collection ||
-          it?.productSnapshot?.collection ||
-          [];
-
-        const isPrimaryProduct =
-          it?.isPrimaryProduct === true ||
-          it?.productSnapshot?.isPrimaryProduct === true;
-
-        if (!productId) throw new Error("Each item must have productId");
-
-        if (!Number.isFinite(quantity) || quantity < 1) {
-          throw new Error("Invalid item quantity");
-        }
-
-        return {
-          productId,
-          quantity,
-          ...(variantId ? { variantId } : {}),
-
+        productSnapshot: {
+          ...(it?.productSnapshot || {}),
+          title: it?.name || it?.title || it?.productSnapshot?.title || "",
           price,
-          itemPrice: price,
-          item_price: price,
+          salePrice: price,
+          productCode: it?.productCode || it?.productSnapshot?.productCode || "",
           collections,
           isPrimaryProduct,
+          thumbnail:
+            it?.image ||
+            it?.thumbnail ||
+            it?.productSnapshot?.thumbnail ||
+            it?.productSnapshot?.image ||
+            "",
+          image:
+            it?.image ||
+            it?.thumbnail ||
+            it?.productSnapshot?.thumbnail ||
+            it?.productSnapshot?.image ||
+            "",
+        },
+      };
+    });
 
-          selectedSize: it?.selectedSize || it?.size || "",
-          selectedColor: it?.selectedColor || it?.color || "",
+    console.log("🧾 ORDER NORMALIZED ITEMS:", normalizedItems);
 
-          productSnapshot: {
-            ...(it?.productSnapshot || {}),
-            title: it?.name || it?.title || it?.productSnapshot?.title || "",
-            price,
-            salePrice: price,
-            productCode: it?.productCode || it?.productSnapshot?.productCode || "",
-            collections,
-            isPrimaryProduct,
-            thumbnail:
-              it?.image ||
-              it?.thumbnail ||
-              it?.productSnapshot?.thumbnail ||
-              it?.productSnapshot?.image ||
-              "",
-            image:
-              it?.image ||
-              it?.thumbnail ||
-              it?.productSnapshot?.thumbnail ||
-              it?.productSnapshot?.image ||
-              "",
-          },
+    const contents = normalizedItems
+      .map((it) => {
+        const quantity = Number(it?.quantity || 1);
+        const price = Number(it?.price || 0);
+
+        return {
+          id: String(it.productId),
+          variantId: it?.variantId ? String(it.variantId) : null,
+          variant: [it?.selectedSize, it?.selectedColor]
+            .filter(Boolean)
+            .join(" / "),
+          quantity,
+          item_price: price,
         };
-      });
+      })
+      .filter(Boolean);
 
-      console.log("🧾 ORDER NORMALIZED ITEMS:", normalizedItems);
+    const itemsTotal = contents.reduce(
+      (s, c) => s + Number(c.item_price || 0) * Number(c.quantity || 1),
+      0
+    );
 
-      const contents = normalizedItems
-        .map((it) => {
-          const quantity = Number(it?.quantity || 1);
-          const price = Number(it?.price || 0);
+    const extraDiscount =
+      pm === "razorpay" ? Math.max(0, Number(razorpayExtraDiscount || 0)) : 0;
 
-          return {
-            id: String(it.productId),
-            variantId: it?.variantId ? String(it.variantId) : null,
-            variant: [it?.selectedSize, it?.selectedColor]
-              .filter(Boolean)
-              .join(" / "),
-            quantity,
-            item_price: price,
-          };
-        })
-        .filter(Boolean);
+    const finalDiscount = Number(discount || 0) + extraDiscount;
 
-      const itemsTotal = contents.reduce(
-        (s, c) => s + Number(c.item_price || 0) * Number(c.quantity || 1),
-        0
-      );
+    const orderValue =
+      payable != null
+        ? Number(payable || 0)
+        : Math.max(
+            0,
+            itemsTotal +
+              Number(shippingFee || 0) +
+              Number(tax || 0) -
+              Number(finalDiscount || 0)
+          );
 
-      const extraDiscount =
-        pm === "razorpay" ? Math.max(0, Number(razorpayExtraDiscount || 0)) : 0;
+    const metaContents = contents.map((c) => ({
+      id: c.id,
+      quantity: c.quantity,
+      item_price: c.item_price,
+    }));
 
-      const finalDiscount = Number(discount || 0) + extraDiscount;
+    const itemIds = contents.map((c) => String(c.id));
+    const numItems = metaContents.reduce((s, c) => s + (c.quantity || 0), 0);
 
-      const orderValue =
-        payable != null
-          ? Number(payable || 0)
-          : Math.max(
-              0,
-              itemsTotal +
-                Number(shippingFee || 0) +
-                Number(tax || 0) -
-                Number(finalDiscount || 0)
-            );
-
-      const metaContents = contents.map((c) => ({
-        id: c.id,
-        quantity: c.quantity,
-        item_price: c.item_price,
-      }));
-
-      const itemIds = contents.map((c) => String(c.id));
-      const numItems = metaContents.reduce((s, c) => s + (c.quantity || 0), 0);
-
-      try {
-        await trackMeta("InitiateCheckout", {
+    try {
+      await trackMeta(
+        "InitiateCheckout",
+        {
           currency,
           value: orderValue,
           content_type: "product",
@@ -245,13 +295,17 @@
           ...(pm === "razorpay"
             ? { razorpay_extra_discount: extraDiscount }
             : {}),
-        });
-      } catch (e) {
-        console.warn("🧾 Meta InitiateCheckout failed", e);
-      }
+        },
+        metaUserData
+      );
+    } catch (e) {
+      console.warn("🧾 Meta InitiateCheckout failed", e);
+    }
 
-      try {
-        const metaPaymentEventId = await trackMeta("AddPaymentInfo", {
+    try {
+      const metaPaymentEventId = await trackMeta(
+        "AddPaymentInfo",
+        {
           currency,
           value: orderValue,
           content_type: "product",
@@ -261,225 +315,270 @@
           ...(pm === "razorpay"
             ? { razorpay_extra_discount: extraDiscount }
             : {}),
-        });
+        },
+        metaUserData
+      );
 
-        try {
-          await trackSnap(
-            "ADD_BILLING",
-            {
-              currency,
-              price: orderValue,
-              item_ids: itemIds,
-              payment_method: pm,
-            },
-            {},
-            { event_id: metaPaymentEventId }
-          );
-        } catch (e) {
-          console.warn("👻 Snap ADD_BILLING failed", e);
-        }
+      try {
+        await trackSnap(
+          "ADD_BILLING",
+          {
+            currency,
+            price: orderValue,
+            item_ids: itemIds,
+            payment_method: pm,
+          },
+          {},
+          { event_id: metaPaymentEventId }
+        );
       } catch (e) {
-        console.warn("🧾 Meta AddPaymentInfo failed", e);
+        console.warn("👻 Snap ADD_BILLING failed", e);
       }
+    } catch (e) {
+      console.warn("🧾 Meta AddPaymentInfo failed", e);
+    }
 
-      const payload = {
-        customerId,
-        shippingAddressId,
-        billingAddressId: billingAddressId || shippingAddressId,
-        items: normalizedItems,
-        coupon: couponCode ? { code: couponCode } : null,
-        shippingFee: Number(shippingFee || 0),
-        tax: Number(tax || 0),
+    const payload = {
+      customerId,
+      shippingAddressId,
+      billingAddressId: billingAddressId || shippingAddressId,
+      items: normalizedItems,
+      coupon: couponCode ? { code: couponCode } : null,
+      shippingFee: Number(shippingFee || 0),
+      tax: Number(tax || 0),
+      currency,
+      paymentMethod: pm,
+      source,
+      isGiftOrder,
+      customerMessage,
+    };
+
+    console.log("🚀 CREATE ORDER PAYLOAD:", payload);
+
+    const data = await api("/api/orders", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    const order = data?.order;
+
+    const backendValue =
+      Number(
+        order?.finalPayable ??
+          order?.finalTotal ??
+          order?.grandTotal ??
+          order?.total ??
+          order?.payableAmount ??
+          order?.amount ??
+          order?.totalAmount ??
+          0
+      ) || 0;
+
+    if (pm === "cod") {
+      await get().trackPurchaseSuccess({
+        orderId: order?._id || order?.orderNumber || customerId,
         currency,
+        value: backendValue || orderValue,
+        contents,
+        coupon: couponCode,
         paymentMethod: pm,
-        source,
-        isGiftOrder,
-        customerMessage,
+        customer,
+      });
+    }
+
+    try {
+      const analytics = useAnalyticsStore.getState();
+      normalizedItems.forEach((it) =>
+        analytics.trackInitiateCheckout?.(it.productId)
+      );
+    } catch (e) {
+      console.warn("📊 Analytics checkout tracking failed", e);
+    }
+
+    set({ lastCreatedOrder: order, placing: false });
+    return order;
+  } catch (e) {
+    set({ error: e.message, placing: false });
+    throw e;
+  }
+},
+
+
+ trackPurchaseSuccess: async ({
+  orderId,
+  currency = "INR",
+  value = 0,
+  contents = [],
+  coupon = null,
+  paymentMethod = "cod",
+  event_source_url,
+  customer = {},
+} = {}) => {
+  try {
+    const safeValue = Number(value);
+    const finalValue =
+      Number.isFinite(safeValue) && safeValue > 0 ? safeValue : 0;
+
+    const now = Date.now();
+    const key = `purchase_${paymentMethod}_${String(orderId)}`;
+
+    const { _lastPurchaseKey, _lastPurchaseAt } = get();
+    const sameKey = _lastPurchaseKey === key;
+    const tooSoon = _lastPurchaseAt && now - _lastPurchaseAt < 8000;
+
+    if (sameKey && tooSoon) return;
+
+    set({ _lastPurchaseKey: key, _lastPurchaseAt: now });
+
+    const couponCode = coupon ? String(coupon).trim() : null;
+
+    const metaContents = (contents || [])
+      .map((c) => {
+        const id = String(c?.id || "");
+        if (!id) return null;
+
+        const quantity = Number(c?.quantity || 1);
+        const itemPrice = Number(c?.item_price || 0);
+
+        return {
+          id,
+          quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+          ...(Number.isFinite(itemPrice) && itemPrice > 0
+            ? { item_price: itemPrice }
+            : {}),
+        };
+      })
+      .filter(Boolean);
+
+    const ga4Items = (contents || [])
+      .map((c) => {
+        const item_id = String(c?.id || "");
+        if (!item_id) return null;
+
+        const quantity = Number(c?.quantity || 1);
+        const price = Number(c?.item_price || 0);
+
+        return {
+          item_id,
+          item_name: c?.name ? String(c.name) : undefined,
+          item_variant: c?.variant ? String(c.variant) : undefined,
+          variant_id: c?.variantId ? String(c.variantId) : undefined,
+          quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+          ...(Number.isFinite(price) && price > 0 ? { price } : {}),
+        };
+      })
+      .filter(Boolean);
+
+    try {
+      pushEcomEvent("purchase", {
+        transaction_id: String(orderId),
+        currency,
+        value: finalValue,
+        payment_type: paymentMethod,
+        coupon: couponCode || undefined,
+        items: ga4Items,
+      });
+    } catch (e) {
+      console.warn("📈 GA4 Purchase failed", e);
+    }
+
+    try {
+      const payload = {
+        currency,
+        value: finalValue,
+        content_type: "product",
+        content_ids: metaContents.map((c) => c.id),
+        contents: metaContents,
+        num_items: metaContents.reduce((s, c) => s + (c.quantity || 0), 0),
+        order_id: String(orderId),
+        payment_method: paymentMethod,
+        ...(couponCode ? { coupon: couponCode } : {}),
       };
 
-      console.log("🚀 CREATE ORDER PAYLOAD:", payload);
+      const metaPurchaseEventId = await trackMeta(
+        "Purchase",
+        payload,
+        {
+          external_id: customer?._id || orderId,
 
-      const data = await api("/api/orders", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+          email:
+            customer?.email ||
+            customer?.shippingAddressSnapshot?.email,
 
-      const order = data?.order;
+          phone:
+            customer?.phone ||
+            customer?.mobile ||
+            customer?.shippingAddressSnapshot?.phone,
 
-      const backendValue =
-        Number(
-          order?.finalPayable ??
-            order?.finalTotal ??
-            order?.grandTotal ??
-            order?.total ??
-            order?.payableAmount ??
-            order?.amount ??
-            order?.totalAmount ??
-            0
-        ) || 0;
+          firstName:
+            customer?.firstName ||
+            customer?.shippingAddress?.firstName ||
+            customer?.shippingAddressSnapshot?.fullName?.split?.(" ")?.[0],
 
-      if (pm === "cod") {
-        await get().trackPurchaseSuccess({
-          orderId: order?._id || order?.orderNumber || customerId,
-          currency,
-          value: backendValue || orderValue,
-          contents,
-          coupon: couponCode,
-          paymentMethod: pm,
-        });
-      }
+          lastName:
+            customer?.lastName ||
+            customer?.shippingAddress?.lastName ||
+            customer?.shippingAddressSnapshot?.fullName
+              ?.split?.(" ")
+              ?.slice?.(1)
+              ?.join?.(" "),
+
+          city:
+            customer?.city ||
+            customer?.shippingAddress?.city ||
+            customer?.shippingAddressSnapshot?.city,
+
+          state:
+            customer?.state ||
+            customer?.shippingAddress?.state ||
+            customer?.shippingAddressSnapshot?.state,
+
+          country:
+            customer?.country ||
+            customer?.shippingAddress?.country ||
+            customer?.shippingAddressSnapshot?.country ||
+            "in",
+
+          zip:
+            customer?.pincode ||
+            customer?.zip ||
+            customer?.shippingAddress?.pincode ||
+            customer?.shippingAddressSnapshot?.pincode,
+        },
+        event_source_url ? { event_source_url } : {}
+      );
 
       try {
-        const analytics = useAnalyticsStore.getState();
-        normalizedItems.forEach((it) =>
-          analytics.trackInitiateCheckout?.(it.productId)
-        );
-      } catch (e) {
-        console.warn("📊 Analytics checkout tracking failed", e);
-      }
-
-      set({ lastCreatedOrder: order, placing: false });
-      return order;
-    } catch (e) {
-      set({ error: e.message, placing: false });
-      throw e;
-    }
-  },
-
-
-  trackPurchaseSuccess: async ({
-    orderId,
-    currency = "INR",
-    value = 0,
-    contents = [],
-    coupon = null,
-    paymentMethod = "cod",
-    event_source_url, // ✅ optional: pass thankyou url if you want
-  } = {}) => {
-    try {
-      // ✅ sanitize value
-      const safeValue = Number(value);
-      const finalValue = Number.isFinite(safeValue) && safeValue > 0 ? safeValue : 0;
-
-      const now = Date.now();
-      // ✅ Dedup key should NOT depend on value (value can change / be 0)
-      const key = `purchase_${paymentMethod}_${String(orderId)}`;
-
-      const { _lastPurchaseKey, _lastPurchaseAt } = get();
-      const sameKey = _lastPurchaseKey === key;
-      const tooSoon = _lastPurchaseAt && now - _lastPurchaseAt < 8000;
-      if (sameKey && tooSoon) return;
-
-      set({ _lastPurchaseKey: key, _lastPurchaseAt: now });
-
-      // ✅ Ensure coupon is string only
-      const couponCode = coupon ? String(coupon).trim() : null;
-
-      // ✅ Meta contents strict format + remove zero item_price if missing
-      const metaContents = (contents || [])
-        .map((c) => {
-          const id = String(c?.id || "");
-          if (!id) return null;
-
-          const quantity = Number(c?.quantity || 1);
-          const itemPrice = Number(c?.item_price || 0);
-
-          return {
-            id,
-            quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
-            ...(Number.isFinite(itemPrice) && itemPrice > 0 ? { item_price: itemPrice } : {}),
-          };
-        })
-        .filter(Boolean);
-
-      // ✅ GA4 items format
-      const ga4Items = (contents || [])
-        .map((c) => {
-          const item_id = String(c?.id || "");
-          if (!item_id) return null;
-
-          const quantity = Number(c?.quantity || 1);
-          const price = Number(c?.item_price || 0);
-
-          return {
-            item_id,
-            item_name: c?.name ? String(c.name) : undefined,
-            item_variant: c?.variant ? String(c.variant) : undefined,
-            variant_id: c?.variantId ? String(c.variantId) : undefined,
-            quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
-            ...(Number.isFinite(price) && price > 0 ? { price } : {}),
-          };
-        })
-        .filter(Boolean);
-
-      /* ✅✅✅ GA4 PURCHASE EVENT */
-      try {
-        pushEcomEvent("purchase", {
-          transaction_id: String(orderId),
-          currency,
-          value: finalValue,
-          payment_type: paymentMethod,
-          coupon: couponCode || undefined,
-          items: ga4Items,
-        });
-      } catch (e) {
-        console.warn("📈 GA4 Purchase failed", e);
-      }
-
-      /* ✅ META PURCHASE + SNAP PURCHASE */
-      try {
-        const payload = {
-          currency,
-          value: finalValue,
-          content_type: "product",
-          content_ids: metaContents.map((c) => c.id),
-          contents: metaContents,
-          num_items: metaContents.reduce((s, c) => s + (c.quantity || 0), 0),
-          order_id: String(orderId),
-          payment_method: paymentMethod,
-          ...(couponCode ? { coupon: couponCode } : {}),
-        };
-
-        const metaPurchaseEventId = await trackMeta(
-          "Purchase",
-          payload,
+        await trackSnap(
+          "PURCHASE",
+          {
+            currency,
+            price: finalValue,
+            transaction_id: String(orderId),
+            item_ids: metaContents.map((c) => String(c.id)),
+            payment_method: paymentMethod,
+            ...(couponCode ? { coupon: couponCode } : {}),
+          },
           {},
-          event_source_url ? { event_source_url } : {}
+          { event_id: metaPurchaseEventId }
         );
-
-        // ✅ Snapchat PURCHASE (Pixel + CAPI) — dedupe id = metaPurchaseEventId
-        try {
-          await trackSnap(
-            "PURCHASE",
-            {
-              currency,
-              price: finalValue,
-              transaction_id: String(orderId),
-              item_ids: metaContents.map((c) => String(c.id)),
-              payment_method: paymentMethod,
-              ...(couponCode ? { coupon: couponCode } : {}),
-            },
-            {},
-            { event_id: metaPurchaseEventId }
-          );
-        } catch (e) {
-          console.warn("👻 Snap PURCHASE failed", e);
-        }
       } catch (e) {
-        console.warn("🧾 Meta Purchase failed", e);
-      }
-
-      /* ✅ INTERNAL ANALYTICS PURCHASE */
-      try {
-        const analytics = useAnalyticsStore.getState();
-        metaContents.forEach((c) => analytics.trackPurchase?.(c.id));
-      } catch (e) {
-        console.warn("📊 Internal purchase analytics failed", e);
+        console.warn("👻 Snap PURCHASE failed", e);
       }
     } catch (e) {
-      console.warn("Purchase tracking failed", e);
+      console.warn("🧾 Meta Purchase failed", e);
     }
-  },
+
+    try {
+      const analytics = useAnalyticsStore.getState();
+      metaContents.forEach((c) => analytics.trackPurchase?.(c.id));
+    } catch (e) {
+      console.warn("📊 Internal purchase analytics failed", e);
+    }
+  } catch (e) {
+    console.warn("Purchase tracking failed", e);
+  }
+},
 
 
     /**

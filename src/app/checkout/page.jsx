@@ -655,6 +655,51 @@ const resetGuestContext = () => {
 
     const order = await createOrder({
       customerId: finalCustomer._id,
+       customer: {
+    ...finalCustomer,
+    shippingAddressSnapshot: {
+      fullName:
+        selectedAddressObj?.fullName ||
+        selectedAddressObj?.name ||
+        addressForm?.fullName ||
+        finalCustomer?.name ||
+        "",
+
+      phone:
+        selectedAddressObj?.phone ||
+        addressForm?.phone ||
+        finalCustomer?.phone ||
+        finalCustomer?.mobile ||
+        "",
+
+      email:
+        selectedAddressObj?.email ||
+        addressForm?.email ||
+        finalCustomer?.email ||
+        user?.email ||
+        "",
+
+      city:
+        selectedAddressObj?.city ||
+        addressForm?.city ||
+        "",
+
+      state:
+        selectedAddressObj?.state ||
+        addressForm?.state ||
+        "",
+
+      country:
+        selectedAddressObj?.country ||
+        "in",
+
+      pincode:
+        selectedAddressObj?.pincode ||
+        selectedAddressObj?.postalCode ||
+        addressForm?.postalCode ||
+        "",
+    },
+  },
       shippingAddressId: selectedAddressObj._id,
       billingAddressId: selectedAddressObj._id,
       paymentMethod: selectedPayment,

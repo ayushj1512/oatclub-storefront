@@ -74,6 +74,24 @@
       qty
     );
 
+    const metaProductData = (p) => ({
+  content_type: "product",
+  content_ids: p?.id ? [String(p.id)] : [],
+  contents: p?.id
+    ? [
+        {
+          id: String(p.id),
+          quantity: 1,
+          item_price: Number(p.price || 0),
+        },
+      ]
+    : [],
+  value: Number(p?.price || 0),
+  currency: p?.currency || "INR",
+  content_name: p?.name || "",
+  content_category: p?.category || "",
+});
+
   const shouldSkipGA4 = (get, set, key, ms = 1500) => {
     const now = Date.now();
     const { _lastGA4Key, _lastGA4At } = get();
@@ -418,15 +436,15 @@ collectionsBySlug: {},
 
           if (!(sameKey && tooSoon)) {
             await trackMeta("ViewContent", {
-              content_type: "product_group",
-              content_ids: [String(rawCategory)],
-              content_name: String(rawCategory),
-              currency: "INR",
-              content_ids_product: incoming
-                .slice(0, 10)
-                .map((p) => String(p?.id))
-                .filter(Boolean),
-            });
+  content_type: "product_group",
+  content_ids: [String(rawCategory)],
+  content_name: String(rawCategory),
+  currency: "INR",
+  content_ids_product: incoming
+    .slice(0, 10)
+    .map((p) => String(p?.id))
+    .filter(Boolean),
+});
 
             set({ _lastMetaCategoryKey: key, _lastMetaCategoryAt: now });
           }
@@ -704,15 +722,7 @@ getProductsForCollection: (collectionSlugOrId) => {
             const sameKey = _lastMetaViewKey && _lastMetaViewKey === key;
 
             if (!(sameKey && tooSoon)) {
-              await trackMeta("ViewContent", {
-                content_type: "product",
-                content_ids: prod?.id ? [String(prod.id)] : [],
-                contents: prod?.id ? [{ id: String(prod.id), quantity: 1, item_price: Number(prod.price || 0) }] : [],
-                value: Number(prod.price || 0),
-                currency: prod.currency || "INR",
-                content_name: prod.name || "",
-                content_category: prod.category || "",
-              });
+             await trackMeta("ViewContent", metaProductData(prod));
 
               set({ _lastMetaViewKey: key, _lastMetaViewAt: now });
             }
@@ -858,16 +868,16 @@ getProductsForCollection: (collectionSlugOrId) => {
           meta._lastMetaCategoryAt && now - meta._lastMetaCategoryAt < 1500;
 
         if (!(meta._lastMetaCategoryKey === key && tooSoon) && categoryChanged) {
-          await trackMeta("ViewContent", {
-            content_type: "product_group",
-            content_ids: [category],
-            content_name: category,
-            currency: "INR",
-            content_ids_product: incoming
-              .slice(0, 10)
-              .map((p) => String(p?.id || p?._id || ""))
-              .filter(Boolean),
-          });
+         await trackMeta("ViewContent", {
+  content_type: "product_group",
+  content_ids: [String(rawCategory)],
+  content_name: String(rawCategory),
+  currency: "INR",
+  content_ids_product: incoming
+    .slice(0, 10)
+    .map((p) => String(p?.id))
+    .filter(Boolean),
+});
 
           set({
             _lastMetaCategoryKey: key,
@@ -952,17 +962,7 @@ fetchProductDetailsByCode: async (productCode) => {
       const sameKey = _lastMetaViewKey && _lastMetaViewKey === key;
 
       if (!(sameKey && tooSoon)) {
-        await trackMeta("ViewContent", {
-          content_type: "product",
-          content_ids: prod?.id ? [String(prod.id)] : [],
-          contents: prod?.id
-            ? [{ id: String(prod.id), quantity: 1, item_price: Number(prod.price || 0) }]
-            : [],
-          value: Number(prod.price || 0),
-          currency: prod.currency || "INR",
-          content_name: prod.name || "",
-          content_category: prod.category || "",
-        });
+     await trackMeta("ViewContent", metaProductData(prod));
 
         set({ _lastMetaViewKey: key, _lastMetaViewAt: now });
       }
@@ -1042,15 +1042,7 @@ fetchProductDetailsByCode: async (productCode) => {
           const sameKey = _lastMetaViewKey && _lastMetaViewKey === key;
 
           if (!(sameKey && tooSoon)) {
-            await trackMeta("ViewContent", {
-              content_type: "product",
-              content_ids: [String(product.id)],
-              contents: [{ id: String(product.id), quantity: 1, item_price: Number(product.price || 0) }],
-              value: Number(product.price || 0),
-              currency: product.currency || "INR",
-              content_name: product.name || "",
-              content_category: product.category || "",
-            });
+         await trackMeta("ViewContent", metaProductData(prod));
 
             set({ _lastMetaViewKey: key, _lastMetaViewAt: now });
           }

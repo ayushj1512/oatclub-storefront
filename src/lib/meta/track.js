@@ -1,54 +1,85 @@
-  "use client";
+"use client";
 
 /** Generate event_id for dedup */
 function eventId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 /** Cookie reader for _fbp/_fbc */
 function getCookie(name) {
   if (typeof document === "undefined") return undefined;
-  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+
+  const match = document.cookie.match(
+    new RegExp("(^| )" + name + "=([^;]+)")
+  );
+
   return match ? decodeURIComponent(match[2]) : undefined;
 }
 
+/** Remove undefined/null/empty values */
+function compactObject(obj = {}) {
+  return Object.fromEntries(
+    Object.entries(obj).filter(
+      ([, value]) => value !== undefined && value !== null && value !== ""
+    )
+  );
+}
+
 /**
- * ✅ trackMeta: Meta Pixel + CAPI (dedup)
+ * ✅ trackMeta: Meta Pixel + CAPI dedup
+ *
  * Usage:
- * await trackMeta("AddToCart", {...customData}, {...userData})
+ * await trackMeta("ViewContent", customData);
+ * await trackMeta("Purchase", customData, userData);
  */
-export async function trackMeta(eventName, customData = {}, userData = {}, opts = {}) {
+export async function trackMeta(
+  eventName,
+  customData = {},
+  userData = {},
+  opts = {}
+) {
   const event_id = opts.event_id || eventId();
 
-  // ✅ 1) Pixel (browser)
+  const safeCustomData = compactObject(customData);
+
+  // ✅ 1) Meta Pixel browser event
   if (typeof window !== "undefined" && typeof window.fbq === "function") {
-    window.fbq("track", eventName, customData, { eventID: event_id });
+    window.fbq("track", eventName, safeCustomData, {
+      eventID: event_id,
+    });
   }
 
-  // ✅ 2) CAPI (server via Next API route)
+  // ✅ 2) CAPI server event via Next API route
   const payload = {
     event_name: eventName,
     event_id,
-    custom_data: customData,
-    event_source_url: typeof window !== "undefined" ? window.location.href : undefined,
-    user_data: {
+    custom_data: safeCustomData,
+    event_source_url:
+      typeof window !== "undefined" ? window.location.href : undefined,
+
+    /**
+     * ✅ Do NOT hash here.
+     * Keep frontend simple.
+     * Hash/normalize user_data inside /api/meta/capi server route.
+     */
+    user_data: compactObject({
       fbp: getCookie("_fbp"),
       fbc: getCookie("_fbc"),
       ...userData,
-    },
+    }),
   };
 
   try {
-    /**
-     * ✅ IMPORTANT FIX:
-     * Always call relative URL so request goes to SAME domain where Next.js runs.
-     * This prevents accidental calls to Render backend.
-     */
     await fetch("/api/meta/capi", {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(compactObject(payload)),
       keepalive: true,
     });
   } catch (e) {

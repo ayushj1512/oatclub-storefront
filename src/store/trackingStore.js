@@ -1,22 +1,15 @@
 "use client";
 
 import { create } from "zustand";
+import { trackMeta } from "@/lib/meta/track";
 
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
 
-/* -------------------------------------------------------
-   INTERNAL STATE (not persisted)
-------------------------------------------------------- */
 let metaInitialized = false;
 let gtmInitialized = false;
-
-// prevent duplicate product views per session
 const viewedProducts = new Set();
 
-/* -------------------------------------------------------
-   HELPERS
-------------------------------------------------------- */
 const isBrowser = typeof window !== "undefined";
 
 const ensureDataLayer = () => {
@@ -24,22 +17,38 @@ const ensureDataLayer = () => {
   window.dataLayer = window.dataLayer || [];
 };
 
-/* -------------------------------------------------------
-   TRACKING STORE
-------------------------------------------------------- */
+const toNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const normalizeItems = (items = []) =>
+  items
+    .map((it) => {
+      const id = String(it?.productId || it?.id || it?.item_id || "").trim();
+      if (!id) return null;
+
+      return {
+        id,
+        name: it?.name || it?.title || it?.item_name || "",
+        category: it?.category || it?.item_category || "",
+        quantity: Math.max(1, toNum(it?.quantity || it?.qty || 1)),
+        price: toNum(it?.price || it?.item_price || 0),
+      };
+    })
+    .filter(Boolean);
+
 export const useTrackingStore = create(() => ({
-  /* ---------------------------------------------------
-     INIT (call ONCE in root layout)
-  --------------------------------------------------- */
   init: () => {
     if (!isBrowser) return;
 
-    /* ---------- META PIXEL ---------- */
     if (META_PIXEL_ID && !metaInitialized) {
       !(function (f, b, e, v, n, t, s) {
         if (f.fbq) return;
         n = f.fbq = function () {
-          n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+          n.callMethod
+            ? n.callMethod.apply(n, arguments)
+            : n.queue.push(arguments);
         };
         if (!f._fbq) f._fbq = n;
         n.push = n;
@@ -51,15 +60,18 @@ export const useTrackingStore = create(() => ({
         t.src = v;
         s = b.getElementsByTagName(e)[0];
         s.parentNode.insertBefore(t, s);
-      })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
+      })(
+        window,
+        document,
+        "script",
+        "https://connect.facebook.net/en_US/fbevents.js"
+      );
 
       window.fbq("init", META_PIXEL_ID);
       console.log("🟦 Meta Pixel initialized:", META_PIXEL_ID);
-
       metaInitialized = true;
     }
 
-    /* ---------- GTM ---------- */
     if (GTM_ID && !gtmInitialized) {
       ensureDataLayer();
 
@@ -74,25 +86,19 @@ export const useTrackingStore = create(() => ({
       document.head.appendChild(gtmScript);
 
       console.log("🟩 GTM initialized:", GTM_ID);
-
       gtmInitialized = true;
     }
   },
 
-  /* ---------------------------------------------------
-     PAGE VIEW (call on route change)
-  --------------------------------------------------- */
-  pageView: (url) => {
+  pageView: async (url) => {
     if (!isBrowser) return;
 
     console.log("📄 PageView:", url);
 
-    // Meta
-    if (window.fbq) {
-      window.fbq("track", "PageView");
-    }
+    await trackMeta("PageView", {
+      page_path: url || window.location.pathname,
+    });
 
-    // GTM
     ensureDataLayer();
     window.dataLayer.push({
       event: "page_view",
@@ -100,30 +106,37 @@ export const useTrackingStore = create(() => ({
     });
   },
 
-  /* ---------------------------------------------------
-     PRODUCT VIEW (Product Card click)
-  --------------------------------------------------- */
-  viewProduct: ({ productId, name, price, category }) => {
+  viewProduct: async ({ productId, name, price, category, userData = {} }) => {
     if (!isBrowser || !productId) return;
 
     const pid = String(productId);
     if (viewedProducts.has(pid)) return;
     viewedProducts.add(pid);
 
+    const value = toNum(price);
+
     console.log("👁️ ViewContent:", pid);
 
-    // Meta
-    if (window.fbq) {
-      window.fbq("track", "ViewContent", {
+    await trackMeta(
+      "ViewContent",
+      {
         content_ids: [pid],
-        content_name: name,
+        content_name: name || "",
         content_type: "product",
-        value: Number(price || 0),
+        content_category: category || "",
+        contents: [
+          {
+            id: pid,
+            quantity: 1,
+            item_price: value,
+          },
+        ],
+        value,
         currency: "INR",
-      });
-    }
+      },
+      userData
+    );
 
-    // GTM
     ensureDataLayer();
     window.dataLayer.push({
       event: "view_item",
@@ -133,98 +146,163 @@ export const useTrackingStore = create(() => ({
             item_id: pid,
             item_name: name,
             item_category: category,
-            price: Number(price || 0),
+            price: value,
           },
         ],
       },
     });
   },
 
-  /* ---------------------------------------------------
-     ADD TO CART
-  --------------------------------------------------- */
-  addToCart: ({ productId, name, price, quantity = 1 }) => {
+  addToCart: async ({
+    productId,
+    name,
+    price,
+    quantity = 1,
+    category = "",
+    userData = {},
+  }) => {
     if (!isBrowser || !productId) return;
 
-    console.log("🛒 AddToCart:", productId);
+    const pid = String(productId);
+    const qty = Math.max(1, toNum(quantity || 1));
+    const unitPrice = toNum(price);
+    const value = unitPrice * qty;
 
-    // Meta
-    if (window.fbq) {
-      window.fbq("track", "AddToCart", {
-        content_ids: [String(productId)],
+    console.log("🛒 AddToCart:", pid);
+
+    await trackMeta(
+      "AddToCart",
+      {
+        content_ids: [pid],
         content_type: "product",
-        value: Number(price || 0) * quantity,
+        content_name: name || "",
+        content_category: category || "",
+        contents: [
+          {
+            id: pid,
+            quantity: qty,
+            item_price: unitPrice,
+          },
+        ],
+        value,
         currency: "INR",
-      });
-    }
+      },
+      userData
+    );
 
-    // GTM
     ensureDataLayer();
     window.dataLayer.push({
       event: "add_to_cart",
       ecommerce: {
         items: [
           {
-            item_id: String(productId),
+            item_id: pid,
             item_name: name,
-            price: Number(price || 0),
-            quantity,
+            item_category: category,
+            price: unitPrice,
+            quantity: qty,
           },
         ],
       },
     });
   },
 
-  /* ---------------------------------------------------
-     CHECKOUT START
-  --------------------------------------------------- */
-  beginCheckout: ({ value }) => {
+  beginCheckout: async ({ value, items = [], userData = {} }) => {
     if (!isBrowser) return;
 
-    console.log("🚚 InitiateCheckout:", value);
+    const safeItems = normalizeItems(items);
+    const safeValue =
+      toNum(value) ||
+      safeItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
-    if (window.fbq) {
-      window.fbq("track", "InitiateCheckout", {
-        value: Number(value || 0),
+    console.log("🚚 InitiateCheckout:", safeValue);
+
+    await trackMeta(
+      "InitiateCheckout",
+      {
+        value: safeValue,
         currency: "INR",
-      });
-    }
+        content_type: "product",
+        content_ids: safeItems.map((it) => it.id),
+        contents: safeItems.map((it) => ({
+          id: it.id,
+          quantity: it.quantity,
+          item_price: it.price,
+        })),
+        num_items: safeItems.reduce((sum, it) => sum + it.quantity, 0),
+      },
+      userData
+    );
 
     ensureDataLayer();
     window.dataLayer.push({
       event: "begin_checkout",
-      value: Number(value || 0),
+      value: safeValue,
       currency: "INR",
+      ecommerce: {
+        items: safeItems.map((it) => ({
+          item_id: it.id,
+          item_name: it.name,
+          item_category: it.category,
+          price: it.price,
+          quantity: it.quantity,
+        })),
+      },
     });
   },
 
-  /* ---------------------------------------------------
-     PURCHASE (Order Success)
-  --------------------------------------------------- */
-  purchase: ({ orderId, value }) => {
+  purchase: async ({ orderId, value, items = [], userData = {} }) => {
     if (!isBrowser) return;
 
-    console.log("💰 Purchase:", orderId, value);
+    const safeItems = normalizeItems(items);
+    const safeValue =
+      toNum(value) ||
+      safeItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
-    if (window.fbq) {
-      window.fbq("track", "Purchase", {
-        value: Number(value || 0),
+    console.log("💰 Purchase:", orderId, safeValue);
+
+    await trackMeta(
+      "Purchase",
+      {
+        value: safeValue,
         currency: "INR",
-      });
-    }
+        order_id: orderId,
+        content_type: "product",
+        content_ids: safeItems.map((it) => it.id),
+        contents: safeItems.map((it) => ({
+          id: it.id,
+          quantity: it.quantity,
+          item_price: it.price,
+        })),
+        num_items: safeItems.reduce((sum, it) => sum + it.quantity, 0),
+      },
+      {
+        external_id: userData.external_id || userData.externalId || orderId,
+        ...userData,
+      }
+    );
 
     ensureDataLayer();
     window.dataLayer.push({
       event: "purchase",
       transaction_id: orderId,
-      value: Number(value || 0),
+      value: safeValue,
       currency: "INR",
+      ecommerce: {
+        transaction_id: orderId,
+        value: safeValue,
+        currency: "INR",
+        items: safeItems.map((it) => ({
+          item_id: it.id,
+          item_name: it.name,
+          item_category: it.category,
+          price: it.price,
+          quantity: it.quantity,
+        })),
+      },
     });
   },
 
-  /* ---------------------------------------------------
-     RESET (optional)
-  --------------------------------------------------- */
   resetSession: () => {
     viewedProducts.clear();
     console.log("♻️ Tracking session reset");
