@@ -19,10 +19,8 @@ import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
 
 import { useAuthStore } from "@/store/authStore";
 import { useCustomerCartStore } from "@/store/customerCartStore";
+import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 
-/* -----------------------------
-   🔥 Init auth + customer cart
------------------------------- */
 function AuthInit() {
   const initializeAuth = useAuthStore((s) => s.initialize);
   const customerId = useAuthStore((s) => s.customer?._id);
@@ -46,16 +44,30 @@ function AuthInit() {
   return null;
 }
 
-export default function LayoutClient({ children }: { children: React.ReactNode }) {
+function MarketingCampaignInit() {
+  const captureFromUrl = useMarketingCampaignStore((s) => s.captureFromUrl);
+
+  useEffect(() => {
+    captureFromUrl?.();
+  }, [captureFromUrl]);
+
+  return null;
+}
+
+export default function LayoutClient({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
   const SNAP_PIXEL_ID = process.env.NEXT_PUBLIC_SNAP_PIXEL_ID || "";
 
   return (
     <>
       <AuthInit />
+      <MarketingCampaignInit />
 
       <Suspense fallback={null}>
-        {/* ✅ Tracking (client only) */}
         <MetaPixel pixelId={META_PIXEL_ID} trackPageView debug />
         <SnapPixel pixelId={SNAP_PIXEL_ID} trackPageView debug />
         <GoogleTagManager gtmId="GTM-5CTM95TR" />
@@ -64,17 +76,38 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       </Suspense>
 
       <ClientProviders>
-        <div className="hidden md:block"><DesktopHeader /></div>
-        <div className="md:hidden"><MobileHeader /></div>
+        <div className="hidden md:block">
+          <DesktopHeader />
+        </div>
 
-        {/* ✅ all classnames in one line (hydration-safe) */}
-        <main className="flex min-h-screen flex-col bg-white pb-8">{children}</main>
+        <div className="md:hidden">
+          <MobileHeader />
+        </div>
+
+        <main className="flex min-h-screen flex-col bg-white pb-8">
+          {children}
+        </main>
 
         <Footer />
         <ScrollToTop />
         <LogoutConfirmModal />
 
-        <Toaster position="top-right" richColors closeButton expand={false} duration={1000} toastOptions={{ classNames: { toast: "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm", description: "text-[11px] leading-4 opacity-80", actionButton: "h-7 px-2 text-[11px]", cancelButton: "h-7 px-2 text-[11px]" } }} />
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          expand={false}
+          duration={1000}
+          toastOptions={{
+            classNames: {
+              toast:
+                "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm",
+              description: "text-[11px] leading-4 opacity-80",
+              actionButton: "h-7 px-2 text-[11px]",
+              cancelButton: "h-7 px-2 text-[11px]",
+            },
+          }}
+        />
       </ClientProviders>
     </>
   );

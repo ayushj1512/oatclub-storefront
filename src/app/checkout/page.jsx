@@ -20,6 +20,8 @@ import { useCouponStore } from "@/store/couponStore";
 import useGtmStore from "@/store/gtmStore";
 import { trackSnap } from "@/lib/snap/track.js";
 
+import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
+
 /* ---------- tiny UI ---------- */
 const Chip = ({ children }) => (
   <span className="inline-flex items-center gap-1.5 rounded-full bg-black/4 px-3 py-1 text-[11px] text-gray-700">
@@ -29,6 +31,10 @@ const Chip = ({ children }) => (
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const trackCheckoutStarted = useMarketingCampaignStore(
+  (s) => s.trackCheckoutStarted
+);
+const markConversion = useMarketingCampaignStore((s) => s.markConversion);
 
   /* ---------------- STORES ---------------- */
   const cartItems = useCartStore((s) => s.items) || [];
@@ -215,19 +221,21 @@ useEffect(() => {
   if (checkoutTracked.current || !items?.length) return;
   checkoutTracked.current = true;
 
-  // ✅ GA4 begin_checkout (existing)
   try {
-   useGtmStore.getState().beginCheckout({
-  items,
-  total: Number(payable || 0),
-  coupon: coupon?.code || "",
-});
-    console.log("📈 GA4 begin_checkout fired", { value: Number(payable || 0), coupon: coupon?.code || null });
+    useGtmStore.getState().beginCheckout({
+      items,
+      total: Number(payable || 0),
+      coupon: coupon?.code || "",
+    });
+
+    console.log("📈 GA4 begin_checkout fired", {
+      value: Number(payable || 0),
+      coupon: coupon?.code || null,
+    });
   } catch (e) {
     console.warn("📈 GA4 begin_checkout failed", e);
   }
 
-  // 👻 Snapchat START_CHECKOUT (Pixel + CAPI)
   try {
     const itemIds = (items || [])
       .map((it) => it?.productId || it?.id)
@@ -241,11 +249,31 @@ useEffect(() => {
       ...(coupon?.code ? { coupon: String(coupon.code) } : {}),
     });
 
-    console.log("👻 Snap START_CHECKOUT fired", { price: Number(payable || 0), item_ids: itemIds });
+    console.log("👻 Snap START_CHECKOUT fired", {
+      price: Number(payable || 0),
+      item_ids: itemIds,
+    });
   } catch (e) {
     console.warn("👻 Snap START_CHECKOUT failed", e);
   }
-}, [items?.length, payable, coupon?.code, items]);
+
+  try {
+    trackCheckoutStarted({
+      cartValue: Number(payable || 0),
+      pageUrl: typeof window !== "undefined" ? window.location.href : "",
+    });
+
+    console.log("📣 Marketing campaign checkout_started fired");
+  } catch (e) {
+    console.warn("📣 Marketing campaign checkout_started failed", e);
+  }
+}, [
+  items?.length,
+  payable,
+  coupon?.code,
+  items,
+  trackCheckoutStarted,
+]);
 
   /* ---------------- PINCODE LOOKUP ---------------- */
   const pinTimer = useRef(null);
@@ -571,7 +599,7 @@ const resetGuestContext = () => {
   };
 
   /* ---------------- PLACE ORDER ---------------- */
-    const handlePlaceOrder = async () => {
+  const handlePlaceOrder = async () => {
   const finalCustomer = await ensureCustomer();
   if (!finalCustomer?._id) return;
 
@@ -642,6 +670,10 @@ const resetGuestContext = () => {
       };
     });
 
+    // ✅ Debug attribution before order create
+    const attribution =
+      useMarketingCampaignStore.getState().getAttributionPayload?.() || null;
+
     console.log("🧾 CHECKOUT ORDER DEBUG:", {
       subtotal,
       discount,
@@ -651,55 +683,47 @@ const resetGuestContext = () => {
       coupon,
       cartItems: items,
       orderItems,
+      attribution,
     });
 
     const order = await createOrder({
       customerId: finalCustomer._id,
-       customer: {
-    ...finalCustomer,
-    shippingAddressSnapshot: {
-      fullName:
-        selectedAddressObj?.fullName ||
-        selectedAddressObj?.name ||
-        addressForm?.fullName ||
-        finalCustomer?.name ||
-        "",
+      customer: {
+        ...finalCustomer,
+        shippingAddressSnapshot: {
+          fullName:
+            selectedAddressObj?.fullName ||
+            selectedAddressObj?.name ||
+            addressForm?.fullName ||
+            finalCustomer?.name ||
+            "",
 
-      phone:
-        selectedAddressObj?.phone ||
-        addressForm?.phone ||
-        finalCustomer?.phone ||
-        finalCustomer?.mobile ||
-        "",
+          phone:
+            selectedAddressObj?.phone ||
+            addressForm?.phone ||
+            finalCustomer?.phone ||
+            finalCustomer?.mobile ||
+            "",
 
-      email:
-        selectedAddressObj?.email ||
-        addressForm?.email ||
-        finalCustomer?.email ||
-        user?.email ||
-        "",
+          email:
+            selectedAddressObj?.email ||
+            addressForm?.email ||
+            finalCustomer?.email ||
+            user?.email ||
+            "",
 
-      city:
-        selectedAddressObj?.city ||
-        addressForm?.city ||
-        "",
+          city: selectedAddressObj?.city || addressForm?.city || "",
+          state: selectedAddressObj?.state || addressForm?.state || "",
+          country: selectedAddressObj?.country || "in",
 
-      state:
-        selectedAddressObj?.state ||
-        addressForm?.state ||
-        "",
+          pincode:
+            selectedAddressObj?.pincode ||
+            selectedAddressObj?.postalCode ||
+            addressForm?.postalCode ||
+            "",
+        },
+      },
 
-      country:
-        selectedAddressObj?.country ||
-        "in",
-
-      pincode:
-        selectedAddressObj?.pincode ||
-        selectedAddressObj?.postalCode ||
-        addressForm?.postalCode ||
-        "",
-    },
-  },
       shippingAddressId: selectedAddressObj._id,
       billingAddressId: selectedAddressObj._id,
       paymentMethod: selectedPayment,
@@ -716,6 +740,22 @@ const resetGuestContext = () => {
           }
         : null,
     });
+
+    try {
+      await markConversion({
+        orderId: order?._id || order?.id || order?.orderId,
+        orderNumber: order?.orderNumber,
+        revenue: Number(payable || order?.finalPayable || order?.totalAmount || 0),
+      });
+
+      console.log("📣 Marketing campaign conversion tracked", {
+        orderId: order?._id || order?.id || order?.orderId,
+        orderNumber: order?.orderNumber,
+        revenue: Number(payable || order?.finalPayable || order?.totalAmount || 0),
+      });
+    } catch (e) {
+      console.warn("📣 Marketing campaign conversion failed", e);
+    }
 
     if (buyNowItem) completeCheckout?.();
     else clearCart?.();

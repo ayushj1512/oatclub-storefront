@@ -25,6 +25,7 @@ import CrossSellProducts from "@/components/productDetail/CrossSellProducts";
 import LepordCollectionAnnouncement from "@/components/productDetail/LepordCollectionAnnouncement";
 import useGtmStore from "@/store/gtmStore";
 import ProductNotFound from "@/components/productDetail/ProductNotFound";
+import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 
 const BRAND = { black: "#111111" };
 
@@ -407,6 +408,8 @@ export default function ProductPage({ params }) {
 
   const viewItem = useGtmStore((s) => s.viewItem);
 
+  const trackProductView = useMarketingCampaignStore((s) => s.trackProductView);
+
   useEffect(() => {
     cartInitialize?.();
     initWishlist?.();
@@ -525,14 +528,33 @@ export default function ProductPage({ params }) {
     recentlyViewedStore.addProduct?.(product);
   }, [product, recentlyViewedStore]);
 
-  useEffect(() => {
+ useEffect(() => {
   if (!product?.productId) return;
+
+  const productCategory =
+    product?.raw?.categories?.[0]?.name || category || "";
 
   viewItem({
     ...product,
-    category: product?.raw?.categories?.[0]?.name || category || "",
+    category: productCategory,
   });
-}, [product?.productId, viewItem, category]);
+
+  trackProductView({
+    productId: product.productId,
+    productName: product.name,
+    cartValue: Number(product.price || 0),
+    pageUrl:
+      typeof window !== "undefined" ? window.location.href : "",
+  });
+}, [
+  product?.productId,
+  product?.name,
+  product?.price,
+  product?.raw?.categories,
+  viewItem,
+  category,
+  trackProductView,
+]);
 
   const requireColor = useMemo(() => {
     if (!normalized) return false;

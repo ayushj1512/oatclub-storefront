@@ -14,6 +14,7 @@ import { mapItem } from "@/components/tracking/ga4Mapper";
 import { useCouponStore } from "@/store/couponStore"; // ✅ adjust path
 import { useCustomerCartStore } from "@/store/customerCartStore"; // ✅ NEW
 import useGtmStore from "@/store/gtmStore";
+import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 
 const KEY = "cart_products";
 
@@ -639,7 +640,6 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
         metaCartItemData(builtItem, originalProduct, quantity)
       );
 
-      // ✅ Snapchat: ADD_CART (dedupe id = metaEventId)
       try {
         await trackSnap(
           "ADD_CART",
@@ -679,6 +679,26 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
       });
     } catch (e) {
       console.warn("📈 GA4 add_to_cart failed (buyNow ensure)", e);
+    }
+
+    /* ---------------- MARKETING CAMPAIGN: ADD TO CART ---------------- */
+    try {
+      const quantity = Number(builtItem?.quantity ?? 1) || 1;
+      const price =
+        Number(builtItem?.price ?? originalProduct?.price ?? 0) || 0;
+
+      useMarketingCampaignStore.getState().trackAddToCart({
+        productId: builtItem?.productId,
+        productName:
+          builtItem?.name ||
+          originalProduct?.name ||
+          originalProduct?.title ||
+          "",
+        cartValue: price * quantity,
+        pageUrl: typeof window !== "undefined" ? window.location.href : "",
+      });
+    } catch (e) {
+      console.warn("📣 Marketing campaign add_to_cart failed", e);
     }
 
     /* ---------------- ABANDONED CART SNAPSHOT ---------------- */
@@ -917,6 +937,21 @@ addToCart: async ({
   } catch (e) {
     console.warn("📈 GTM add_to_cart failed", e);
   }
+
+  /* ---------------- MARKETING CAMPAIGN: ADD TO CART ---------------- */
+try {
+  const quantity = Number(built?.quantity ?? qty ?? 1) || 1;
+  const price = Number(built?.price ?? product?.price ?? 0) || 0;
+
+  useMarketingCampaignStore.getState().trackAddToCart({
+    productId: built?.productId,
+    productName: built?.name || product?.name || product?.title || "",
+    cartValue: price * quantity,
+    pageUrl: typeof window !== "undefined" ? window.location.href : "",
+  });
+} catch (e) {
+  console.warn("📣 Marketing campaign add_to_cart failed", e);
+}
 
   /* ---------------- ABANDONED CART SNAPSHOT ---------------- */
   try {

@@ -4,6 +4,7 @@
   import { pushEcomEvent } from "@/components/tracking/gtm"; // ✅ ADD THIS
   import { trackSnap } from "@/lib/snap/track.js";
   import axios from "axios";
+  import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 
   const API = process.env.NEXT_PUBLIC_BACKEND_URL;
   const BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -75,7 +76,7 @@
    * CREATE ORDER (COD / RAZORPAY)
    * POST /api/orders
    */
-  createOrder: async ({
+createOrder: async ({
   customerId,
   customer: customerData = {},
   shippingAddressId,
@@ -110,19 +111,15 @@
 
     const metaUserData = {
       external_id: customer?._id || customerId,
-
       email: customer?.email || customer?.shippingAddressSnapshot?.email,
-
       phone:
         customer?.phone ||
         customer?.mobile ||
         customer?.shippingAddressSnapshot?.phone,
-
       firstName:
         customer?.firstName ||
         customer?.shippingAddress?.firstName ||
         customer?.shippingAddressSnapshot?.fullName?.split?.(" ")?.[0],
-
       lastName:
         customer?.lastName ||
         customer?.shippingAddress?.lastName ||
@@ -130,23 +127,19 @@
           ?.split?.(" ")
           ?.slice?.(1)
           ?.join?.(" "),
-
       city:
         customer?.city ||
         customer?.shippingAddress?.city ||
         customer?.shippingAddressSnapshot?.city,
-
       state:
         customer?.state ||
         customer?.shippingAddress?.state ||
         customer?.shippingAddressSnapshot?.state,
-
       country:
         customer?.country ||
         customer?.shippingAddress?.country ||
         customer?.shippingAddressSnapshot?.country ||
         "in",
-
       zip:
         customer?.pincode ||
         customer?.zip ||
@@ -158,8 +151,8 @@
       coupon && typeof coupon === "object"
         ? String(coupon.code || "").trim()
         : coupon
-        ? String(coupon).trim()
-        : "";
+          ? String(coupon).trim()
+          : "";
 
     const normalizedItems = (items || []).map((it) => {
       const productId = it?.productId || it?.id;
@@ -189,7 +182,6 @@
         it?.productSnapshot?.isPrimaryProduct === true;
 
       if (!productId) throw new Error("Each item must have productId");
-
       if (!Number.isFinite(quantity) || quantity < 1) {
         throw new Error("Invalid item quantity");
       }
@@ -338,6 +330,12 @@
       console.warn("🧾 Meta AddPaymentInfo failed", e);
     }
 
+    // ✅ Universal attribution snapshot from marketing store
+    const attribution =
+      useMarketingCampaignStore.getState().getOrderMarketingPayload?.() || null;
+
+    console.log("📣 [Order Attribution]", attribution);
+
     const payload = {
       customerId,
       shippingAddressId,
@@ -349,6 +347,7 @@
       currency,
       paymentMethod: pm,
       source,
+      attribution, // ✅ NEW
       isGiftOrder,
       customerMessage,
     };
