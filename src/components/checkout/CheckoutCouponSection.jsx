@@ -8,18 +8,64 @@ import useGtmStore from "@/store/gtmStore";
 
 const money = (n) => (Number.isFinite(+n) ? (+n).toLocaleString("en-IN") : "0");
 
-const couponLabel = (c) => {
-  if (!c) return "";
-  return c.discountType === "percentage"
+const couponLabel = (c) =>
+  c?.discountType === "percentage"
     ? `${c.discountValue}% OFF`
-    : `₹${money(c.discountValue)} OFF`;
-};
+    : `₹${money(c?.discountValue)} OFF`;
 
 const isValidEmail = (v) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
 
 const isPublic = (c) =>
   String(c?.visibility || "public").toLowerCase() !== "private";
+
+const getCouponMeta = (coupon) => {
+  const e = coupon?._eligibility || {};
+  const desc = String(coupon?.description || "").trim();
+
+  const eligible =
+    e.isEligible !== undefined
+      ? Boolean(e.isEligible)
+      : e.okDate !== false && e.okMin !== false && e.okQty !== false;
+
+  if (eligible) {
+    return {
+      eligible: true,
+      text: desc || "Tap to apply",
+    };
+  }
+
+  if (e.okDate === false) {
+    return {
+      eligible: false,
+      text: desc || "Expired",
+    };
+  }
+
+  if (e.okMin === false) {
+    return {
+      eligible: false,
+      text: desc || `Min ₹${money(coupon.minPurchase)}`,
+    };
+  }
+
+  if (e.okQty === false && Number(e.remainingQty || 0) > 0) {
+    const qty = Number(e.remainingQty || 0);
+    return {
+      eligible: false,
+      text:
+        desc ||
+        `Add ${qty} more item${qty > 1 ? "s" : ""} to unlock ${couponLabel(
+          coupon
+        ).toLowerCase()}`,
+    };
+  }
+
+  return {
+    eligible: false,
+    text: desc || "Locked",
+  };
+};
 
 export default function CheckoutCouponSection({
   cartTotal,
@@ -74,11 +120,13 @@ export default function CheckoutCouponSection({
     fetchSuggestedCoupons,
   ]);
 
-  const publicCoupons = useMemo(() => {
-    return Array.isArray(suggestedCoupons)
-      ? suggestedCoupons.filter(isPublic)
-      : [];
-  }, [suggestedCoupons]);
+  const publicCoupons = useMemo(
+    () =>
+      Array.isArray(suggestedCoupons)
+        ? suggestedCoupons.filter(isPublic)
+        : [],
+    [suggestedCoupons]
+  );
 
   useEffect(() => {
     setCode("");
@@ -113,9 +161,7 @@ export default function CheckoutCouponSection({
   ]);
 
   useEffect(() => {
-    if (hasCoupon && !(cartTotal > 0)) {
-      clearPersistedCoupon?.();
-    }
+    if (hasCoupon && !(cartTotal > 0)) clearPersistedCoupon?.();
   }, [hasCoupon, cartTotal, clearPersistedCoupon]);
 
   const onApply = async (value = code) => {
@@ -249,9 +295,7 @@ export default function CheckoutCouponSection({
           </div>
 
           <div className="space-y-2">
-            {stepError && (
-              <p className="text-[11px] text-red-600">{stepError}</p>
-            )}
+            {stepError && <p className="text-[11px] text-red-600">{stepError}</p>}
 
             {isLoadingSuggestions ? (
               <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -265,31 +309,38 @@ export default function CheckoutCouponSection({
                 {publicCoupons.map((item) => {
                   const couponCode = String(item.code || "").toUpperCase();
                   const spin = isApplying && clicked === couponCode;
+                  const { eligible, text } = getCouponMeta(item);
 
                   return (
                     <button
                       key={item._id || couponCode}
                       type="button"
-                      disabled={isApplying || !emailOk}
+                      disabled={isApplying || !emailOk || !eligible}
                       onClick={() => onApply(couponCode)}
-                      className="rounded-xl border border-black/10 bg-white px-3 py-2 text-[11px] font-semibold text-gray-900 transition hover:bg-black hover:text-white disabled:opacity-60"
+                      className={[
+                        "rounded-xl px-3 py-2 text-left text-[11px] font-semibold transition",
+                        "max-w-[210px]",
+                        eligible
+                          ? "bg-green-50 text-green-800 shadow-[inset_0_0_0_1px_rgba(22,163,74,0.22)] hover:bg-green-600 hover:text-white"
+                          : "cursor-not-allowed bg-zinc-100 text-zinc-500 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
+                      ].join(" ")}
                     >
-                      <span className="inline-flex items-center gap-1">
-                        {spin && (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        )}
-                        {couponCode}
-                      </span>
-
-                      <span className="ml-1 font-medium opacity-70">
-                        {couponLabel(item)}
-                      </span>
-
-                      {Number(item.minPurchase || 0) > 0 && (
-                        <span className="ml-2 opacity-60">
-                          Min ₹{money(item.minPurchase)}
+                      <span className="flex items-center gap-1">
+                        {spin && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        <span>{couponCode}</span>
+                        <span className="font-medium opacity-75">
+                          {couponLabel(item)}
                         </span>
-                      )}
+                      </span>
+
+                      <span
+                        className={[
+                          "mt-0.5 block truncate text-[10px] font-medium",
+                          eligible ? "opacity-60" : "text-zinc-400",
+                        ].join(" ")}
+                      >
+                        {text}
+                      </span>
                     </button>
                   );
                 })}

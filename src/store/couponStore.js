@@ -58,6 +58,21 @@ const getItemPrice = (item) => {
 const getCartTotalFromItems = (cartItems = []) =>
   cartItems.reduce((sum, item) => sum + getItemPrice(item) * getItemQty(item), 0);
 
+const getCartQty = (cartItems = [], countMode = "total_quantity") => {
+  if (!Array.isArray(cartItems) || !cartItems.length) return 0;
+  if (countMode === "unique_items") return cartItems.length;
+
+  return cartItems.reduce((sum, item) => sum + getItemQty(item), 0);
+};
+
+const normalizeQuantityRule = (rule = {}) => ({
+  enabled: Boolean(rule?.enabled),
+  minItems: Math.max(0, Number(rule?.minItems || 0)),
+  countMode: ["total_quantity", "unique_items"].includes(rule?.countMode)
+    ? rule.countMode
+    : "total_quantity",
+});
+
 const normalizeCartItems = (cartItems = []) => {
   if (!Array.isArray(cartItems)) return [];
 
@@ -93,17 +108,68 @@ const normalizeCartItems = (cartItems = []) => {
   });
 };
 
-const buildCouponSummary = (data = {}, fallbackCode = "") => ({
-  ...(data.coupon || {}),
-  code: data?.coupon?.code || fallbackCode,
-  discount: Number(data.discount || 0),
-  finalTotal: Number(data.finalTotal || 0),
-  eligibleTotal: Number(data.eligibleTotal || 0),
-  cartTotal: Number(data.cartTotal || 0),
-  discountBreakdown: Array.isArray(data.discountBreakdown)
-    ? data.discountBreakdown
-    : [],
-});
+const buildCouponSummary = (data = {}, fallbackCode = "") => {
+  const coupon = data?.coupon || {};
+  const quantityRule = normalizeQuantityRule(coupon.quantityRule);
+
+  return {
+    ...coupon,
+    code: coupon.code || fallbackCode,
+    quantityRule,
+    discount: Number(data.discount || 0),
+    finalTotal: Number(data.finalTotal || 0),
+    eligibleTotal: Number(data.eligibleTotal || 0),
+    cartTotal: Number(data.cartTotal || 0),
+    cartQuantity: Number(data.cartQuantity || 0),
+    discountBreakdown: Array.isArray(data.discountBreakdown)
+      ? data.discountBreakdown
+      : [],
+  };
+};
+
+const getBestQuantityTier = (coupons = []) =>
+  coupons
+    .filter((c) => c?.quantityRule?.enabled)
+    .sort(
+      (a, b) =>
+        Number(b.quantityRule?.minItems || 0) -
+        Number(a.quantityRule?.minItems || 0)
+    )[0] || null;
+
+const getNextQuantityTier = ({ coupons = [], cartItems = [] }) => {
+  const tiers = coupons
+    .filter((c) => c?.quantityRule?.enabled)
+    .map((c) => ({
+      ...c,
+      quantityRule: normalizeQuantityRule(c.quantityRule),
+    }))
+    .sort(
+      (a, b) =>
+        Number(a.quantityRule.minItems || 0) -
+        Number(b.quantityRule.minItems || 0)
+    );
+
+  for (const coupon of tiers) {
+    const qty = getCartQty(cartItems, coupon.quantityRule.countMode);
+    const need = Number(coupon.quantityRule.minItems || 0) - qty;
+
+    if (need > 0) {
+      return {
+        coupon,
+        requiredQty: coupon.quantityRule.minItems,
+        currentQty: qty,
+        remainingQty: need,
+        message: `Add ${need} more item${need > 1 ? "s" : ""} to unlock ${
+          coupon.discountType === "flat"
+            ? `₹${coupon.discountValue} off`
+            : `${coupon.discountValue}% off`
+        }`,
+      };
+    }
+  }
+
+  return null;
+};
 
 /* ------------------------------------------------------------------
 STORE
@@ -119,6 +185,7 @@ export const useCouponStore = create(
       finalTotal: null,
       eligibleTotal: 0,
       cartTotal: 0,
+      cartQuantity: 0,
       discountBreakdown: [],
 
       isApplying: false,
@@ -133,6 +200,7 @@ export const useCouponStore = create(
       suggestionError: null,
 
       autoAppliedCoupon: null,
+      nextCouponTier: null,
 
       _applyPromise: null,
       _autoApplyPromise: null,
@@ -148,7 +216,34 @@ export const useCouponStore = create(
       getAppliedCode: () => get().coupon?.code || "",
 
       getPayableTotal: (fallbackTotal = 0) =>
-        get().finalTotal != null ? Number(get().finalTotal) : Number(fallbackTotal || 0),
+        get().finalTotal != null
+          ? Number(get().finalTotal)
+          : Number(fallbackTotal || 0),
+
+      getSavingsLabel: () =>
+        get().discount > 0 ? `You saved ₹${Math.round(get().discount)}` : "",
+
+      getAutoAppliedLabel: () =>
+        get().autoAppliedCoupon?.code
+          ? `${get().autoAppliedCoupon.code} auto applied`
+          : "",
+
+      getNextTierMessage: () => get().nextCouponTier?.message || "",
+
+      getCouponProgress: (cartItems = []) => {
+        const tier = get().nextCouponTier;
+        if (!tier) return null;
+
+        const total = Number(tier.requiredQty || 0);
+        const current = getCartQty(normalizeCartItems(cartItems));
+        const percent = total > 0 ? Math.min(100, (current / total) * 100) : 0;
+
+        return {
+          ...tier,
+          currentQty: current,
+          percent,
+        };
+      },
 
       /* ------------------------------------------------------------------
       INTERNAL SETTERS
@@ -164,6 +259,7 @@ export const useCouponStore = create(
           finalTotal: summary.finalTotal,
           eligibleTotal: summary.eligibleTotal,
           cartTotal: summary.cartTotal,
+          cartQuantity: summary.cartQuantity,
           discountBreakdown: summary.discountBreakdown,
           message: data?.message || "Coupon applied successfully",
           error: null,
@@ -184,6 +280,7 @@ export const useCouponStore = create(
           finalTotal: null,
           eligibleTotal: 0,
           cartTotal: 0,
+          cartQuantity: 0,
           discountBreakdown: [],
           autoAppliedCoupon: null,
           isApplying: false,
@@ -208,8 +305,9 @@ export const useCouponStore = create(
         try {
           set({ isLoadingSuggestions: true, suggestionError: null });
 
-          const actualCartTotal = Array.isArray(cartItems) && cartItems.length
-            ? getCartTotalFromItems(normalizeCartItems(cartItems))
+          const normalizedItems = normalizeCartItems(cartItems);
+          const actualCartTotal = normalizedItems.length
+            ? getCartTotalFromItems(normalizedItems)
             : Number(cartTotal || 0);
 
           const res = await fetch(`${API_BASE}/api/coupons`, {
@@ -227,6 +325,8 @@ export const useCouponStore = create(
             .filter((coupon) => coupon?.isActive)
             .filter(isPublicCoupon)
             .map((coupon) => {
+              const quantityRule = normalizeQuantityRule(coupon.quantityRule);
+
               const validFrom = coupon.validFrom ? new Date(coupon.validFrom) : null;
               const validTill = coupon.validTill ? new Date(coupon.validTill) : null;
 
@@ -237,13 +337,23 @@ export const useCouponStore = create(
                 !coupon.minPurchase ||
                 actualCartTotal >= Number(coupon.minPurchase || 0);
 
+              const cartQty = getCartQty(normalizedItems, quantityRule.countMode);
+              const okQty =
+                !quantityRule.enabled ||
+                cartQty >= Number(quantityRule.minItems || 0);
+
               return {
                 ...coupon,
+                quantityRule,
                 _eligibility: {
                   okDate,
                   okMin,
-                  isEligible: okDate && okMin,
+                  okQty,
+                  isEligible: okDate && okMin && okQty,
                   cartTotal: actualCartTotal,
+                  cartQty,
+                  requiredQty: quantityRule.minItems,
+                  remainingQty: Math.max(0, quantityRule.minItems - cartQty),
                 },
               };
             })
@@ -257,6 +367,10 @@ export const useCouponStore = create(
 
           set({
             suggestedCoupons: list,
+            nextCouponTier: getNextQuantityTier({
+              coupons: list,
+              cartItems: normalizedItems,
+            }),
             isLoadingSuggestions: false,
             suggestionError: null,
           });
@@ -265,6 +379,7 @@ export const useCouponStore = create(
         } catch (e) {
           set({
             suggestedCoupons: [],
+            nextCouponTier: null,
             isLoadingSuggestions: false,
             suggestionError: e?.message || "Failed to fetch coupons",
           });
@@ -305,17 +420,6 @@ export const useCouponStore = create(
 
         if (get().isApplying && get()._applyPromise) {
           return get()._applyPromise;
-        }
-
-        if (get().coupon?.code === cCode && get().couponCustomerKey === cKey) {
-          return {
-            message: "Coupon already applied",
-            coupon: get().coupon,
-            discount: get().discount,
-            finalTotal: get().finalTotal,
-            eligibleTotal: get().eligibleTotal,
-            discountBreakdown: get().discountBreakdown,
-          };
         }
 
         const promise = (async () => {
@@ -363,6 +467,7 @@ export const useCouponStore = create(
               finalTotal: null,
               eligibleTotal: 0,
               cartTotal: 0,
+              cartQuantity: 0,
               discountBreakdown: [],
               isApplying: false,
               error: e?.message || "Coupon failed",
@@ -399,9 +504,12 @@ export const useCouponStore = create(
           ? getCartTotalFromItems(normalizedItems)
           : Number(cartTotal || 0);
 
-        if (actualCartTotal <= 0) {
-          return null;
-        }
+        set({
+          cartTotal: actualCartTotal,
+          cartQuantity: getCartQty(normalizedItems),
+        });
+
+        if (actualCartTotal <= 0) return null;
 
         if (!cKey) {
           set({
@@ -442,6 +550,11 @@ export const useCouponStore = create(
 
             if (!data.applied || !data?.coupon?.code || Number(data.discount || 0) <= 0) {
               set({
+                coupon: null,
+                discount: 0,
+                finalTotal: null,
+                eligibleTotal: 0,
+                discountBreakdown: [],
                 autoAppliedCoupon: null,
                 isAutoApplying: false,
               });
@@ -479,7 +592,7 @@ export const useCouponStore = create(
       },
 
       /* ------------------------------------------------------------------
-      REHYDRATE APPLIED COUPON
+      REHYDRATE / CART CHANGE VALIDATION
       ------------------------------------------------------------------- */
 
       rehydrateCoupon: async ({
@@ -522,6 +635,40 @@ export const useCouponStore = create(
           await get().clearPersistedCoupon();
           return null;
         }
+      },
+
+      syncCouponWithCart: async ({
+        cartTotal,
+        cartItems = [],
+        email,
+        phone,
+        customerId,
+      }) => {
+        const hasManualCoupon = Boolean(get().coupon?.code && !get().autoAppliedCoupon);
+        const normalizedItems = normalizeCartItems(cartItems);
+
+        await get().fetchSuggestedCoupons({
+          cartTotal,
+          cartItems: normalizedItems,
+        });
+
+        if (hasManualCoupon) {
+          return get().rehydrateCoupon({
+            cartTotal,
+            cartItems: normalizedItems,
+            email,
+            phone,
+            customerId,
+          });
+        }
+
+        return get().autoApplyCoupon({
+          cartTotal,
+          cartItems: normalizedItems,
+          email,
+          phone,
+          customerId,
+        });
       },
 
       /* ------------------------------------------------------------------
@@ -602,6 +749,7 @@ export const useCouponStore = create(
       clearSuggestions: () =>
         set({
           suggestedCoupons: [],
+          nextCouponTier: null,
           suggestionError: null,
           isLoadingSuggestions: false,
         }),
@@ -611,6 +759,7 @@ export const useCouponStore = create(
 
         set({
           suggestedCoupons: [],
+          nextCouponTier: null,
           isLoadingSuggestions: false,
           suggestionError: null,
         });

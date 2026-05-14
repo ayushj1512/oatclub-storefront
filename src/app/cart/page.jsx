@@ -11,6 +11,7 @@ import useGtmStore from "@/store/gtmStore";
 import { trackMeta } from "@/lib/meta/track";
 import { useCouponStore } from "@/store/couponStore";
 import BudgetBeesCartSection from "@/components/cart/BudgetBeesCartSection";
+import CartCouponPreview from "@/components/cart/CartCouponPreview";
 const BRAND = "#111111";
 
 const money = (n) => {
@@ -276,6 +277,8 @@ useGtmStore.getState().viewCart({
         </GlassCard>
 
         {/* <BudgetBeesCartSection />  */}
+
+        <CartCouponPreview cartTotal={subtotal} cartItems={useCartStore.getState().getCouponCartItems?.() || []} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6">
           <div className="lg:col-span-8">
