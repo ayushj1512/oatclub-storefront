@@ -109,6 +109,14 @@ const markConversion = useMarketingCampaignStore((s) => s.markConversion);
     const st = useCartStore.getState();
     if (!st.items?.length && !st.buyNowItem) initCart?.();
     initializeAuth?.();
+     // safety: if user came normal checkout from cart, don't let stale buyNow hijack checkout
+  const isBuyNowCheckout =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("mode") === "buy-now";
+
+  if (!isBuyNowCheckout) {
+    st.clearBuyNow?.();
+  }
   }, []);
 
   /* ✅ sync local guestCustomer if store customer exists */

@@ -670,8 +670,7 @@ export default function ProductPage({ params }) {
           : null,
     });
 
-    await new Promise((r) => setTimeout(r, 150));
-    router.push("/checkout");
+router.push("/checkout?mode=buy-now");
   };
 
   const handleToggleWishlist = () => {

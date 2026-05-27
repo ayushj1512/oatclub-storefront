@@ -18,6 +18,21 @@ import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 
 const KEY = "cart_products";
 
+const saveCartStorage = (items = []) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEY, JSON.stringify(items));
+};
+
+const getCartStorage = () => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(KEY);
+};
+
+const removeCartStorage = () => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(KEY);
+};
+
 /* ---------------- helpers ---------------- */
 const str = (v) => (v == null ? "" : String(v));
 const toNum = (v) => {
@@ -394,7 +409,7 @@ initialize: () => {
   };
 
   /* ---------------- RESTORE CART ITEMS ---------------- */
-  const stored = Cookies.get(KEY);
+const stored = getCartStorage() || Cookies.get(KEY); // old cookie fallback
 
   if (stored) {
     try {
@@ -469,7 +484,8 @@ initialize: () => {
           }));
 
         set({ items: normalized });
-        Cookies.set(KEY, JSON.stringify(normalized), { expires: 7 }); // ✅ rewrite clean cookie
+     saveCartStorage(normalized);
+Cookies.remove(KEY); // old cookie cleanup // old cookie cleanup // ✅ rewrite clean cookie
       }
     } catch (e) {
       console.error("❌ Cart cookie parse error:", e);
@@ -544,7 +560,7 @@ initialize: () => {
 ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
   try {
     const curr = get().items || [];
-    const key = builtItem?.__key || cartKey(builtItem);
+const key = builtItem?.__key || cartKey(builtItem);
 
     const exists = curr.find((p) => (p.__key || cartKey(p)) === key);
 
@@ -555,8 +571,7 @@ ensureInCartNoDuplicate: async (builtItem, originalProduct = null) => {
 
     // ✅ SAVE CART
     set({ items: updated });
-    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-
+saveCartStorage(updated);
     /* ---------------- CUSTOMER CART ADDS (UPDATED) ---------------- */
     try {
       const code = str(
@@ -830,8 +845,7 @@ addToCart: async ({
 
   /* ---------------- SAVE CART ---------------- */
   set({ items: updated });
-  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-
+saveCartStorage(updated);
   /* ---------------- CUSTOMER CART ADDS (UPDATED) ---------------- */
   try {
     const code = str(
@@ -1017,8 +1031,7 @@ getCheckoutPayload: () => {
   const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
 
   set({ items: updated });
-  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-
+saveCartStorage(updated);
   await handleCouponOnCartUpdate();
 
   removed ? notify.cartRemoved?.(removed) : notify.info?.(`Removed item`);
@@ -1167,8 +1180,7 @@ decreaseQty: (idOrKey, variantId = null) => {
     const updated = curr.filter((p) => (p.__key || cartKey(p)) !== key);
 
     set({ items: updated });
-    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-
+saveCartStorage(updated);
     // ✅ cart updated -> coupon clear
     await handleCouponOnCartUpdate();
 
@@ -1220,8 +1232,8 @@ decreaseQty: (idOrKey, variantId = null) => {
     return pk === key ? { ...p, quantity: nextQty, __key: pk } : p;
   });
 
-  set({ items: updated });
-  Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
+    set({ items: updated });
+    saveCartStorage(updated);
 
   // ✅ cart updated -> coupon clear (IMPORTANT ✅)
   await handleCouponOnCartUpdate();
@@ -1282,7 +1294,8 @@ decreaseQty: (idOrKey, variantId = null) => {
 resetCartOnLogout: async () => {
   set({ items: [], buyNowItem: null });
 
-  Cookies.remove(KEY); // cart_products
+  removeCartStorage();
+Cookies.remove(KEY); // old cookie cleanup // cart_products
   Cookies.remove("buy_now_item"); // buy now cookie
 
   try {
@@ -1309,7 +1322,8 @@ resetCartOnLogout: async () => {
   /* ---------------- CLEAR ---------------- */
   clearCart: async () => {
   set({ items: [] });
-  Cookies.remove(KEY);
+  removeCartStorage();
+Cookies.remove(KEY); // old cookie cleanup
 
   // ✅ coupon remove + clear persisted
   await handleCouponOnCartUpdate();
@@ -1335,8 +1349,7 @@ completeCheckout: async () => {
     const updated = curr.filter((p) => (p.__key || cartKey(p)) !== buyKey);
 
     set({ items: updated });
-    Cookies.set(KEY, JSON.stringify(updated), { expires: 7 });
-
+saveCartStorage(updated);
     // optional: coupon clear (cart changed)
     await handleCouponOnCartUpdate();
 
