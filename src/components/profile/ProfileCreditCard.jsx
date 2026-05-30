@@ -1,13 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Wallet,
   ChevronRight,
   Gift,
   ShoppingBag,
   RefreshCcw,
+  Loader2,
 } from "lucide-react";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "";
 
 const money = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
 
@@ -24,23 +31,102 @@ const getLogIcon = (type) => {
   return <Gift size={14} />;
 };
 
+const normalizeCredits = (data) => {
+  const raw =
+    data?.credits ||
+    data?.customer?.credits ||
+    data?.data?.credits ||
+    data?.data?.customer?.credits ||
+    data ||
+    {};
+
+  return {
+    balance: Number(raw?.balance || 0),
+    totalCredited: Number(raw?.totalCredited || 0),
+    totalDebited: Number(raw?.totalDebited || 0),
+    totalRefundCredits: Number(raw?.totalRefundCredits || 0),
+    logs: Array.isArray(raw?.logs) ? raw.logs : [],
+  };
+};
+
 export default function ProfileCreditCard({ customer }) {
-  const credits = customer?.credits || {};
-  const balance = Number(credits?.balance || 0);
+  const initialCredits = useMemo(
+    () => normalizeCredits(customer?.credits || {}),
+    [customer?.credits]
+  );
+
+  const customerId =
+    customer?._id ||
+    customer?.id ||
+    customer?.customerId ||
+    customer?.customerCode ||
+    "";
+
+  const [credits, setCredits] = useState(initialCredits);
+  const [loading, setLoading] = useState(false);
+
   const logs = Array.isArray(credits?.logs) ? credits.logs.slice(0, 3) : [];
 
+  const fetchFreshCredits = useCallback(async () => {
+    if (!customerId || !API_BASE) return;
+
+    try {
+      setLoading(true);
+
+      const res = await fetch(`${API_BASE}/api/customers/${customerId}/credits`, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      setCredits(normalizeCredits(data));
+    } catch (err) {
+      console.error("Credit refresh failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [customerId]);
+
+  useEffect(() => {
+    setCredits(initialCredits);
+  }, [initialCredits]);
+
+  useEffect(() => {
+    fetchFreshCredits();
+
+    const onFocus = () => fetchFreshCredits();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") fetchFreshCredits();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [fetchFreshCredits]);
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div className="bg-gradient-to-br from-black via-gray-900 to-gray-800 p-5 text-white">
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="bg-black p-5 text-white">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="flex items-center gap-2 text-sm text-white/70">
               <Wallet size={16} />
               Miray Credits
+              {loading ? <Loader2 size={13} className="animate-spin" /> : null}
             </p>
 
             <h3 className="mt-2 text-3xl font-semibold tracking-tight">
-              {money(balance)}
+              {money(credits?.balance)}
             </h3>
 
             <p className="mt-1 text-xs text-white/60">
