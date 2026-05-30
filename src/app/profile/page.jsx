@@ -22,6 +22,7 @@ import {
 import RecentlyViewedRow from "@/components/profile/RecentlyViewedRow";
 import SupportTicketsRow from "@/components/profile/SupportTicketsRow";
 import OrderHelpCard from "@/components/profile/OrderHelpCard";
+import ProfileCreditCard from "@/components/profile/ProfileCreditCard";
 
 const FALLBACK_IMG =
   "https://i.pinimg.com/736x/54/5c/c1/545cc16292db0d62ac333fc422e4aff4.jpg";
@@ -280,14 +281,14 @@ export default function ProfilePage() {
     try {
       const v = localStorage.getItem("miray_profile_progress_banner");
       if (v === "hidden") setHideBanner(true);
-    } catch {}
+    } catch { }
   }, []);
 
   const closeBanner = () => {
     setHideBanner(true);
     try {
       localStorage.setItem("miray_profile_progress_banner", "hidden");
-    } catch {}
+    } catch { }
   };
 
   // Redirect + load basics
@@ -398,55 +399,55 @@ export default function ProfilePage() {
         ) : null}
 
         {/* ✅ Profile header (compact) */}
-       <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
-  <div className="flex flex-col items-center text-center gap-4">
-    {/* ✅ Profile Image (Center) */}
-    <div className="w-20 h-20 sm:w-24 sm:h-24 overflow-hidden border border-gray-200 bg-gray-50 rounded-full relative">
-      <Image
-        src={photoSrc}
-        alt="Profile Photo"
-        fill
-        unoptimized
-        onError={() => setPhotoSrc(FALLBACK_IMG)}
-        className="object-cover"
-        priority
-      />
-    </div>
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+          <div className="flex flex-col items-center text-center gap-4">
+            {/* ✅ Profile Image (Center) */}
+            <div className="w-20 h-20 sm:w-24 sm:h-24 overflow-hidden border border-gray-200 bg-gray-50 rounded-full relative">
+              <Image
+                src={photoSrc}
+                alt="Profile Photo"
+                fill
+                unoptimized
+                onError={() => setPhotoSrc(FALLBACK_IMG)}
+                className="object-cover"
+                priority
+              />
+            </div>
 
-    {/* ✅ Name / Email / Quote (Center) */}
-    <div className="w-full">
-      <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-        {safeName}
-      </h2>
-      <p className="text-gray-500 text-sm mt-1">{formData.email}</p>
+            {/* ✅ Name / Email / Quote (Center) */}
+            <div className="w-full">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+                {safeName}
+              </h2>
+              <p className="text-gray-500 text-sm mt-1">{formData.email}</p>
 
-      <p className="text-gray-400 text-xs mt-2 italic line-clamp-2 px-2">
-        {quote}
-      </p>
+              <p className="text-gray-400 text-xs mt-2 italic line-clamp-2 px-2">
+                {quote}
+              </p>
 
-      {/* ✅ Buttons (Center) */}
-      <div className="flex justify-center gap-3 mt-4 flex-wrap">
-        <button
-          onClick={() => router.push("/profile/edit")}
-          className="flex items-center gap-2 bg-black text-white px-4 py-2 text-sm rounded-xl hover:bg-gray-900 transition"
-        >
-          <Edit3 size={16} />
-          Edit
-        </button>
+              {/* ✅ Buttons (Center) */}
+              <div className="flex justify-center gap-3 mt-4 flex-wrap">
+                <button
+                  onClick={() => router.push("/profile/edit")}
+                  className="flex items-center gap-2 bg-black text-white px-4 py-2 text-sm rounded-xl hover:bg-gray-900 transition"
+                >
+                  <Edit3 size={16} />
+                  Edit
+                </button>
 
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 text-sm rounded-xl hover:bg-red-700 transition"
-        >
-          <LogOut size={16} />
-          Logout
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 text-sm rounded-xl hover:bg-red-700 transition"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-
+<ProfileCreditCard customer={customer} />
         {/* ✅ Support Tickets */}
         <SupportTicketsRow email={formData.email} />
 
@@ -479,9 +480,9 @@ export default function ProfilePage() {
                 const pill = statusPill(o.fulfillmentStatus);
 
                 return (
-                 <Link
-  href={`/profile/orders/${o.orderNumber || o._id}`}
-  key={o._id}
+                  <Link
+                    href={`/profile/orders/${o.orderNumber || o._id}`}
+                    key={o._id}
                     className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between hover:bg-white transition"
                   >
                     <div>
@@ -506,7 +507,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ✅ Order Help CTA */}
-<OrderHelpCard />
+        <OrderHelpCard />
 
         {/* ✅ Saved Addresses */}
         <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
@@ -557,7 +558,7 @@ export default function ProfilePage() {
         <div className="bg-white border border-gray-200 rounded-2xl p-3 sm:p-5 shadow-sm">
           <RecentlyViewedRow />
         </div>
-        
+
       </div>
     </section>
   );

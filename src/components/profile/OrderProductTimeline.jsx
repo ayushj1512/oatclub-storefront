@@ -53,6 +53,11 @@ const formatIST = (date) => {
   }).format(new Date(date));
 };
 
+const prettyStatus = (status) => {
+  const value = String(status || "");
+  return value ? value.replaceAll("_", " ") : "Processing";
+};
+
 const dotStyle = (status, active) => {
   if (!active) return "bg-gray-100 text-gray-400 ring-1 ring-gray-200";
 
@@ -79,18 +84,25 @@ export default function OrderProductTimeline({ order }) {
   const dates = order?.fulfillmentDates || {};
   const currentStatus = String(order?.fulfillmentStatus || "").toLowerCase();
 
+  // Desktop: original forward timeline
   const steps = STEPS.filter((step) => {
     const isForward = FORWARD.includes(step.status);
     return isForward || dates?.[step.key] || currentStatus === step.status;
   });
 
+  // Mobile: only completed/current events, no empty middle events
+  const mobileSteps = STEPS.filter((step) => {
+    const hasDate = Boolean(dates?.[step.key]);
+    return hasDate || currentStatus === step.status;
+  });
+
   const currentIndex = steps.findIndex((x) => x.status === currentStatus);
 
   return (
-    <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-sm">
+    <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/[0.04] sm:p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+          <h2 className="text-base font-black text-gray-950 sm:text-lg">
             Product Timeline
           </h2>
           <p className="mt-0.5 text-xs text-gray-500">
@@ -98,8 +110,8 @@ export default function OrderProductTimeline({ order }) {
           </p>
         </div>
 
-        <span className="rounded-full bg-black/5 px-3 py-1 text-[11px] font-semibold capitalize text-gray-700">
-          {currentStatus.replaceAll("_", " ") || "Processing"}
+        <span className="shrink-0 rounded-full bg-black/5 px-3 py-1 text-[11px] font-bold capitalize text-gray-700">
+          {prettyStatus(currentStatus)}
         </span>
       </div>
 
@@ -147,43 +159,47 @@ export default function OrderProductTimeline({ order }) {
       </div>
 
       {/* Mobile */}
-      <div className="space-y-3 md:hidden">
-        {steps.map((step, index) => {
-          const Icon = step.icon;
-          const date = dates?.[step.key];
-          const active = Boolean(date) || currentStatus === step.status;
+      <div className="space-y-2 md:hidden">
+        {mobileSteps.length > 0 ? (
+          mobileSteps.map((step) => {
+            const Icon = step.icon;
+            const date = dates?.[step.key];
 
-          return (
-            <div key={step.key} className="relative flex gap-3">
-              {index !== steps.length - 1 ? (
-                <div
-                  className={`absolute left-[17px] top-9 h-full w-px ${lineStyle(
-                    step.status,
-                    active
-                  )}`}
-                />
-              ) : null}
-
+            return (
               <div
-                className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${dotStyle(
-                  step.status,
-                  active
-                )}`}
+                key={step.key}
+                className="flex items-center gap-3 rounded-2xl bg-gray-50 px-3 py-3"
               >
-                <Icon size={16} />
-              </div>
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${dotStyle(
+                    step.status,
+                    true
+                  )}`}
+                >
+                  <Icon size={15} />
+                </div>
 
-              <div className="min-w-0 pb-2">
-                <p className="text-xs font-semibold text-gray-900">
-                  {step.label}
-                </p>
-                <p className="mt-0.5 text-[11px] text-gray-500">
-                  {formatIST(date)}
-                </p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-gray-950">
+                    {step.label}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    {formatIST(date)}
+                  </p>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        ) : (
+          <div className="rounded-2xl bg-gray-50 px-3 py-3">
+            <p className="text-xs font-bold text-gray-950">
+              Order update pending
+            </p>
+            <p className="mt-0.5 text-[11px] text-gray-500">
+              Tracking updates will appear here.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

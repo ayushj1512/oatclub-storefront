@@ -1,19 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
-import {
-  X,
-  ChevronLeft,
-  Package,
-  Truck,
-  CheckCircle2,
-  RotateCcw,
-  AlertTriangle,
-  Star,
-} from "lucide-react";
+import { X } from "lucide-react";
 
 import OrderItemReviewSection from "@/components/reviews/OrderItemReviewSection";
 import ReturnFileModal from "@/components/profile/ReturnFileModal";
@@ -21,84 +11,38 @@ import ReturnExchangeBanner from "@/components/profile/ReturnExchangeBanner";
 import CancelOrderModal from "@/components/orders/CancelOrderModal";
 import OrderProductTimeline from "@/components/profile/OrderProductTimeline";
 
+import OrderDetailsShell from "@/components/profile/order-details/OrderDetailsShell";
+import OrderDetailsHeader from "@/components/profile/order-details/OrderDetailsHeader";
+import OrderStatusHero from "@/components/profile/order-details/OrderStatusHero";
+import OrderPaymentSummary from "@/components/profile/order-details/OrderPaymentSummary";
+import OrderAddressCards from "@/components/profile/order-details/OrderAddressCards";
+import OrderShipmentCard from "@/components/profile/order-details/OrderShipmentCard";
+import OrderItemsList from "@/components/profile/order-details/OrderItemsList";
+import OrderRmaRequests from "@/components/profile/order-details/OrderRmaRequests";
+import OrderRemarkCard from "@/components/profile/order-details/OrderRemarkCard";
+import OrderSupportCard from "@/components/profile/order-details/OrderSupportCard";
+
+import {
+  CANCEL_ALLOWED,
+  RMA_ALLOWED,
+  s,
+  formatDateIST,
+  getDeliveredAtFromOrder,
+  computeRmaWindow,
+} from "@/components/profile/order-details/orderDetailsUtils";
+
 import { useAuthStore } from "@/store/authStore";
 import { useOrderStore } from "@/store/orderStore";
 import { useRmaStore } from "@/store/useRmaStore";
 import { useReviewStore } from "@/store/useReviewStore";
 
-const STATUS_BADGE = {
-  processing: "bg-yellow-50 text-yellow-700",
-  packed: "bg-indigo-50 text-indigo-700",
-  picked: "bg-blue-50 text-blue-700",
-  shipped: "bg-blue-50 text-blue-700",
-  out_for_delivery: "bg-purple-50 text-purple-700",
-  delivered: "bg-green-50 text-green-700",
-  return_requested: "bg-orange-50 text-orange-700",
-  exchange_requested: "bg-orange-50 text-orange-700",
-  returned: "bg-gray-100 text-gray-700",
-  rto: "bg-black/5 text-black",
-  cancelled: "bg-red-50 text-red-700",
-};
-
-const STATUS_ICON = {
-  processing: Package,
-  packed: Package,
-  picked: Truck,
-  shipped: Truck,
-  out_for_delivery: Truck,
-  delivered: CheckCircle2,
-  return_requested: RotateCcw,
-  exchange_requested: RotateCcw,
-  returned: RotateCcw,
-  rto: AlertTriangle,
-  cancelled: X,
-};
-
-const CANCEL_ALLOWED = ["processing", "packed"];
-const RMA_ALLOWED = ["delivered"];
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-const money = (n) => {
-  const x = Number(n);
-  return Number.isFinite(x) ? x.toLocaleString("en-IN") : "0";
-};
-
-const safe = (v) => (v == null ? "" : String(v));
-const s = (v) => safe(v).trim();
-
-function prettyStatus(sv) {
-  const v = String(sv || "").toLowerCase();
-  if (!v) return "Pending";
-  return v.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatDateIST(d) {
-  if (!d) return "";
-
-  try {
-    return new Date(d).toLocaleDateString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    });
-  } catch {
-    return "";
-  }
-}
-
-const Chip = ({ children }) => (
-  <span className="inline-flex items-center rounded-full bg-black/5 px-3 py-1 text-[11px] font-semibold text-gray-700">
-    {children}
-  </span>
-);
-
 const Modal = ({ children, onClose }) => (
-  <div className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-6">
-    <div className="bg-white w-full rounded-3xl p-4 sm:p-6 relative shadow-2xl">
+  <div className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/50 p-3 backdrop-blur-sm sm:items-center sm:p-6">
+    <div className="relative w-full rounded-3xl bg-white p-4 shadow-2xl sm:p-6">
       <button
+        type="button"
         onClick={onClose}
-        className="absolute top-3 right-3 bg-black/5 p-2 rounded-full hover:bg-black/10 transition"
+        className="absolute right-3 top-3 rounded-full bg-black/5 p-2 transition hover:bg-black/10"
         aria-label="Close"
       >
         <X size={18} />
@@ -107,57 +51,6 @@ const Modal = ({ children, onClose }) => (
     </div>
   </div>
 );
-
-const toDate = (v) => {
-  if (!v) return null;
-  const d = v instanceof Date ? v : new Date(v);
-  return Number.isNaN(d.getTime()) ? null : d;
-};
-
-const getDeliveredAtFromOrder = (order) => {
-  return (
-    toDate(order?.trackingDetails?.deliveredAt) ||
-    toDate(order?.shipment?.deliveredAt) ||
-    toDate(order?.shipment?.shiprocket?.deliveredAt) ||
-    toDate(order?.shipment?.shiprocket?.delivered_date) ||
-    toDate(order?.statusTimestamps?.deliveredAt) ||
-    toDate(order?.deliveredAt) ||
-    null
-  );
-};
-
-const computeRmaWindow = (deliveredAt, nowMs, windowDays = 7) => {
-  const delivered = toDate(deliveredAt);
-
-  if (!delivered) {
-    return {
-      isDelivered: false,
-      isAllowed: false,
-      daysLeft: 0,
-      expiresAt: null,
-    };
-  }
-
-  if (!nowMs) {
-    return {
-      isDelivered: true,
-      isAllowed: false,
-      daysLeft: 0,
-      expiresAt: null,
-    };
-  }
-
-  const expiresAt = new Date(delivered.getTime() + windowDays * DAY_MS);
-  const diffMs = expiresAt.getTime() - nowMs;
-  const daysLeft = diffMs > 0 ? Math.ceil(diffMs / DAY_MS) : 0;
-
-  return {
-    isDelivered: true,
-    isAllowed: daysLeft > 0,
-    daysLeft,
-    expiresAt,
-  };
-};
 
 export default function OrderDetailsPage() {
   const { id } = useParams();
@@ -172,21 +65,18 @@ export default function OrderDetailsPage() {
   } = useAuthStore();
 
   const {
-  order,
-  fetchOrderById,
-  fetchOrderByNumber,
-  updateOrderStatus,
-  cancelOrder,
-  loading: orderLoading,
-  error: orderError,
-} = useOrderStore();
+    order,
+    fetchOrderById,
+    fetchOrderByNumber,
+    updateOrderStatus,
+    cancelOrder,
+    loading: orderLoading,
+    error: orderError,
+  } = useOrderStore();
 
-  const {
-    rmas,
-    fetchRmasByOrder,
-    createRma,
-    error: rmaError,
-  } = useRmaStore();
+  const { rmas, fetchRmasByOrder, createRma, error: rmaError } = useRmaStore();
+
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
   const [reviewedByLineId, setReviewedByLineId] = useState({});
   const [checkingReviews, setCheckingReviews] = useState(false);
@@ -202,7 +92,7 @@ export default function OrderDetailsPage() {
   const [openReviewLineId, setOpenReviewLineId] = useState(null);
   const [returnModal, setReturnModal] = useState(null);
 
-  const [nowMs, setNowMs] = useState(null);
+  const [nowMs] = useState(() => Date.now());
 
   const reviewStore = useReviewStore();
 
@@ -219,37 +109,62 @@ export default function OrderDetailsPage() {
     return value.startsWith("MIRAY-");
   }, [id]);
 
-  const refetchOrder = useCallback(async () => {
-    if (!id) return null;
+  const refetchOrder = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!id) return null;
 
-    if (isOrderNumber && typeof fetchOrderByNumber === "function") {
-      return fetchOrderByNumber(id);
-    }
+      try {
+        const res =
+          isOrderNumber && typeof fetchOrderByNumber === "function"
+            ? await fetchOrderByNumber(id, { silent })
+            : await fetchOrderById(id, { silent });
 
-    return fetchOrderById(id);
-  }, [id, isOrderNumber, fetchOrderById, fetchOrderByNumber]);
-
-  useEffect(() => {
-    setNowMs(Date.now());
-  }, []);
+        setInitialLoaded(true);
+        return res;
+      } catch (err) {
+        setInitialLoaded(true);
+        throw err;
+      }
+    },
+    [id, isOrderNumber, fetchOrderById, fetchOrderByNumber]
+  );
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) return router.push("/auth/login");
+
+    if (!isAuthenticated) {
+      router.push("/auth/login");
+      return;
+    }
+
     if (!id) return;
 
-    refetchOrder();
+    let alive = true;
+
+    const run = async () => {
+      if (!alive) return;
+
+      try {
+        await refetchOrder({ silent: false });
+      } catch {}
+    };
+
+    run();
 
     const interval = setInterval(() => {
-      refetchOrder();
+      if (!alive) return;
+
+      refetchOrder({ silent: true }).catch(() => {});
     }, 15000);
 
-    return () => clearInterval(interval);
-  }, [authLoading, isAuthenticated, id, refetchOrder, router]);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, [authLoading, isAuthenticated, id, router, refetchOrder]);
 
   useEffect(() => {
     if (!order?._id) return;
-
     fetchRmasByOrder(order._id);
   }, [order?._id, fetchRmasByOrder]);
 
@@ -262,21 +177,11 @@ export default function OrderDetailsPage() {
   const safeItems = useMemo(() => {
     const list = order?.items || [];
     return Array.isArray(list) ? list : [];
-  }, [order]);
+  }, [order?._id, order?.items?.length]);
 
   const statusKey = useMemo(
     () => String(order?.fulfillmentStatus || "").toLowerCase(),
     [order?.fulfillmentStatus]
-  );
-
-  const badgeClass = useMemo(
-    () => STATUS_BADGE[statusKey] || "bg-black/5 text-black",
-    [statusKey]
-  );
-
-  const StatusIcon = useMemo(
-    () => STATUS_ICON[statusKey] || Package,
-    [statusKey]
   );
 
   const canCancel = useMemo(
@@ -284,12 +189,10 @@ export default function OrderDetailsPage() {
     [statusKey]
   );
 
-  const canShowRma = useMemo(
-    () => RMA_ALLOWED.includes(statusKey),
-    [statusKey]
-  );
+  const canShowRma = useMemo(() => RMA_ALLOWED.includes(statusKey), [statusKey]);
 
   const deliveredAt = useMemo(() => getDeliveredAtFromOrder(order), [order]);
+
   const deliveredDateText = useMemo(
     () => formatDateIST(deliveredAt),
     [deliveredAt]
@@ -342,6 +245,8 @@ export default function OrderDetailsPage() {
   );
 
   useEffect(() => {
+    let alive = true;
+
     const run = async () => {
       if (!order?._id || !customer?._id || !safeItems.length) return;
 
@@ -350,6 +255,8 @@ export default function OrderDetailsPage() {
       const nextMap = {};
 
       for (const item of safeItems) {
+        if (!alive) return;
+
         const lineKey = String(item?.lineId || "");
         const pid = item?.productId?._id || item?.productId;
 
@@ -396,6 +303,8 @@ export default function OrderDetailsPage() {
         }
       }
 
+      if (!alive) return;
+
       setReviewedByLineId((prev) => ({
         ...prev,
         ...nextMap,
@@ -405,8 +314,13 @@ export default function OrderDetailsPage() {
     };
 
     run();
+
+    return () => {
+      alive = false;
+    };
+    // intentionally not adding safeItems/reviewCheckFn to avoid repeat review checks on every order refresh
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order?._id, customer?._id, safeItems]);
+  }, [order?._id, customer?._id]);
 
   const createReturnRma = async ({ item, reason }) => {
     let toastId = null;
@@ -429,7 +343,7 @@ export default function OrderDetailsPage() {
       setReturnModal(null);
 
       await fetchRmasByOrder(order._id);
-      await refetchOrder();
+      await refetchOrder({ silent: true });
     } catch (e) {
       toast.error(e?.message || "Failed to create return request", {
         id: toastId,
@@ -466,7 +380,7 @@ export default function OrderDetailsPage() {
       setSelectedSize(null);
 
       await fetchRmasByOrder(order._id);
-      await refetchOrder();
+      await refetchOrder({ silent: true });
     } catch (e) {
       toast.error(e?.message || "Failed to create exchange request", {
         id: toastId,
@@ -476,27 +390,27 @@ export default function OrderDetailsPage() {
     }
   };
 
- const handleCancelConfirm = async (reasonText = "") => {
-  let toastId = null;
+  const handleCancelConfirm = async (reasonText = "") => {
+    let toastId = null;
 
-  try {
-    if (!order?._id) throw new Error("Order not found");
+    try {
+      if (!order?._id) throw new Error("Order not found");
 
-    setSubmitting(true);
-    toastId = toast.loading("Cancelling your order...");
+      setSubmitting(true);
+      toastId = toast.loading("Cancelling your order...");
 
-    await cancelOrder(order._id, reasonText);
+      await cancelOrder(order._id, reasonText);
 
-    toast.success("Order cancelled successfully!", { id: toastId });
+      toast.success("Order cancelled successfully!", { id: toastId });
 
-    setShowCancelModal(false);
-    await refetchOrder();
-  } catch (e) {
-    toast.error(e?.message || "Cancel failed", { id: toastId });
-  } finally {
-    setSubmitting(false);
-  }
-};
+      setShowCancelModal(false);
+      await refetchOrder({ silent: true });
+    } catch (e) {
+      toast.error(e?.message || "Cancel failed", { id: toastId });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const saveOrderRemark = async () => {
     let toastId = null;
@@ -512,7 +426,7 @@ export default function OrderDetailsPage() {
       });
 
       toast.success("Remark saved", { id: toastId });
-      await refetchOrder();
+      await refetchOrder({ silent: true });
     } catch (e) {
       toast.error(e?.message || "Failed to save remark", { id: toastId });
     } finally {
@@ -520,7 +434,7 @@ export default function OrderDetailsPage() {
     }
   };
 
-  if (authLoading || orderLoading) {
+  if (authLoading || (orderLoading && !initialLoaded && !order)) {
     return (
       <section className="min-h-screen bg-[#F7F7FA] p-4 sm:p-6">
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
@@ -534,14 +448,15 @@ export default function OrderDetailsPage() {
       <section className="min-h-screen bg-[#F7F7FA] p-4 sm:p-6">
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
 
-        <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6">
-          <p className="text-red-600 font-semibold">
+        <div className="rounded-3xl bg-white p-4 shadow-sm sm:p-6">
+          <p className="font-semibold text-red-600">
             Failed to load order: {orderError}
           </p>
 
           <button
-            onClick={refetchOrder}
-            className="mt-4 w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-black text-white text-sm font-semibold hover:opacity-90"
+            type="button"
+            onClick={() => refetchOrder({ silent: false })}
+            className="mt-4 w-full rounded-2xl bg-black px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 sm:w-auto"
           >
             Retry
           </button>
@@ -564,364 +479,82 @@ export default function OrderDetailsPage() {
       <section className="min-h-screen bg-[#F7F7FA] p-6">
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
         <h1 className="text-xl font-semibold">Not Allowed</h1>
-        <p className="text-sm text-gray-500 mt-2">
+        <p className="mt-2 text-sm text-gray-500">
           This order doesn’t belong to your account.
         </p>
       </section>
     );
   }
 
-  const orderLabel = order.orderNumber
-    ? `#${order.orderNumber}`
-    : `#${String(order._id).slice(-6)}`;
-
-  const placedOn = formatDateIST(order.orderDate || order.createdAt);
-
   return (
-    <section className="min-h-screen bg-[#F7F7FA] px-3 py-4 sm:px-6 sm:py-6">
+    <section className="min-h-screen bg-[#F7F7FA] px-3 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
 
-      <button
-        onClick={() => router.back()}
-        className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-black transition mb-4"
-      >
-        <ChevronLeft size={18} />
-        Back
-      </button>
-
-      <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
-                Order {orderLabel}
-              </h1>
-
-              <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                Placed on {placedOn}
-                {statusKey === "delivered" && deliveredDateText
-                  ? ` • Delivered on ${deliveredDateText}`
-                  : ""}
-              </p>
-            </div>
-
-            <span
-              className={`shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${badgeClass}`}
-            >
-              <StatusIcon size={14} />
-              {prettyStatus(order.fulfillmentStatus)}
-            </span>
-          </div>
-
-          {statusKey === "delivered" ? (
-            <ReturnExchangeBanner order={order} />
-          ) : null}
-
-          <div className="flex flex-wrap gap-2">
-            <Chip>Items: {safeItems.length}</Chip>
-            <Chip>Payment: {prettyStatus(order.paymentMethod)}</Chip>
-            <Chip>Status: {prettyStatus(order.paymentStatus)}</Chip>
-          </div>
-
-          <div className="rounded-2xl bg-gray-50 p-3 sm:p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] sm:text-xs text-gray-500">
-                Final Payable
-              </p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">
-                ₹{money(order.finalPayable ?? order.totalAmount ?? 0)}
-              </p>
-            </div>
-
-            <button
-  onClick={() => canCancel && setShowCancelModal(true)}
-  disabled={!canCancel}
-  className={`px-4 py-2 rounded-2xl text-xs sm:text-sm font-semibold transition ${
-    canCancel
-      ? "bg-red-500/10 text-red-700 hover:bg-red-500/15 active:scale-[0.99]"
-      : "bg-black/5 text-black/35 cursor-not-allowed"
-  }`}
->
-  Cancel
-</button>
-          </div>
-
-          <p className="text-center text-[11px] sm:text-xs text-black/45 leading-relaxed">
-  {canCancel ? (
-    <>
-      You can cancel this order before shipping.
-    </>
-  ) : (
-    <>
-      You can cancel order before shipping. If you don’t want it, you can refuse
-      to take the parcel at delivery or contact support.
-    </>
-  )}
-</p>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <OrderProductTimeline order={order} />
-      </div>
-
-      <div className="mt-4 bg-white rounded-3xl shadow-sm p-4 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-            Order Remark
-          </h2>
-
-          <button
-            onClick={saveOrderRemark}
-            disabled={savingRemark}
-            className="px-4 py-2 rounded-2xl text-xs sm:text-sm font-semibold bg-black text-white hover:opacity-90 disabled:opacity-40 transition"
-          >
-            {savingRemark ? "Saving..." : "Save"}
-          </button>
-        </div>
-
-        <textarea
-          value={remarkDraft}
-          onChange={(e) => setRemarkDraft(e.target.value)}
-          placeholder="Add internal remark for this order…"
-          rows={4}
-          className="mt-3 w-full rounded-2xl border border-gray-200 bg-gray-50 p-3 sm:p-4 text-sm text-gray-900 outline-none resize-none focus:bg-white focus:border-black/20"
+      <OrderDetailsShell>
+        <OrderDetailsHeader
+          order={order}
+          router={router}
+          statusKey={statusKey}
+          deliveredDateText={deliveredDateText}
+          canCancel={canCancel}
+          onCancel={() => canCancel && setShowCancelModal(true)}
         />
-      </div>
 
-      {Array.isArray(rmas) && rmas.length > 0 ? (
-        <div className="mt-4 bg-white rounded-3xl shadow-sm p-4 sm:p-6">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
-            Your Return / Exchange Requests
-          </h2>
+        <OrderStatusHero
+          order={order}
+          statusKey={statusKey}
+          safeItems={safeItems}
+          rmaEnabled={rmaEnabled}
+          rmaWindow={rmaWindow}
+        />
 
-          <div className="space-y-3">
-            {rmas.map((r) => (
-              <div key={r.rmaNumber} className="rounded-2xl bg-gray-50 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-gray-900">
-                      {r.rmaNumber}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {prettyStatus(r.type)} • {prettyStatus(r.status)}
-                    </p>
-                  </div>
+        {statusKey === "delivered" ? (
+          <ReturnExchangeBanner order={order} />
+        ) : null}
 
-                  {r.fee?.amount > 0 ? (
-                    <span className="text-[11px] px-3 py-1 rounded-full bg-black text-white font-semibold">
-                      Fee ₹{money(r.fee.amount)} ({prettyStatus(r.fee.status)})
-                    </span>
-                  ) : (
-                    <span className="text-[11px] px-3 py-1 rounded-full bg-black/5 text-gray-700 font-semibold">
-                      No Fee
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+        <OrderProductTimeline order={order} />
 
-      <div className="mt-4 space-y-3">
-        {safeItems.map((item, idx) => {
-          const snap = item?.productSnapshot || {};
-          const v = item?.variant || {};
-          const title = snap?.title || "Product";
-          const thumb = snap?.thumbnail || "/placeholder.png";
-          const qty = item?.quantity ?? 1;
-          const price = item?.price ?? 0;
+        <OrderItemsList
+          items={safeItems}
+          statusKey={statusKey}
+          canShowRma={canShowRma}
+          rmaEnabled={rmaEnabled}
+          reviewedByLineId={reviewedByLineId}
+          checkingReviews={checkingReviews}
+          openReviewLineId={openReviewLineId}
+          setOpenReviewLineId={setOpenReviewLineId}
+          markReviewed={markReviewed}
+          customer={customer}
+          setShowExchangeModal={setShowExchangeModal}
+          setReturnModal={setReturnModal}
+          OrderItemReviewSection={OrderItemReviewSection}
+        />
 
-          const size =
-            item?.selectedSize ||
-            v?.attributes?.find(
-              (a) => String(a?.key).toLowerCase() === "size"
-            )?.value ||
-            "";
+        <OrderPaymentSummary order={order} />
 
-          const color =
-            item?.selectedColor ||
-            v?.attributes?.find(
-              (a) => String(a?.key).toLowerCase() === "color"
-            )?.value ||
-            "";
+        <OrderAddressCards order={order} />
 
-          const lineKey = item.lineId || idx;
-          const open = openReviewLineId === lineKey;
+        <OrderShipmentCard order={order} />
 
-          const alreadyReviewed = !!reviewedByLineId[String(lineKey)];
-          const canWriteReview = statusKey === "delivered" && !alreadyReviewed;
+        <OrderRmaRequests rmas={rmas} />
 
-          return (
-            <div key={lineKey} className="bg-white rounded-3xl shadow-sm p-4 sm:p-5">
-              <div className="flex gap-3 sm:gap-5">
-                <div className="relative w-20 h-24 sm:w-24 sm:h-28 shrink-0 overflow-hidden rounded-2xl bg-gray-100">
-                  <Image
-                    src={thumb}
-                    alt={title}
-                    fill
-                    className="object-contain"
-                    sizes="96px"
-                  />
-                </div>
+        <OrderRemarkCard
+          remarkDraft={remarkDraft}
+          setRemarkDraft={setRemarkDraft}
+          savingRemark={savingRemark}
+          onSave={saveOrderRemark}
+        />
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-base sm:text-lg text-gray-900 truncate">
-                        {title}
-                      </p>
-
-                      <p className="text-[11px] sm:text-xs text-gray-500 mt-1">
-                        SKU: {v?.sku || snap?.sku || "-"} • Code:{" "}
-                        {snap?.productCode || "-"}
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {size ? <Chip>Size: {size}</Chip> : null}
-                        {color ? <Chip>Color: {color}</Chip> : null}
-                        <Chip>Qty: {qty}</Chip>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <p className="text-[11px] sm:text-sm text-gray-500">
-                        Price
-                      </p>
-                      <p className="text-base sm:text-lg font-bold text-gray-900">
-                        ₹{money(price)}
-                      </p>
-                      <p className="text-[11px] sm:text-xs text-gray-500 mt-1">
-                        Subtotal ₹{money(item?.subtotal)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-col gap-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <button
-                    onClick={() => {
-                      if (alreadyReviewed) return;
-                      setOpenReviewLineId((prev) =>
-                        prev === lineKey ? null : lineKey
-                      );
-                    }}
-                    disabled={!canWriteReview}
-                    title={
-                      alreadyReviewed
-                        ? "Thanks! You’ve already reviewed this item."
-                        : statusKey !== "delivered"
-                        ? "You can review after delivery"
-                        : "Write a review"
-                    }
-                    className={`inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all duration-200 ${
-                      canWriteReview
-                        ? "bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 text-white shadow-sm hover:shadow-md hover:brightness-105 active:scale-[0.99]"
-                        : "bg-black/10 text-black/40 cursor-not-allowed"
-                    }`}
-                  >
-                    <Star
-                      size={16}
-                      className={
-                        canWriteReview
-                          ? "fill-white text-white"
-                          : "text-black/40"
-                      }
-                    />
-                    {alreadyReviewed
-                      ? "Already Reviewed"
-                      : checkingReviews
-                      ? "Checking..."
-                      : "Write Review"}
-                  </button>
-
-                  {canShowRma ? (
-                    <>
-                      <button
-                        onClick={() => {
-                          if (!rmaEnabled) return;
-
-                          setShowExchangeModal({
-                            item,
-                            name: title,
-                            availableSizes: ["XS", "S", "M", "L", "XL"],
-                          });
-                        }}
-                        disabled={!rmaEnabled}
-                        title={
-                          !rmaEnabled
-                            ? "Exchange allowed within 7 days of delivery"
-                            : "Exchange size"
-                        }
-                        className={`w-full px-4 py-2.5 rounded-2xl text-sm font-semibold transition ${
-                          rmaEnabled
-                            ? "bg-black text-white hover:opacity-90"
-                            : "bg-black/10 text-black/40 cursor-not-allowed"
-                        }`}
-                      >
-                        Exchange Size
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          if (!rmaEnabled) return;
-                          setReturnModal({ item, name: title });
-                        }}
-                        disabled={!rmaEnabled}
-                        title={
-                          !rmaEnabled
-                            ? "Return allowed within 7 days of delivery"
-                            : "Return item"
-                        }
-                        className={`w-full px-4 py-2.5 rounded-2xl text-sm font-semibold transition ${
-                          rmaEnabled
-                            ? "bg-black/5 text-gray-900 hover:bg-black/10"
-                            : "bg-black/10 text-black/40 cursor-not-allowed"
-                        }`}
-                      >
-                        Return Item
-                      </button>
-                    </>
-                  ) : (
-                    <div className="hidden sm:block" />
-                  )}
-                </div>
-
-                {alreadyReviewed ? (
-                  <p className="text-[11px] text-gray-500">
-                    Thanks! You’ve already shared your review for this item.
-                  </p>
-                ) : null}
-
-                <OrderItemReviewSection
-                  open={open && !alreadyReviewed}
-                  onToggle={(next) => setOpenReviewLineId(next ? lineKey : null)}
-                  delivered={statusKey === "delivered"}
-                  customerId={customer?._id}
-                  productId={item.productId?._id || item.productId}
-                  productCode={item?.productSnapshot?.productCode || ""}
-                  productName={title}
-                  verifiedPurchase={statusKey === "delivered"}
-                  onSubmitted={() =>
-                    markReviewed(lineKey, item.productId?._id || item.productId)
-                  }
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+        <OrderSupportCard order={order} />
+      </OrderDetailsShell>
 
       <CancelOrderModal
-  open={showCancelModal}
-  order={order}
-  onClose={() => setShowCancelModal(false)}
-  onConfirm={handleCancelConfirm}
-  loading={submitting}
-/>
+        open={showCancelModal}
+        order={order}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleCancelConfirm}
+        loading={submitting}
+      />
 
       {showExchangeModal ? (
         <Modal
@@ -930,11 +563,11 @@ export default function OrderDetailsPage() {
             setSelectedSize(null);
           }}
         >
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+          <h2 className="mb-2 text-lg font-bold text-gray-900 sm:text-xl">
             Exchange Size
           </h2>
 
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="mb-4 text-sm text-gray-500">
             Select new size for{" "}
             <span className="font-semibold text-gray-900">
               {showExchangeModal.name}
@@ -944,6 +577,7 @@ export default function OrderDetailsPage() {
           <div className="mb-5 flex flex-wrap gap-2">
             {showExchangeModal.availableSizes.map((sz) => (
               <button
+                type="button"
                 key={sz}
                 onClick={() => setSelectedSize(sz)}
                 className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
@@ -958,12 +592,13 @@ export default function OrderDetailsPage() {
           </div>
 
           <button
+            type="button"
             disabled={!selectedSize || submitting}
             onClick={() => submitExchange(showExchangeModal.item)}
             className={`w-full rounded-2xl py-3 text-sm font-semibold transition ${
               selectedSize
                 ? "bg-black text-white hover:opacity-90"
-                : "bg-black/10 text-black/40 cursor-not-allowed"
+                : "cursor-not-allowed bg-black/10 text-black/40"
             }`}
           >
             {submitting ? "Submitting..." : "Submit Exchange"}
@@ -987,7 +622,7 @@ export default function OrderDetailsPage() {
       />
 
       {rmaError ? (
-        <p className="text-red-600 text-sm mt-6 font-medium text-center">
+        <p className="mt-6 text-center text-sm font-medium text-red-600">
           RMA Error: {rmaError}
         </p>
       ) : null}

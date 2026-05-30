@@ -12,9 +12,7 @@ import {
 } from "lucide-react";
 
 import RazorpayCheckoutButton from "@/components/checkout/RazorpayCheckoutButton";
-import PaymentCard from "@/components/checkout/OnlinePaymentButton";
 
-/* ---------- UI ---------- */
 const GlassCard = ({ children, className = "" }) => (
   <div
     className={`rounded-[22px] bg-white/75 backdrop-blur-xl shadow-[0_18px_45px_rgba(0,0,0,0.08)] ${className}`}
@@ -27,6 +25,8 @@ const Chip = ({ children, tone = "neutral" }) => {
   const toneCls =
     tone === "success"
       ? "bg-green-50 text-green-800 border border-green-200/70"
+      : tone === "wallet"
+      ? "bg-emerald-50 text-emerald-800 border border-emerald-200/70"
       : "bg-black/4 text-gray-700";
 
   return (
@@ -46,21 +46,25 @@ function PayCard({
   selected,
   setSelected,
   badge = null,
+  disabled = false,
 }) {
   const active = selected === value;
 
   return (
     <button
       type="button"
-      onClick={() => setSelected(value)}
+      onClick={() => {
+        if (!disabled) setSelected(value);
+      }}
       aria-pressed={active}
-      className={`w-full rounded-2xl px-4 py-4 text-left shadow-[0_12px_28px_rgba(0,0,0,0.07)] transition active:scale-[0.99] ${
+      disabled={disabled}
+      className={`w-full rounded-2xl px-4 py-4 text-left shadow-[0_12px_28px_rgba(0,0,0,0.07)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${
         active ? "bg-white" : "bg-white/60 hover:bg-white/80"
       }`}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="grid place-items-center size-10 rounded-2xl bg-black/4 text-gray-800 shrink-0">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-black/4 text-gray-800">
             {icon}
           </span>
 
@@ -69,12 +73,12 @@ function PayCard({
               <div className="text-sm font-semibold text-gray-900">{label}</div>
               {badge}
             </div>
-            <div className="text-xs text-gray-500 truncate">{sub}</div>
+            <div className="truncate text-xs text-gray-500">{sub}</div>
           </div>
         </div>
 
         <span
-          className={`size-5 rounded-full border-2 transition shrink-0 ${
+          className={`size-5 shrink-0 rounded-full border-2 transition ${
             active ? "border-black bg-black" : "border-black/20"
           }`}
         />
@@ -83,7 +87,6 @@ function PayCard({
   );
 }
 
-/* ---------- utils ---------- */
 const money = (n) =>
   Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0";
 
@@ -99,9 +102,15 @@ export default function PaymentOptions({
   selectedPayment,
   setSelectedPayment,
 
-  payable, // payable should already include coupon + razorpay extra off from CheckoutPage
-  subtotal = 0, // ✅ optional (for showing “you save ₹x” nicely). Pass from CheckoutPage if you can.
-  razorpayExtraDiscount = 0, // ✅ pass from CheckoutPage if you can (recommended)
+  payable,
+  subtotal = 0,
+  razorpayExtraDiscount = 0,
+
+  useWallet = false,
+  setUseWallet,
+  walletAmount = 0,
+  setWalletAmount,
+  walletBalance = 0,
 
   coupon,
   discount,
@@ -117,34 +126,71 @@ export default function PaymentOptions({
   createOrder,
   getCheckoutPayload,
 }) {
-  /* ✅ Single source of truth for disable state */
   const validationError = validate?.() || null;
   const disabledCTA = placing || !!validationError;
 
-  /* ✅ Online payment extra offer */
   const isOnline = String(selectedPayment).toLowerCase() === "razorpay";
-  const safeExtra = Math.max(0, toNum(razorpayExtraDiscount));
-  const showExtra = isOnline && safeExtra > 0;
+  const isCOD = String(selectedPayment).toLowerCase() === "cod";
 
-  /* ---------------- Razorpay Order Builder ---------------- */
+  const safeWalletBalance = Math.max(
+    0,
+    toNum(walletBalance || customer?.credits?.balance || 0)
+  );
+
+const safePayableBeforeWallet = Math.max(0, toNum(payable));
+
+  const hasWalletBalance = safeWalletBalance > 0;
+
+  const appliedWalletAmount = Math.max(0, toNum(walletAmount || 0));
+
+
+ const remainingAfterWallet = safePayableBeforeWallet;
+
+// ✅ already discounted amount comes from checkout page
+const safeExtra = Math.max(0, toNum(razorpayExtraDiscount));
+
+const showExtra = isOnline && safeExtra > 0;
+
+// ✅ DON'T subtract again
+const finalPayable = Math.max(0, remainingAfterWallet);
+
+  const updateWalletToggle = (checked) => {
+    if (!setUseWallet || !setWalletAmount) return;
+
+    setUseWallet(checked);
+
+    if (checked) {
+      setWalletAmount(Math.min(safeWalletBalance, safePayableBeforeWallet));
+    } else {
+      setWalletAmount(0);
+    }
+  };
+
+  const handleSelectPayment = (value) => {
+    setSelectedPayment(value);
+  };
+
+  const getWalletPayload = () => ({
+    useWallet: appliedWalletAmount > 0,
+    walletAmount: appliedWalletAmount,
+  });
+
   const createRazorpayOrder = async () => {
-    const err = validate();
+    const err = validate?.();
     if (err) {
       toast.error(err);
       return null;
     }
 
-    // ✅ logged-in must have customer
     if (user?.uid && !customer?._id) {
       toast.error("Customer profile missing. Refresh & retry.");
       return null;
     }
 
-    // ✅ resolve customer id (guest create if missing)
     let customerId = customer?._id;
 
-    if (!user?.uid && !customerId) {
-      const created = await ensureGuestCustomer();
+    if (!customerId) {
+      const created = await ensureGuestCustomer?.();
       customerId = created?._id;
     }
 
@@ -164,8 +210,6 @@ export default function PaymentOptions({
       return null;
     }
 
-    // ✅ IMPORTANT: pass discount at top-level (coupon store discount)
-    // Razorpay extra 10% is already applied inside orderStore.createOrder (backend payload gets combined discount)
     return await createOrder({
       customerId,
       shippingAddressId: selectedAddressObj._id,
@@ -173,19 +217,31 @@ export default function PaymentOptions({
       items: orderItems,
       paymentMethod: "razorpay",
       source: "website",
-      discount: Number(discount || 0), // ✅ critical
-      coupon: coupon ? { code: coupon.code } : null, // ✅ keep minimal
+      discount: Number(discount || 0),
+      coupon: coupon ? { code: coupon.code } : null,
+      ...getWalletPayload(),
     });
+  };
+
+  const placeNormalOrder = () => {
+    const err = validate?.();
+    if (err) return toast.error(err);
+
+    if (typeof onPlaceOrder !== "function") {
+      toast.error("Unable to place order. Please refresh.");
+      return;
+    }
+
+    onPlaceOrder();
   };
 
   return (
     <>
-      {/* STEP 3 PAYMENT SELECTION */}
       <GlassCard className="p-4 sm:p-5">
         <button
           type="button"
           onClick={() => setShowPayment((s) => !s)}
-          className="w-full flex items-center justify-between"
+          className="flex w-full items-center justify-between"
         >
           <div className="min-w-0">
             <div className="text-sm text-gray-500">Step 3</div>
@@ -197,59 +253,109 @@ export default function PaymentOptions({
         </button>
 
         {showPayment && (
-          <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <PayCard
-              label="Cash on Delivery"
-              value="cod"
-              icon={<Wallet />}
-              sub="Pay when your order arrives"
-              selected={selectedPayment}
-              setSelected={setSelectedPayment}
-            />
+          <div className="pt-4">
+            {hasWalletBalance && (
+              <div className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-white text-emerald-700 shadow-sm">
+                      <Wallet className="h-5 w-5" />
+                    </span>
 
-            {/* ✅ Online payment with a “10% extra off” badge (more highlighted) */}
-            <PayCard
-              label="Online Payment"
-              value="razorpay"
-              icon={<IndianRupee />}
-              sub="UPI / Cards / Netbanking via Razorpay"
-              selected={selectedPayment}
-              setSelected={setSelectedPayment}
-              badge={
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-50 to-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-900 border border-green-300 shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  10% EXTRA OFF
-                </span>
-              }
-            />
+                    <div>
+                      <div className="text-sm font-extrabold text-emerald-950">
+                        Miray Credits Available
+                      </div>
+                      <div className="mt-0.5 text-xs text-emerald-800">
+                        Balance:{" "}
+                        <b className="tabular-nums">
+                          ₹{money(safeWalletBalance)}
+                        </b>
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-bold text-emerald-900 shadow-sm">
+                    <input
+                      type="checkbox"
+                      checked={useWallet}
+                      onChange={(e) => updateWalletToggle(e.target.checked)}
+                      className="h-4 w-4 accent-emerald-700"
+                    />
+                    Use Credits
+                  </label>
+                </div>
+
+                {useWallet && (
+                  <div className="mt-4 rounded-xl bg-white px-3 py-2 text-xs text-emerald-900">
+                    Credits Applied:{" "}
+                    <b className="tabular-nums">
+                      ₹{money(appliedWalletAmount)}
+                    </b>{" "}
+                    • Remaining Payable:{" "}
+                    <b className="tabular-nums">
+                      ₹{money(remainingAfterWallet)}
+                    </b>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <PayCard
+                label="Cash on Delivery"
+                value="cod"
+                icon={<Wallet />}
+                sub={
+                  appliedWalletAmount > 0
+                    ? `Pay ₹${money(remainingAfterWallet)} on delivery`
+                    : "Pay when your order arrives"
+                }
+                selected={selectedPayment}
+                setSelected={handleSelectPayment}
+              />
+
+              <PayCard
+                label="Online Payment"
+                value="razorpay"
+                icon={<IndianRupee />}
+                sub={
+                  appliedWalletAmount > 0
+                    ? `Pay ₹${money(finalPayable)} online after credits`
+                    : "UPI / Cards / Netbanking via Razorpay"
+                }
+                selected={selectedPayment}
+                setSelected={handleSelectPayment}
+                badge={
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-green-300 bg-gradient-to-r from-amber-50 to-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-900 shadow-sm">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    10% EXTRA OFF
+                  </span>
+                }
+              />
+            </div>
           </div>
         )}
 
-        {/* ✅ Offer / security strip (more highlighted) */}
-        {showPayment && isOnline && (
-          <div className="mt-3 rounded-2xl bg-gradient-to-r from-green-50 via-emerald-50 to-amber-50 px-4 py-3 border border-green-300 shadow-[0_14px_34px_rgba(16,185,129,0.18)]">
+        {showPayment && isOnline && remainingAfterWallet > 0 && (
+          <div className="mt-3 rounded-2xl border border-green-300 bg-gradient-to-r from-green-50 via-emerald-50 to-amber-50 px-4 py-3 shadow-[0_14px_34px_rgba(16,185,129,0.18)]">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 grid place-items-center size-9 rounded-2xl bg-white shadow-sm border border-green-200/60 text-green-700">
-                <ShieldCheck className="w-4 h-4" />
+              <span className="mt-0.5 grid size-9 place-items-center rounded-2xl border border-green-200/60 bg-white text-green-700 shadow-sm">
+                <ShieldCheck className="h-4 w-4" />
               </span>
 
               <div className="min-w-0">
-                <div className="text-sm font-extrabold text-green-900 flex items-center gap-2">
+                <div className="flex items-center gap-2 text-sm font-extrabold text-green-900">
                   Online Payment Offer Applied
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-600 text-white px-2 py-0.5 text-[10px] font-extrabold shadow-sm">
-                    <Sparkles className="w-3 h-3" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm">
+                    <Sparkles className="h-3 w-3" />
                     10% OFF
                   </span>
                 </div>
 
-                <div className="text-xs text-green-800/90 mt-0.5">
-                  Pay online & get <b>extra 10% off</b> instantly. Secure checkout
-                  via Razorpay (UPI, Cards, Netbanking).
-                </div>
-
                 {showExtra && (
-                  <div className="mt-2 inline-flex items-center gap-2 rounded-xl bg-white/80 px-3 py-1.5 text-xs text-green-900 border border-green-200/60 shadow-sm">
-                    <Sparkles className="w-4 h-4 text-green-700" />
+                  <div className="mt-2 inline-flex items-center gap-2 rounded-xl border border-green-200/60 bg-white/80 px-3 py-1.5 text-xs text-green-900 shadow-sm">
+                    <Sparkles className="h-4 w-4 text-green-700" />
                     You save{" "}
                     <span className="font-extrabold tabular-nums">
                       ₹{money(safeExtra)}
@@ -263,13 +369,11 @@ export default function PaymentOptions({
         )}
       </GlassCard>
 
-      {/* STEP 4 TOTAL + CTA */}
       <GlassCard className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            {/* Coupon line */}
             {coupon && Number(discount || 0) > 0 && (
-              <div className="flex items-center justify-between text-sm text-green-700 mt-1">
+              <div className="mt-1 flex items-center justify-between text-sm text-green-700">
                 <span className="truncate">
                   Coupon <b>{coupon.code}</b>
                 </span>
@@ -279,9 +383,19 @@ export default function PaymentOptions({
               </div>
             )}
 
-            {/* Online extra off line */}
+            {appliedWalletAmount > 0 && (
+              <div className="mt-1 flex items-center justify-between text-sm text-emerald-700">
+                <span className="truncate">
+                  Wallet Credits <b>Applied</b>
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  − ₹{money(appliedWalletAmount)}
+                </span>
+              </div>
+            )}
+
             {showExtra && (
-              <div className="flex items-center justify-between text-sm text-green-700 mt-1">
+              <div className="mt-1 flex items-center justify-between text-sm text-green-700">
                 <span className="truncate">
                   Online Payment Offer <b>(10% extra)</b>
                 </span>
@@ -291,78 +405,64 @@ export default function PaymentOptions({
               </div>
             )}
 
-            <div className="text-sm text-gray-500 mt-2">Total Payment</div>
-            <div className="text-2xl font-semibold text-gray-900 tabular-nums">
-              ₹{money(payable)}
+            <div className="mt-2 text-sm text-gray-500">Total Payment</div>
+            <div className="text-2xl font-semibold tabular-nums text-gray-900">
+              ₹{money(finalPayable)}
             </div>
 
-            <div className="text-xs text-gray-500 mt-1">
-              Shipping:{" "}
-              <span className="text-green-700 font-semibold">Free</span>
+            <div className="mt-1 text-xs text-gray-500">
+              Shipping: <span className="font-semibold text-green-700">Free</span>
             </div>
-
-            {/* Optional: show “you’ll pay ₹x more on COD” nudge */}
-            {String(selectedPayment).toLowerCase() === "cod" &&
-              Math.max(0, toNum(razorpayExtraDiscount)) > 0 && (
-                <div className="mt-2 text-[11px] text-gray-600">
-                  Tip: Pay online to save{" "}
-                  <span className="font-extrabold text-green-700">
-                    ₹{money(toNum(razorpayExtraDiscount))}
-                  </span>{" "}
-                  extra.
-                </div>
-              )}
           </div>
 
-          <Chip tone={isOnline ? "success" : "neutral"}>
-            <IndianRupee className="w-3.5 h-3.5" />
-            {isOnline ? "Online (10% off)" : "COD"}
+          <Chip tone={isOnline ? "success" : appliedWalletAmount > 0 ? "wallet" : "neutral"}>
+            <IndianRupee className="h-3.5 w-3.5" />
+            {finalPayable === 0
+              ? "Credits"
+              : isOnline
+              ? "Online"
+              : appliedWalletAmount > 0
+              ? "Credits + COD"
+              : "COD"}
           </Chip>
         </div>
 
-        {/* CTA */}
-        {String(selectedPayment).toLowerCase() === "cod" ? (
-          <button
-            type="button"
-            onClick={() => {
-              const err = validate?.();
-              if (err) return toast.error(err);
-
-              if (typeof onPlaceOrder !== "function") {
-                toast.error("Unable to place order. Please refresh.");
-                return;
-              }
-
-              onPlaceOrder(); // ✅ direct place order (COD)
-            }}
-            disabled={disabledCTA}
-            className="mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(0,0,0,0.24)] transition hover:opacity-90 active:scale-[0.99] disabled:bg-black/20 disabled:text-black/40"
-          >
-            {placing ? "Placing..." : "Place Order (COD)"}
-            <ArrowRight className="inline-block w-4 h-4 ml-2" />
-          </button>
-        ) : (
+        {isOnline && finalPayable > 0 ? (
           <div className="mt-4">
             <RazorpayCheckoutButton
               disabled={disabledCTA}
               createOrder={createRazorpayOrder}
             />
-            {showExtra && (
-              <p className="mt-2 text-[11px] text-green-800 text-center">
-                Paying online saves you <b>₹{money(safeExtra)}</b> extra (10% off).
-              </p>
-            )}
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={placeNormalOrder}
+            disabled={disabledCTA}
+            className="mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(0,0,0,0.24)] transition hover:opacity-90 active:scale-[0.99] disabled:bg-black/20 disabled:text-black/40"
+          >
+            {placing
+              ? "Placing..."
+              : finalPayable === 0
+              ? "Place Order (Credits)"
+              : appliedWalletAmount > 0
+              ? "Place Order (Credits + COD)"
+              : "Place Order (COD)"}
+            <ArrowRight className="ml-2 inline-block h-4 w-4" />
+          </button>
         )}
 
-        {/* Reason why disabled (better UX) */}
         {validationError ? (
-          <p className="mt-2 text-[11px] text-red-600 text-center">
+          <p className="mt-2 text-center text-[11px] text-red-600">
             {validationError}
           </p>
         ) : (
-          <p className="mt-2 text-[11px] text-gray-500 leading-relaxed text-center">
-            {String(selectedPayment).toLowerCase() === "cod"
+          <p className="mt-2 text-center text-[11px] leading-relaxed text-gray-500">
+            {finalPayable === 0
+              ? "Your order will be fully paid using Miray credits."
+              : appliedWalletAmount > 0
+              ? "Credits will be used first. Remaining amount will be paid by selected method."
+              : isCOD
               ? "You’ll pay when the order is delivered."
               : "Your payment is secured via Razorpay."}
           </p>

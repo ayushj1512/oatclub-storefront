@@ -11,7 +11,6 @@ import OrderSummary from "@/components/checkout/OrderSummary";
 import AddressSelection from "@/components/checkout/AddressSelection";
 import PaymentOptions from "@/components/checkout/PaymentOptions";
 import CheckoutCouponSection from "@/components/checkout/CheckoutCouponSection";
-
 import { useCartStore } from "@/store/cartStore";
 import { useAddressStore } from "@/store/addressStore";
 import { useAuthStore } from "@/store/authStore";
@@ -21,6 +20,8 @@ import useGtmStore from "@/store/gtmStore";
 import { trackSnap } from "@/lib/snap/track.js";
 
 import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
+
+import useCustomerStore from "@/store/customerStore";
 
 /* ---------- tiny UI ---------- */
 const Chip = ({ children }) => (
@@ -32,9 +33,9 @@ const Chip = ({ children }) => (
 export default function CheckoutPage() {
   const router = useRouter();
   const trackCheckoutStarted = useMarketingCampaignStore(
-  (s) => s.trackCheckoutStarted
-);
-const markConversion = useMarketingCampaignStore((s) => s.markConversion);
+    (s) => s.trackCheckoutStarted
+  );
+  const markConversion = useMarketingCampaignStore((s) => s.markConversion);
 
   /* ---------------- STORES ---------------- */
   const cartItems = useCartStore((s) => s.items) || [];
@@ -65,6 +66,12 @@ const markConversion = useMarketingCampaignStore((s) => s.markConversion);
   const discount = useCouponStore((s) => s.discount);
   const removeCoupon = useCouponStore((s) => s.removeCoupon);
 
+  const fetchCustomerCreditSummary = useCustomerStore(
+  (s) => s.fetchCustomerCreditSummary
+);
+
+const creditSummary = useCustomerStore((s) => s.creditSummary);
+
   /* ---------------- LOCAL UI ---------------- */
   const items = buyNowItem ? [buyNowItem] : cartItems;
 
@@ -79,6 +86,14 @@ const markConversion = useMarketingCampaignStore((s) => s.markConversion);
 
   /* ✅ IMPORTANT: local customer for existing-email users (no login) */
   const [guestCustomer, setGuestCustomer] = useState(null);
+  const activeCustomer = customer || guestCustomer;
+const walletBalance = Number(
+  creditSummary?.balance ||
+    activeCustomer?.credits?.balance ||
+    0
+);
+  const [useWallet, setUseWallet] = useState(false);
+  const [walletAmount, setWalletAmount] = useState(0);
 
   /* ---------------- GUEST + ADDRESS FORM ---------------- */
   const [guestInfo, setGuestInfo] = useState({
@@ -109,21 +124,31 @@ const markConversion = useMarketingCampaignStore((s) => s.markConversion);
     const st = useCartStore.getState();
     if (!st.items?.length && !st.buyNowItem) initCart?.();
     initializeAuth?.();
-     // safety: if user came normal checkout from cart, don't let stale buyNow hijack checkout
-  const isBuyNowCheckout =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("mode") === "buy-now";
+    // safety: if user came normal checkout from cart, don't let stale buyNow hijack checkout
+    const isBuyNowCheckout =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("mode") === "buy-now";
 
-  if (!isBuyNowCheckout) {
-    st.clearBuyNow?.();
-  }
+    if (!isBuyNowCheckout) {
+      st.clearBuyNow?.();
+    }
   }, []);
 
   /* ✅ sync local guestCustomer if store customer exists */
-    useEffect(() => {
+  useEffect(() => {
     // ✅ only sync if guestCustomer is empty and store has customer
     if (!guestCustomer?._id && customer?._id) setGuestCustomer(customer);
   }, [customer?._id, guestCustomer?._id]);
+
+  useEffect(() => {
+  const customerId = activeCustomer?._id;
+
+  if (!customerId) return;
+
+  fetchCustomerCreditSummary(customerId).catch((err) => {
+    console.warn("Credit summary fetch failed", err);
+  });
+}, [activeCustomer?._id]);
 
 
 
@@ -138,61 +163,76 @@ const markConversion = useMarketingCampaignStore((s) => s.markConversion);
 
 
   const couponCartItems = useMemo(() => {
-  if (buyNowItem) {
-    const price = Number(buyNowItem?.price ?? buyNowItem?.productSnapshot?.price ?? 0) || 0;
+    if (buyNowItem) {
+      const price = Number(buyNowItem?.price ?? buyNowItem?.productSnapshot?.price ?? 0) || 0;
 
-    return [
-      {
-        productId: buyNowItem.productId,
-        productCode: buyNowItem.productSnapshot?.productCode || buyNowItem.productCode || "",
-        title: buyNowItem.name || buyNowItem.productSnapshot?.title || "",
-        quantity: Number(buyNowItem.quantity || 1),
-        price,
-        isPrimaryProduct: Boolean(
-          buyNowItem.isPrimaryProduct || buyNowItem.productSnapshot?.isPrimaryProduct
-        ),
-        categories: buyNowItem.categories || buyNowItem.productSnapshot?.categories || [],
-        collections: buyNowItem.collections || buyNowItem.productSnapshot?.collections || [],
-        product: {
-          _id: buyNowItem.productId,
+      return [
+        {
+          productId: buyNowItem.productId,
+          productCode: buyNowItem.productSnapshot?.productCode || buyNowItem.productCode || "",
+          title: buyNowItem.name || buyNowItem.productSnapshot?.title || "",
+          quantity: Number(buyNowItem.quantity || 1),
           price,
           isPrimaryProduct: Boolean(
             buyNowItem.isPrimaryProduct || buyNowItem.productSnapshot?.isPrimaryProduct
           ),
           categories: buyNowItem.categories || buyNowItem.productSnapshot?.categories || [],
           collections: buyNowItem.collections || buyNowItem.productSnapshot?.collections || [],
+          product: {
+            _id: buyNowItem.productId,
+            price,
+            isPrimaryProduct: Boolean(
+              buyNowItem.isPrimaryProduct || buyNowItem.productSnapshot?.isPrimaryProduct
+            ),
+            categories: buyNowItem.categories || buyNowItem.productSnapshot?.categories || [],
+            collections: buyNowItem.collections || buyNowItem.productSnapshot?.collections || [],
+          },
         },
-      },
-    ];
-  }
+      ];
+    }
 
-  return typeof getCouponCartItems === "function" ? getCouponCartItems() : [];
-}, [buyNowItem, getCouponCartItems, cartItems]);
+    return typeof getCouponCartItems === "function" ? getCouponCartItems() : [];
+  }, [buyNowItem, getCouponCartItems, cartItems]);
 
-// coupon discount
-const couponDiscount = useMemo(() => {
-  return Math.max(0, Number(discount || 0));
-}, [discount]);
+  // coupon discount
+  const couponDiscount = useMemo(() => {
+    return Math.max(0, Number(discount || 0));
+  }, [discount]);
 
-// payable after coupon (base for razorpay extra)
-const payableAfterCoupon = useMemo(() => {
-  return Math.max(0, subtotal - Math.min(couponDiscount, subtotal));
-}, [subtotal, couponDiscount]);
+  // payable after coupon (base for razorpay extra)
+  const payableAfterCoupon = useMemo(() => {
+    return Math.max(0, subtotal - Math.min(couponDiscount, subtotal));
+  }, [subtotal, couponDiscount]);
 
-// ✅ Razorpay extra discount on payableAfterCoupon, not subtotal
+  // ✅ Razorpay extra discount on payableAfterCoupon, not subtotal
+const appliedWalletAmount = useMemo(() => {
+  if (!useWallet && selectedPayment !== "wallet") return 0;
+
+  return Math.min(
+    Math.max(0, Number(walletAmount || 0)),
+    Math.max(0, Number(walletBalance || 0)),
+    Math.max(0, Number(payableAfterCoupon || 0))
+  );
+}, [useWallet, selectedPayment, walletAmount, walletBalance, payableAfterCoupon]);
+
+const payableAfterWallet = useMemo(() => {
+  return Math.max(0, payableAfterCoupon - appliedWalletAmount);
+}, [payableAfterCoupon, appliedWalletAmount]);
+
 const razorpayExtraDiscount = useMemo(() => {
   if (String(selectedPayment).toLowerCase() !== "razorpay") return 0;
 
-  const base = payableAfterCoupon; // 👈 coupon already removed
+  const base = payableAfterWallet;
   const extra = Math.round(base * 0.10);
 
   return Math.min(extra, base);
-}, [selectedPayment, payableAfterCoupon]);
+}, [selectedPayment, payableAfterWallet]);
 
-// ✅ final payable
 const payable = useMemo(() => {
-  return Math.max(0, payableAfterCoupon - razorpayExtraDiscount);
-}, [payableAfterCoupon, razorpayExtraDiscount]);
+  return Math.max(0, payableAfterWallet - razorpayExtraDiscount);
+}, [payableAfterWallet, razorpayExtraDiscount]);
+
+const paymentOptionsPayable = payableAfterWallet;
 
   const selectedAddressObj = useMemo(() => {
     if (!selectedAddressId) return null;
@@ -203,19 +243,19 @@ const payable = useMemo(() => {
 
   /* ---------------- DEFAULT ADDRESS ---------------- */
   useEffect(() => {
-  if (!addresses?.length) {
-    setSelectedAddressId(null);
-    return;
-  }
+    if (!addresses?.length) {
+      setSelectedAddressId(null);
+      return;
+    }
 
-  const exists = addresses.some(
-    (a) => String(a?._id) === String(selectedAddressId)
-  );
+    const exists = addresses.some(
+      (a) => String(a?._id) === String(selectedAddressId)
+    );
 
-  if (!selectedAddressId || !exists) {
-    setSelectedAddressId(addresses[0]?._id || null); // ✅ top address selected
-  }
-}, [addresses, selectedAddressId]);
+    if (!selectedAddressId || !exists) {
+      setSelectedAddressId(addresses[0]?._id || null); // ✅ top address selected
+    }
+  }, [addresses, selectedAddressId]);
 
 
   /* ---------------- GA4 ITEMS ---------------- */
@@ -223,130 +263,130 @@ const payable = useMemo(() => {
 
   /* ---------------- TRACK begin_checkout (once) ---------------- */
   /* ---------------- TRACK begin_checkout + Snap START_CHECKOUT (once) ---------------- */
-const checkoutTracked = useRef(false);
+  const checkoutTracked = useRef(false);
 
-useEffect(() => {
-  if (checkoutTracked.current || !items?.length) return;
-  checkoutTracked.current = true;
+  useEffect(() => {
+    if (checkoutTracked.current || !items?.length) return;
+    checkoutTracked.current = true;
 
-  try {
-    useGtmStore.getState().beginCheckout({
-      items,
-      total: Number(payable || 0),
-      coupon: coupon?.code || "",
-    });
+    try {
+      useGtmStore.getState().beginCheckout({
+        items,
+        total: Number(payable || 0),
+        coupon: coupon?.code || "",
+      });
 
-    console.log("📈 GA4 begin_checkout fired", {
-      value: Number(payable || 0),
-      coupon: coupon?.code || null,
-    });
-  } catch (e) {
-    console.warn("📈 GA4 begin_checkout failed", e);
-  }
+      console.log("📈 GA4 begin_checkout fired", {
+        value: Number(payable || 0),
+        coupon: coupon?.code || null,
+      });
+    } catch (e) {
+      console.warn("📈 GA4 begin_checkout failed", e);
+    }
 
-  try {
-    const itemIds = (items || [])
-      .map((it) => it?.productId || it?.id)
-      .filter(Boolean)
-      .map((x) => String(x));
+    try {
+      const itemIds = (items || [])
+        .map((it) => it?.productId || it?.id)
+        .filter(Boolean)
+        .map((x) => String(x));
 
-    trackSnap("START_CHECKOUT", {
-      currency: "INR",
-      price: Number(payable || 0),
-      item_ids: itemIds,
-      ...(coupon?.code ? { coupon: String(coupon.code) } : {}),
-    });
+      trackSnap("START_CHECKOUT", {
+        currency: "INR",
+        price: Number(payable || 0),
+        item_ids: itemIds,
+        ...(coupon?.code ? { coupon: String(coupon.code) } : {}),
+      });
 
-    console.log("👻 Snap START_CHECKOUT fired", {
-      price: Number(payable || 0),
-      item_ids: itemIds,
-    });
-  } catch (e) {
-    console.warn("👻 Snap START_CHECKOUT failed", e);
-  }
+      console.log("👻 Snap START_CHECKOUT fired", {
+        price: Number(payable || 0),
+        item_ids: itemIds,
+      });
+    } catch (e) {
+      console.warn("👻 Snap START_CHECKOUT failed", e);
+    }
 
-  try {
-    trackCheckoutStarted({
-      cartValue: Number(payable || 0),
-      pageUrl: typeof window !== "undefined" ? window.location.href : "",
-    });
+    try {
+      trackCheckoutStarted({
+        cartValue: Number(payable || 0),
+        pageUrl: typeof window !== "undefined" ? window.location.href : "",
+      });
 
-    console.log("📣 Marketing campaign checkout_started fired");
-  } catch (e) {
-    console.warn("📣 Marketing campaign checkout_started failed", e);
-  }
-}, [
-  items?.length,
-  payable,
-  coupon?.code,
-  items,
-  trackCheckoutStarted,
-]);
+      console.log("📣 Marketing campaign checkout_started fired");
+    } catch (e) {
+      console.warn("📣 Marketing campaign checkout_started failed", e);
+    }
+  }, [
+    items?.length,
+    payable,
+    coupon?.code,
+    items,
+    trackCheckoutStarted,
+  ]);
 
   /* ---------------- PINCODE LOOKUP ---------------- */
   const pinTimer = useRef(null);
   const lastPin = useRef("");
-    // ✅ Prevent multiple parallel ensure calls
+  // ✅ Prevent multiple parallel ensure calls
   const ensureLockRef = useRef(false);
   const ensuredCustomerRef = useRef(null);
 
 
   const lastGuestEmailRef = useRef("");
 
-const resetGuestContext = () => {
-  // clear addresses if you have this in store
-  clearAddresses?.();
+  const resetGuestContext = () => {
+    // clear addresses if you have this in store
+    clearAddresses?.();
 
-  setSelectedAddressId(null);
-  setGuestCustomer(null);
+    setSelectedAddressId(null);
+    setGuestCustomer(null);
 
-  // reset ensure cache so old customer isn't reused
-  ensuredCustomerRef.current = null;
-  ensureLockRef.current = false;
-};
+    // reset ensure cache so old customer isn't reused
+    ensuredCustomerRef.current = null;
+    ensureLockRef.current = false;
+  };
 
   const updateAddressField = (e) => {
-  const { name, value } = e.target;
+    const { name, value } = e.target;
 
-  if (name === "postalCode") {
-    const cleaned = String(value || "").replace(/\D/g, "").slice(0, 6);
-    setAddressForm((p) => ({ ...p, postalCode: cleaned }));
+    if (name === "postalCode") {
+      const cleaned = String(value || "").replace(/\D/g, "").slice(0, 6);
+      setAddressForm((p) => ({ ...p, postalCode: cleaned }));
 
-    if (pinTimer.current) clearTimeout(pinTimer.current);
-    if (cleaned.length !== 6) return;
+      if (pinTimer.current) clearTimeout(pinTimer.current);
+      if (cleaned.length !== 6) return;
 
-    pinTimer.current = setTimeout(async () => {
-      if (lastPin.current === cleaned) return;
-      lastPin.current = cleaned;
+      pinTimer.current = setTimeout(async () => {
+        if (lastPin.current === cleaned) return;
+        lastPin.current = cleaned;
 
-      const info = await lookupPincode?.(cleaned);
-      if (info?.state || info?.district || info?.city) {
-        setAddressForm((p) => ({
-          ...p,
-          city: info.city || info.district || p.city,
-          state: info.state || p.state,
-        }));
-      }
-    }, 250);
+        const info = await lookupPincode?.(cleaned);
+        if (info?.state || info?.district || info?.city) {
+          setAddressForm((p) => ({
+            ...p,
+            city: info.city || info.district || p.city,
+            state: info.state || p.state,
+          }));
+        }
+      }, 250);
 
-    return;
-  }
-
-  // ✅ handle email change (guest flow)
-  if (name === "email") {
-    const clean = String(value || "").trim().toLowerCase();
-
-    if (clean !== lastGuestEmailRef.current) {
-      lastGuestEmailRef.current = clean;
-      resetGuestContext();
+      return;
     }
 
-    setAddressForm((p) => ({ ...p, email: clean }));
-    return;
-  }
+    // ✅ handle email change (guest flow)
+    if (name === "email") {
+      const clean = String(value || "").trim().toLowerCase();
 
-  setAddressForm((p) => ({ ...p, [name]: value }));
-};
+      if (clean !== lastGuestEmailRef.current) {
+        lastGuestEmailRef.current = clean;
+        resetGuestContext();
+      }
+
+      setAddressForm((p) => ({ ...p, email: clean }));
+      return;
+    }
+
+    setAddressForm((p) => ({ ...p, [name]: value }));
+  };
 
 
   const updateGuestField = (e) => {
@@ -382,45 +422,45 @@ const resetGuestContext = () => {
 
   /* ---------------- ENSURE CUSTOMER FOR GUEST ---------------- */
   const ensureGuestCustomer = async () => {
-  if (user?.uid && customer?._id) return customer;
-  if (!user?.uid && guestCustomer?._id) return guestCustomer;
+    if (user?.uid && customer?._id) return customer;
+    if (!user?.uid && guestCustomer?._id) return guestCustomer;
 
-  const email = addressForm.email?.trim();
-  const phone = addressForm.phone?.trim();
-  const name = addressForm.fullName?.trim();
-  const password = guestInfo.password?.trim();
+    const email = addressForm.email?.trim();
+    const phone = addressForm.phone?.trim();
+    const name = addressForm.fullName?.trim();
+    const password = guestInfo.password?.trim();
 
-  if (!email || !phone || !name || !password) {
-    toast.error("Fill Name, Email, Phone & Password");
-    return null;
-  }
-
-  // ✅ toast: creating account
-  const tId = toast.loading("Creating account...");
-
-  try {
-    setCreatingGuest(true);
-    const created = await createGuestCustomer({ name, email, phone, password });
-
-    const createdCustomer = created?.customer || null;
-    if (!createdCustomer?._id) {
-      toast.error("Account creation failed.", { id: tId });
+    if (!email || !phone || !name || !password) {
+      toast.error("Fill Name, Email, Phone & Password");
       return null;
     }
 
-    setGuestCustomer(createdCustomer);
+    // ✅ toast: creating account
+    const tId = toast.loading("Creating account...");
 
-    // ✅ toast: created
-    toast.success("Account created ✅", { id: tId });
-    return createdCustomer;
-  } catch (e) {
-    console.error("❌ ensureGuestCustomer failed", e);
-    toast.error("Account creation failed.", { id: tId });
-    return null;
-  } finally {
-    setCreatingGuest(false);
-  }
-};
+    try {
+      setCreatingGuest(true);
+      const created = await createGuestCustomer({ name, email, phone, password });
+
+      const createdCustomer = created?.customer || null;
+      if (!createdCustomer?._id) {
+        toast.error("Account creation failed.", { id: tId });
+        return null;
+      }
+
+      setGuestCustomer(createdCustomer);
+
+      // ✅ toast: created
+      toast.success("Account created ✅", { id: tId });
+      return createdCustomer;
+    } catch (e) {
+      console.error("❌ ensureGuestCustomer failed", e);
+      toast.error("Account creation failed.", { id: tId });
+      return null;
+    } finally {
+      setCreatingGuest(false);
+    }
+  };
 
 
 
@@ -519,68 +559,117 @@ const resetGuestContext = () => {
 
 
   /* ---------------- SAVE NEW ADDRESS ---------------- */
-    const saveNewAddress = async () => {
-  // ✅ ALWAYS ensure customer (logged-in OR guest)
-  const finalCustomer = await ensureCustomer();
-  if (!finalCustomer?._id) return false;
+  const saveNewAddress = async () => {
+    // ✅ ALWAYS ensure customer (logged-in OR guest)
+    const finalCustomer = await ensureCustomer();
+    if (!finalCustomer?._id) return false;
 
-  if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
-    toast.error("Enter valid pincode");
-    return false;
-  }
-  if (!addressForm.fullName) {
-    toast.error("Full name required");
-    return false;
-  }
-  if (!addressForm.phone) {
-    toast.error("Phone required");
-    return false;
-  }
-  if (!addressForm.addressLine1) {
-    toast.error("Address required");
-    return false;
-  }
-
-  const tId = toast.loading("Saving address...");
-
-  try {
-    setSavingAddress(true);
-
-    const payload = {
-      ...addressForm,
-      firebaseUID: finalCustomer?.firebaseUID || user?.uid || null,
-      customerId: finalCustomer._id, // ✅ NEVER null now
-      email: user?.email || addressForm.email || finalCustomer?.email || "",
-    };
-
-    const created = await createAddress?.(payload);
-
-    // ✅ support both response shapes
-    const createdId = created?._id || created?.address?._id;
-
-    if (!createdId) {
-      toast.error("Address save failed.", { id: tId });
+    if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
+      toast.error("Enter valid pincode");
+      return false;
+    }
+    if (!addressForm.fullName) {
+      toast.error("Full name required");
+      return false;
+    }
+    if (!addressForm.phone) {
+      toast.error("Phone required");
+      return false;
+    }
+    if (!addressForm.addressLine1) {
+      toast.error("Address required");
       return false;
     }
 
-    // ✅ IMPORTANT: refresh addresses so UI list updates correctly
-    await fetchAddresses?.({ firebaseUID: payload.firebaseUID });
+    const tId = toast.loading("Saving address...");
 
-    // ✅ close form and auto-select the newly created address
-    setShowAddressForm(false);
-    setSelectedAddressId(createdId);
+    try {
+      setSavingAddress(true);
 
-    toast.success("Address saved ✅", { id: tId });
-    return true;
+      const payload = {
+        ...addressForm,
+        firebaseUID: finalCustomer?.firebaseUID || user?.uid || null,
+        customerId: finalCustomer._id, // ✅ NEVER null now
+        email: user?.email || addressForm.email || finalCustomer?.email || "",
+      };
+
+      const created = await createAddress?.(payload);
+
+      // ✅ support both response shapes
+      const createdId = created?._id || created?.address?._id;
+
+      if (!createdId) {
+        toast.error("Address save failed.", { id: tId });
+        return false;
+      }
+
+      // ✅ IMPORTANT: refresh addresses so UI list updates correctly
+      await fetchAddresses?.({ firebaseUID: payload.firebaseUID });
+
+      // ✅ close form and auto-select the newly created address
+      setShowAddressForm(false);
+      setSelectedAddressId(createdId);
+
+      toast.success("Address saved ✅", { id: tId });
+      return true;
+    } catch (e) {
+      console.error("❌ saveNewAddress failed", e);
+      toast.error("Address save failed.", { id: tId });
+      return false;
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+ const refreshCustomerByEmail = async () => {
+  const email =
+    addressForm.email ||
+    customer?.email ||
+    guestCustomer?.email ||
+    user?.email ||
+    "";
+
+  if (!email) return null;
+
+  try {
+    const baseURL =
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      "http://localhost:5000";
+
+    const res = await fetch(
+      `${baseURL}/api/customers/search?email=${encodeURIComponent(email)}`
+    );
+
+    const data = await res.json();
+
+    const found =
+      data?.customer ||
+      data?.items?.[0] ||
+      data?.data?.customer ||
+      data?.customers?.[0] ||
+      data?.data?.[0] ||
+      null;
+
+    if (found?._id) {
+      setGuestCustomer(found);
+      fetchCustomerCreditSummary(found._id).catch(() => {});
+      return found;
+    }
+
+    return null;
   } catch (e) {
-    console.error("❌ saveNewAddress failed", e);
-    toast.error("Address save failed.", { id: tId });
-    return false;
-  } finally {
-    setSavingAddress(false);
+    console.warn("Customer refresh by email failed", e);
+    return null;
   }
 };
 
+  useEffect(() => {
+    const email = addressForm.email || user?.email || "";
+    if (!email) return;
+
+    refreshCustomerByEmail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressForm.email, user?.email]);
 
 
 
@@ -599,7 +688,7 @@ const resetGuestContext = () => {
       return "Please select or add an address.";
     }
 
-    if (!["cod", "razorpay"].includes(selectedPayment)) {
+    if (!["cod", "razorpay", "wallet"].includes(selectedPayment)) {
       return "Invalid payment method.";
     }
 
@@ -608,180 +697,182 @@ const resetGuestContext = () => {
 
   /* ---------------- PLACE ORDER ---------------- */
   const handlePlaceOrder = async () => {
-  const finalCustomer = await ensureCustomer();
-  if (!finalCustomer?._id) return;
+    const finalCustomer = await ensureCustomer();
+    if (!finalCustomer?._id) return;
+    await refreshCustomerByEmail();
 
-  const err = validateCheckout();
-  if (err) return toast.error(err);
+    const err = validateCheckout();
+    if (err) return toast.error(err);
 
-  const toastId = toast.loading("Placing your order...");
+    const toastId = toast.loading("Placing your order...");
 
-  try {
-    const baseOrderItems = getCheckoutPayload();
+    try {
+      const baseOrderItems = getCheckoutPayload();
 
-    const orderItems = baseOrderItems.map((item) => {
-      const richItem =
-        items.find(
-          (x) =>
-            String(x?.productId || x?.id) ===
-            String(item?.productId || item?.id)
-        ) ||
-        couponCartItems.find(
-          (x) =>
-            String(x?.productId || x?.id) ===
-            String(item?.productId || item?.id)
-        ) ||
-        {};
+      const orderItems = baseOrderItems.map((item) => {
+        const richItem =
+          items.find(
+            (x) =>
+              String(x?.productId || x?.id) ===
+              String(item?.productId || item?.id)
+          ) ||
+          couponCartItems.find(
+            (x) =>
+              String(x?.productId || x?.id) ===
+              String(item?.productId || item?.id)
+          ) ||
+          {};
 
-      const price = Number(
-        richItem?.price ??
+        const price = Number(
+          richItem?.price ??
           richItem?.productSnapshot?.price ??
           item?.price ??
           item?.productSnapshot?.price ??
           0
-      );
+        );
 
-      const collections =
-        richItem.collections ||
-        richItem.productSnapshot?.collections ||
-        item.collections ||
-        item.productSnapshot?.collections ||
-        [];
+        const collections =
+          richItem.collections ||
+          richItem.productSnapshot?.collections ||
+          item.collections ||
+          item.productSnapshot?.collections ||
+          [];
 
-      const isPrimaryProduct =
-        richItem.isPrimaryProduct === true ||
-        richItem.productSnapshot?.isPrimaryProduct === true ||
-        item.isPrimaryProduct === true ||
-        item.productSnapshot?.isPrimaryProduct === true;
+        const isPrimaryProduct =
+          richItem.isPrimaryProduct === true ||
+          richItem.productSnapshot?.isPrimaryProduct === true ||
+          item.isPrimaryProduct === true ||
+          item.productSnapshot?.isPrimaryProduct === true;
 
-      return {
-        ...item,
-        ...richItem,
-        productId: item.productId || richItem.productId || richItem.id,
-        quantity: item.quantity || richItem.quantity || 1,
-        variantId: item.variantId || richItem.variantId || richItem?.variant?._id,
+        return {
+          ...item,
+          ...richItem,
+          productId: item.productId || richItem.productId || richItem.id,
+          quantity: item.quantity || richItem.quantity || 1,
+          variantId: item.variantId || richItem.variantId || richItem?.variant?._id,
 
-        price,
-        itemPrice: price,
-        item_price: price,
-
-        collections,
-        isPrimaryProduct,
-
-        productSnapshot: {
-          ...(item.productSnapshot || {}),
-          ...(richItem.productSnapshot || {}),
           price,
+          itemPrice: price,
+          item_price: price,
+
           collections,
           isPrimaryProduct,
+
+          productSnapshot: {
+            ...(item.productSnapshot || {}),
+            ...(richItem.productSnapshot || {}),
+            price,
+            collections,
+            isPrimaryProduct,
+          },
+        };
+      });
+
+      // ✅ Debug attribution before order create
+      const attribution =
+        useMarketingCampaignStore.getState().getAttributionPayload?.() || null;
+
+      console.log("🧾 CHECKOUT ORDER DEBUG:", {
+        subtotal,
+        discount,
+        razorpayExtraDiscount,
+        payable,
+        selectedPayment,
+        coupon,
+        cartItems: items,
+        orderItems,
+        attribution,
+      });
+
+      const order = await createOrder({
+        customerId: finalCustomer._id,
+        customer: {
+          ...finalCustomer,
+          shippingAddressSnapshot: {
+            fullName:
+              selectedAddressObj?.fullName ||
+              selectedAddressObj?.name ||
+              addressForm?.fullName ||
+              finalCustomer?.name ||
+              "",
+
+            phone:
+              selectedAddressObj?.phone ||
+              addressForm?.phone ||
+              finalCustomer?.phone ||
+              finalCustomer?.mobile ||
+              "",
+
+            email:
+              selectedAddressObj?.email ||
+              addressForm?.email ||
+              finalCustomer?.email ||
+              user?.email ||
+              "",
+
+            city: selectedAddressObj?.city || addressForm?.city || "",
+            state: selectedAddressObj?.state || addressForm?.state || "",
+            country: selectedAddressObj?.country || "in",
+
+            pincode:
+              selectedAddressObj?.pincode ||
+              selectedAddressObj?.postalCode ||
+              addressForm?.postalCode ||
+              "",
+          },
         },
-      };
-    });
 
-    // ✅ Debug attribution before order create
-    const attribution =
-      useMarketingCampaignStore.getState().getAttributionPayload?.() || null;
-
-    console.log("🧾 CHECKOUT ORDER DEBUG:", {
-      subtotal,
-      discount,
-      razorpayExtraDiscount,
-      payable,
-      selectedPayment,
-      coupon,
-      cartItems: items,
-      orderItems,
-      attribution,
-    });
-
-    const order = await createOrder({
-      customerId: finalCustomer._id,
-      customer: {
-        ...finalCustomer,
-        shippingAddressSnapshot: {
-          fullName:
-            selectedAddressObj?.fullName ||
-            selectedAddressObj?.name ||
-            addressForm?.fullName ||
-            finalCustomer?.name ||
-            "",
-
-          phone:
-            selectedAddressObj?.phone ||
-            addressForm?.phone ||
-            finalCustomer?.phone ||
-            finalCustomer?.mobile ||
-            "",
-
-          email:
-            selectedAddressObj?.email ||
-            addressForm?.email ||
-            finalCustomer?.email ||
-            user?.email ||
-            "",
-
-          city: selectedAddressObj?.city || addressForm?.city || "",
-          state: selectedAddressObj?.state || addressForm?.state || "",
-          country: selectedAddressObj?.country || "in",
-
-          pincode:
-            selectedAddressObj?.pincode ||
-            selectedAddressObj?.postalCode ||
-            addressForm?.postalCode ||
-            "",
-        },
-      },
-
-      shippingAddressId: selectedAddressObj._id,
-      billingAddressId: selectedAddressObj._id,
-      paymentMethod: selectedPayment,
-      items: orderItems,
-      source: "website",
-      subtotal: Number(subtotal || 0),
-      discount: Number(discount || 0),
-      razorpayExtraDiscount: Number(razorpayExtraDiscount || 0),
-      payable: Number(payable || 0),
-      coupon: coupon
-        ? {
+        shippingAddressId: selectedAddressObj._id,
+        billingAddressId: selectedAddressObj._id,
+        paymentMethod: selectedPayment,
+        useWallet,
+walletAmount: appliedWalletAmount,        items: orderItems,
+        source: "website",
+        subtotal: Number(subtotal || 0),
+        discount: Number(discount || 0),
+        razorpayExtraDiscount: Number(razorpayExtraDiscount || 0),
+        payable: Number(payable || 0),
+        coupon: coupon
+          ? {
             code: coupon.code,
             discount: Number(discount || 0),
           }
-        : null,
-    });
-
-    try {
-      await markConversion({
-        orderId: order?._id || order?.id || order?.orderId,
-        orderNumber: order?.orderNumber,
-        revenue: Number(payable || order?.finalPayable || order?.totalAmount || 0),
+          : null,
       });
 
-      console.log("📣 Marketing campaign conversion tracked", {
-        orderId: order?._id || order?.id || order?.orderId,
-        orderNumber: order?.orderNumber,
-        revenue: Number(payable || order?.finalPayable || order?.totalAmount || 0),
-      });
+      try {
+        await markConversion({
+          orderId: order?._id || order?.id || order?.orderId,
+          orderNumber: order?.orderNumber,
+          revenue: Number(payable || order?.finalPayable || order?.totalAmount || 0),
+        });
+
+        console.log("📣 Marketing campaign conversion tracked", {
+          orderId: order?._id || order?.id || order?.orderId,
+          orderNumber: order?.orderNumber,
+          revenue: Number(payable || order?.finalPayable || order?.totalAmount || 0),
+        });
+      } catch (e) {
+        console.warn("📣 Marketing campaign conversion failed", e);
+      }
+
+      if (buyNowItem) completeCheckout?.();
+      else clearCart?.();
+
+      removeCoupon?.();
+
+      toast.success("Order placed!", { id: toastId });
+
+      router.push(
+        order?.orderNumber
+          ? `/order-success?order=${order.orderNumber}`
+          : "/order-success"
+      );
     } catch (e) {
-      console.warn("📣 Marketing campaign conversion failed", e);
+      console.error("❌ PLACE ORDER FAILED:", e);
+      toast.error(e?.message || "Failed to place order.", { id: toastId });
     }
-
-    if (buyNowItem) completeCheckout?.();
-    else clearCart?.();
-
-    removeCoupon?.();
-
-    toast.success("Order placed!", { id: toastId });
-
-    router.push(
-      order?.orderNumber
-        ? `/order-success?order=${order.orderNumber}`
-        : "/order-success"
-    );
-  } catch (e) {
-    console.error("❌ PLACE ORDER FAILED:", e);
-    toast.error(e?.message || "Failed to place order.", { id: toastId });
-  }
-};
+  };
 
 
   /* ---------------- UI ---------------- */
@@ -826,20 +917,24 @@ const resetGuestContext = () => {
           />
 
           {/* Step 2: Summary */}
-         <OrderSummary
-  items={items}
-  subtotal={subtotal}
-  coupon={coupon}
-  discount={discount}
-  razorpayExtraDiscount={razorpayExtraDiscount}
-  payable={payable}
-  showSummary={showSummary}
-  setShowSummary={setShowSummary}
-  email={addressForm.email}
-  phone={addressForm.phone}
-  customerId={user?.uid || null}
-  cartItems={couponCartItems}
-/>
+          <OrderSummary
+            items={items}
+            subtotal={subtotal}
+            coupon={coupon}
+            discount={discount}
+            razorpayExtraDiscount={razorpayExtraDiscount}
+            useWallet={useWallet}
+            setUseWallet={setUseWallet}
+            walletAmount={walletAmount}
+            setWalletAmount={setWalletAmount}
+            walletBalance={walletBalance}
+payable={paymentOptionsPayable}            showSummary={showSummary}
+            setShowSummary={setShowSummary}
+            email={addressForm.email}
+            phone={addressForm.phone}
+            customerId={user?.uid || null}
+            cartItems={couponCartItems}
+          />
 
 
 
@@ -850,18 +945,21 @@ const resetGuestContext = () => {
   selectedPayment={selectedPayment}
   setSelectedPayment={setSelectedPayment}
   payable={payable}
-  subtotal={subtotal} // ✅ NEW (for showing “you save ₹x”)
-razorpayExtraDiscount={razorpayExtraDiscount} // ✅ NEW (10% extra off amount)
+  subtotal={subtotal}
+  razorpayExtraDiscount={razorpayExtraDiscount}
   coupon={coupon}
   discount={discount}
+  useWallet={useWallet}
+  setUseWallet={setUseWallet}
+  walletAmount={walletAmount}
+  setWalletAmount={setWalletAmount}
+  walletBalance={walletBalance}
   placing={placing}
   validate={validateCheckout}
-  // setShowCodCaptcha={setShowCodCaptcha}
   onPlaceOrder={handlePlaceOrder}
-
   selectedAddressObj={selectedAddressObj}
   user={user}
-  customer={customer || guestCustomer}
+  customer={activeCustomer}
   ensureGuestCustomer={ensureGuestCustomer}
   getCheckoutPayload={getCheckoutPayload}
   createOrder={createOrder}
