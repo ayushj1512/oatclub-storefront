@@ -1,11 +1,11 @@
 // data/socials.js
 
 export const SOCIAL_LINKS = {
-  facebook: "https://www.facebook.com/mirayfashions#",
-  instagram: "https://www.instagram.com/miray.fashions/",
+  facebook: "https://www.facebook.com/oatclub.in",
+  instagram: "https://www.instagram.com/oatclub.in",
   whatsapp: {
-    number: "+917303491206",
-    link: "https://wa.me/917303491206",
+    number: "+917217649990",
+    link: "https://wa.me/917217649990",
   },
-  email: "mailto:support@mirayfashions.com",
+  email: "mailto:oatclub.in@gmail.com",
 };

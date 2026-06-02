@@ -1,30 +1,47 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
-import Link from "next/link";
 import ProductCard from "@/components/common/ProductCard";
 import { useRecommendationStore } from "@/store/recommendationStore";
 
-/**
- * RecommendationFeatureRow.jsx (FRONTEND ONLY)
- * ✅ Simple black header + minimal View All (like bestseller)
- * ✅ Mobile title short: "Recommendations" (prevents overlap)
- * ✅ View All -> /recommendation
- * ✅ Hide if no products
- */
-
 const uniqBySlug = (arr = []) => {
   const seen = new Set();
-  const out = [];
-  for (const x of arr || []) {
+  return arr.filter((x) => {
     const k = String(x?.slug || "").trim().toLowerCase();
-    if (!k || seen.has(k)) continue;
+    if (!k || seen.has(k)) return false;
     seen.add(k);
-    out.push(x);
-  }
-  return out;
+    return true;
+  });
 };
+
+function ViewAllCard({ href = "/recommendation" }) {
+  return (
+    <a
+      href={href}
+      className="group flex aspect-[4/5] w-full flex-col items-center justify-center bg-black p-4 text-center text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black"
+    >
+      <Sparkles className="mb-4 h-7 w-7 transition group-hover:scale-110" />
+
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-70">
+        Picked For You
+      </p>
+
+      <h3 className="mt-2 text-xl font-black uppercase leading-none tracking-tight md:text-2xl">
+        View All
+      </h3>
+
+      <p className="mt-2 text-xs uppercase tracking-wide opacity-70">
+        Recommendations
+      </p>
+
+      <span className="mt-5 flex h-9 w-9 items-center justify-center rounded-full border border-current transition group-hover:translate-x-1">
+        <ArrowRight className="h-4 w-4" />
+      </span>
+    </a>
+  );
+}
 
 export default function RecommendationFeatureRow({
   title = "RECOMMENDED PRODUCTS",
@@ -40,32 +57,44 @@ export default function RecommendationFeatureRow({
 
   useEffect(() => {
     let alive = true;
+
     (async () => {
       try {
         setError("");
         await build({ limit, seedCount, ensureCatalog, fetchParams });
       } catch (e) {
-        if (!alive) return;
-        setError(e?.message || "Something went wrong");
+        if (alive) setError(e?.message || "Something went wrong");
       }
     })();
+
     return () => {
       alive = false;
     };
   }, [limit, seedCount, ensureCatalog, build, fetchParams]);
 
-  const products = useMemo(() => {
-    const list = Array.isArray(items) ? items : [];
-    return uniqBySlug(list).filter((x) => x?.slug);
-  }, [items]);
+  const products = useMemo(
+    () => uniqBySlug(Array.isArray(items) ? items : []).filter((x) => x?.slug),
+    [items]
+  );
 
   const showShimmer = loading && !products.length;
   const showArrows = products.length > 2 || showShimmer;
 
-  const scrollRow = (dir) => scrollRef.current?.scrollBy({ left: dir === "left" ? -360 : 360, behavior: "smooth" });
+  const scrollRow = (dir) =>
+    scrollRef.current?.scrollBy({
+      left: dir === "left" ? -360 : 360,
+      behavior: "smooth",
+    });
 
   const ArrowBtn = ({ dir }) => (
-    <button type="button" onClick={() => scrollRow(dir)} className={`absolute ${dir === "left" ? "left-2" : "right-2"} top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition`} aria-label={`Scroll ${dir}`}>
+    <button
+      type="button"
+      onClick={() => scrollRow(dir)}
+      className={`absolute ${
+        dir === "left" ? "left-2" : "right-2"
+      } top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-black bg-white text-lg text-black transition hover:bg-black hover:text-white md:flex`}
+      aria-label={`Scroll ${dir}`}
+    >
       {dir === "left" ? "←" : "→"}
     </button>
   );
@@ -73,41 +102,62 @@ export default function RecommendationFeatureRow({
   if (!showShimmer && !products.length) return null;
 
   return (
-    <motion.section className={`bg-white ${showShimmer ? "px-4" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
-      <div className="w-full bg-black text-center mb-6 relative">
-        <h2 className="text-white py-3 text-sm sm:text-base md:text-2xl font-semibold uppercase tracking-[0.18em] sm:tracking-[0.25em]">
+    <motion.section
+      className="bg-white pb-6 md:pb-10"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <div className="mb-4 bg-black px-3 py-3 text-center text-white md:mb-6">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/60">
+          Oatclub Picks
+        </p>
+
+        <h2 className="mt-1 text-sm font-black uppercase tracking-[0.2em] sm:text-base md:text-2xl">
           <span className="sm:hidden">Recommendations</span>
           <span className="hidden sm:inline">{title}</span>
         </h2>
-        <Link href={viewAllHref} className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-white text-[11px] sm:text-sm font-medium opacity-80 hover:opacity-100 transition">
-          View All →
-        </Link>
       </div>
 
-      {error ? <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p> : null}
+      {error && <p className="mb-3 text-center text-sm text-black">❌ {error}</p>}
 
       <div className="relative">
-        {showArrows ? (
+        {showArrows && (
           <>
             <ArrowBtn dir="left" />
             <ArrowBtn dir="right" />
-            <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white to-transparent z-10" />
-            <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white to-transparent z-10" />
           </>
-        ) : null}
+        )}
 
-        <div ref={scrollRef} className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 no-scrollbar scroll-smooth px-2">
-          {showShimmer
-            ? Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]">
-                  <ProductCard loading />
-                </div>
-              ))
-            : products.map((p) => (
-                <div key={p.id || p.slug} className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]">
+        <div
+          ref={scrollRef}
+          className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth px-2 pb-2"
+        >
+          {showShimmer ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="min-w-[160px] snap-start sm:min-w-[200px] md:min-w-[240px]"
+              >
+                <ProductCard loading />
+              </div>
+            ))
+          ) : (
+            <>
+              {products.map((p) => (
+                <div
+                  key={p.id || p.slug}
+                  className="min-w-[160px] snap-start sm:min-w-[200px] md:min-w-[240px]"
+                >
                   <ProductCard product={p} />
                 </div>
               ))}
+
+              <div className="min-w-[160px] snap-start sm:min-w-[200px] md:min-w-[240px]">
+                <ViewAllCard href={viewAllHref} />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </motion.section>

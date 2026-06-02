@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import ProductCard from "@/components/common/ProductCard";
 import { useProductStore } from "@/store/productStore";
 
@@ -13,26 +14,22 @@ export default function RecommendedProducts({
 }) {
   const rowRef = useRef(null);
 
-  const fetchProductDetailsSafe = useProductStore(
-    (s) => s.fetchProductDetailsSafe
-  );
+  const fetchProductDetailsSafe = useProductStore((s) => s.fetchProductDetailsSafe);
   const fetchProductsByTag = useProductStore((s) => s.fetchProductsByTag);
-  const fetchProductsByCategory = useProductStore(
-    (s) => s.fetchProductsByCategory
-  );
+  const fetchProductsByCategory = useProductStore((s) => s.fetchProductsByCategory);
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const ids = useMemo(() => {
-    if (!Array.isArray(productIds)) return [];
-    return [...new Set(productIds.map((x) => String(x).trim()).filter(Boolean))];
-  }, [productIds]);
+  const ids = useMemo(
+    () => [...new Set((productIds || []).map((x) => String(x).trim()).filter(Boolean))],
+    [productIds]
+  );
 
-  const tagList = useMemo(() => {
-    if (!Array.isArray(tags)) return [];
-    return [...new Set(tags.map((t) => String(t).trim()).filter(Boolean))];
-  }, [tags]);
+  const tagList = useMemo(
+    () => [...new Set((tags || []).map((t) => String(t).trim()).filter(Boolean))],
+    [tags]
+  );
 
   const tagKey = tagList.join(",");
   const categoryKey = String(category || "").trim();
@@ -52,7 +49,6 @@ export default function RecommendedProducts({
           const list = results
             .filter((r) => r.status === "fulfilled" && r.value)
             .map((r) => r.value)
-            .filter(Boolean)
             .slice(0, limit);
 
           if (!cancelled) setProducts(list);
@@ -69,8 +65,9 @@ export default function RecommendedProducts({
             card: 1,
           });
 
-          const list = useProductStore.getState().allProducts || [];
-          if (!cancelled) setProducts(list.slice(0, limit));
+          if (!cancelled) {
+            setProducts((useProductStore.getState().allProducts || []).slice(0, limit));
+          }
           return;
         }
 
@@ -83,8 +80,9 @@ export default function RecommendedProducts({
             card: 1,
           });
 
-          const list = useProductStore.getState().allProducts || [];
-          if (!cancelled) setProducts(list.slice(0, limit));
+          if (!cancelled) {
+            setProducts((useProductStore.getState().allProducts || []).slice(0, limit));
+          }
           return;
         }
 
@@ -111,67 +109,87 @@ export default function RecommendedProducts({
 
   if (!ids.length && !tagList.length && !categoryKey) return null;
 
+  const scrollBy = (dir = 1) => {
+    rowRef.current?.scrollBy({ left: dir * 320, behavior: "smooth" });
+  };
+
   if (loading) {
     return (
-      <section className="mt-10">
-        <p className="text-sm text-zinc-500">Loading recommended products…</p>
-      </section>
-    );
-  }
-
-  if (!products.length) {
-    return (
-      <section className="mt-10">
-        <p className="text-sm text-zinc-500">
-          No recommended products found for this blog.
+      <section className="mt-8 border-y-2 border-black py-5">
+        <p className="text-center text-xs font-black uppercase tracking-[0.25em] text-black/60">
+          Loading The Oatclub Picks…
         </p>
       </section>
     );
   }
 
-  const scrollBy = (dir = 1) => {
-    rowRef.current?.scrollBy({
-      left: dir * 320,
-      behavior: "smooth",
-    });
-  };
+  if (!products.length) return null;
 
   return (
-    <section className="mt-10">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-black">
-            Recommended Products
-          </h2>
-          <div className="mt-2 h-px w-20 bg-black/30" />
-          <p className="mt-1 text-sm text-zinc-500">
-            Showing <b>{products.length}</b> products
-          </p>
-        </div>
+    <section className="mt-8">
+      <div className="mb-4 border-y-2 border-black py-3 text-center">
+        <p className="text-[10px] font-black uppercase tracking-[0.28em] text-black/50">
+          Style Desk Selects
+        </p>
+
+        <h2 className="mt-1 font-serif text-3xl font-black uppercase leading-none tracking-tight text-black md:text-5xl">
+          Recommended Products
+        </h2>
+
+        <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.35em] text-black/60">
+          OWN ALL TRENDS
+        </p>
+      </div>
+
+      <div className="mb-3 flex items-center justify-between border-b border-black pb-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black/60">
+          Showing {products.length} curated fits
+        </p>
 
         <div className="hidden gap-2 sm:flex">
           <ArrowButton onClick={() => scrollBy(-1)} label="Scroll left">
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </ArrowButton>
 
           <ArrowButton onClick={() => scrollBy(1)} label="Scroll right">
-            <ChevronRight size={18} />
+            <ChevronRight size={16} />
           </ArrowButton>
         </div>
       </div>
 
       <div
         ref={rowRef}
-        className="flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-6"
+        className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto pb-4 md:gap-3"
       >
         {products.map((product, index) => (
           <div
             key={product?._id || product?.id || product?.productCode || index}
-            className="snap-start w-[170px] flex-shrink-0 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5 transition hover:shadow-md sm:w-[200px] md:w-[220px]"
+            className="w-[160px] shrink-0 snap-start border border-black bg-white sm:w-[200px] md:w-[220px]"
           >
             <ProductCard product={product} disableRecentlyViewed />
           </div>
         ))}
+
+        <Link
+          href="/new-arrivals"
+          className="flex aspect-[4/5] w-[160px] shrink-0 snap-start flex-col items-center justify-center border border-black bg-black p-4 text-center text-white transition hover:bg-white hover:text-black sm:w-[200px] md:w-[220px]"
+        >
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-70">
+            Oatclub
+          </p>
+
+          <h3 className="mt-2 font-serif text-3xl font-black uppercase leading-none">
+            Shop More
+          </h3>
+
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">
+            Curated Fits
+          </p>
+
+          <span className="mt-5 grid h-9 w-9 place-items-center border border-current">
+            <ArrowRight className="h-4 w-4" />
+          </span>
+        </Link>
       </div>
     </section>
   );
@@ -183,7 +201,7 @@ function ArrowButton({ children, onClick, label }) {
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-sm ring-1 ring-black/10 transition hover:bg-zinc-50 active:scale-95"
+      className="grid h-9 w-9 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white active:scale-95"
     >
       {children}
     </button>

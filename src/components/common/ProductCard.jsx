@@ -115,17 +115,17 @@ function getBestPrice(product) {
 function getBestCompareAtPrice(product) {
   const compareBase = toNum(
     product?.compareAtPrice ??
-      product?.compare_at_price ??
-      product?.mrp ??
-      product?.regular_price ??
-      product?.originalPrice ??
-      product?.compare_price
+    product?.compare_at_price ??
+    product?.mrp ??
+    product?.regular_price ??
+    product?.originalPrice ??
+    product?.compare_price
   );
 
   const variantComparePrices = Array.isArray(product?.variants)
     ? product.variants
-        .map((v) => toNum(v?.compareAtPrice ?? v?.compare_at_price ?? v?.mrp))
-        .filter((x) => x > 0)
+      .map((v) => toNum(v?.compareAtPrice ?? v?.compare_at_price ?? v?.mrp))
+      .filter((x) => x > 0)
     : [];
 
   const variantMax = variantComparePrices.length
@@ -279,9 +279,8 @@ export default function ProductCard({
               fill
               loading="lazy"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
-              className={`object-cover transition duration-500 group-hover:scale-[1.03] ${
-                isHovered ? "opacity-0" : "opacity-100"
-              }`}
+              className={`object-cover transition duration-500 group-hover:scale-[1.03] ${isHovered ? "opacity-0" : "opacity-100"
+                }`}
             />
 
             {canHover && hoverImage && (
@@ -291,9 +290,8 @@ export default function ProductCard({
                 fill
                 loading="lazy"
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
-                className={`object-cover transition duration-500 group-hover:scale-[1.03] ${
-                  isHovered ? "opacity-100" : "opacity-0"
-                }`}
+                className={`object-cover transition duration-500 group-hover:scale-[1.03] ${isHovered ? "opacity-100" : "opacity-0"
+                  }`}
               />
             )}
 
@@ -330,7 +328,21 @@ export default function ProductCard({
           </div>
 
           <div className="flex flex-col gap-1.5 pt-2.5">
-            <h3 className="line-clamp-2 min-h-[2.35rem] text-[12px] font-semibold uppercase leading-snug text-black md:min-h-[2.7rem] md:text-[14px]">
+            <h3
+              title={productName}
+              className="
+    line-clamp-2
+    h-[34px]
+    text-[12px]
+    font-semibold
+    uppercase
+    leading-[17px]
+    text-black
+    md:h-[40px]
+    md:text-[13px]
+    md:leading-5
+  "
+            >
               {productName}
             </h3>
 

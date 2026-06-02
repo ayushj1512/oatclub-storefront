@@ -26,7 +26,7 @@ import PolkadotFeatureCollection from "@/components/home/PolkadotFeatureCollecti
 import StyleByOccasion from "@/components/home/StyleByOccasion";
 import NewArrivalsFeatureRow from "@/components/home/NewArrivalsFeatureRow";
 import ReturnExchangeHelp from "@/components/home/ReturnExchangeHelp";
-
+import ShopByCategoryRow from "@/components/home/ShopByCategoryRow";
 export default function HomeClient() {
   const { structuredData } = generateSEO({
     type: "website",
@@ -47,7 +47,7 @@ export default function HomeClient() {
         />
       )}
 
-      <InstagramDownModal />
+      {/* <InstagramDownModal /> */}
 
       <main className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white text-gray-900">
         {/* ABOVE THE FOLD */}
@@ -56,7 +56,10 @@ export default function HomeClient() {
         </div> */}
 
         <HeroSection />
+        <ShopByCategoryRow />
         <StyleByOccasion />
+        <VideoRow />
+
         <BestSellerSection />
         <NewArrivalsFeatureRow title="NEW ARRIVALS" limit={12} />
 
@@ -70,13 +73,12 @@ export default function HomeClient() {
         {/* <TrendingSection /> */}
         {/* <TopSectionFeatured /> */}
         {/* <WinterFeatureSection /> */}
-        {/* <VideoRow /> */}
 
         <BlogSection />
         <RecentlyViewed />
         <InfoStrip />
         <ReturnExchangeHelp />
-        <Newsletter />
+        {/* <Newsletter /> */}
       </main>
     </>
   );

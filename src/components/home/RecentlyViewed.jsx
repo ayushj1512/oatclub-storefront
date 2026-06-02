@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Clock3 } from "lucide-react";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import ProductCard from "@/components/common/ProductCard";
 
-/* 🔥 Shimmer block */
 function Shimmer({ className = "" }) {
   return (
-    <div className={`relative overflow-hidden bg-gray-200 ${className}`}>
-      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
+    <div className={`relative overflow-hidden bg-black/10 ${className}`}>
+      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/70 to-transparent animate-shimmer" />
     </div>
   );
 }
@@ -18,61 +18,83 @@ export default function RecentlyViewed() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const init = async () => {
+    let alive = true;
+
+    (async () => {
       setLoading(true);
       await initialize?.();
-      setLoading(false);
-    };
+      if (alive) setLoading(false);
+    })();
 
-    init();
+    return () => {
+      alive = false;
+    };
   }, [initialize]);
 
-  /* ❌ Nothing to show after load */
-  if (!loading && (!items || items.length === 0)) return null;
+  if (!loading && !items?.length) return null;
 
   return (
-    <section className="w-full py-6 md:py-8 bg-gradient-to-b from-white to-gray-50">
-      {/* Header */}
-      <div className="px-4 md:px-6 mb-3 flex items-center justify-between">
+    <section className="w-full bg-white py-6 md:py-10">
+      <style
+        dangerouslySetInnerHTML={{
+          __html:
+            ".no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}",
+        }}
+      />
+
+      <div className="mb-4 flex items-end justify-between px-3 md:mb-6 md:px-16">
         {loading ? (
-          <Shimmer className="h-4 w-40 rounded" />
+          <div className="space-y-2">
+            <Shimmer className="h-5 w-40 rounded" />
+            <Shimmer className="h-3 w-56 rounded" />
+          </div>
         ) : (
-          <>
-            <h2 className="text-sm md:text-base font-semibold tracking-[0.15em] text-gray-900 uppercase">
+          <div>
+            <div className="flex items-center gap-2">
+              <Clock3 className="h-4 w-4 text-black/45" />
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-black/40">
+                Your Picks
+              </p>
+            </div>
+
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-black md:text-3xl">
               Recently Viewed
             </h2>
-            <span className="h-px w-10 bg-gray-300" />
-          </>
+          </div>
+        )}
+
+        {!loading && (
+          <span className="hidden text-xs uppercase tracking-[0.22em] text-black/35 md:block">
+            Continue Browsing
+          </span>
         )}
       </div>
 
-      {/* Row */}
-      <div className="flex gap-2 overflow-x-auto px-4 md:px-6 pb-2 no-scrollbar snap-x snap-mandatory">
-        {loading
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="snap-start shrink-0 w-[132px] sm:w-[150px] md:w-[160px]"
-              >
-                {/* ProductCard skeleton */}
-                <div className="space-y-2">
-                  <Shimmer className="w-full aspect-[3/4] rounded-lg" />
-                  <Shimmer className="h-3 w-4/5 rounded" />
-                  <Shimmer className="h-3 w-2/5 rounded" />
+      <div className="relative">
+        <div className="pointer-events-none absolute left-0 top-0 z-10 hidden h-full w-16 bg-gradient-to-r from-white to-transparent md:block" />
+        <div className="pointer-events-none absolute right-0 top-0 z-10 hidden h-full w-16 bg-gradient-to-l from-white to-transparent md:block" />
+
+        <div className="no-scrollbar flex items-start gap-2 overflow-x-auto scroll-smooth px-3 pb-2 md:gap-3 md:px-16">
+          {loading
+            ? Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-[140px] shrink-0 sm:w-[155px] md:w-[190px]"
+                >
+                  <Shimmer className="aspect-[3/4] w-full rounded-2xl" />
+                  <Shimmer className="mt-2 h-3 w-4/5 rounded" />
+                  <Shimmer className="mt-2 h-3 w-2/5 rounded" />
                 </div>
-              </div>
-            ))
-          : items.slice(0, 10).map((product) => (
-              <div
-                key={product.id}
-                className="snap-start shrink-0 w-[132px] sm:w-[150px] md:w-[160px]"
-              >
-                <ProductCard
-                  product={product}
-                  disableRecentlyViewed
-                />
-              </div>
-            ))}
+              ))
+            : items.slice(0, 10).map((product) => (
+                <div
+                  key={product.id}
+                  className="w-[140px] shrink-0 sm:w-[155px] md:w-[190px]"
+                >
+                  <ProductCard product={product} disableRecentlyViewed />
+                </div>
+              ))}
+        </div>
       </div>
     </section>
   );

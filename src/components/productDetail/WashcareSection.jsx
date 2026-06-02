@@ -1,32 +1,63 @@
 "use client";
 
+import {
+  WashingMachine,
+  Droplets,
+  Circle,
+  Thermometer,
+  Shirt,
+} from "lucide-react";
+
+const getIcon = (text = "") => {
+  const value = text.toLowerCase();
+
+  if (value.includes("wash")) {
+    return <WashingMachine className="h-4 w-4 shrink-0" />;
+  }
+
+  if (value.includes("bleach")) {
+    return <Droplets className="h-4 w-4 shrink-0" />;
+  }
+
+  if (value.includes("tumble")) {
+    return <Circle className="h-4 w-4 shrink-0" />;
+  }
+
+  if (value.includes("iron")) {
+    return <Thermometer className="h-4 w-4 shrink-0" />;
+  }
+
+  if (value.includes("dry")) {
+    return <Shirt className="h-4 w-4 shrink-0" />;
+  }
+
+  return <Circle className="h-4 w-4 shrink-0" />;
+};
+
 export default function WashcareSection({
-  title = "Care Notes",
+  title = "Washing Instructions",
   items = [],
 }) {
   return (
-    <section className="border-t border-black/10 py-6">
-      <div className="mb-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/40">
-          Care Guide
-        </p>
-
-        <h3 className="mt-1 text-[15px] font-semibold text-black md:text-base">
-          {title}
-        </h3>
-      </div>
+    <section className="border-t border-black/10 py-4">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-black">
+        {title}
+      </h3>
 
       {items.length ? (
-        <ul className="space-y-3">
+        <ul className="space-y-2.5">
           {items.map((text, index) => (
-            <li key={`${text}-${index}`} className="flex items-start gap-3">
-              <span className="mt-[9px] h-1.5 w-1.5 shrink-0 bg-black" />
-              <p className="text-sm leading-6 text-black/65">{text}</p>
+            <li
+              key={`${text}-${index}`}
+              className="flex items-center gap-3 text-sm text-black/75"
+            >
+              {getIcon(text)}
+              <span>{text}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-sm leading-6 text-black/50">
+        <p className="text-xs text-black/50">
           Care instructions will be updated soon.
         </p>
       )}

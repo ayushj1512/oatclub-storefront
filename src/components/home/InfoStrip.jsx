@@ -1,14 +1,13 @@
 "use client";
 
-import { Truck, Tag, Factory, Diamond } from "lucide-react";
+import { Sparkles, BadgeCheck, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
-/* 🔥 Shimmer block */
 function Shimmer({ className = "" }) {
   return (
-    <div className={`relative overflow-hidden bg-gray-200 ${className}`}>
-      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
+    <div className={`relative overflow-hidden bg-black/10 ${className}`}>
+      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/70 to-transparent animate-shimmer" />
     </div>
   );
 }
@@ -17,76 +16,65 @@ export default function InfoStrip() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // short shimmer for smooth page load
-    const t = setTimeout(() => setLoading(false), 300);
+    const t = setTimeout(() => setLoading(false), 250);
     return () => clearTimeout(t);
   }, []);
 
   const infos = [
     {
-      title: "FAST & RELIABLE SHIPPING",
-      desc: "We process and dispatch orders quickly with trusted delivery partners.",
-      Icon: Truck,
+      title: "Specially Curated For You",
+      desc: "Thoughtfully picked styles for your everyday statement.",
+      Icon: Sparkles,
     },
     {
-      title: "5% OFF || FREE DELIVERY",
-      desc: "5% OFF on pre-paid orders.",
-      Icon: Tag,
+      title: "Quality Product",
+      desc: "Clean finishing, soft fabrics and reliable craftsmanship.",
+      Icon: BadgeCheck,
     },
     {
-      title: "MADE IN INDIA",
-      desc: "100% Indian made — from raw fabric to final stitching!",
-      Icon: Factory,
-    },
-    {
-      title: "LUXURY FASHION MADE ACCESSIBLE",
-      desc: "Premium craftsmanship at fair and honest pricing.",
-      Icon: Diamond,
+      title: "Stay In Trend",
+      desc: "Fresh silhouettes inspired by what’s moving now.",
+      Icon: TrendingUp,
     },
   ];
 
   return (
-    <section className="w-full bg-white px-4 pt-8 md:px-8">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
+    <section className="w-full bg-white px-3 py-6 md:px-16 md:py-8">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:gap-5">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 bg-white p-3 md:p-5"
+                className="flex items-center gap-3 rounded-2xl bg-gray-50 p-4"
               >
-                {/* icon shimmer */}
-                <Shimmer className="size-10 md:size-11 rounded-md" />
-
-                {/* text shimmer */}
+                <Shimmer className="size-10 shrink-0 rounded-full" />
                 <div className="flex-1 space-y-2">
-                  <Shimmer className="h-3 w-4/5 rounded" />
+                  <Shimmer className="h-3 w-2/3 rounded" />
                   <Shimmer className="h-3 w-full rounded" />
                 </div>
               </div>
             ))
-          : infos.map(({ title, desc, Icon }, index) => (
+          : infos.map(({ title, desc, Icon }, i) => (
               <motion.div
-                key={index}
-                whileTap={{ scale: 0.98 }}
-                whileHover={{ y: -2 }}
-                transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                className="group flex items-center gap-3 bg-white p-3 transition-colors md:p-5"
+                key={title}
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.25, delay: i * 0.06 }}
+                className="group flex items-start gap-3 rounded-2xl bg-gray-50 p-4 transition hover:bg-black hover:text-white"
               >
-                {/* icon */}
-                <div className="grid size-10 shrink-0 place-items-center bg-black/5 shadow-[0_10px_24px_rgba(0,0,0,0.06)] md:size-11 rounded-md">
-                  <Icon className="h-5 w-5 text-black md:h-6 md:w-6" />
+                <div className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-black shadow-sm">
+                  <Icon className="h-5 w-5" />
                 </div>
 
-                <div className="min-w-0">
-                  <h3 className="line-clamp-2 text-[11px] font-semibold tracking-wide leading-snug text-black md:text-[13px]">
+                <div>
+                  <h3 className="text-sm font-semibold leading-snug text-current md:text-base">
                     {title}
                   </h3>
 
-                  <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-black/60 md:text-[12px]">
+                  <p className="mt-1 text-xs leading-snug text-black/55 transition group-hover:text-white/65 md:text-sm">
                     {desc}
                   </p>
-
-                  <span className="mt-2 hidden h-px w-10 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100 md:block" />
                 </div>
               </motion.div>
             ))}

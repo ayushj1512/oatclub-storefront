@@ -1,27 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Flame } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import ProductCard from "@/components/common/ProductCard";
-
-/**
- * NewArrivalsFeatureRow.jsx (DIRECT FETCH)
- * ✅ Same UI as BestsellerFeatureRow
- * ✅ Simple black header + minimal View All (like bestseller)
- */
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 const PAGE_ENDPOINT = "/api/products";
 
 const slugify = (s = "") =>
-  String(s)
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+  String(s).toLowerCase().trim().replace(/['"]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
 
 const safeJson = async (res) => {
   try {
@@ -33,24 +22,21 @@ const safeJson = async (res) => {
 
 const uniqBySlug = (arr = []) => {
   const seen = new Set();
-  const out = [];
-  for (const x of arr) {
+  return arr.filter((x) => {
     const k = String(x?.slug || "").trim().toLowerCase();
-    if (!k || seen.has(k)) continue;
+    if (!k || seen.has(k)) return false;
     seen.add(k);
-    out.push(x);
-  }
-  return out;
+    return true;
+  });
 };
 
 const normalizeCard = (p) => {
   const code = String(p?.productCode || p?.code || "").trim();
-  const imagesArr = Array.isArray(p?.images) ? p.images : [];
-  const image = p?.thumbnail || p?.image || imagesArr[0] || "/placeholder.png";
-  const id = p?._id || p?.id || p?.productId || code;
+  const images = Array.isArray(p?.images) ? p.images : [];
+  const image = p?.thumbnail || p?.image || images[0] || "/placeholder.png";
 
   return {
-    id,
+    id: p?._id || p?.id || p?.productId || code,
     productId: p?._id || p?.productId || p?.id,
     productCode: code,
     name: p?.title || p?.name || "Untitled",
@@ -58,7 +44,7 @@ const normalizeCard = (p) => {
     price: Number(p?.price || 0),
     compareAtPrice: p?.compareAtPrice ?? p?.compare_at_price ?? null,
     thumbnail: p?.thumbnail || image,
-    images: imagesArr.length ? imagesArr : [image],
+    images: images.length ? images : [image],
     slug: p?.slug || slugify(p?.title || p?.name || code),
     category: "new-arrivals",
     currency: p?.currency || "INR",
@@ -75,8 +61,76 @@ const extractProducts = (payload) => {
   return [];
 };
 
+function MarqueeTitle() {
+  const lines = [
+    "NEW ARRIVALS ARE HOT",
+    "OWN ALL TRENDS",
+    "HOT DROPS JUST LANDED",
+    "FRESH FITS DAILY",
+  ];
+
+  return (
+    <div className="overflow-hidden bg-black py-3 text-white">
+      <div className="marquee-track flex w-max items-center whitespace-nowrap">
+        {[...lines, ...lines, ...lines, ...lines].map((text, i) => (
+          <div
+            key={i}
+            className="mx-4 flex shrink-0 items-center gap-2 text-sm font-black uppercase tracking-[0.16em] md:text-xl"
+          >
+            <span>{text}</span>
+            <Flame className="h-4 w-4 md:h-5 md:w-5" />
+          </div>
+        ))}
+      </div>
+
+      <style jsx>{`
+        .marquee-track {
+          animation: oat-marquee 18s linear infinite;
+        }
+
+        @keyframes oat-marquee {
+          from {
+            transform: translateX(0);
+          }
+          to {
+            transform: translateX(-50%);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function ViewAllCard() {
+  const router = useRouter();
+
+  return (
+    <button
+      onClick={() => router.push("/new-arrivals")}
+      className="group flex aspect-[4/5] w-full flex-col items-center justify-center overflow-hidden bg-black p-4 text-center text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black"
+    >
+      <Flame className="mb-4 h-7 w-7 transition group-hover:scale-110" />
+
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-70">
+        Oatclub
+      </p>
+
+      <h3 className="mt-2 text-xl font-black uppercase leading-none tracking-tight md:text-2xl">
+        View All
+      </h3>
+
+      <p className="mt-2 text-xs uppercase tracking-wide opacity-70">
+        New Arrivals
+      </p>
+
+      <span className="mt-5 flex h-9 w-9 items-center justify-center rounded-full border border-current transition group-hover:translate-x-1">
+        <ArrowRight className="h-4 w-4" />
+      </span>
+    </button>
+  );
+}
+
 export default function NewArrivalsFeatureRow({
-  title = "New Arrivals",
   limit = 12,
   showOnlyActive = true,
 }) {
@@ -97,25 +151,29 @@ export default function NewArrivalsFeatureRow({
 
         if (!BACKEND) throw new Error("NEXT_PUBLIC_BACKEND_URL missing");
 
-        const qs = new URLSearchParams();
-        qs.set("page", "1");
-        qs.set("limit", String(limit));
-        qs.set("sort", "newest");
+        const qs = new URLSearchParams({
+          page: "1",
+          limit: String(limit),
+          sort: "newest",
+        });
+
         if (showOnlyActive) qs.set("isActive", "true");
 
-        const res = await fetch(`${BACKEND}${PAGE_ENDPOINT}?${qs.toString()}`, {
+        const res = await fetch(`${BACKEND}${PAGE_ENDPOINT}?${qs}`, {
           cache: "no-store",
           signal: controller.signal,
         });
 
         const data = await safeJson(res);
-        if (!res.ok) throw new Error(data?.message || "Failed to load new arrivals");
+        if (!res.ok)
+          throw new Error(data?.message || "Failed to load new arrivals");
 
         setItems(extractProducts(data));
       } catch (e) {
-        if (e?.name === "AbortError") return;
-        setError(e?.message || "Something went wrong");
-        setItems([]);
+        if (e?.name !== "AbortError") {
+          setError(e?.message || "Something went wrong");
+          setItems([]);
+        }
       } finally {
         setLoading(false);
       }
@@ -124,92 +182,76 @@ export default function NewArrivalsFeatureRow({
     return () => controller.abort();
   }, [limit, showOnlyActive]);
 
-  const products = useMemo(() => {
-    const mapped = (Array.isArray(items) ? items : []).map(normalizeCard);
-    return uniqBySlug(mapped).filter((x) => x.productCode);
-  }, [items]);
+  const products = useMemo(
+    () => uniqBySlug(items.map(normalizeCard)).filter((x) => x.productCode),
+    [items]
+  );
 
   const showShimmer = loading && !products.length;
   const showArrows = products.length > 2 || showShimmer;
 
-  const scrollRow = (dir) =>
+  const scrollRow = (dir) => {
     scrollRef.current?.scrollBy({
       left: dir === "left" ? -360 : 360,
       behavior: "smooth",
     });
-
-  const ArrowBtn = ({ dir }) => (
-    <button
-      type="button"
-      onClick={() => scrollRow(dir)}
-      className={`absolute ${
-        dir === "left" ? "left-2" : "right-2"
-      } top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-white/95 shadow-sm border border-black/10 flex items-center justify-center text-xl text-black/70 hover:text-black hover:bg-white active:scale-95 transition`}
-      aria-label={`Scroll ${dir}`}
-    >
-      {dir === "left" ? "←" : "→"}
-    </button>
-  );
+  };
 
   if (!showShimmer && !products.length) return null;
 
   return (
     <motion.section
-      className={`bg-white ${showShimmer ? "px-4" : ""}`}
+      className="bg-white pb-6 md:pb-10 "
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
     >
-      {/* ✅ SIMPLE HEADER + minimal View All (like bestseller) */}
-      <div className="w-full bg-black text-center mb-6 relative">
-        <h2 className="text-white py-3 text-lg md:text-2xl font-semibold uppercase tracking-[0.25em]">
-          {title}
-        </h2>
+      <MarqueeTitle />
 
-        <button
-          type="button"
-          onClick={() => router.push("/new-arrivals")}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-white text-xs md:text-sm font-medium opacity-80 hover:opacity-100 transition"
-        >
-          View All →
-        </button>
-      </div>
+      {error && <p className="my-3 text-center text-sm text-black">❌ {error}</p>}
 
-      {error ? (
-        <p className="text-sm text-red-600 text-center mb-3">❌ {error}</p>
-      ) : null}
-
-      <div className="relative">
-        {showArrows ? (
+      <div className="relative mt-4">
+        {showArrows && (
           <>
-            <ArrowBtn dir="left" />
-            <ArrowBtn dir="right" />
-            <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white to-transparent z-10" />
-            <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white to-transparent z-10" />
+            <button
+              onClick={() => scrollRow("left")}
+              className="absolute left-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-black bg-white text-black transition hover:bg-black hover:text-white md:flex"
+            >
+              ←
+            </button>
+
+            <button
+              onClick={() => scrollRow("right")}
+              className="absolute right-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-black bg-white text-black transition hover:bg-black hover:text-white md:flex"
+            >
+              →
+            </button>
           </>
-        ) : null}
+        )}
 
         <div
           ref={scrollRef}
-          className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 no-scrollbar scroll-smooth px-1"
+          className="no-scrollbar flex items-start gap-2 overflow-x-auto scroll-smooth px-1 pb-2 md:gap-3"
         >
           {showShimmer
             ? Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]"
-                >
+                <div key={i} className="w-[160px] shrink-0 sm:w-[200px] md:w-[240px]">
                   <ProductCard loading />
                 </div>
               ))
-            : products.map((p) => (
-                <div
-                  key={p.id}
-                  className="snap-start min-w-[160px] sm:min-w-[200px] md:min-w-[240px]"
-                >
-                  <ProductCard product={p} />
+            : (
+              <>
+                {products.map((p) => (
+                  <div key={p.id} className="w-[160px] shrink-0 sm:w-[200px] md:w-[240px]">
+                    <ProductCard product={p} />
+                  </div>
+                ))}
+
+                <div className="w-[160px] shrink-0 sm:w-[200px] md:w-[240px]">
+                  <ViewAllCard />
                 </div>
-              ))}
+              </>
+            )}
         </div>
       </div>
     </motion.section>

@@ -3,18 +3,20 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useHomeCollectionDesignStore, toImgSrc } from "@/store/homecollectiondesignstore";
+import {
+  useHomeCollectionDesignStore,
+  toImgSrc,
+} from "@/store/homecollectiondesignstore";
 
-/* helpers */
-const cap = (s = "") => s.toLowerCase().trim().replace(/\s+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+const cap = (s = "") =>
+  s.toLowerCase().trim().replace(/\s+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-/* shimmer */
 const OccasionShimmer = ({ count = 5 }) => (
-  <div className="no-scrollbar flex gap-5 px-4 overflow-x-auto">
+  <div className="no-scrollbar flex gap-3 overflow-x-auto px-3 md:gap-5 md:px-16">
     {Array.from({ length: count }).map((_, i) => (
-      <div key={i} className="flex-shrink-0 w-[150px] md:w-[260px]">
-        <div className="h-[190px] md:h-[320px] rounded-2xl bg-gray-200 animate-pulse" />
-        <div className="h-4 mt-4 w-2/3 mx-auto rounded bg-gray-200 animate-pulse" />
+      <div key={i} className="w-[132px] shrink-0 md:w-[260px]">
+        <div className="h-[165px] rounded-xl bg-gray-200 animate-pulse md:h-[320px] md:rounded-2xl" />
+        <div className="mx-auto mt-2 h-3 w-2/3 rounded bg-gray-200 animate-pulse md:mt-3 md:h-4" />
       </div>
     ))}
   </div>
@@ -23,10 +25,10 @@ const OccasionShimmer = ({ count = 5 }) => (
 export default function StyleByOccasion() {
   const router = useRouter();
   const scrollRef = useRef(null);
-
-  const { isLoading, activeHomeCollections, fetchActiveHomeCollections } = useHomeCollectionDesignStore();
-
   const [minLoad, setMinLoad] = useState(true);
+
+  const { isLoading, activeHomeCollections, fetchActiveHomeCollections } =
+    useHomeCollectionDesignStore();
 
   useEffect(() => {
     fetchActiveHomeCollections?.();
@@ -35,36 +37,81 @@ export default function StyleByOccasion() {
   }, [fetchActiveHomeCollections]);
 
   const items = useMemo(
-    () => [...(activeHomeCollections || [])].sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0)),
+    () =>
+      [...(activeHomeCollections || [])].sort(
+        (a, b) => (a?.position ?? 0) - (b?.position ?? 0)
+      ),
     [activeHomeCollections]
   );
 
-  const scroll = (x) => scrollRef.current?.scrollBy({ left: x, behavior: "smooth" });
+  const scroll = (x) =>
+    scrollRef.current?.scrollBy({ left: x, behavior: "smooth" });
 
   return (
-    <section className="w-full bg-gray-50 pb-10 relative">
-      <div className="bg-black text-center mb-8">
-        <h2 className="py-4 text-white text-lg md:text-2xl font-medium uppercase tracking-[0.3em]">Style by Collection</h2>
-      </div>
+    <section className="relative w-full bg-white  pt-3 pb-5 md:pt-6">
+      <style
+        dangerouslySetInnerHTML={{
+          __html:
+            ".no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}",
+        }}
+      />
 
-      <style dangerouslySetInnerHTML={{ __html: `.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}` }} />
+      <div className="mb-4 px-3 text-center md:mb-8 md:px-4">
+      
+
+        <h2 className="mt-1 text-3xl font-bold leading-none tracking-tight text-black md:text-7xl">
+          COLLECTIONS
+        </h2>
+
+        <p className="mt-1 text-[11px] text-black/50 md:mt-2 md:text-sm">
+          Designed for every version of you
+        </p>
+      </div>
 
       {isLoading || minLoad ? (
         <OccasionShimmer />
       ) : (
         <div className="relative">
-          <button onClick={() => scroll(-320)} className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-10 h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-md hover:bg-black hover:text-white transition">←</button>
-          <button onClick={() => scroll(320)} className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 z-10 h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-md hover:bg-black hover:text-white transition">→</button>
+          <button
+            onClick={() => scroll(-320)}
+            className="absolute left-4 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-md transition hover:bg-black hover:text-white md:flex"
+          >
+            ←
+          </button>
 
-          <div ref={scrollRef} className="no-scrollbar flex gap-5 px-4 md:px-16 overflow-x-auto scroll-smooth">
+          <button
+            onClick={() => scroll(320)}
+            className="absolute right-4 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-md transition hover:bg-black hover:text-white md:flex"
+          >
+            →
+          </button>
+
+          <div
+            ref={scrollRef}
+            className="no-scrollbar flex gap-3 overflow-x-auto scroll-smooth px-3 md:gap-5 md:px-16"
+          >
             {items.map((item) => {
               const title = cap(item?.name);
+
               return (
-                <div key={item?._id || item?.slug} onClick={() => router.push(`/collection/${item?.slug}`)} className="flex-shrink-0 w-[150px] md:w-[260px] cursor-pointer group">
-                  <div className="relative h-[190px] md:h-[320px] rounded-2xl overflow-hidden bg-gray-100 transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-lg">
-                    <Image src={toImgSrc(item?.imageUrl)} alt={title} fill className="object-cover transition-transform duration-700 group-hover:scale-[1.05]" sizes="(max-width:768px) 150px, 260px" />
+                <div
+                  key={item?._id || item?.slug}
+                  onClick={() => router.push(`/collection/${item?.slug}`)}
+                  className="group w-[132px] shrink-0 cursor-pointer md:w-[260px]"
+                >
+                  <div className="relative h-[165px] overflow-hidden rounded-xl bg-gray-100 transition duration-500 group-hover:-translate-y-1 group-hover:shadow-lg md:h-[320px] md:rounded-2xl">
+                    <Image
+                      src={toImgSrc(item?.imageUrl)}
+                      alt={title}
+                      fill
+                      sizes="(max-width:768px) 132px, 260px"
+                      className="object-cover transition-transform duration-700 group-hover:scale-[1.05]"
+                    />
                   </div>
-                  <h3 className="mt-4 text-center text-sm md:text-base font-medium text-gray-900 tracking-wide transition-all duration-300 group-hover:tracking-wider">{title}</h3>
+
+                  <h3 className="mt-2 text-center text-[13px] font-semibold tracking-wide text-black md:mt-4 md:text-base">
+                    {title}
+                  </h3>
                 </div>
               );
             })}

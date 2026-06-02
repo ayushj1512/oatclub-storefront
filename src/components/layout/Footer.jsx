@@ -1,4 +1,5 @@
 "use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -8,303 +9,164 @@ import {
   Mail,
   MessageCircle,
   ChevronDown,
-  ChevronUp,
 } from "lucide-react";
-
 import { SOCIAL_LINKS } from "@/data/socials";
 
+const logo =
+  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780350223/pqmudk6lvljcqdg1xdq2.png";
+
+const quickLinks = [
+  ["Home", "/"],
+  ["Shop", "/categories"],
+  ["About", "/about"],
+  ["Contact", "/contact"],
+];
+
+const supportLinks = [
+  ["Support", "/support"],
+  ["FAQs", "/faq"],
+  ["Shipping Policy", "/shipping-policy"],
+  ["Exchange & Return", "/exchange-and-return"],
+  ["Cancellation & Refund", "/cancellation-and-refund"],
+  ["Privacy Policy", "/privacy-policy"],
+  ["Terms & Conditions", "/terms-and-conditions"],
+];
+
+function Links({ items }) {
+  return (
+    <nav className="flex flex-col gap-2.5 text-sm text-white/50">
+      {items.map(([label, href]) => (
+        <Link key={href} href={href} className="transition hover:text-white">
+          {label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function Socials() {
+  const icons = [
+    [Instagram, SOCIAL_LINKS.instagram, "Instagram"],
+    [Facebook, SOCIAL_LINKS.facebook, "Facebook"],
+    [MessageCircle, SOCIAL_LINKS.whatsapp.link, "WhatsApp"],
+    [Mail, SOCIAL_LINKS.email, "Email"],
+  ];
+
+  return (
+    <div className="flex justify-center gap-2.5 md:justify-start">
+      {icons.map(([Icon, href, label]) => (
+        <a
+          key={label}
+          href={href}
+          target={label === "Email" ? undefined : "_blank"}
+          rel={label === "Email" ? undefined : "noreferrer"}
+          aria-label={label}
+          className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/55 transition hover:bg-white hover:text-black"
+        >
+          <Icon className="h-4 w-4" />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function MobileGroup({ title, children }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="border-t border-white/10">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between py-4 text-sm font-medium text-white"
+      >
+        {title}
+        <ChevronDown
+          className={`h-4 w-4 text-white/50 transition ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {open && <div className="pb-4">{children}</div>}
+    </div>
+  );
+}
+
 export default function Footer() {
-  const [openSection, setOpenSection] = useState(null);
-  const toggleSection = (section) =>
-    setOpenSection((p) => (p === section ? null : section));
   const year = useMemo(() => new Date().getFullYear(), []);
 
   return (
-    <footer className="w-full bg-black text-white ">
-      {/* ================= MAIN ================= */}
-      <div className="mx-auto  px-6 md:px-12 py-12">
-        {/* ================= DESKTOP ================= */}
-        <div className="hidden md:grid grid-cols-4 gap-12">
-          {/* Brand */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-center">
+    <footer className="w-full bg-black text-white">
+      <div className="px-4 py-10 md:px-16 md:py-14">
+        <div className="grid gap-10 md:grid-cols-[1.4fr_0.8fr_1fr_1fr] md:gap-12">
+          <div className="text-center md:text-left">
+            <div className="flex justify-center md:justify-start">
               <Image
-                src="https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780350223/pqmudk6lvljcqdg1xdq2.png"
+                src={logo}
                 alt="Oatclub"
-                width={120}
-                height={40}
+                width={170}
+                height={58}
                 priority
                 className="object-contain"
               />
             </div>
 
-            <p className="text-sm text-white/60 max-w-sm leading-relaxed">
-              Redefining fashion with elegance and modern style. Curated
-              collections designed to inspire confidence.
+            <h2 className="mx-auto mt-5 max-w-sm text-2xl font-semibold leading-none tracking-tight md:mx-0 md:mt-6 md:text-4xl">
+              Own All Trends.
+            </h2>
+
+            <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-white/50 md:mx-0">
+              Fresh fashion edits, curated styles and everyday statement pieces
+              designed for the modern wardrobe.
             </p>
           </div>
 
-          {/* Quick Links */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold tracking-widest uppercase text-white/80">
+          <div className="hidden md:block">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-white/35">
               Quick Links
             </h3>
-            <nav className="flex flex-col gap-2 text-sm text-white/60">
-              <Link href="/" className="hover:text-white transition">
-                Home
-              </Link>
-              <Link href="/categories" className="hover:text-white transition">
-                Shop
-              </Link>
-              <Link href="/about" className="hover:text-white transition">
-                About Us
-              </Link>
-              <Link href="/contact" className="hover:text-white transition">
-                Contact
-              </Link>
-            </nav>
+            <Links items={quickLinks} />
           </div>
 
-          {/* Support */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold tracking-widest uppercase text-white/80">
+          <div className="hidden md:block">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-white/35">
               Support
             </h3>
-            <nav className="flex flex-col gap-2 text-sm text-white/60">
-              <Link href="/support" className="hover:text-white transition">
-                Support
-              </Link>
-              <Link href="/faq" className="hover:text-white transition">
-                FAQs
-              </Link>
-              <Link
-                href="/shipping-policy"
-                className="hover:text-white transition"
-              >
-                Shipping Policy
-              </Link>
-              <Link
-                href="/exchange-and-return"
-                className="hover:text-white transition"
-              >
-                Exchange & Return
-              </Link>
-              <Link
-                href="/cancellation-and-refund"
-                className="hover:text-white transition"
-              >
-                Cancellation & Refund
-              </Link>
-              <Link
-                href="/privacy-policy"
-                className="hover:text-white transition"
-              >
-                Privacy Policy
-              </Link>
-              <Link
-                href="/terms-and-conditions"
-                className="hover:text-white transition"
-              >
-                Terms & Conditions
-              </Link>
-            </nav>
+            <Links items={supportLinks} />
           </div>
 
-          {/* Social */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold tracking-widest uppercase text-white/80">
+          <div className="hidden md:block">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-white/35">
               Follow Us
             </h3>
-            <div className="flex gap-4 text-white/60">
-              <a
-                href={SOCIAL_LINKS.instagram}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Instagram"
-                className="hover:text-white transition"
-              >
-                <Instagram />
-              </a>
+            <Socials />
 
-              <a
-                href={SOCIAL_LINKS.facebook}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Facebook"
-                className="hover:text-white transition"
-              >
-                <Facebook />
-              </a>
-
-              <a
-                href={SOCIAL_LINKS.whatsapp.link}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="WhatsApp"
-                className="hover:text-white transition"
-              >
-                <MessageCircle />
-              </a>
-
-              <a
-                href={SOCIAL_LINKS.email}
-                aria-label="Email"
-                className="hover:text-white transition"
-              >
-                <Mail />
-              </a>
-            </div>
+            <p className="mt-5 text-sm leading-relaxed text-white/45">
+              Tag us on Instagram{" "}
+              <span className="text-white">@oatclub.in</span>
+            </p>
           </div>
         </div>
 
-        {/* ================= MOBILE ================= */}
-        <div className="md:hidden max-w-md mx-auto space-y-6">
-          {/* Brand */}
-          <div className="text-center space-y-3">
-            <div className="flex items-center justify-center">
-              <Image
-                src="https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780350223/pqmudk6lvljcqdg1xdq2.png"
-                alt="Oatclub"
-                width={120}
-                height={40}
-                priority
-                className="object-contain"
-              />
-            </div>
+        <div className="mt-8 md:hidden">
+          <MobileGroup title="Quick Links">
+            <Links items={quickLinks} />
+          </MobileGroup>
 
-            <p className="text-sm text-white/60 leading-relaxed">
-              Redefining fashion with elegance and modern style.
+          <MobileGroup title="Support">
+            <Links items={supportLinks} />
+          </MobileGroup>
+
+          <MobileGroup title="Follow Us">
+            <Socials />
+            <p className="mt-4 text-center text-sm text-white/45">
+              Tag us on Instagram <span className="text-white">@oatclub.in</span>
             </p>
-          </div>
-
-          {/* Accordions */}
-          <div className="divide-y divide-white/10 border-y border-white/10">
-            {/* Quick Links */}
-            <div>
-              <button
-                onClick={() => toggleSection("quick")}
-                className="w-full flex items-center justify-between py-3 text-sm font-semibold"
-              >
-                Quick Links
-                {openSection === "quick" ? <ChevronUp /> : <ChevronDown />}
-              </button>
-
-              {openSection === "quick" && (
-                <div className="pb-3 pl-2 flex flex-col gap-2 text-sm text-white/60">
-                  <Link href="/" className="hover:text-white">
-                    Home
-                  </Link>
-                  <Link href="/categories" className="hover:text-white">
-                    Shop
-                  </Link>
-                  <Link href="/about" className="hover:text-white">
-                    About Us
-                  </Link>
-                  <Link href="/contact" className="hover:text-white">
-                    Contact
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Support */}
-            <div>
-              <button
-                onClick={() => toggleSection("support")}
-                className="w-full flex items-center justify-between py-3 text-sm font-semibold"
-              >
-                Support
-                {openSection === "support" ? <ChevronUp /> : <ChevronDown />}
-              </button>
-
-              {openSection === "support" && (
-                <div className="pb-3 pl-2 flex flex-col gap-2 text-sm text-white/60">
-                  <Link href="/support" className="hover:text-white">
-                    Support
-                  </Link>
-                  <Link href="/faq" className="hover:text-white">
-                    FAQs
-                  </Link>
-                  <Link href="/shipping-policy" className="hover:text-white">
-                    Shipping Policy
-                  </Link>
-                  <Link href="/exchange-and-return" className="hover:text-white">
-                    Exchange & Return
-                  </Link>
-                  <Link
-                    href="/cancellation-and-refund"
-                    className="hover:text-white"
-                  >
-                    Cancellation & Refund
-                  </Link>
-                  <Link href="/privacy-policy" className="hover:text-white">
-                    Privacy Policy
-                  </Link>
-                  <Link href="/terms-and-conditions" className="hover:text-white">
-                    Terms & Conditions
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Social */}
-            <div>
-              <button
-                onClick={() => toggleSection("social")}
-                className="w-full flex items-center justify-between py-3 text-sm font-semibold"
-              >
-                Follow Us
-                {openSection === "social" ? <ChevronUp /> : <ChevronDown />}
-              </button>
-
-              {openSection === "social" && (
-                <div className="pb-4 pl-2 flex gap-4 text-white/60">
-                  <a
-                    href={SOCIAL_LINKS.instagram}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Instagram"
-                    className="hover:text-white"
-                  >
-                    <Instagram />
-                  </a>
-
-                  <a
-                    href={SOCIAL_LINKS.facebook}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Facebook"
-                    className="hover:text-white"
-                  >
-                    <Facebook />
-                  </a>
-
-                  <a
-                    href={SOCIAL_LINKS.whatsapp.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="WhatsApp"
-                    className="hover:text-white"
-                  >
-                    <MessageCircle />
-                  </a>
-
-                  <a
-                    href={SOCIAL_LINKS.email}
-                    aria-label="Email"
-                    className="hover:text-white"
-                  >
-                    <Mail />
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
+          </MobileGroup>
         </div>
       </div>
 
-      {/* ================= BOTTOM ================= */}
-      <div className="border-t border-white/10 py-6 text-center text-sm text-white/50">
+      <div className="border-t border-white/10 px-4 py-5 text-center text-xs text-white/40">
         © {year} Oatclub. All rights reserved.
       </div>
     </footer>
