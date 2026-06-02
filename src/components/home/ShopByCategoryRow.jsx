@@ -119,20 +119,28 @@ export default function ShopByCategoryRow({
         </h2>
 
 
-        <div className="no-scrollbar mt-5 flex gap-2 overflow-x-auto px-3 pb-1 md:justify-center">
-  {tabs.map((tab) => (
-    <button
-      key={tab.id || tab.slug}
-      onClick={() => setActiveSlug(tab.slug)}
-      className={`h-10 shrink-0 px-5 text-xs font-medium transition-all duration-200 ${
-        activeSlug === tab.slug
-          ? "bg-black text-white shadow-sm"
-          : "bg-[#f5f5f5] text-black hover:bg-black hover:text-white"
-      }`}
-    >
-      {tab.name}
-    </button>
-  ))}
+        <div className="no-scrollbar mt-5 flex gap-3 overflow-x-auto px-3 pb-3 md:justify-center">
+  {tabs.map((tab) => {
+    const active = activeSlug === tab.slug;
+
+    return (
+      <button
+        key={tab.id || tab.slug}
+        onClick={() => setActiveSlug(tab.slug)}
+        className={`
+          shrink-0 border px-5 text-xs font-medium transition-all duration-300
+          ${active ? "h-11 scale-110" : "h-10 scale-100"}
+          ${
+            active
+              ? "border-black bg-black text-white shadow-[0_12px_30px_rgba(0,0,0,0.18)]"
+              : "border-black/10 text-black hover:border-black hover:bg-white"
+          }
+        `}
+      >
+        {tab.name}
+      </button>
+    );
+  })}
 </div>
       </div>
 
