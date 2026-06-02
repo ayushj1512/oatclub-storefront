@@ -4,7 +4,7 @@ import { Poppins, Bebas_Neue } from "next/font/google";
 import LayoutClient from "./layout.client";
 
 /* ------------------------------
-   Fonts (Self-hosted, premium)
+   Fonts
 ------------------------------ */
 
 const poppins = Poppins({
@@ -26,44 +26,55 @@ const bebas = Bebas_Neue({
 ------------------------------ */
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://mirayfashions.com"),
+  metadataBase: new URL("https://oatclub.in"),
 
   alternates: {
-    canonical: "https://mirayfashions.com",
+    canonical: "https://oatclub.in",
   },
 
   title: {
-    default: "Miray Fashions | Trending Women’s Fashion Online",
-    template: "%s | Miray Fashions",
+    default: "OATCLUB | Premium Everyday Essentials",
+    template: "%s | OATCLUB",
   },
 
   description:
-    "Shop trending women’s fashion at Miray Fashions. Discover stylish tops, dresses, shirts, co-ord sets, and fresh Gen-Z styles designed for confident, effortless everyday wear.",
+    "Discover premium everyday essentials designed for comfort, simplicity, and modern living. Explore timeless apparel and elevated basics crafted for effortless style.",
+
+  keywords: [
+    "OATCLUB",
+    "premium clothing",
+    "everyday essentials",
+    "minimal fashion",
+    "streetwear",
+    "modern apparel",
+    "premium basics",
+    "online clothing store",
+  ],
 
   openGraph: {
-    title: "Miray Fashions | Trending Women’s Fashion Online",
+    title: "OATCLUB | Premium Everyday Essentials",
     description:
-      "Discover customer-first women’s fashion for Gen-Z and millennials. Shop trending tops, dresses, shirts, co-ord sets, and statement styles made for confident everyday wear.",
+      "Premium essentials. Timeless silhouettes. Everyday comfort. Discover elevated basics designed for modern lifestyles.",
     type: "website",
-    siteName: "Miray Fashions",
+    siteName: "OATCLUB",
     locale: "en_IN",
-    url: "https://mirayfashions.com",
+    url: "https://oatclub.in",
     images: [
       {
-        url: "https://mirayfashions.com/og-default.jpg",
+        url: "https://oatclub.in/og-default.jpg",
         width: 1200,
         height: 630,
-        alt: "Miray Fashions – Trending Women’s Fashion",
+        alt: "OATCLUB - Premium Everyday Essentials",
       },
     ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "Miray Fashions | Trending Women’s Fashion Online",
+    title: "OATCLUB | Premium Everyday Essentials",
     description:
-      "Shop trending tops, dresses, shirts, co-ord sets, and Gen-Z women’s fashion at Miray Fashions.",
-    images: ["https://mirayfashions.com/og-default.jpg"],
+      "Premium essentials designed for comfort, simplicity, and modern living.",
+    images: ["https://oatclub.in/og-default.jpg"],
   },
 
   icons: {

@@ -1,43 +1,54 @@
 // src/app/blog/layout.jsx
 
 export const metadata = {
-  title: "The Miray Journal | Fashion, Styling & Trends",
+  title: "The OATCLUB Journal | Style, Culture & Everyday Essentials",
+
   description:
-    "Explore The Miray Journal — fashion trends, styling tips, Gen-Z aesthetics, and modern western wear stories curated by Miray Fashions.",
+    "Explore The OATCLUB Journal — style guides, everyday essentials, modern culture, design inspiration, and stories behind intentional living.",
 
   alternates: {
-    canonical: "https://mirayfashions.com/blog",
+    canonical: "https://oatclub.in/blog",
   },
 
   openGraph: {
-    title: "The Miray Journal | Miray Fashions",
+    title: "The OATCLUB Journal | OATCLUB",
+
     description:
-      "Fashion trends, styling inspiration, and Gen-Z aesthetics from Miray Fashions.",
-    url: "https://mirayfashions.com/blog",
-    siteName: "Miray Fashions",
+      "Style guides, everyday essentials, culture, design inspiration, and modern lifestyle stories from OATCLUB.",
+
+    url: "https://oatclub.in/blog",
+
+    siteName: "OATCLUB",
+
     type: "website",
+
     locale: "en_IN",
+
     images: [
       {
-        url: "https://mirayfashions.com/og-blog.jpg",
+        url: "https://oatclub.in/og-blog.jpg",
         width: 1200,
         height: 630,
-        alt: "The Miray Journal – Fashion Blog",
+        alt: "The OATCLUB Journal",
       },
     ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "The Miray Journal | Miray Fashions",
+
+    title: "The OATCLUB Journal | OATCLUB",
+
     description:
-      "Read fashion stories, styling tips & trends curated by Miray Fashions.",
-    images: ["https://mirayfashions.com/og-blog.jpg"],
+      "Read style guides, culture stories, and everyday inspiration from OATCLUB.",
+
+    images: ["https://oatclub.in/og-blog.jpg"],
   },
 
   robots: {
     index: true,
     follow: true,
+
     googleBot: {
       index: true,
       follow: true,

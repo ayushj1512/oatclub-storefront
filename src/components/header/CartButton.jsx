@@ -157,7 +157,7 @@ export default function CartButton() {
       >
         <ShoppingBag
           className={`w-6 h-6 transition-all duration-300 hover:text-black ${
-            pulse ? "scale-[1.15] text-black" : "text-gray-700"
+            pulse ? "scale-[1.15] text-wh" : "text-gray-700"
           }`}
         />
 

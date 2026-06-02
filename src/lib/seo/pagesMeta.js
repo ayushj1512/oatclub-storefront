@@ -1,37 +1,38 @@
 // src/lib/seo/pagesMeta.js
 
 const SITE = {
-  name: "Miray Fashions",
-  url: "https://mirayfashions.com",
+  name: "OATCLUB",
+  url: "https://oatclub.in",
   locale: "en_IN",
   twitterCard: "summary_large_image",
 };
 
-// ✅ One place to manage page-wise meta
 const PAGES = {
   "all-clothing": {
-    title: "All Clothing | Miray Fashions",
+    title: "All Clothing | OATCLUB",
     description:
-      "Explore all clothing from Miray Fashions — modern western wear, Gen-Z aesthetics, and curated styles for every vibe.",
+      "Explore all clothing from OATCLUB — premium everyday essentials, timeless wardrobe pieces, and modern apparel designed for effortless style.",
     path: "/all-clothing",
-    ogImage: "/og-all-clothing.jpg", // put in /public or use absolute
-    ogAlt: "All Clothing – Miray Fashions",
+    ogImage: "/og-all-clothing.jpg",
+    ogAlt: "All Clothing | OATCLUB",
   },
+
   "new-arrivals": {
-    title: "New Arrivals | Miray Fashions",
+    title: "New Arrivals | OATCLUB",
     description:
-      "Shop New Arrivals from Miray Fashions — the latest drops, trending fits, and fresh styles updated regularly.",
+      "Shop new arrivals from OATCLUB — fresh essentials, premium apparel, and timeless pieces designed for modern everyday wear.",
     path: "/new-arrivals",
     ogImage: "/og-new-arrivals.jpg",
-    ogAlt: "New Arrivals – Miray Fashions",
+    ogAlt: "New Arrivals | OATCLUB",
   },
+
   bestsellers: {
-    title: "Bestsellers | Miray Fashions",
+    title: "Bestsellers | OATCLUB",
     description:
-      "Discover Miray Fashions Bestsellers — customer favourites, top-selling styles, and trending western wear picks.",
+      "Discover OATCLUB bestsellers — customer-loved essentials, premium basics, and timeless wardrobe pieces made for everyday comfort.",
     path: "/bestseller",
     ogImage: "/og-bestsellers.jpg",
-    ogAlt: "Bestsellers – Miray Fashions",
+    ogAlt: "Bestsellers | OATCLUB",
   },
 };
 
@@ -43,11 +44,12 @@ const abs = (p) => {
 
 export const buildPageMetadata = (pageKey, overrides = {}) => {
   const cfg = PAGES[pageKey];
+
   if (!cfg) {
     throw new Error(
-      `buildPageMetadata: unknown pageKey "${pageKey}". Allowed: ${Object.keys(PAGES).join(
-        ", "
-      )}`
+      `buildPageMetadata: unknown pageKey "${pageKey}". Allowed: ${Object.keys(
+        PAGES
+      ).join(", ")}`
     );
   }
 
@@ -94,7 +96,10 @@ export const buildPageMetadata = (pageKey, overrides = {}) => {
     robots: overrides.robots || {
       index: true,
       follow: true,
-      googleBot: { index: true, follow: true },
+      googleBot: {
+        index: true,
+        follow: true,
+      },
     },
   };
 };

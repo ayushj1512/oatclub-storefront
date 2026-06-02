@@ -1,16 +1,21 @@
 // src/app/category/[category]/layout.jsx
 
+const SITE_URL = "https://oatclub.in";
+
 export async function generateMetadata({ params }) {
-  // ✅ Unwrap params (params may be a Promise in newer Next.js versions)
   const { category } = await params;
 
-  const name = decodeURIComponent(category || "").replace(/-/g, " ").trim();
-  const formattedName = capitalize(name);
+  const name = decodeURIComponent(category || "")
+    .replace(/-/g, " ")
+    .trim();
 
-  const title = `${formattedName} | Miray Fashions`;
-  const description = `Shop ${formattedName} online at Miray Fashions. Discover the latest designs, premium quality fabrics, and trending styles.`;
+  const formattedName = capitalizeWords(name);
 
-  const url = `https://mirayfashions.com/category/${category}`;
+  const title = `${formattedName} | OATCLUB`;
+
+  const description = `Explore ${formattedName} at OATCLUB. Discover thoughtfully designed everyday essentials, premium apparel, and timeless wardrobe pieces.`;
+
+  const url = `${SITE_URL}/category/${category}`;
 
   return {
     title,
@@ -24,15 +29,16 @@ export async function generateMetadata({ params }) {
       title,
       description,
       url,
-      siteName: "Miray Fashions",
+      siteName: "OATCLUB",
       type: "website",
       locale: "en_IN",
+
       images: [
         {
-          url: "https://mirayfashions.com/og-category.jpg",
+          url: `${SITE_URL}/og-category.jpg`,
           width: 1200,
           height: 630,
-          alt: `${formattedName} – Miray Fashions`,
+          alt: `${formattedName} | OATCLUB`,
         },
       ],
     },
@@ -41,12 +47,13 @@ export async function generateMetadata({ params }) {
       card: "summary_large_image",
       title,
       description,
-      images: ["https://mirayfashions.com/og-category.jpg"],
+      images: [`${SITE_URL}/og-category.jpg`],
     },
 
     robots: {
       index: true,
       follow: true,
+
       googleBot: {
         index: true,
         follow: true,
@@ -55,9 +62,14 @@ export async function generateMetadata({ params }) {
   };
 }
 
-function capitalize(str = "") {
-  if (!str) return "";
-  return str.charAt(0).toUpperCase() + str.slice(1);
+function capitalizeWords(str = "") {
+  return str
+    .split(" ")
+    .filter(Boolean)
+    .map(
+      (word) => word.charAt(0).toUpperCase() + word.slice(1)
+    )
+    .join(" ");
 }
 
 export default function CategoryLayout({ children }) {

@@ -1,13 +1,18 @@
 // src/app/recommendation/layout.jsx
 
+const SITE_URL = "https://oatclub.in";
+const BRAND_NAME = "OATCLUB";
+const FALLBACK_IMAGE = `${SITE_URL}/og-default.jpg`;
+
 export async function generateMetadata() {
   try {
-    const title = "Recommended For You | Miray Fashions";
-    const description =
-      "Explore personalized product recommendations based on your recently viewed items at Miray Fashions.";
+    const title = "Recommended For You | OATCLUB";
 
-    const url = "https://mirayfashions.com/recommendation";
-    const image = "https://mirayfashions.com/og-default.jpg";
+    const description =
+      "Explore personalized product recommendations based on your recently viewed essentials at OATCLUB.";
+
+    const url = `${SITE_URL}/recommendation`;
+    const image = FALLBACK_IMAGE;
 
     return {
       title,
@@ -21,7 +26,7 @@ export async function generateMetadata() {
         title,
         description,
         url,
-        siteName: "Miray Fashions",
+        siteName: BRAND_NAME,
         type: "website",
         locale: "en_IN",
         images: [
@@ -29,7 +34,7 @@ export async function generateMetadata() {
             url: image,
             width: 1200,
             height: 630,
-            alt: "Recommended For You | Miray Fashions",
+            alt: "Recommended For You | OATCLUB",
           },
         ],
       },
@@ -56,43 +61,50 @@ export async function generateMetadata() {
 }
 
 function fallbackMetadata() {
-  const title = "Recommended For You | Miray Fashions";
+  const title = "Recommended For You | OATCLUB";
+
   const description =
-    "Explore personalized product recommendations at Miray Fashions.";
+    "Explore personalized product recommendations at OATCLUB.";
 
-  const url = "https://mirayfashions.com/recommendation";
+  const url = `${SITE_URL}/recommendation`;
 
-  return title && description
-    ? {
-        title,
-        description,
-        alternates: {
-          canonical: url,
+  return {
+    title,
+    description,
+
+    alternates: {
+      canonical: url,
+    },
+
+    robots: {
+      index: true,
+      follow: true,
+    },
+
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: BRAND_NAME,
+      type: "website",
+      locale: "en_IN",
+      images: [
+        {
+          url: FALLBACK_IMAGE,
+          width: 1200,
+          height: 630,
+          alt: title,
         },
-        robots: {
-          index: true,
-          follow: true,
-        },
-        openGraph: {
-          title,
-          description,
-          url,
-          siteName: "Miray Fashions",
-          type: "website",
-          images: [
-            {
-              url: "https://mirayfashions.com/og-default.jpg",
-              width: 1200,
-              height: 630,
-              alt: title,
-            },
-          ],
-        },
-      }
-    : {
-        title: "Miray Fashions",
-        robots: { index: true, follow: true },
-      };
+      ],
+    },
+
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [FALLBACK_IMAGE],
+    },
+  };
 }
 
 export default function RecommendationLayout({ children }) {

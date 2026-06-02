@@ -44,7 +44,7 @@ export default function ProfileMenu() {
     <div className="relative inline-block py-2" ref={ref}>
       {/* Profile Icon */}
       <button type="button" onClick={onIconClick} className="flex items-center">
-        <User className="w-6 h-6 text-gray-700 hover:text-black transition" />
+        <User className="w-6 h-6 text-white  transition" />
       </button>
 
       {/* Dropdown (Desktop only) */}

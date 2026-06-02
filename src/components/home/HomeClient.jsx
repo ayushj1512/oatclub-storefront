@@ -51,9 +51,9 @@ export default function HomeClient() {
 
       <main className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white text-gray-900">
         {/* ABOVE THE FOLD */}
-        <div className="pt-4">
+        {/* <div className="pt-4">
           <CategoryRow />
-        </div>
+        </div> */}
 
         <HeroSection />
         <StyleByOccasion />

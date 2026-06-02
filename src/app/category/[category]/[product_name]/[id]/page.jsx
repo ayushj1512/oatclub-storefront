@@ -723,293 +723,360 @@ router.push("/checkout?mode=buy-now");
 }
 
   return (
-    <div className="w-full px-4 md:px-12 py-6 md:py-12">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        {/* LEFT */}
-        <div className="w-full md:max-w-none">
-          <ProductGallery images={product.images || []} />
-        </div>
-
-        {/* RIGHT */}
-        <aside className="space-y-4 w-full">
-          {/* Breadcrumb */}
-          {/* Breadcrumb */}
-          <div className="text-xs md:text-sm text-gray-500">
-            <a href="/" className="hover:underline">
-              Home
-            </a>{" "}
-            /{" "}
-            <a
-              href={`/category/${category}`}
-              className="hover:underline capitalize"
-            >
-              {product?.raw?.categories?.[0]?.name
-                ? decodeURIComponent(product.raw.categories[0].name)
-                  .replace(/-/g, " ")
-                  .trim()
-                : decodeURIComponent(category || "")
-                  .replace(/-/g, " ")
-                  .trim()}
-            </a>{" "}
-            / <span className="text-gray-900">{product.name}</span>
+  <div className="w-full bg-white text-black">
+    <div className="w-full px-4 py-5 md:px-8 lg:px-12 lg:py-10">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start lg:gap-10 xl:gap-12">
+        {/* LEFT IMAGE */}
+        <section className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          <div className="w-full bg-white">
+            <ProductGallery images={product.images || []} />
           </div>
+        </section>
 
-          <h1 className="text-2xl md:text-3xl font-semibold text-black leading-tight">{product.name}</h1>
-
-          {/* ✅ Product Code */}
-          {product?.productCode ? (
-            <p className="text-xs md:text-sm text-black/60 mt-1">
-              Product Code: <span className="font-semibold text-black">{product.productCode}</span>
-            </p>
-          ) : null}
-          <LepordCollectionAnnouncement collections={product?.raw?.collections || []} />
-          {/* PRICE + icons */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-2xl md:text-3xl font-semibold text-black">
-                ₹{money(product.price)}
-              </span>
-
-              {product.regularPrice > product.price ? (
-                <>
-                  <span className="line-through text-base text-gray-500">
-                    ₹{money(product.regularPrice)}
-                  </span>
-
-                  <span className="text-sm font-semibold text-[#800020] bg-[#800020]/10 px-2 py-1 rounded">
-                    {Math.round(((product.regularPrice - product.price) / product.regularPrice) * 100)}% OFF
-                  </span>
-
-                </>
-              ) : null}
+        {/* RIGHT DETAILS */}
+        <aside className="min-w-0">
+          <div className="space-y-6">
+            {/* Breadcrumb */}
+            <div className="flex flex-wrap items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-black/40">
+              <a href="/" className="transition hover:text-black">
+                Home
+              </a>
+              <span>/</span>
+              <a
+                href={`/category/${category}`}
+                className="capitalize transition hover:text-black"
+              >
+                {product?.raw?.categories?.[0]?.name
+                  ? decodeURIComponent(product.raw.categories[0].name)
+                      .replace(/-/g, " ")
+                      .trim()
+                  : decodeURIComponent(category || "")
+                      .replace(/-/g, " ")
+                      .trim()}
+              </a>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleToggleWishlist}
-                className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
-                aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                title={wishlisted ? "Wishlisted" : "Add to wishlist"}
-              >
-                <Heart size={20} className={wishlisted ? "fill-current text-black" : "text-black/70"} />
-              </button>
+            {/* Title */}
+            <div className="space-y-4 border-b border-black/10 pb-6">
+              <div className="flex flex-wrap items-center gap-2">
+                {product?.raw?.categories?.[0]?.name ? (
+                  <span className="bg-black px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white">
+                    {product.raw.categories[0].name}
+                  </span>
+                ) : null}
 
-              <button
-                onClick={handleShare}
-                className="p-1 rounded-full hover:bg-black/5 active:scale-95 transition"
-                aria-label="Share"
-                title="Share"
-              >
-                <Share2 size={20} className="text-gray-900" />
-              </button>
-            </div>
-          </div>
+                {product?.productCode ? (
+                  <span className="border border-black px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-black">
+                    Code {product.productCode}
+                  </span>
+                  
+                ) : null}
+                 <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={handleToggleWishlist}
+                    className="grid h-10 w-10 place-items-center border border-black text-black transition hover:bg-black hover:text-white active:scale-95"
+                    aria-label={
+                      wishlisted ? "Remove from wishlist" : "Add to wishlist"
+                    }
+                    title={wishlisted ? "Wishlisted" : "Add to wishlist"}
+                  >
+                    <Heart
+                      size={18}
+                      className={wishlisted ? "fill-current" : ""}
+                    />
+                  </button>
 
-
-          {/* SIZE SELECTOR */}
-          {(product.sizes || []).length > 0 && (
-            <div className="space-y-1.5 pt-1">
-              {/* Title + Size Guide link */}
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-medium text-black">Select Size</h3>
-
-                <button
-                  type="button"
-                  onClick={() => setSizeGuideOpen(true)}
-                  className="text-xs font-semibold underline text-black/70 hover:text-black"
-                >
-                  Size Guide
-                </button>
+                  <button
+                    onClick={handleShare}
+                    className="grid h-10 w-10 place-items-center border border-black text-black transition hover:bg-black hover:text-white active:scale-95"
+                    aria-label="Share"
+                    title="Share"
+                  >
+                    <Share2 size={18} />
+                  </button>
+                </div>
+                
               </div>
 
-              <SizeAvailabilityNotice product={product} selectedSize={selectedSize} />
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h1 className="text-[30px] font-semibold leading-[1.02] tracking-[-0.045em] text-black md:text-[42px] lg:text-[48px]">
+                    {product.name}
+                  </h1>
 
-              {/* ✅ Sorted Size Buttons */}
-              <div className="flex flex-wrap gap-2">
-                {(() => {
-                  // ✅ predefined order
-                  const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
-                  const allowed = new Set(["XS", "S", "M", "L", "XL"]);
+                  {product.shortDescription ? (
+                    <p className="mt-4 max-w-2xl text-sm leading-6 text-black/60 md:text-[15px]">
+                      {product.shortDescription}
+                    </p>
+                  ) : null}
+                </div>
 
-                  const sortedSizes = [...(product.sizes || [])]
-                    .map((x) => str(x).trim().toUpperCase())
-                    .filter((x) => x && allowed.has(x))   // ✅ ONLY XS/S/M/L/XL
-                    .sort((a, b) => {
-                      const ia = sizeOrder.indexOf(a);
-                      const ib = sizeOrder.indexOf(b);
-                      if (ia !== -1 && ib !== -1) return ia - ib;
-                      if (ia !== -1) return -1;
-                      if (ib !== -1) return 1;
-                      return a.localeCompare(b);
-                    });
+               
+              </div>
+            </div>
 
-                  return sortedSizes.map((s) => {
-                    const active = selectedSize === s;
+            <LepordCollectionAnnouncement
+              collections={product?.raw?.collections || []}
+            />
 
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          setSelectedSize(s);
+            {/* Price */}
+            <div className="border-b border-black/10 pb-6">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <span className="text-[32px] font-semibold leading-none tracking-[-0.04em] text-black md:text-[40px]">
+                    ₹{money(product.price)}
+                  </span>
 
-                          const needsColor = normalized ? hasColorForSize(normalized, s) : false;
+                  {product.regularPrice > product.price ? (
+                    <>
+                      <span className="pb-1 text-base font-medium text-black/35 line-through">
+                        ₹{money(product.regularPrice)}
+                      </span>
 
-                          // ✅ Size doesn't need color => reset color + resolve variant by size only
-                          if (!needsColor) {
-                            setSelectedColor(null);
+                      <span className="mb-1 bg-black px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
+                        {Math.round(
+                          ((product.regularPrice - product.price) /
+                            product.regularPrice) *
+                            100
+                        )}
+                        % OFF
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+
+                <p className="text-xs font-medium text-black/45">
+                  Inclusive of all taxes
+                </p>
+              </div>
+            </div>
+
+            {/* Size Selector */}
+            {(product.sizes || []).length > 0 && (
+              <div className="border-b border-black/10 pb-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-black">
+                      Select Size
+                    </h3>
+                    <p className="mt-0.5 text-xs text-black/45">
+                      Choose your preferred fit
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSizeGuideOpen(true)}
+                    className="text-xs font-semibold text-black underline underline-offset-4 transition hover:text-black/60"
+                  >
+                    Size Guide
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {(() => {
+                    const sizeOrder = [
+                      "XXS",
+                      "XS",
+                      "S",
+                      "M",
+                      "L",
+                      "XL",
+                      "XXL",
+                      "3XL",
+                      "4XL",
+                      "5XL",
+                    ];
+
+                    const sortedSizes = [...(product.sizes || [])]
+                      .map((x) => str(x).trim().toUpperCase())
+                      .filter(Boolean)
+                      .sort((a, b) => {
+                        const ia = sizeOrder.indexOf(a);
+                        const ib = sizeOrder.indexOf(b);
+                        if (ia !== -1 && ib !== -1) return ia - ib;
+                        if (ia !== -1) return -1;
+                        if (ib !== -1) return 1;
+                        return a.localeCompare(b);
+                      });
+
+                    return sortedSizes.map((s) => {
+                      const active = selectedSize === s;
+
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => {
+                            setSelectedSize(s);
+
+                            const needsColor = normalized
+                              ? hasColorForSize(normalized, s)
+                              : false;
+
+                            if (!needsColor) {
+                              setSelectedColor(null);
+
+                              const vid = normalized
+                                ? findVariantIdByAttributes(normalized, {
+                                    size: s,
+                                  })
+                                : null;
+
+                              setSelectedVariantId(vid);
+                              return;
+                            }
+
+                            const validColors = normalized
+                              ? getColorsForSize(normalized, s)
+                              : [];
+                            const current = str(selectedColor)
+                              .trim()
+                              .toLowerCase();
+                            const stillValid =
+                              current && validColors.includes(current);
+
+                            if (!stillValid) {
+                              setSelectedColor(null);
+                              setSelectedVariantId(null);
+                              return;
+                            }
 
                             const vid = normalized
-                              ? findVariantIdByAttributes(normalized, { size: s })
+                              ? findVariantIdByAttributes(normalized, {
+                                  size: s,
+                                  color: selectedColor,
+                                })
                               : null;
 
                             setSelectedVariantId(vid);
-                            return;
-                          }
-
-                          // ✅ Size needs color => check if existing selectedColor is valid for this size
-                          const validColors = normalized ? getColorsForSize(normalized, s) : [];
-                          const current = str(selectedColor).trim().toLowerCase();
-                          const stillValid = current && validColors.includes(current);
-
-                          // ❌ current color is not valid for this size -> reset and wait for user to select
-                          if (!stillValid) {
-                            setSelectedColor(null);
-                            setSelectedVariantId(null);
-                            return;
-                          }
-
-                          // ✅ current color is valid -> resolve variant
-                          const vid = normalized
-                            ? findVariantIdByAttributes(normalized, { size: s, color: selectedColor })
-                            : null;
-
-                          setSelectedVariantId(vid);
-                        }}
-
-
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md border transition ${active
-                            ? "bg-black text-white border-black"
-                            : "bg-white text-black border-black/20 hover:bg-black/5"
+                          }}
+                          className={`h-11 min-w-12 border border-black px-4 text-sm font-semibold transition active:scale-95 ${
+                            active
+                              ? "bg-black text-white"
+                              : "bg-white text-black hover:bg-black hover:text-white"
                           }`}
-                      >
-                        {s}
-                      </button>
-                    );
-                  });
-                })()}
+                        >
+                          {s}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+
+                <SizeAvailabilityNotice
+                  product={product}
+                  selectedSize={selectedSize}
+                />
               </div>
-            </div>
-          )}
-
-          {/* COLOR SELECTOR */}
-          {requireColor && (
-            <ColorSelector
-              colors={product.colors}
-              selectedColor={selectedColor}
-              onSelect={(c) => {
-                setSelectedColor(c);
-
-                const vid = normalized
-                  ? findVariantIdByAttributes(normalized, { size: selectedSize, color: c })
-                  : null;
-
-                setSelectedVariantId(vid);
-              }}
-            />
-          )}
-
-
-
-
-          <CrossSellProducts
-            category={category}
-            items={product?.raw?.crossSellProducts || []}
-          />
-
-          {/* CTA row */}
-          <div className="flex gap-2 flex-wrap pt-2">
-            {!selectionInCart ? (
-              <button
-                onClick={handleAddToCart
-
-                }
-                className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99]"
-                style={{ backgroundColor: BRAND.black }}
-              >
-
-                <ShoppingCart size={18} />
-                Add to Cart
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled
-                className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white/95 bg-black/90 cursor-default"
-              >
-                <ShoppingCart size={18} />
-                Added to Cart
-              </button>
             )}
 
-            {/* ✅ Buy Now becomes View Cart when already in cart */}
-            <button
-              onClick={handleBuyNowOrViewCart}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99]"
-            >
-              {selectionInCart ? (
-                <>
+            {/* Color Selector */}
+            {requireColor && (
+              <div className="border-b border-black/10 pb-6">
+                <ColorSelector
+                  colors={product.colors}
+                  selectedColor={selectedColor}
+                  onSelect={(c) => {
+                    setSelectedColor(c);
+
+                    const vid = normalized
+                      ? findVariantIdByAttributes(normalized, {
+                          size: selectedSize,
+                          color: c,
+                        })
+                      : null;
+
+                    setSelectedVariantId(vid);
+                  }}
+                />
+              </div>
+            )}
+
+            <CrossSellProducts
+              category={category}
+              items={product?.raw?.crossSellProducts || []}
+            />
+
+            {/* CTA */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {!selectionInCart ? (
+                <button
+                  onClick={handleAddToCart}
+                  className="inline-flex h-13 items-center justify-center gap-2 bg-black px-5 py-4 text-sm font-semibold text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black active:scale-[0.99]"
+                >
                   <ShoppingCart size={18} />
-                  View Cart
-                </>
+                  Add to Cart
+                </button>
               ) : (
-                <>
-                  <Zap size={18} />
-                  Buy Now
-                </>
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex h-13 cursor-default items-center justify-center gap-2 bg-black px-5 py-4 text-sm font-semibold text-white"
+                >
+                  <ShoppingCart size={18} />
+                  Added to Cart
+                </button>
               )}
-            </button>
 
+              <button
+                onClick={handleBuyNowOrViewCart}
+                className="inline-flex h-13 items-center justify-center gap-2 border border-black bg-white px-5 py-4 text-sm font-semibold text-black transition hover:bg-black hover:text-white active:scale-[0.99]"
+              >
+                {selectionInCart ? (
+                  <>
+                    <ShoppingCart size={18} />
+                    View Cart
+                  </>
+                ) : (
+                  <>
+                    <Zap size={18} />
+                    Buy Now
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Details */}
+            <div className="space-y-3 border-t border-black/10 pt-6">
+              <ProductDetailSection
+                title="Product Details"
+                content={product.description}
+              />
+
+              <WashcareSection
+                title="Washcare & Instructions"
+                items={[
+                  "Machine wash cold with like colors",
+                  "Do not bleach",
+                  "Tumble dry low or hang dry",
+                  "Cool iron if needed",
+                  "Do not dry clean",
+                ]}
+              />
+
+          
+            </div>
           </div>
-
-
-          <div className="pt-3">
-            <ShippingHighlights />
-          </div>
-
-          {/* DETAILS */}
-          <ProductDetailSection title="Product Details" content={product.description} />
-
-          <WashcareSection
-            title="Washcare & Instructions"
-            items={[
-              "Machine wash cold with like colors",
-              "Do not bleach",
-              "Tumble dry low or hang dry",
-              "Cool iron if needed",
-              "Do not dry clean",
-            ]}
-          />
-
-          <SupportSection product={product} selectedSize={selectedSize} requireSize={requireSize} brand={BRAND} />
-
-          {/* <ReviewSection /> */}
         </aside>
       </div>
 
-      {/* ✅ Size Guide Modal */}
       <SizeGuideModal
         open={sizeGuideOpen}
         onClose={() => setSizeGuideOpen(false)}
         categoryId={product?.raw?.categories?.[0]?._id}
       />
 
-      <div className="mt-2">
-        <RelatedProducts currentProduct={normalized?.raw || normalized || product?.raw || product} />
+      <div className="mt-12 border-t border-black/10 pt-10">
+        <RelatedProducts
+          currentProduct={normalized?.raw || normalized || product?.raw || product}
+        />
       </div>
 
       <RecentlyViewedProducts />
-
-
     </div>
-  );
+  </div>
+);
+
+
+
 }

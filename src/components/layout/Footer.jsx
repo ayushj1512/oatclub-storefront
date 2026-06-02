@@ -29,8 +29,8 @@ export default function Footer() {
           <div className="space-y-4">
             <div className="flex items-center justify-center">
               <Image
-                src="https://res.cloudinary.com/djtva6hec/image/upload/v1767117853/miray/media/prjk693rucvgygdzkzx4.png"
-                alt="Miray"
+                src="https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780350223/pqmudk6lvljcqdg1xdq2.png"
+                alt="Oatclub"
                 width={120}
                 height={40}
                 priority
@@ -163,8 +163,8 @@ export default function Footer() {
           <div className="text-center space-y-3">
             <div className="flex items-center justify-center">
               <Image
-                src="https://res.cloudinary.com/djtva6hec/image/upload/v1767117853/miray/media/prjk693rucvgygdzkzx4.png"
-                alt="Miray"
+                src="https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780350223/pqmudk6lvljcqdg1xdq2.png"
+                alt="Oatclub"
                 width={120}
                 height={40}
                 priority
@@ -305,7 +305,7 @@ export default function Footer() {
 
       {/* ================= BOTTOM ================= */}
       <div className="border-t border-white/10 py-6 text-center text-sm text-white/50">
-        © {year} Miray Fashions. All rights reserved.
+        © {year} Oatclub. All rights reserved.
       </div>
     </footer>
   );

@@ -1,44 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Minus } from "lucide-react";
-
-export default function WashcareSection({ title = "Washcare & Instructions", items = [] }) {
-  const [open, setOpen] = useState(false);
-
+export default function WashcareSection({
+  title = "Care Notes",
+  items = [],
+}) {
   return (
-    <div className="border-t border-gray-200 py-3">
+    <section className="border-t border-black/10 py-6">
+      <div className="mb-4">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/40">
+          Care Guide
+        </p>
 
-      {/* HEADER */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex justify-between items-center w-full text-left"
-      >
-        <span className="text-base md:text-lg font-semibold text-black">
+        <h3 className="mt-1 text-[15px] font-semibold text-black md:text-base">
           {title}
-        </span>
+        </h3>
+      </div>
 
-        {open ? (
-          <Minus className="h-5 w-5 text-black" />
-        ) : (
-          <Plus className="h-5 w-5 text-black" />
-        )}
-      </button>
-
-      {/* BODY */}
-      <div
-        className={`transition-all overflow-hidden duration-300 ${
-          open ? "max-h-96 mt-2" : "max-h-0"
-        }`}
-      >
-        <ul className="text-gray-700 text-sm leading-relaxed space-y-1 pl-1">
+      {items.length ? (
+        <ul className="space-y-3">
           {items.map((text, index) => (
-            <li key={index} className="flex gap-2">
-              <span className="font-bold text-black">•</span> {text}
+            <li key={`${text}-${index}`} className="flex items-start gap-3">
+              <span className="mt-[9px] h-1.5 w-1.5 shrink-0 bg-black" />
+              <p className="text-sm leading-6 text-black/65">{text}</p>
             </li>
           ))}
         </ul>
-      </div>
-    </div>
+      ) : (
+        <p className="text-sm leading-6 text-black/50">
+          Care instructions will be updated soon.
+        </p>
+      )}
+    </section>
   );
 }

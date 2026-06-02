@@ -90,98 +90,163 @@ export default function SizeGuideModal({ open, onClose, categoryId, categorySlug
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100]">
-      <button onClick={onClose} className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" aria-label="Close" />
+ return (
+  <div className="fixed inset-0 z-[100]">
+    <button
+      onClick={onClose}
+      className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+      aria-label="Close"
+    />
 
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-black/5 overflow-hidden">
-          {/* Header */}
-          <div className="flex items-start justify-between px-6 py-4 border-b border-black/5">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-semibold text-black">Size Guide</h2>
+    <div className="absolute inset-0 flex items-end justify-center p-0 sm:items-center sm:p-4">
+      <div className="max-h-[92vh] w-full overflow-hidden rounded-t-[28px] bg-white shadow-[0_-20px_80px_rgba(0,0,0,0.22)] sm:max-w-3xl sm:rounded-[32px]">
+        {/* Header */}
+        <div className="border-b border-black/[0.06] px-5 py-5 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/35">
+                Oatclub Fit Guide
+              </p>
 
-                <div className="flex gap-1 border border-black/10 rounded-lg p-1">
-                  <button
-                    onClick={() => setUnit("inch")}
-                    className={unit === "inch" ? "px-3 py-1 text-xs font-semibold rounded-md bg-black text-white" : "px-3 py-1 text-xs font-semibold rounded-md text-gray-600 hover:bg-black/5"}
-                  >
-                    IN
-                  </button>
-                  <button
-                    onClick={() => setUnit("cm")}
-                    className={unit === "cm" ? "px-3 py-1 text-xs font-semibold rounded-md bg-black text-white" : "px-3 py-1 text-xs font-semibold rounded-md text-gray-600 hover:bg-black/5"}
-                  >
-                    CM
-                  </button>
-                </div>
-              </div>
+              <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-black">
+                Size Guide
+              </h2>
 
-              <p className="text-xs text-gray-500">
-                Measurements are approximate • Unit: {unit === "inch" ? "inches" : "cm"}
+              <p className="mt-1 text-xs leading-5 text-black/45">
+                Measurements are approximate. Pick the size closest to your body measurement.
               </p>
             </div>
 
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5" aria-label="Close">
+            <button
+              onClick={onClose}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/[0.04] text-black transition hover:bg-black hover:text-white active:scale-95"
+              aria-label="Close"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          {/* Content */}
-          <div className="px-6 py-5 max-h-[65vh] overflow-y-auto">
-            {loading && <p className="text-xs text-gray-400">Loading size chart…</p>}
-            {!loading && !display && <p className="text-xs text-gray-500">Size chart not available.</p>}
+          {/* Unit Toggle */}
+          <div className="mt-5 inline-flex rounded-full bg-[#f5f5f5] p-1">
+            <button
+              onClick={() => setUnit("inch")}
+              className={`rounded-full px-5 py-2 text-xs font-semibold transition ${
+                unit === "inch"
+                  ? "bg-black text-white shadow-sm"
+                  : "text-black/50 hover:text-black"
+              }`}
+            >
+              Inches
+            </button>
 
-            {!loading && display && (
-              <div className="border border-black/5 rounded-2xl overflow-hidden">
-                <div className="px-5 py-3 bg-gray-50 border-b border-black/5">
-                  <p className="text-sm font-semibold text-black">{display.title}</p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b border-black/5">
-                        {display.headers.map((h, i) => (
-                          <th
-                            key={i}
-                            className={i === 0 ? "px-5 py-3 text-left text-sm font-semibold text-gray-800 whitespace-nowrap" : "px-5 py-3 text-center text-sm font-semibold text-gray-800 whitespace-nowrap"}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {display.rows.map((r, i) => (
-                        <tr key={i} className="border-b border-black/5 last:border-0">
-                          {r.map((c, j) => (
-                            <td
-                              key={j}
-                              className={j === 0 ? "px-5 py-3 text-left text-sm text-gray-700 font-medium whitespace-nowrap" : "px-5 py-3 text-center text-sm text-gray-700 whitespace-nowrap"}
-                            >
-                              {c}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-black/5">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-xl bg-black text-white text-sm font-semibold">
-              Close
+            <button
+              onClick={() => setUnit("cm")}
+              className={`rounded-full px-5 py-2 text-xs font-semibold transition ${
+                unit === "cm"
+                  ? "bg-black text-white shadow-sm"
+                  : "text-black/50 hover:text-black"
+              }`}
+            >
+              CM
             </button>
           </div>
         </div>
+
+        {/* Content */}
+        <div className="max-h-[62vh] overflow-y-auto px-5 py-5 sm:px-6">
+          {loading && (
+            <div className="rounded-3xl bg-[#fafafa] p-5 text-sm font-medium text-black/45">
+              Loading size chart…
+            </div>
+          )}
+
+          {!loading && !display && (
+            <div className="rounded-3xl bg-[#fafafa] p-5 text-sm font-medium text-black/50">
+              Size chart not available for this product.
+            </div>
+          )}
+
+          {!loading && display && (
+            <div className="overflow-hidden rounded-3xl bg-white shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06]">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-[#fafafa] px-5 py-4">
+                <div>
+                  <p className="text-sm font-semibold text-black">
+                    {display.title}
+                  </p>
+                  <p className="mt-0.5 text-xs text-black/40">
+                    Unit: {unit === "inch" ? "inches" : "centimeters"}
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45 ring-1 ring-black/[0.06]">
+                  Body Measurements
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] border-collapse">
+                  <thead>
+                    <tr className="border-b border-black/[0.06]">
+                      {display.headers.map((h, i) => (
+                        <th
+                          key={i}
+                          className={`px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-black/45 ${
+                            i === 0 ? "text-left" : "text-center"
+                          }`}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {display.rows.map((r, i) => (
+                      <tr
+                        key={i}
+                        className="border-b border-black/[0.05] transition last:border-0 hover:bg-[#fafafa]"
+                      >
+                        {r.map((c, j) => (
+                          <td
+                            key={j}
+                            className={`px-5 py-4 text-sm ${
+                              j === 0
+                                ? "text-left font-semibold text-black"
+                                : "text-center font-medium text-black/60"
+                            }`}
+                          >
+                            {c}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 rounded-3xl bg-[#fafafa] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/35">
+              Fit Note
+            </p>
+            <p className="mt-1 text-sm leading-6 text-black/55">
+              Between two sizes? Choose the larger size for a relaxed fit, or the smaller size for a closer fit.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-black/[0.06] bg-white px-5 py-4 sm:px-6">
+          <button
+            onClick={onClose}
+            className="h-12 w-full rounded-2xl bg-black text-sm font-semibold text-white transition hover:bg-black/85 active:scale-[0.99] sm:w-auto sm:px-8"
+          >
+            Got it
+          </button>
+        </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

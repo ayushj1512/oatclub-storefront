@@ -1,44 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Minus } from "lucide-react";
-
 export default function ProductDetailSection({
   title = "Product Details",
   content = "",
 }) {
-  // ⭐ OPEN BY DEFAULT
-  const [open, setOpen] = useState(true);
+  if (!content) return null;
 
   return (
-    <div className="border-t border-gray-200 py-3">
-      {/* HEADER */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex justify-between items-center w-full text-left"
-      >
-        <span className="text-base md:text-lg font-semibold text-black">
+    <section className="border-t border-black/10 pt-6">
+      <div className="mb-4">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/40">
+          Information
+        </p>
+
+        <h3 className="mt-1 text-[15px] font-semibold text-black md:text-base">
           {title}
-        </span>
-
-        {open ? (
-          <Minus className="h-5 w-5 text-black" />
-        ) : (
-          <Plus className="h-5 w-5 text-black" />
-        )}
-      </button>
-
-      {/* BODY */}
-      <div
-        className={`transition-all overflow-hidden duration-300 ${
-          open ? "max-h-[600px] mt-2" : "max-h-0"
-        }`}
-      >
-        <div
-          className="text-gray-700 text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
+        </h3>
       </div>
-    </div>
+
+      <div
+        className="
+          prose prose-sm max-w-none
+          prose-p:text-black/70
+          prose-p:leading-7
+          prose-li:text-black/70
+          prose-li:leading-7
+          prose-strong:text-black
+          prose-headings:text-black
+          prose-a:text-black
+        "
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    </section>
   );
 }

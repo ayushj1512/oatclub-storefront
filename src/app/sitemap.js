@@ -1,7 +1,7 @@
 // src/app/sitemap.js
 
-const SITE_URL = "https://www.mirayfashions.com";
-const API_BASE = "https://error.mirayfashions.com";
+const SITE_URL = "https://oatclub.in";
+const API_BASE = "https://api.oatclub.in";
 
 async function safeJson(url) {
   try {
@@ -42,24 +42,27 @@ function pickCategorySlug(product) {
     const first = cats[0];
 
     if (typeof first === "string") {
-      return slugify(first) || "all-clothing";
+      return slugify(first) || "shop";
     }
 
-    return slugify(first?.slug || first?.name || first?.title) || "all-clothing";
+    return slugify(first?.slug || first?.name || first?.title) || "shop";
   }
 
-  return "all-clothing";
+  return "shop";
 }
 
 async function fetchAllProducts() {
   const products = [];
   const LIMIT = 50;
 
-  const first = await safeJson(`${API_BASE}/api/products?page=1&limit=${LIMIT}`);
+  const first = await safeJson(
+    `${API_BASE}/api/products?page=1&limit=${LIMIT}`
+  );
 
   if (!first) return products;
 
   const totalPages = Number(first?.pages || first?.totalPages || 1);
+
   const firstBatch = Array.isArray(first?.products)
     ? first.products
     : Array.isArray(first?.data)
@@ -88,9 +91,12 @@ async function fetchAllProducts() {
 
   return products.filter((product) => {
     const id = String(product?._id || product?.id || "");
+
     if (!id || seen.has(id)) return false;
 
-    const status = String(product?.status || product?.productStatus || "")
+    const status = String(
+      product?.status || product?.productStatus || ""
+    )
       .toLowerCase()
       .trim();
 
@@ -121,8 +127,8 @@ export default async function sitemap() {
       changeFrequency: "daily",
     },
     {
-      path: "/all-clothing",
-      priority: 0.9,
+      path: "/shop",
+      priority: 0.95,
       changeFrequency: "daily",
     },
     {
@@ -131,18 +137,23 @@ export default async function sitemap() {
       changeFrequency: "daily",
     },
     {
-      path: "/bestseller",
-      priority: 0.85,
+      path: "/bestsellers",
+      priority: 0.9,
       changeFrequency: "weekly",
     },
     {
       path: "/collections",
-      priority: 0.8,
+      priority: 0.85,
       changeFrequency: "weekly",
     },
     {
+      path: "/about",
+      priority: 0.7,
+      changeFrequency: "monthly",
+    },
+    {
       path: "/contact",
-      priority: 0.5,
+      priority: 0.6,
       changeFrequency: "monthly",
     },
     {
@@ -180,7 +191,11 @@ export default async function sitemap() {
   const products = await fetchAllProducts();
 
   const categorySlugs = Array.from(
-    new Set(products.map((product) => pickCategorySlug(product)).filter(Boolean))
+    new Set(
+      products
+        .map((product) => pickCategorySlug(product))
+        .filter(Boolean)
+    )
   );
 
   const categoryRoutes = categorySlugs.map((category) => ({
@@ -193,12 +208,20 @@ export default async function sitemap() {
   const productRoutes = products.map((product) => {
     const id = String(product?._id || product?.id || "");
     const category = pickCategorySlug(product);
-    const slug = slugify(product?.slug || product?.title || product?.name || "product");
+
+    const slug = slugify(
+      product?.slug ||
+      product?.title ||
+      product?.name ||
+      "product"
+    );
 
     return {
       url: `${SITE_URL}/category/${category}/${slug}/${id}`,
       lastModified: getValidDate(
-        product?.updatedAt || product?.createdAt || product?.publishAt,
+        product?.updatedAt ||
+          product?.createdAt ||
+          product?.publishAt,
         now
       ),
       changeFrequency: "weekly",
@@ -206,5 +229,9 @@ export default async function sitemap() {
     };
   });
 
-  return [...staticRoutes, ...categoryRoutes, ...productRoutes];
+  return [
+    ...staticRoutes,
+    ...categoryRoutes,
+    ...productRoutes,
+  ];
 }

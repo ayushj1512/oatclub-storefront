@@ -1,5 +1,8 @@
 // src/app/blog/[slug]/layout.jsx
 
+const SITE_URL = "https://oatclub.in";
+const FALLBACK_IMAGE = `${SITE_URL}/og-blog.jpg`;
+
 export async function generateMetadata({ params }) {
   const { slug } = params;
 
@@ -15,17 +18,16 @@ export async function generateMetadata({ params }) {
 
     const blog = await res.json();
 
-    const title = `${blog.title} | The Miray Journal`;
+    const title = `${blog.title} | The OATCLUB Journal`;
+
     const description =
       blog.excerpt ||
       blog.content?.slice(0, 160) ||
-      "Read the latest fashion stories from The Miray Journal.";
+      "Read the latest style stories from The OATCLUB Journal.";
 
-    const image =
-      blog.image ||
-      "https://mirayfashions.com/og-blog.jpg";
+    const image = blog.image || FALLBACK_IMAGE;
 
-    const url = `https://mirayfashions.com/blog/${slug}`;
+    const url = `${SITE_URL}/blog/${slug}`;
 
     return {
       title,
@@ -39,7 +41,7 @@ export async function generateMetadata({ params }) {
         title,
         description,
         url,
-        siteName: "Miray Fashions",
+        siteName: "OATCLUB",
         type: "article",
         locale: "en_IN",
         images: [
@@ -75,9 +77,36 @@ export async function generateMetadata({ params }) {
 
 function fallbackMetadata() {
   return {
-    title: "The Miray Journal | Miray Fashions",
+    title: "The OATCLUB Journal | OATCLUB",
     description:
-      "Fashion trends, styling inspiration & modern aesthetics from Miray Fashions.",
+      "Style guides, everyday essentials, culture stories, and modern lifestyle inspiration from OATCLUB.",
+    alternates: {
+      canonical: `${SITE_URL}/blog`,
+    },
+    openGraph: {
+      title: "The OATCLUB Journal | OATCLUB",
+      description:
+        "Style guides, everyday essentials, culture stories, and modern lifestyle inspiration from OATCLUB.",
+      url: `${SITE_URL}/blog`,
+      siteName: "OATCLUB",
+      type: "website",
+      locale: "en_IN",
+      images: [
+        {
+          url: FALLBACK_IMAGE,
+          width: 1200,
+          height: 630,
+          alt: "The OATCLUB Journal",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "The OATCLUB Journal | OATCLUB",
+      description:
+        "Read style guides, culture stories, and everyday inspiration from OATCLUB.",
+      images: [FALLBACK_IMAGE],
+    },
     robots: {
       index: true,
       follow: true,

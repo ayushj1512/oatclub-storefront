@@ -1,19 +1,23 @@
 // src/app/collection/[collection_name]/layout.jsx
 
+const SITE_URL = "https://oatclub.in";
+const BRAND_NAME = "OATCLUB";
+const FALLBACK_IMAGE = `${SITE_URL}/og-collection.jpg`;
+
 export async function generateMetadata({ params }) {
-  // ✅ Unwrap params (params may be a Promise in newer Next.js versions)
   const { collection_name } = await params;
 
   const name = decodeURIComponent(collection_name || "")
     .replace(/[-_]+/g, " ")
     .trim();
 
-  const formattedName = capitalize(name);
+  const formattedName = capitalizeWords(name);
 
-  const title = `${formattedName} Collection | Miray Fashions`;
-  const description = `Explore the ${formattedName} collection at Miray Fashions. Curated styles, premium fabrics, and statement designs crafted for modern fashion lovers.`;
+  const title = `${formattedName} Collection | OATCLUB`;
 
-  const url = `https://mirayfashions.com/collection/${collection_name}`;
+  const description = `Explore the ${formattedName} collection at OATCLUB. Curated everyday essentials, premium apparel, and timeless wardrobe pieces designed for effortless style.`;
+
+  const url = `${SITE_URL}/collection/${collection_name}`;
 
   return {
     title,
@@ -27,15 +31,15 @@ export async function generateMetadata({ params }) {
       title,
       description,
       url,
-      siteName: "Miray Fashions",
+      siteName: BRAND_NAME,
       type: "website",
       locale: "en_IN",
       images: [
         {
-          url: "https://mirayfashions.com/og-collection.jpg",
+          url: FALLBACK_IMAGE,
           width: 1200,
           height: 630,
-          alt: `${formattedName} Collection – Miray Fashions`,
+          alt: `${formattedName} Collection | OATCLUB`,
         },
       ],
     },
@@ -44,7 +48,7 @@ export async function generateMetadata({ params }) {
       card: "summary_large_image",
       title,
       description,
-      images: ["https://mirayfashions.com/og-collection.jpg"],
+      images: [FALLBACK_IMAGE],
     },
 
     robots: {
@@ -58,9 +62,12 @@ export async function generateMetadata({ params }) {
   };
 }
 
-function capitalize(str = "") {
-  if (!str) return "";
-  return str.charAt(0).toUpperCase() + str.slice(1);
+function capitalizeWords(str = "") {
+  return str
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 export default function CollectionLayout({ children }) {
