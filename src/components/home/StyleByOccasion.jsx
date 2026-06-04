@@ -59,12 +59,12 @@ export default function StyleByOccasion() {
       <div className="mb-4 px-3 text-center md:mb-8 md:px-4">
       
 
-        <h2 className="mt-1 text-3xl font-bold leading-none tracking-tight text-black md:text-7xl">
+        <h2 className="mt-1 text-2xl font-extrabold uppercase leading-tight text-black md:text-4xl">
           COLLECTIONS
         </h2>
 
         <p className="mt-1 text-[11px] text-black/50 md:mt-2 md:text-sm">
-          Designed for every version of you
+          DESIGNED FOR EVERY VERSION OF YOU
         </p>
       </div>
 

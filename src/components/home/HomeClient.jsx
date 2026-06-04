@@ -27,14 +27,34 @@ import StyleByOccasion from "@/components/home/StyleByOccasion";
 import NewArrivalsFeatureRow from "@/components/home/NewArrivalsFeatureRow";
 import ReturnExchangeHelp from "@/components/home/ReturnExchangeHelp";
 import ShopByCategoryRow from "@/components/home/ShopByCategoryRow";
+
+function HomeBrandStrip() {
+  const items = ["NEW DROPS WEEKLY", "CONTAINED PRODUCT IMAGERY", "CLEAN OATCLUB EDITS"];
+
+  return (
+    <section className="grid border-y border-neutral-200 bg-[#fafafa] text-black md:grid-cols-3">
+      {items.map((item) => (
+        <div
+          key={item}
+          className="border-b border-neutral-200 px-3 py-4 text-center md:border-b-0 md:border-r md:px-8"
+        >
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black/55">
+            {item}
+          </p>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export default function HomeClient() {
   const { structuredData } = generateSEO({
     type: "website",
-    title: "Miray Fashions",
+    title: "OATCLUB",
     description:
       "Discover timeless elegance in Indian fashion — sarees, kurtis, and luxury styles designed for every occasion.",
-    url: "https://mirayfashions.com/",
-    image: "https://mirayfashions.com/og-image.jpg",
+    url: "https://oatclub.in/",
+    image: "https://oatclub.in/og-image.jpg",
   });
 
   return (
@@ -56,18 +76,19 @@ export default function HomeClient() {
         </div> */}
 
         <HeroSection />
+        <HomeBrandStrip />
         <ShopByCategoryRow />
-        <StyleByOccasion />
-        <VideoRow />
 
         <BestSellerSection />
         <NewArrivalsFeatureRow title="NEW ARRIVALS" limit={12} />
+        <StyleByOccasion />
 
         {/* <LeopardFeatureCollection />
         <PolkadotFeatureCollection /> */}
 
         {/* Recommendation row */}
         <RecommendationFeatureRow limit={12} seedCount={6} />
+        <VideoRow />
 
         {/* BELOW THE FOLD */}
         {/* <TrendingSection /> */}

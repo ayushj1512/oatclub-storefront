@@ -88,7 +88,7 @@ ${window.location.href}`;
     product: {
       name: product.name,
       description: product.description,
-      image: `https://mirayfashions.com${product.images[0]}`,
+      image: `https://oatclub.in${product.images[0]}`,
       price: product.price,
       id: product.id,
     },
@@ -214,3 +214,4 @@ ${window.location.href}`;
     </>
   );
 }
+

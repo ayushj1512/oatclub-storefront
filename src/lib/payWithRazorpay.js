@@ -35,7 +35,7 @@ export const payWithRazorpay = async ({ mongoOrderId }) => {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       amount: data.amount,
       currency: data.currency,
-      name: "Miray Fashion",
+      name: "OATCLUB",
       description: "Order Payment",
       order_id: data.razorpayOrderId,
 
@@ -101,3 +101,4 @@ export const payWithRazorpay = async ({ mongoOrderId }) => {
     if (toastId) toast.dismiss(toastId);
   }
 };
+

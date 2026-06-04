@@ -30,14 +30,14 @@ function ViewAllCard({ href, label }) {
   return (
     <Link
       href={href}
-      className="group flex aspect-[4/5] w-full flex-col items-center justify-center bg-black p-4 text-center text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black"
+      className="group flex aspect-[55/46] w-full flex-col items-center justify-center bg-black p-4 text-center text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black"
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-70">
-        Oatclub
+        OATCLUB
       </p>
 
       <h3 className="mt-2 text-xl font-black uppercase leading-none tracking-tight">
-        Shop All
+        SHOP ALL
       </h3>
 
       <p className="mt-2 text-xs uppercase tracking-wide opacity-70">
@@ -114,7 +114,7 @@ export default function ShopByCategoryRow({
     <section className="bg-white pt-6">
       <div className="mb-5 px-3 text-center">
       
-        <h2 className="mt-1 text-4xl font-black uppercase leading-none tracking-tight text-black md:text-6xl">
+        <h2 className="mt-1 text-2xl font-black uppercase leading-tight text-black md:text-4xl">
           {title}
         </h2>
 
@@ -128,7 +128,7 @@ export default function ShopByCategoryRow({
         key={tab.id || tab.slug}
         onClick={() => setActiveSlug(tab.slug)}
         className={`
-          shrink-0 border px-5 text-xs font-medium transition-all duration-300
+          shrink-0 border px-5 text-xs font-black uppercase tracking-[0.12em] transition-all duration-300
           ${active ? "h-11 scale-110" : "h-10 scale-100"}
           ${
             active
@@ -169,7 +169,7 @@ export default function ShopByCategoryRow({
             Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
-                className="w-[160px] shrink-0 sm:w-[200px] md:w-[240px]"
+                className="w-[190px] shrink-0 sm:w-[230px] md:w-[280px]"
               >
                 <ProductCard loading />
               </div>
@@ -179,14 +179,14 @@ export default function ShopByCategoryRow({
               {products.map((p) => (
                 <div
                   key={p.id || p.slug}
-                  className="w-[160px] shrink-0 sm:w-[200px] md:w-[240px]"
+                  className="w-[190px] shrink-0 sm:w-[230px] md:w-[280px]"
                 >
                   <ProductCard product={p} />
                 </div>
               ))}
 
               {activeTab && (
-                <div className="w-[160px] shrink-0 sm:w-[200px] md:w-[240px]">
+                <div className="w-[190px] shrink-0 sm:w-[230px] md:w-[280px]">
                   <ViewAllCard
                     href={`/category/${activeTab.slug}`}
                     label={activeTab.name}

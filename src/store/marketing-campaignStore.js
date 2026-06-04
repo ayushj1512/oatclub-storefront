@@ -6,9 +6,9 @@ import axios from "axios";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 const MARKETING_API = `${API_URL}/api/marketing-campaigns`;
 
-const STORAGE_KEY = "miray_marketing_campaign_tracking";
-const VISITOR_KEY = "miray_vid";
-const SESSION_KEY = "miray_sid";
+const STORAGE_KEY = "oatclub_marketing_campaign_tracking";
+const VISITOR_KEY = "oatclub_vid";
+const SESSION_KEY = "oatclub_sid";
 const DEBUG = true;
 
 const isBrowser = typeof window !== "undefined";

@@ -105,7 +105,7 @@ export const useRazorpayStore = create((set, get) => ({
         amount: data.amount, // paise
         currency,
         order_id: data.razorpayOrderId,
-        name: "Miray Fashion",
+        name: "OATCLUB",
         description: `Order ${data.orderNumber}`,
         prefill: {
           name: data.customer?.name || "",
@@ -226,3 +226,4 @@ export const useRazorpayStore = create((set, get) => ({
   // internal guard
   _activeKey: null,
 }));
+

@@ -10,13 +10,13 @@ export default function TermsAndConditionsPage() {
           {/* HEADER */}
           <div className="flex flex-col gap-2 mb-10">
             <p className="text-xs font-semibold tracking-widest uppercase text-gray-500">
-              Miray Fashions
+              OATCLUB
             </p>
             <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-black">
               Terms &amp; Conditions
             </h1>
             <p className="text-sm md:text-base text-gray-600 max-w-2xl">
-              These terms govern your access to and use of Miray Fashions’ website,
+              These terms govern your access to and use of OATCLUB’ website,
               products, and services.
             </p>
           </div>
@@ -27,7 +27,7 @@ export default function TermsAndConditionsPage() {
               {/* INTRO */}
               <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
                 <p className="text-sm md:text-base text-gray-700">
-                  By accessing or using Miray Fashions’ website or services, you
+                  By accessing or using OATCLUB’ website or services, you
                   agree to be bound by the Terms &amp; Conditions outlined below.
                   If you do not agree, please refrain from using our platform.
                 </p>
@@ -36,9 +36,9 @@ export default function TermsAndConditionsPage() {
               {/* SECTIONS */}
               {[
                 {
-                  title: "1. About Miray Fashions",
+                  title: "1. About OATCLUB",
                   content:
-                    "“Miray Fashions”, “we”, “us”, and “our” refer to Miray Fashions and its services. “You” refers to any user, visitor, or customer accessing or purchasing from our platform.",
+                    "“OATCLUB”, “we”, “us”, and “our” refer to OATCLUB and its services. “You” refers to any user, visitor, or customer accessing or purchasing from our platform.",
                 },
                 {
                   title: "2. Eligibility & Account",
@@ -190,3 +190,4 @@ export default function TermsAndConditionsPage() {
     </main>
   );
 }
+

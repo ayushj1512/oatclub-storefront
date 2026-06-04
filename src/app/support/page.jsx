@@ -4,7 +4,7 @@
   import Link from "next/link";
   import useSupportTicketStore from "@/store/useSupportTicketStore";
 
-  const SUPPORT_EMAIL = "support@mirayfashions.com";
+  const SUPPORT_EMAIL = "support@oatclub.in";
   const SUPPORT_PHONE_DISPLAY = "(+91) 7303491206";
   const SUPPORT_PHONE_TEL = "+917303491206";
   const SUPPORT_WHATSAPP = "+917303491206";
@@ -97,7 +97,7 @@
           {/* Header */}
           <header className="mb-10 space-y-2">
             <p className="text-xs font-medium tracking-[0.25em] uppercase text-gray-500">
-              Miray Fashion
+              OATCLUB
             </p>
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
               Support
@@ -297,3 +297,4 @@
       </main>
     );
   }
+

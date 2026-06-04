@@ -1,10 +1,5 @@
 "use client";
 
-import Image from "next/image";
-
-const RAZORPAY_LOGO =
-  "https://res.cloudinary.com/djtva6hec/image/upload/v1767094419/miray/media/mka32npm4xsdxzupd8ah.png";
-
 function PaymentCard({ label, value, icon, sub, selected, setSelected }) {
   const active = selected === value;
   const isRazorpay = value === "razorpay";
@@ -33,13 +28,7 @@ function PaymentCard({ label, value, icon, sub, selected, setSelected }) {
 
             {isRazorpay && (
               <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
-                <span>Powered by</span>
-                <Image
-                  src={RAZORPAY_LOGO}
-                  alt="Razorpay"
-                  width={52}
-                  height={14}
-                />
+                <span>Powered by Razorpay</span>
               </div>
             )}
           </div>
@@ -55,3 +44,4 @@ function PaymentCard({ label, value, icon, sub, selected, setSelected }) {
 }
 
 export default PaymentCard;
+

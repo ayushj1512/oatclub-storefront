@@ -28,14 +28,11 @@ const FALLBACK_IMG =
   "https://i.pinimg.com/736x/54/5c/c1/545cc16292db0d62ac333fc422e4aff4.jpg";
 
 const QUOTES = [
-  "Fashion is the armor to survive the everyday.",
-  "Style is who you are without speaking.",
-  "Elegance begins the moment you decide to be yourself.",
-  "Your vibe attracts your style.",
-  "Wear something that makes you smile today.",
-  "You are your best accessory.",
-  "Confidence is your best outfit — wear it daily.",
-  "Soft, simple, effortlessly beautiful.",
+  "YOUR OATCLUB EDIT IS READY.",
+  "STYLE STARTS WITH THE DETAILS.",
+  "WELCOME TO YOUR WARDROBE DASHBOARD.",
+  "CURATED FOR YOUR NEXT MOVE.",
+  "YOUR ACCOUNT, YOUR EDIT, YOUR FLOW.",
 ];
 
 function formatDate(d) {
@@ -52,20 +49,20 @@ function formatDate(d) {
 
 function statusPill(status) {
   const s = String(status || "").toLowerCase();
-  if (s === "delivered") return { label: "Delivered", cls: "text-green-600 bg-green-50 border-green-200" };
+  if (s === "delivered") return { label: "DELIVERED", cls: "text-black bg-neutral-100 border-neutral-200" };
   if (s === "shipped" || s === "out_for_delivery")
     return {
-      label: s === "out_for_delivery" ? "Out for delivery" : "Shipped",
-      cls: "text-blue-600 bg-blue-50 border-blue-200",
+      label: s === "out_for_delivery" ? "OUT FOR DELIVERY" : "SHIPPED",
+      cls: "text-black bg-neutral-100 border-neutral-200",
     };
   if (s === "packed" || s === "processing")
     return {
-      label: s === "packed" ? "Packed" : "Processing",
-      cls: "text-yellow-700 bg-yellow-50 border-yellow-200",
+      label: s === "packed" ? "PACKED" : "PROCESSING",
+      cls: "text-black bg-neutral-100 border-neutral-200",
     };
-  if (s === "returned") return { label: "Returned", cls: "text-purple-700 bg-purple-50 border-purple-200" };
-  if (s === "cancelled") return { label: "Cancelled", cls: "text-red-700 bg-red-50 border-red-200" };
-  return { label: status || "Pending", cls: "text-gray-700 bg-gray-50 border-gray-200" };
+  if (s === "returned") return { label: "RETURNED", cls: "text-black bg-neutral-100 border-neutral-200" };
+  if (s === "cancelled") return { label: "CANCELLED", cls: "text-black bg-neutral-100 border-neutral-200" };
+  return { label: String(status || "PENDING").toUpperCase(), cls: "text-black bg-neutral-100 border-neutral-200" };
 }
 
 function buildSafePhotoURL(customer, user) {
@@ -168,12 +165,12 @@ function progressTone(pct) {
     return { bar: "bg-black", badge: "bg-white text-black border-black/20", msg: "All set!", border: "border-black/10" };
   }
   if (pct >= 60) {
-    return { bar: "bg-rose-800", badge: "bg-rose-50 text-rose-900 border-rose-200", msg: "Almost there", border: "border-rose-200" };
+    return { bar: "bg-black", badge: "bg-white text-black border-black/20", msg: "ALMOST THERE", border: "border-black/10" };
   }
   if (pct >= 30) {
-    return { bar: "bg-rose-700", badge: "bg-rose-50 text-rose-900 border-rose-200", msg: "Complete it", border: "border-rose-200" };
+    return { bar: "bg-black", badge: "bg-white text-black border-black/20", msg: "COMPLETE IT", border: "border-black/10" };
   }
-  return { bar: "bg-red-700", badge: "bg-red-50 text-red-800 border-red-200", msg: "Add details", border: "border-red-200" };
+  return { bar: "bg-black", badge: "bg-white text-black border-black/20", msg: "ADD DETAILS", border: "border-black/10" };
 }
 
 /* ------------------------------ */
@@ -183,11 +180,11 @@ function BannerProgress({ completeness, tone, primaryAction, onClose, onCta }) {
   if (!completeness) return null;
 
   return (
-    <div className={`bg-white border ${tone.border} rounded-2xl p-4 sm:p-5 shadow-sm relative`}>
+    <div className={`relative border ${tone.border} bg-white p-4 sm:p-5`}>
       {/* close */}
       <button
         onClick={onClose}
-        className="absolute right-2 top-2 p-2 rounded-xl hover:bg-black/5 transition"
+        className="absolute right-2 top-2 p-2 hover:bg-black/5 transition"
         aria-label="Close"
         title="Close"
       >
@@ -195,38 +192,38 @@ function BannerProgress({ completeness, tone, primaryAction, onClose, onCta }) {
       </button>
 
       <div className="flex items-start gap-3 pr-10">
-        <div className="p-2 bg-gray-50 border border-gray-200 rounded-xl">
+        <div className="border border-neutral-200 bg-neutral-50 p-2">
           <ShieldCheck size={18} className="text-gray-900" />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm sm:text-base font-semibold text-gray-900">
-              Complete your profile
+              COMPLETE YOUR PROFILE
             </h3>
-            <span className={`text-[11px] px-2 py-1 rounded-full border ${tone.badge}`}>
+            <span className={`border px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${tone.badge}`}>
               {tone.msg}
             </span>
           </div>
 
           <p className="text-xs text-gray-500 mt-1">
-            Faster checkout & smoother deliveries with complete details.
+            FASTER CHECKOUT & SMOOTHER DELIVERIES WITH COMPLETE DETAILS.
           </p>
 
           {/* ✅ progress bar (stable) */}
           <div className="mt-3">
-            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-2 w-full overflow-hidden bg-neutral-100">
               <div className={`h-2 ${tone.bar}`} style={{ width: `${completeness.pct}%` }} />
             </div>
             <div className="flex justify-between mt-2 items-center">
               <div className="text-xs text-gray-600 flex items-center gap-1">
                 <Sparkles size={13} className="text-gray-700" />
-                {completeness.pct}% done
+                {completeness.pct}% DONE
               </div>
 
               <button
                 onClick={onCta}
-                className="bg-black text-white px-3 py-1.5 text-xs rounded-xl shadow-sm hover:bg-gray-900 transition"
+                className="bg-black px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800"
               >
                 {primaryAction.label}
               </button>
@@ -240,7 +237,7 @@ function BannerProgress({ completeness, tone, primaryAction, onClose, onCta }) {
                 <Link
                   key={m.key}
                   href={m.action?.href || "/profile/edit"}
-                  className="text-[11px] bg-gray-50 border border-gray-200 px-2 py-1 rounded-full hover:bg-white transition"
+                  className="border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-white transition"
                 >
                   {m.label}
                 </Link>
@@ -279,7 +276,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     try {
-      const v = localStorage.getItem("miray_profile_progress_banner");
+      const v = localStorage.getItem("oatclub_profile_progress_banner");
       if (v === "hidden") setHideBanner(true);
     } catch { }
   }, []);
@@ -287,7 +284,7 @@ export default function ProfilePage() {
   const closeBanner = () => {
     setHideBanner(true);
     try {
-      localStorage.setItem("miray_profile_progress_banner", "hidden");
+      localStorage.setItem("oatclub_profile_progress_banner", "hidden");
     } catch { }
   };
 
@@ -356,7 +353,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="h-screen flex justify-center items-center text-gray-600 text-lg">
-        Loading profile...
+        LOADING PROFILE...
       </div>
     );
   }
@@ -385,7 +382,7 @@ export default function ProfilePage() {
   }, [completeness.missing]);
 
   return (
-    <section className="min-h-screen w-full bg-[#F5F6FA] px-3 sm:px-4 py-6 sm:py-10">
+    <section className="min-h-screen w-full bg-[#fafafa] px-3 py-7 text-black sm:px-4 sm:py-10">
       <div className="w-full max-w-4xl mx-auto space-y-6">
         {/* ✅ Banner */}
         {!hideBanner ? (
@@ -399,10 +396,10 @@ export default function ProfilePage() {
         ) : null}
 
         {/* ✅ Profile header (compact) */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+        <div className="border border-neutral-200 bg-white p-4 sm:p-6">
           <div className="flex flex-col items-center text-center gap-4">
             {/* ✅ Profile Image (Center) */}
-            <div className="w-20 h-20 sm:w-24 sm:h-24 overflow-hidden border border-gray-200 bg-gray-50 rounded-full relative">
+            <div className="relative h-20 w-20 overflow-hidden border border-neutral-200 bg-neutral-50 sm:h-24 sm:w-24">
               <Image
                 src={photoSrc}
                 alt="Profile Photo"
@@ -416,12 +413,15 @@ export default function ProfilePage() {
 
             {/* ✅ Name / Email / Quote (Center) */}
             <div className="w-full">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+              <p className="text-[10px] font-black uppercase tracking-[0.34em] text-black/45">
+                WELCOME BACK
+              </p>
+              <h2 className="mt-2 text-xl font-black uppercase text-black sm:text-2xl">
                 {safeName}
               </h2>
-              <p className="text-gray-500 text-sm mt-1">{formData.email}</p>
+              <p className="mt-1 text-xs font-bold uppercase tracking-[0.1em] text-black/45">{formData.email}</p>
 
-              <p className="text-gray-400 text-xs mt-2 italic line-clamp-2 px-2">
+              <p className="mt-3 line-clamp-2 px-2 text-xs font-bold uppercase leading-5 tracking-[0.08em] text-black/45">
                 {quote}
               </p>
 
@@ -429,18 +429,18 @@ export default function ProfilePage() {
               <div className="flex justify-center gap-3 mt-4 flex-wrap">
                 <button
                   onClick={() => router.push("/profile/edit")}
-                  className="flex items-center gap-2 bg-black text-white px-4 py-2 text-sm rounded-xl hover:bg-gray-900 transition"
+                  className="flex items-center gap-2 bg-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-neutral-800"
                 >
                   <Edit3 size={16} />
-                  Edit
+                  EDIT PROFILE
                 </button>
 
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 text-sm rounded-xl hover:bg-red-700 transition"
+                  className="flex items-center gap-2 border border-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-black transition hover:bg-black hover:text-white"
                 >
                   <LogOut size={16} />
-                  Logout
+                  LOGOUT
                 </button>
               </div>
             </div>
@@ -452,28 +452,28 @@ export default function ProfilePage() {
         <SupportTicketsRow email={formData.email} />
 
         {/* ✅ Recent Orders */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+        <div className="border border-neutral-200 bg-white p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
               <ShoppingBag size={18} />
-              Recent Orders
+              RECENT ORDERS
             </h3>
             <Link
               href="/profile/orders"
               className="text-sm text-black hover:underline flex items-center gap-1"
             >
-              View all <ChevronRight size={14} />
+              VIEW ALL <ChevronRight size={14} />
             </Link>
           </div>
 
           {ordersLoading ? (
-            <div className="text-sm text-gray-500">Loading orders...</div>
+            <div className="text-sm text-gray-500">LOADING ORDERS...</div>
           ) : ordersError ? (
             <div className="text-sm text-red-600">
               Failed to load orders: {ordersError}
             </div>
           ) : recentOrders.length === 0 ? (
-            <div className="text-sm text-gray-500">No orders yet.</div>
+            <div className="text-sm text-gray-500">NO ORDERS YET.</div>
           ) : (
             <div className="space-y-3">
               {recentOrders.map((o) => {
@@ -483,15 +483,15 @@ export default function ProfilePage() {
                   <Link
                     href={`/profile/orders/${o.orderNumber || o._id}`}
                     key={o._id}
-                    className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between hover:bg-white transition"
+                    className="flex items-center justify-between border border-neutral-200 bg-neutral-50 p-3 transition hover:bg-white"
                   >
                     <div>
                       <p className="font-medium text-gray-900 text-sm">
-                        Order{" "}
+                        ORDER{" "}
                         {o.orderNumber ? `#${o.orderNumber}` : `#${o._id?.slice(-6)}`}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {formatDate(o.orderDate || o.createdAt)} • ₹
+                        {formatDate(o.orderDate || o.createdAt)} • RS. 
                         {o.finalPayable ?? o.totalAmount ?? 0}
                       </p>
                     </div>
@@ -510,11 +510,11 @@ export default function ProfilePage() {
         <OrderHelpCard />
 
         {/* ✅ Saved Addresses */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+        <div className="border border-neutral-200 bg-white p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
               <MapPin size={18} />
-              Saved Addresses
+              SAVED ADDRESSES
             </h3>
 
             <button
@@ -522,7 +522,7 @@ export default function ProfilePage() {
               className="text-sm text-black hover:underline flex items-center gap-1"
             >
               <Plus size={14} />
-              Add
+              ADD
             </button>
           </div>
 
@@ -531,7 +531,7 @@ export default function ProfilePage() {
               {addresses.map((addr) => (
                 <div
                   key={addr._id}
-                  className="bg-gray-50 border border-gray-200 p-3 text-sm rounded-2xl"
+                  className="border border-neutral-200 bg-neutral-50 p-3 text-sm"
                 >
                   <p className="font-semibold text-gray-900">{addr.fullName}</p>
                   <p className="text-gray-700 text-xs">{addr.phone}</p>
@@ -542,20 +542,20 @@ export default function ProfilePage() {
                   </p>
 
                   {addr.isDefaultShipping && (
-                    <span className="inline-block mt-2 text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
-                      Default Shipping
+                    <span className="mt-2 inline-block bg-neutral-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-black/60">
+                      DEFAULT SHIPPING
                     </span>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-sm">No saved addresses yet.</p>
+            <p className="text-sm text-gray-500">NO SAVED ADDRESSES YET.</p>
           )}
         </div>
 
         {/* ✅ Recently Viewed */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-3 sm:p-5 shadow-sm">
+        <div className="border border-neutral-200 bg-white p-3 sm:p-5">
           <RecentlyViewedRow />
         </div>
 
@@ -563,3 +563,4 @@ export default function ProfilePage() {
     </section>
   );
 }
+

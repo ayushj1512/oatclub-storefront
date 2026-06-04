@@ -4,11 +4,11 @@ import Link from "next/link";
    SEO CONFIG
 ======================= */
 export const metadata = {
-  title: "Shipping Policy | Miray Fashion",
+  title: "Shipping Policy | OATCLUB",
   description:
-    "Learn about Miray Fashion’s shipping policy, delivery timelines, order processing, and important shipping information for a smooth shopping experience.",
+    "Learn about OATCLUB’s shipping policy, delivery timelines, order processing, and important shipping information for a smooth shopping experience.",
   alternates: {
-    canonical: "https://www.mirayfashions.com/shipping-policy",
+    canonical: "https://www.oatclub.in/shipping-policy",
   },
 };
 
@@ -20,7 +20,7 @@ export default function ShippingPolicyPage() {
         {/* Header */}
         <header className="mb-12 space-y-3">
        <p className="text-xs font-medium tracking-[0.25em] uppercase text-gray-500">
-  Miray Fashions
+  OATCLUB
 </p>
 
 
@@ -45,7 +45,7 @@ export default function ShippingPolicyPage() {
 
             {/* Intro */}
             <p className="text-base text-gray-700 max-w-3xl">
-              At Miray Fashion, we partner with reliable logistics providers to
+              At OATCLUB, we partner with reliable logistics providers to
               ensure your order reaches you in excellent condition and within
               the expected delivery window.
             </p>
@@ -140,7 +140,7 @@ export default function ShippingPolicyPage() {
                   weather, logistics issues, or unforeseen circumstances.
                 </li>
                 <li>
-                  Miray Fashion is not responsible for delays beyond our control.
+                  OATCLUB is not responsible for delays beyond our control.
                 </li>
               </ul>
             </section>
@@ -185,7 +185,7 @@ export default function ShippingPolicyPage() {
             </section>
 
             <p className="text-xs text-gray-500">
-              This shipping policy applies to all orders placed on Miray Fashion.
+              This shipping policy applies to all orders placed on OATCLUB.
               Any updates will be reflected on this page.
             </p>
           </article>
@@ -218,7 +218,7 @@ export default function ShippingPolicyPage() {
             <div className="rounded-2xl border border-gray-200 p-6">
               <h3 className="font-bold mb-2">Important</h3>
               <p className="text-sm text-gray-700">
-                By placing an order with Miray Fashion, you agree to this
+                By placing an order with OATCLUB, you agree to this
                 Shipping Policy.
               </p>
             </div>
@@ -229,3 +229,4 @@ export default function ShippingPolicyPage() {
     </main>
   );
 }
+

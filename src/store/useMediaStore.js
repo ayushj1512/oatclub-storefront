@@ -142,7 +142,7 @@ export const useMediaStore = create((set, get) => ({
       Array.from(files).forEach((f) => form.append("files", f));
 
       // folder priority: arg > store.folder > default
-      const finalFolder = str(folder || get().folder || "miray/media");
+      const finalFolder = str(folder || get().folder || "oatclub/media");
       if (finalFolder) form.append("folder", finalFolder);
 
       const res = await fetch(`${API}/api/media/upload`, {
@@ -206,3 +206,4 @@ export const useMediaStore = create((set, get) => ({
     }
   },
 }));
+

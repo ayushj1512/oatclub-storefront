@@ -1,20 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuthStore } from "@/store/authStore";
-import { Loader2, Mail, Lock, LogIn } from "lucide-react";
-import GoogleSignIn from "@/components/auth/GoogleSignIn";
+import { Loader2, Lock, LogIn, Mail } from "lucide-react";
 import toast from "react-hot-toast";
-
-// ✅ Firebase reset password
 import { sendPasswordResetEmail } from "firebase/auth";
+import GoogleSignIn from "@/components/auth/GoogleSignIn";
 import { auth } from "@/lib/firebase";
+import { useAuthStore } from "@/store/authStore";
+
+const AUTH_IMAGE =
+  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780338447/qavpt44lsxsy3wrvuwi8.png";
 
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
+  const passwordRef = useRef(null);
   const { user, isAuthenticated, loginWithEmail } = useAuthStore();
 
   const [form, setForm] = useState({ email: "", password: "" });
@@ -23,193 +26,153 @@ export default function LoginClient() {
   const [error, setError] = useState("");
   const [justLoggedIn, setJustLoggedIn] = useState(false);
 
-  const passwordRef = useRef(null);
-
-  /* ============================================================
-     ✅ PREFILL EMAIL FROM URL (?email=...)
-     + AUTOFOCUS PASSWORD
-  ============================================================ */
   useEffect(() => {
     const emailFromUrl = searchParams.get("email");
-    if (emailFromUrl) {
-      setForm((prev) => ({ ...prev, email: emailFromUrl }));
-
-      setTimeout(() => {
-        passwordRef.current?.focus();
-      }, 100);
-    }
+    if (!emailFromUrl) return;
+    setForm((prev) => ({ ...prev, email: emailFromUrl }));
+    setTimeout(() => passwordRef.current?.focus(), 100);
   }, [searchParams]);
 
-  /* ============================================================
-     ✅ REDIRECT IF ALREADY LOGGED IN
-  ============================================================ */
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (!justLoggedIn) toast.success(`Hello, ${user.name || "there"}!`);
+      if (!justLoggedIn) toast.success(`WELCOME BACK, ${user.name || "OATCLUB MEMBER"}`);
       router.replace("/");
     }
   }, [isAuthenticated, user, justLoggedIn, router]);
 
-  /* ============================================================
-     ✅ EMAIL LOGIN
-  ============================================================ */
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const handleLogin = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setError("");
 
     try {
       await loginWithEmail(form.email, form.password);
       setJustLoggedIn(true);
-      toast.success("Login successful!");
+      toast.success("WELCOME BACK TO OATCLUB");
       router.push("/");
     } catch (err) {
-      setError(err?.message || "Unable to log in. Please try again.");
-      toast.error("Login failed!");
+      setError(err?.message || "UNABLE TO SIGN IN. PLEASE TRY AGAIN.");
+      toast.error("SIGN IN FAILED");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ============================================================
-     ✅ FORGOT PASSWORD (Firebase Reset Email)
-  ============================================================ */
   const handleForgotPassword = async () => {
     const email = String(form.email || "").trim().toLowerCase();
-
-    if (!email) {
-      toast.error("Please enter your email first.");
-      return;
-    }
+    if (!email) return toast.error("ENTER YOUR EMAIL FIRST");
 
     try {
       setResetLoading(true);
-
       await sendPasswordResetEmail(auth, email);
-
-      toast.success("Password reset link sent to your email ✅");
-    } catch (err) {
-      console.error("❌ Forgot Password Error:", err);
-
-      // ✅ friendly errors
-      if (err?.code === "auth/user-not-found") {
-        toast.error("No account found with this email.");
-      } else if (err?.code === "auth/invalid-email") {
-        toast.error("Invalid email address.");
-      } else {
-        toast.error("Failed to send reset email.");
-      }
+      toast.success("PASSWORD RESET LINK SENT");
+    } catch {
+      toast.error("FAILED TO SEND RESET EMAIL");
     } finally {
       setResetLoading(false);
     }
   };
 
   return (
-    <section className="flex min-h-screen items-center justify-center bg-[#f5f5f5] px-6 py-12">
-      <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
-        {/* ================= HEADER ================= */}
-        <div className="mb-8 text-center">
-          <p className="text-[11px] font-semibold tracking-[0.3em] uppercase text-gray-500">
-            Miray Fashions
+    <main className="min-h-screen bg-[#fafafa] px-3 py-6 text-black md:py-10">
+      <section className="mx-auto w-full max-w-md bg-white px-4 py-6 md:px-6 md:py-7">
+        <div className="mb-6 text-center">
+          <Link href="/" aria-label="GO TO OATCLUB HOME" className="mx-auto mb-5 block w-fit">
+            <div className="relative h-12 w-36 md:h-14 md:w-40">
+              <Image
+                src={AUTH_IMAGE}
+                alt="OATCLUB"
+                fill
+                priority
+                sizes="160px"
+                className="object-contain"
+              />
+            </div>
+          </Link>
+          <div className="mx-auto mb-5 h-px w-16 bg-black/15" />
+          <p className="text-[9px] font-black uppercase tracking-[0.32em] text-black/45">
+            OATCLUB ACCOUNT
           </p>
-          <h1 className="mt-3 text-3xl font-extrabold tracking-tight">
-            Welcome Back
+          <h1 className="mt-2 text-xl font-black uppercase leading-tight md:text-2xl">
+            WELCOME BACK
           </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Sign in to continue to your account
+          <p className="mx-auto mt-2 max-w-xs text-[10px] font-bold uppercase leading-5 tracking-[0.08em] text-black/50">
+            SIGN IN FOR ORDERS, ADDRESSES, CREDITS AND YOUR SAVED STYLE EDIT.
           </p>
         </div>
 
-        {/* ================= FORM ================= */}
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
-          {/* EMAIL */}
-          <div className="relative">
-            <Mail className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
-            <input
+        <div>
+          <form onSubmit={handleLogin} className="space-y-3">
+            <Field
+              icon={<Mail className="h-4 w-4" />}
               type="email"
-              required
-              placeholder="Email address"
+              placeholder="EMAIL ADDRESS"
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full rounded-xl border border-gray-300 bg-white px-11 py-3 text-sm outline-none transition
-              focus:border-black focus:ring-2 focus:ring-black/10"
+              onChange={(value) => setForm({ ...form, email: value })}
             />
-          </div>
-
-          {/* PASSWORD */}
-          <div className="relative">
-            <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
-            <input
-              ref={passwordRef}
+            <Field
+              refEl={passwordRef}
+              icon={<Lock className="h-4 w-4" />}
               type="password"
-              required
-              placeholder="Password"
+              placeholder="PASSWORD"
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full rounded-xl border border-gray-300 bg-white px-11 py-3 text-sm outline-none transition
-              focus:border-black focus:ring-2 focus:ring-black/10"
+              onChange={(value) => setForm({ ...form, password: value })}
             />
-          </div>
 
-          {/* ✅ FORGOT PASSWORD */}
-          <div className="flex justify-start ml-2">
             <button
               type="button"
               onClick={handleForgotPassword}
               disabled={resetLoading}
-              className="text-xs font-semibold text-gray-700 hover:text-black transition underline underline-offset-4"
+              className="text-[10px] font-black uppercase tracking-[0.18em] text-black/55 underline underline-offset-4"
             >
-              {resetLoading ? "Sending..." : "Forgot Password?"}
+              {resetLoading ? "SENDING" : "FORGOT PASSWORD"}
             </button>
+
+            {error ? <p className="text-xs font-bold uppercase text-red-600">{error}</p> : null}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex h-12 w-full items-center justify-center gap-2 bg-black text-xs font-black uppercase tracking-[0.24em] text-white disabled:bg-neutral-300"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+              SIGN IN
+            </button>
+          </form>
+
+          <div className="my-5 flex items-center gap-3">
+            <span className="h-px flex-1 bg-neutral-200" />
+            <span className="text-[10px] font-black uppercase tracking-[0.24em] text-black/35">OR</span>
+            <span className="h-px flex-1 bg-neutral-200" />
           </div>
 
-          {error && (
-            <p className="text-center text-sm text-red-600">{error}</p>
-          )}
-
-          {/* SUBMIT */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-semibold text-white
-            transition hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <>
-                <LogIn className="h-5 w-5" />
-                Sign In
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* ================= DIVIDER ================= */}
-        <div className="my-7 flex items-center gap-3">
-          <span className="h-px flex-1 bg-gray-200" />
-          <span className="text-xs uppercase tracking-widest text-gray-400">
-            or
-          </span>
-          <span className="h-px flex-1 bg-gray-200" />
-        </div>
-
-        {/* ================= GOOGLE ================= */}
-        <div className="flex flex-col gap-3">
           <GoogleSignIn />
-        </div>
 
-        {/* ================= FOOTER ================= */}
-        <p className="mt-7 text-center text-sm text-gray-600">
-          Don’t have an account?{" "}
-          <a
-            href="/auth/register"
-            className="font-semibold text-black hover:underline"
-          >
-            Create one
-          </a>
-        </p>
-      </div>
-    </section>
+          <p className="mt-6 text-center text-[11px] font-bold uppercase tracking-[0.1em] text-black/50">
+            NEW HERE?{" "}
+            <Link href="/auth/register" className="font-black text-black underline underline-offset-4">
+              CREATE ACCOUNT
+            </Link>
+          </p>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function Field({ icon, type, placeholder, value, onChange, refEl }) {
+  return (
+    <label className="flex h-12 items-center gap-3 border border-black/10 bg-neutral-50 px-4">
+      <span className="text-black/45">{icon}</span>
+      <input
+        ref={refEl}
+        type={type}
+        required
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full bg-transparent text-xs font-bold uppercase tracking-[0.12em] text-black outline-none placeholder:text-black/35"
+      />
+    </label>
   );
 }

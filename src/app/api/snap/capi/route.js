@@ -4,7 +4,7 @@ const ACCESS_TOKEN = process.env.SNAP_CAPI_TOKEN;
 const TEST_EVENT_CODE = process.env.SNAP_CAPI_TEST_EVENT_CODE;
 
 // ✅ Force canonical site URL if you have it
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL; // e.g. https://mirayfashions.com
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL; // e.g. https://oatclub.in
 
 function sha256(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -181,3 +181,4 @@ export async function POST(req) {
     );
   }
 }
+

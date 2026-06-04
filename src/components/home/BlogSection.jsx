@@ -3,15 +3,54 @@
 import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { motion } from "framer-motion";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { useBlogStore } from "@/store/blogStore";
 
 function Shimmer({ className = "" }) {
   return (
-    <div className={`relative overflow-hidden bg-black/10 ${className}`}>
-      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/70 to-transparent animate-shimmer" />
+    <div className={`relative overflow-hidden bg-neutral-100 ${className}`}>
+      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/80 to-transparent animate-shimmer" />
     </div>
+  );
+}
+
+function BlogCard({ blog, index }) {
+  return (
+    <Link href={`/blog/${blog.slug}`} className="group block w-[270px] shrink-0 md:w-[380px]">
+      <article className="h-full bg-white">
+        <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100">
+          <Image
+            src={blog.image || "/placeholder.png"}
+            alt={blog.title}
+            fill
+            sizes="(max-width: 768px) 270px, 380px"
+            priority={index === 0}
+            className="object-cover transition duration-500 group-hover:scale-[1.03]"
+          />
+          <span className="absolute left-3 top-3 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-black">
+            EDIT {String(index + 1).padStart(2, "0")}
+          </span>
+        </div>
+
+        <div className="border-b border-neutral-200 py-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-black/45">
+            OATCLUB JOURNAL
+          </p>
+          <h3 className="mt-2 line-clamp-2 text-base font-black uppercase leading-tight text-black md:text-lg">
+            {blog.title}
+          </h3>
+          {blog.excerpt ? (
+            <p className="mt-2 line-clamp-2 text-xs font-bold uppercase leading-5 tracking-[0.08em] text-black/50">
+              {blog.excerpt}
+            </p>
+          ) : null}
+          <span className="mt-4 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-black">
+            READ EDIT
+            <ArrowRight className="h-3 w-3 transition group-hover:translate-x-1" />
+          </span>
+        </div>
+      </article>
+    </Link>
   );
 }
 
@@ -28,7 +67,7 @@ export default function BlogSection() {
 
   const scrollRow = (dir) => {
     rowRef.current?.scrollBy({
-      left: dir === "left" ? -300 : 300,
+      left: dir === "left" ? -380 : 380,
       behavior: "smooth",
     });
   };
@@ -36,155 +75,67 @@ export default function BlogSection() {
   const showArrows = loading || blogs?.length > 2;
 
   return (
-    <section className="w-full bg-white py-6 text-black md:py-10">
-      <style
-        dangerouslySetInnerHTML={{
-          __html:
-            ".no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}",
-        }}
-      />
-
-      <div className="mb-4 px-3 md:px-6">
-        <div className="border-y-2 border-black py-3 text-center">
-          <p className="font-serif text-3xl font-black uppercase leading-none tracking-tight md:text-6xl">
-            THE OATCLUB TIMES
-          </p>
-
-          <div className="mt-2 border-t border-black pt-2">
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] md:text-[10px]">
-              Fashion • Trends • Oatclub Edit
+    <section className="w-full bg-[#fafafa] px-3 py-10 text-black md:px-8 md:py-14">
+      <div className="w-full">
+        <div className="mb-7 flex flex-col gap-4 border-b border-neutral-200 pb-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.34em] text-black/45">
+              OATCLUB JOURNAL
             </p>
-
-            <p className="mt-1 font-serif text-xs italic tracking-wide text-black/70 md:text-sm">
-              "Own All Trends"
-            </p>
+            <h2 className="mt-2 text-2xl font-black uppercase leading-tight text-black md:text-4xl">
+              STYLE NOTES
+            </h2>
           </div>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between border-b border-black pb-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/60">
-            Latest Stories
-          </p>
 
           <Link
             href="/blog"
-            className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em]"
+            className="inline-flex w-fit items-center gap-2 border border-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition hover:bg-black hover:text-white"
           >
-            View All
-            <ArrowRight className="h-3 w-3" />
+            VIEW ALL
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-      </div>
 
-      {error && (
-        <p className="mb-3 text-center text-sm text-black">
-          Failed to load blogs.
-        </p>
-      )}
+        {error ? (
+          <p className="py-8 text-center text-xs font-black uppercase tracking-[0.2em] text-black/50">
+            UNABLE TO LOAD JOURNAL
+          </p>
+        ) : null}
 
-      <div className="relative">
-        {showArrows && (
-          <>
-            <button
-              onClick={() => scrollRow("left")}
-              className="absolute left-3 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center border border-black bg-white hover:bg-black hover:text-white md:flex"
-              aria-label="Scroll left"
-            >
-              ←
-            </button>
-
-            <button
-              onClick={() => scrollRow("right")}
-              className="absolute right-3 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center border border-black bg-white hover:bg-black hover:text-white md:flex"
-              aria-label="Scroll right"
-            >
-              →
-            </button>
-          </>
-        )}
-
-        <div
-          ref={rowRef}
-          className="no-scrollbar flex gap-3 overflow-x-auto scroll-smooth px-3 pb-2 md:px-6"
-        >
-          {loading &&
-            Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={i}
-                className="w-[245px] shrink-0 border border-black bg-white md:w-[330px]"
+        <div className="relative">
+          {showArrows ? (
+            <>
+              <button
+                onClick={() => scrollRow("left")}
+                className="absolute left-0 top-[42%] z-20 hidden h-10 w-10 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:grid"
+                aria-label="SCROLL LEFT"
               >
-                <Shimmer className="aspect-[4/3] w-full" />
-                <div className="space-y-2 p-3">
-                  <Shimmer className="h-4 w-4/5" />
-                  <Shimmer className="h-3 w-full" />
-                  <Shimmer className="h-3 w-2/3" />
-                </div>
-              </div>
-            ))}
-
-          {!loading && !error && !blogs?.length && (
-            <p className="w-full text-center text-sm text-black/50">
-              No blog posts available right now.
-            </p>
-          )}
-
-          {!loading &&
-            !error &&
-            blogs?.map((blog, index) => (
-              <Link
-                key={blog.slug}
-                href={`/blog/${blog.slug}`}
-                className="group w-[245px] shrink-0 md:w-[330px]"
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => scrollRow("right")}
+                className="absolute right-0 top-[42%] z-20 hidden h-10 w-10 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:grid"
+                aria-label="SCROLL RIGHT"
               >
-                <motion.article
-                  initial={{ opacity: 0, y: 8 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.25, delay: index * 0.03 }}
-                  className="border border-black bg-white transition hover:-translate-y-1"
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden border-b border-black bg-white">
-                    <Image
-                      src={blog.image || "/placeholder.png"}
-                      alt={blog.title}
-                      fill
-                      sizes="(max-width: 768px) 245px, 330px"
-                      priority={index === 0}
-                      className="object-cover transition duration-500 group-hover:scale-[1.03]"
-                    />
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </>
+          ) : null}
 
-                    <span className="absolute left-2 top-2 bg-black px-2 py-1 text-[9px] font-black uppercase text-white">
-                      {index < 2 ? "New" : "Edit"}
-                    </span>
-                  </div>
-
-                  <div className="p-3">
-                    <div className="mb-2 flex items-center justify-between border-b border-black/20 pb-2">
-                      <span className="text-[9px] font-black uppercase tracking-[0.18em] text-black/50">
-                        Oatclub
-                      </span>
-
-                      <span className="text-[9px] font-black uppercase tracking-wide text-black/50">
-                        #{String(index + 1).padStart(2, "0")}
-                      </span>
-                    </div>
-
-                    <h3 className="line-clamp-2 text-sm font-black uppercase leading-tight tracking-tight text-black md:text-base">
-                      {blog.title}
-                    </h3>
-
-                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-black/60">
-                      {blog.excerpt}
-                    </p>
-
-                    <div className="mt-3 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide">
-                      Read Story
-                      <ArrowRight className="h-3 w-3 transition group-hover:translate-x-1" />
+          <div ref={rowRef} className="no-scrollbar flex gap-4 overflow-x-auto scroll-smooth pb-2 md:gap-5">
+            {loading
+              ? Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="w-[270px] shrink-0 md:w-[380px]">
+                    <Shimmer className="aspect-[4/5]" />
+                    <div className="space-y-2 py-4">
+                      <Shimmer className="h-3 w-1/3" />
+                      <Shimmer className="h-5 w-4/5" />
+                      <Shimmer className="h-3 w-full" />
                     </div>
                   </div>
-                </motion.article>
-              </Link>
-            ))}
+                ))
+              : blogs?.map((blog, index) => <BlogCard key={blog.slug} blog={blog} index={index} />)}
+          </div>
         </div>
       </div>
     </section>

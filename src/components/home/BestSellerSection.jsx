@@ -156,19 +156,19 @@ export default function BestsellerFeatureRow({
       transition={{ duration: 0.25 }}
     >
       <div className="relative mb-4 px-3 text-center md:mb-8">
-        <h2 className="text-3xl font-bold leading-none tracking-tight text-black md:text-7xl">
+        <h2 className="text-2xl font-extrabold uppercase leading-tight text-black md:text-4xl">
           {title}
         </h2>
 
         <p className="mt-1 text-[11px] text-black/50 md:mt-2 md:text-sm">
-          Loved by Oatclub girls
+          LOVED BY OATCLUB GIRLS
         </p>
 
         <button
           onClick={() => router.push("/bestseller")}
           className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-black/50 transition hover:text-black md:absolute md:right-16 md:top-3 md:mt-0 md:text-xs"
         >
-          View All →
+          VIEW ALL →
         </button>
       </div>
 
@@ -199,12 +199,12 @@ export default function BestsellerFeatureRow({
         >
           {showShimmer
             ? Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="w-[160px] shrink-0 sm:w-[200px] md:w-[240px]">
+                <div key={i} className="w-[190px] shrink-0 sm:w-[230px] md:w-[280px]">
                   <ProductCard loading />
                 </div>
               ))
             : products.map((p) => (
-                <div key={p.id} className="w-[160px] shrink-0 sm:w-[200px] md:w-[240px]">
+                <div key={p.id} className="w-[190px] shrink-0 sm:w-[230px] md:w-[280px]">
                   <ProductCard product={p} />
                 </div>
               ))}

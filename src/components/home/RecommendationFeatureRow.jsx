@@ -20,7 +20,7 @@ function ViewAllCard({ href = "/recommendation" }) {
   return (
     <a
       href={href}
-      className="group flex aspect-[4/5] w-full flex-col items-center justify-center bg-black p-4 text-center text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black"
+      className="group flex aspect-[55/46] w-full flex-col items-center justify-center bg-black p-4 text-center text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black"
     >
       <Sparkles className="mb-4 h-7 w-7 transition group-hover:scale-110" />
 
@@ -29,7 +29,7 @@ function ViewAllCard({ href = "/recommendation" }) {
       </p>
 
       <h3 className="mt-2 text-xl font-black uppercase leading-none tracking-tight md:text-2xl">
-        View All
+        VIEW ALL
       </h3>
 
       <p className="mt-2 text-xs uppercase tracking-wide opacity-70">
@@ -110,7 +110,7 @@ export default function RecommendationFeatureRow({
     >
       <div className="mb-4 bg-black px-3 py-3 text-center text-white md:mb-6">
         <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/60">
-          Oatclub Picks
+          OATCLUB PICKS
         </p>
 
         <h2 className="mt-1 text-sm font-black uppercase tracking-[0.2em] sm:text-base md:text-2xl">
@@ -137,7 +137,7 @@ export default function RecommendationFeatureRow({
             Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
-                className="min-w-[160px] snap-start sm:min-w-[200px] md:min-w-[240px]"
+                className="min-w-[190px] snap-start sm:min-w-[230px] md:min-w-[280px]"
               >
                 <ProductCard loading />
               </div>
@@ -147,13 +147,13 @@ export default function RecommendationFeatureRow({
               {products.map((p) => (
                 <div
                   key={p.id || p.slug}
-                  className="min-w-[160px] snap-start sm:min-w-[200px] md:min-w-[240px]"
+                  className="min-w-[190px] snap-start sm:min-w-[230px] md:min-w-[280px]"
                 >
                   <ProductCard product={p} />
                 </div>
               ))}
 
-              <div className="min-w-[160px] snap-start sm:min-w-[200px] md:min-w-[240px]">
+              <div className="min-w-[190px] snap-start sm:min-w-[230px] md:min-w-[280px]">
                 <ViewAllCard href={viewAllHref} />
               </div>
             </>

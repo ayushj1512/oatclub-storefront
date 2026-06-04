@@ -11,7 +11,7 @@ export default function PrivacyPolicyPage() {
         {/* Header */}
         <header className="mb-12 space-y-3">
           <p className="text-xs font-medium tracking-[0.25em] uppercase text-gray-500">
-            Miray Fashions
+            OATCLUB
           </p>
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
             Privacy Policy
@@ -29,7 +29,7 @@ export default function PrivacyPolicyPage() {
             {/* Intro */}
             <section className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
               <p className="text-gray-700">
-                Miray Fashions (“we”, “us”, “our”) operates the Miray Fashions
+                OATCLUB (“we”, “us”, “our”) operates the OATCLUB
                 website and app. This Privacy Policy explains how we collect,
                 use, disclose, and safeguard your information when you browse,
                 place an order, create an account, or contact support.
@@ -223,4 +223,5 @@ export default function PrivacyPolicyPage() {
     </main>
   );
 }
+
 

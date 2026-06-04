@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useProductStore } from "@/store/productStore";
 
 const FEATURE_IMAGE =
-  "https://res.cloudinary.com/djtva6hec/image/upload/v1768418505/miray/media/rqyh3d1yrybnh1nwwula.webp";
+  "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1400&q=80";
 
 // Lighter shimmer (optional): reduces heavy gradient animation load on mobile
 function ShimmerBlock({ className = "" }) {
@@ -348,3 +348,4 @@ export default function WinterDropSection() {
     </section>
   );
 }
+

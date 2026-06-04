@@ -1,153 +1,149 @@
-/* MUST BE FIRST */
-@import url("https://fonts.googleapis.com/css2?family=BBH+Sans+Bogle:wght@300;400;500;600;700;800&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
-/* =========================================================
-   THEME TOKENS
-========================================================= */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-
-  --font-sans: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-bebas: "Bebas Neue", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --background: #fafafa;
+  --foreground: #111111;
+  --muted: #6b7280;
+  --line: #e5e5e5;
+  --font-body: "Lato", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: "Nunito Sans", var(--font-body);
 }
 
-/* =========================================================
-   BASE
-========================================================= */
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  text-transform: uppercase;
 }
 
-.font-bebas { font-family: var(--font-bebas); }
-.font-bogle { font-family: "BBH Sans Bogle", system-ui, sans-serif; }
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-heading {
+  font-family: var(--font-heading);
+  letter-spacing: 0;
+}
 
-/* =========================================================
-   SCROLLBAR
-   ✅ Mobile only: hide global scrollbars
-   ✅ Desktop: scrollbars will appear normally
-   ✅ Optional: .no-scrollbar utility still works everywhere
-========================================================= */
+::selection {
+  background: #111;
+  color: #fff;
+}
 
-/* Utility: hide scrollbar for specific elements (all devices) */
 .no-scrollbar {
-  scrollbar-width: none;      /* Firefox */
-  -ms-overflow-style: none;   /* IE/Edge legacy */
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;              /* Chrome/Safari */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-/* Mobile only: hide scrollbar globally */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (max-width: 767px) {
   ::-webkit-scrollbar {
     display: none;
   }
+
   * {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
 }
 
-/* =========================================================
-   ANIMATIONS
-========================================================= */
-
-/* Dropdown */
 @keyframes dropdown-slide {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.animate-dropdown { animation: dropdown-slide 0.2s ease-out; }
-
-/* Slide Up */
-@keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
-}
-.animate-slideUp { animation: slideUp 0.25s ease-out; }
-
-/* Fade In */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.animate-fadeIn { animation: fadeIn 0.3s ease-out; }
-
-/* Marquee */
-@keyframes marquee-left {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-.animate-marquee-left { animation: marquee-left linear infinite; }
-
-@keyframes marquee-right {
-  from { transform: translateX(-50%); }
-  to   { transform: translateX(0); }
-}
-.animate-marquee-right { animation: marquee-right linear infinite; }
-
-/* Micro Luxury */
-@keyframes osFade {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.os-fade { animation: osFade 520ms ease-out both; }
-
-@keyframes osPop {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-3px); }
-}
-.os-pop { animation: osPop 1.6s ease-in-out infinite; }
-
-/* Reduced Motion */
-@media (prefers-reduced-motion: reduce) {
-  .os-fade,
-  .os-pop {
-    animation: none !important;
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* Shimmer */
-@keyframes shimmer {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+.animate-dropdown {
+  animation: dropdown-slide 0.2s ease-out;
 }
-.animate-shimmer { animation: shimmer 1.4s infinite; }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.4s infinite;
+}
 
 .shimmer {
   background: linear-gradient(
     110deg,
-    rgba(0,0,0,0.05) 25%,
-    rgba(255,255,255,0.5) 37%,
-    rgba(0,0,0,0.05) 63%
+    rgba(0, 0, 0, 0.05) 25%,
+    rgba(255, 255, 255, 0.6) 37%,
+    rgba(0, 0, 0, 0.05) 63%
   );
   animation: shimmer 1.2s infinite linear;
 }
 
-/* =========================================================
-   PRINT FIX (INVOICE / PACKING)
-========================================================= */
-@media print {
-  @page { size: A4; margin: 0; }
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 
-  html, body {
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
   }
 
-  /* Hide everything */
-  body * { visibility: hidden !important; }
+  body * {
+    visibility: hidden !important;
+  }
 
-  /* Show only print area */
   .print-area,
-  .print-area * { visibility: visible !important; }
+  .print-area * {
+    visibility: visible !important;
+  }
 
   .print-area {
     position: absolute;
@@ -156,13 +152,13 @@ body {
     width: 100%;
   }
 
-  /* Ensure SVG / Barcode prints */
   svg {
     display: block !important;
     max-width: 100% !important;
     height: auto !important;
   }
 
-  /* Remove shadows/borders that cause cut */
-  * { box-shadow: none !important; }
+  * {
+    box-shadow: none !important;
+  }
 }

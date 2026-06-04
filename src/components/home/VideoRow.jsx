@@ -115,8 +115,8 @@ export default function VideoRow() {
     try {
       if (navigator?.share) {
         await navigator.share({
-          title: "Oatclub Reel",
-          text: r.caption || "Fashion in motion by Oatclub",
+          title: "OATCLUB REEL",
+          text: r.caption || "FASHION IN MOTION BY OATCLUB",
           url: r.src,
         });
       }
@@ -189,8 +189,8 @@ export default function VideoRow() {
             </span>
           </div>
 
-          <h2 className="text-3xl font-semibold leading-none tracking-tight md:text-7xl">
-            Fashion In Motion
+          <h2 className="text-2xl font-extrabold uppercase leading-tight md:text-4xl">
+            FASHION IN MOTION
           </h2>
 
           <p className="mx-auto mt-3 max-w-xl text-xs leading-relaxed text-white/50 md:text-sm">

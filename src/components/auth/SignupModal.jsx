@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import GoogleSignInButton from "@/components/auth/GoogleSignIn";
 import { useAuthStore } from "@/store/authStore";
 
-const LOCK_ATTR = "data-miray-scroll-lock";
+const LOCK_ATTR = "data-oatclub-scroll-lock";
 const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function SignupModal({

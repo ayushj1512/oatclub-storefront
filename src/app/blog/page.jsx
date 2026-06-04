@@ -4,14 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Calendar } from "lucide-react";
-import { motion } from "framer-motion";
 import { useBlogStore } from "@/store/blogStore";
 
 const formatDate = (date) => {
   if (!date) return "";
   try {
-    return new Date(date).toLocaleDateString("en-IN", {
-      day: "numeric",
+    return new Date(date).toLocaleDateString("EN-IN", {
+      day: "2-digit",
       month: "short",
       year: "numeric",
     });
@@ -20,78 +19,62 @@ const formatDate = (date) => {
   }
 };
 
-function Card({ blog, index }) {
+function BlogCard({ blog, featured = false }) {
   const date = formatDate(blog.date || blog.createdAt);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: Math.min(index * 0.02, 0.18) }}
-      viewport={{ once: true }}
+    <Link
+      href={`/blog/${blog.slug}`}
+      className={`group block bg-white ${featured ? "lg:grid lg:grid-cols-[1.2fr_0.8fr]" : ""}`}
     >
-      <Link
-        href={`/blog/${blog.slug}`}
-        className="group block h-full border border-black bg-white"
-      >
-        <div className="relative aspect-[4/3] overflow-hidden border-b border-black bg-white">
-          <Image
-            src={blog.image}
-            alt={blog.title}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            className="object-cover transition duration-500 group-hover:scale-[1.03]"
-          />
+      <div className={`relative overflow-hidden bg-neutral-100 ${featured ? "aspect-[16/11] lg:aspect-auto" : "aspect-[4/5]"}`}>
+        <Image
+          src={blog.image || "/placeholder.png"}
+          alt={blog.title}
+          fill
+          sizes={featured ? "(max-width: 1024px) 100vw, 58vw" : "(max-width: 768px) 100vw, 33vw"}
+          priority={featured}
+          className="object-cover transition duration-500 group-hover:scale-[1.03]"
+        />
+      </div>
 
-          <span className="absolute left-2 top-2 bg-black px-2 py-1 text-[10px] font-black text-white">
-            #{String(index + 1).padStart(2, "0")}
-          </span>
+      <div className={`border-b border-neutral-200 ${featured ? "p-5 md:p-8 lg:border-y lg:border-r lg:border-neutral-200" : "py-4"}`}>
+        <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-[0.22em] text-black/45">
+          <span>OATCLUB JOURNAL</span>
+          {date ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Calendar className="h-3 w-3" />
+              {date}
+            </span>
+          ) : null}
         </div>
 
-        <div className="p-3">
-          <div className="mb-2 flex items-center justify-between gap-2 border-b border-black/20 pb-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/50">
-              Oatclub
-            </p>
+        <h2 className={`${featured ? "mt-5 text-2xl md:text-4xl" : "mt-3 text-lg"} line-clamp-3 font-black uppercase leading-tight text-black`}>
+          {blog.title}
+        </h2>
 
-            {date && (
-              <p className="flex items-center gap-1 text-[10px] font-semibold uppercase text-black/50">
-                <Calendar size={11} />
-                {date}
-              </p>
-            )}
+        {blog.excerpt ? (
+          <p className="mt-3 line-clamp-3 text-xs font-bold uppercase leading-6 tracking-[0.08em] text-black/50">
+            {blog.excerpt}
+          </p>
+        ) : null}
+
+        {blog.tags?.length ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {blog.tags.slice(0, featured ? 4 : 2).map((tag) => (
+              <span key={tag} className="bg-neutral-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-black/55">
+                {tag}
+              </span>
+            ))}
           </div>
+        ) : null}
 
-          <h3 className="line-clamp-2 text-base font-black uppercase leading-tight tracking-tight text-black">
-            {blog.title}
-          </h3>
-
-          {blog.excerpt && (
-            <p className="mt-2 line-clamp-2 text-xs leading-5 text-black/60">
-              {blog.excerpt}
-            </p>
-          )}
-
-          {blog.tags?.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1">
-              {blog.tags.slice(0, 2).map((t) => (
-                <span
-                  key={t}
-                  className="border border-black px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-black"
-                >
-                  #{t}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-4 inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wide text-black">
-            Read Story
-            <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
-          </div>
-        </div>
-      </Link>
-    </motion.div>
+        <span className="mt-5 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-black">
+          READ EDIT
+          <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
+        </span>
+      </div>
+    </Link>
   );
 }
 
@@ -100,7 +83,6 @@ export default function BlogPage() {
   const loading = useBlogStore((s) => s.loading);
   const error = useBlogStore((s) => s.error);
   const fetchBlogs = useBlogStore((s) => s.fetchBlogs);
-
   const [visible, setVisible] = useState(12);
 
   useEffect(() => {
@@ -110,76 +92,80 @@ export default function BlogPage() {
   const sortedBlogs = useMemo(
     () =>
       [...(blogs || [])]
-        .filter((b) => b.isPublished)
-        .sort(
-          (a, b) =>
-            new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
-        ),
+        .filter((blog) => blog.isPublished)
+        .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)),
     [blogs]
   );
+
+  const [featured, ...rest] = sortedBlogs;
 
   useEffect(() => {
     const onScroll = () => {
       if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 300) {
-        setVisible((v) => Math.min(v + 8, sortedBlogs.length));
+        setVisible((count) => Math.min(count + 8, rest.length));
       }
     };
 
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
-  }, [sortedBlogs.length]);
+  }, [rest.length]);
 
   return (
-    <section className="min-h-screen bg-white px-3 py-5 text-black sm:px-5 md:px-8">
-      <header className="mx-auto mb-6 max-w-7xl border-y-2 border-black py-4 text-center">
-        <p className="font-serif text-4xl font-black uppercase leading-none tracking-tight md:text-7xl">
-          THE OATCLUB TIMES
+    <main className="min-h-screen bg-[#fafafa] px-3 py-8 text-black sm:px-5 md:px-8 md:py-12">
+      <header className="mx-auto max-w-7xl border-b border-neutral-200 pb-7">
+        <p className="text-[10px] font-black uppercase tracking-[0.34em] text-black/45">
+          OATCLUB JOURNAL
         </p>
-
-        <div className="mt-3 border-t border-black pt-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.28em]">
-            Fashion • Trends • Oatclub Edit
-          </p>
-
-          <p className="mt-2 font-serif text-sm italic tracking-wide text-black/70">
-            "Own All Trends"
+        <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <h1 className="max-w-3xl text-3xl font-black uppercase leading-tight text-black md:text-5xl">
+            STYLE STORIES FOR THE MODERN WARDROBE
+          </h1>
+          <p className="max-w-sm text-xs font-bold uppercase leading-6 tracking-[0.08em] text-black/50">
+            CURATED NOTES ON TRENDS, STYLING, OCCASIONS AND PIECES WORTH SAVING.
           </p>
         </div>
       </header>
 
-      <div className="mx-auto mb-5 flex max-w-7xl items-center justify-between border-b border-black pb-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black/60">
-          Latest Style Stories
-        </p>
-
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black/60">
-          {sortedBlogs.length} Articles
-        </p>
-      </div>
-
-      {loading && blogs.length === 0 && (
-        <div className="py-20 text-center text-xs font-black uppercase tracking-[0.25em] text-black/50">
-          Loading articles…
+      {loading && !blogs.length ? (
+        <div className="py-24 text-center text-xs font-black uppercase tracking-[0.25em] text-black/45">
+          LOADING JOURNAL
         </div>
-      )}
+      ) : null}
 
-      {error && (
-        <div className="py-20 text-center text-sm text-black">
-          Unable to load articles.
+      {error ? (
+        <div className="py-24 text-center text-sm font-black uppercase tracking-[0.2em] text-black/50">
+          UNABLE TO LOAD JOURNAL
         </div>
-      )}
+      ) : null}
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {sortedBlogs.slice(0, visible).map((blog, i) => (
-          <Card key={blog.slug} blog={blog} index={i} />
-        ))}
-      </div>
+      {featured ? (
+        <section className="mx-auto mt-8 max-w-7xl">
+          <BlogCard blog={featured} featured />
+        </section>
+      ) : null}
 
-      {visible < sortedBlogs.length && (
-        <div className="mt-8 text-center text-[10px] font-black uppercase tracking-[0.28em] text-black/50">
-          Loading more stories…
+      <section className="mx-auto mt-10 max-w-7xl">
+        <div className="mb-5 flex items-center justify-between border-b border-neutral-200 pb-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-black/45">
+            LATEST EDITS
+          </p>
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-black/45">
+            {sortedBlogs.length} ARTICLES
+          </p>
         </div>
-      )}
-    </section>
+
+        <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+          {rest.slice(0, visible).map((blog) => (
+            <BlogCard key={blog.slug} blog={blog} />
+          ))}
+        </div>
+      </section>
+
+      {visible < rest.length ? (
+        <div className="mt-10 text-center text-[10px] font-black uppercase tracking-[0.28em] text-black/45">
+          LOADING MORE EDITS
+        </div>
+      ) : null}
+    </main>
   );
 }

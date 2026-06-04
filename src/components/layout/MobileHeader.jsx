@@ -173,9 +173,10 @@ export default function MobileHeader() {
           <button
             onClick={handleOpenMenu}
             aria-label="Open menu"
-            className="shrink-0 text-black transition hover:opacity-70"
+            className="group flex shrink-0 items-center gap-1.5 text-black transition hover:text-black/55"
           >
-            <Menu size={26} />
+            <Menu size={24} className="transition group-hover:rotate-90" />
+            <span className="text-[9px] font-black uppercase tracking-[0.16em]">MENU</span>
           </button>
 
           <Link
@@ -186,7 +187,7 @@ export default function MobileHeader() {
             <div className="relative h-8 w-full max-w-[160px]">
               <Image
                 src={LOGO_URL}
-                alt="Miray"
+                alt="OATCLUB"
                 fill
                 priority
                 className="object-contain"
@@ -195,11 +196,11 @@ export default function MobileHeader() {
             </div>
           </Link>
 
-          <div className="shrink-0 flex items-center gap-4">
+          <div className="shrink-0 flex items-center gap-3">
             <button
               onClick={() => router.push("/search")}
               aria-label="Search"
-              className="text-black transition hover:opacity-70"
+              className="text-black transition hover:text-black/55"
             >
               <Search size={22} />
             </button>
@@ -210,11 +211,11 @@ export default function MobileHeader() {
               type="button"
               aria-label="Cart"
               onClick={handleCartClick}
-              className="relative text-black transition hover:opacity-70"
+              className="relative text-black transition hover:text-black/55"
             >
               <ShoppingBag size={22} />
               {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-black text-white text-[10px] font-bold px-[5px]">
+                <span className="absolute -right-2 -top-2 flex h-[16px] min-w-[16px] items-center justify-center bg-black px-[4px] text-[9px] font-black text-white">
                   {cartCount > 99 ? "99+" : cartCount}
                 </span>
               )}
@@ -223,9 +224,9 @@ export default function MobileHeader() {
             <Link
               href="/profile"
               aria-label="Profile"
-              className="text-black transition hover:opacity-70"
+              className="text-black transition hover:text-black/55"
             >
-              <User size={22} />
+              <User size={22} className="text-black" />
             </Link>
           </div>
         </div>

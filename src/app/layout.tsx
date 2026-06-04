@@ -1,60 +1,44 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Poppins, Bebas_Neue } from "next/font/google";
+import { Lato, Nunito_Sans } from "next/font/google";
 import LayoutClient from "./layout.client";
 
-/* ------------------------------
-   Fonts
------------------------------- */
-
-const poppins = Poppins({
+const lato = Lato({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  variable: "--font-sans",
+  weight: ["300", "400", "700", "900"],
+  variable: "--font-body",
   display: "swap",
 });
 
-const bebas = Bebas_Neue({
+const nunitoSans = Nunito_Sans({
   subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-bebas",
+  weight: ["400", "600", "700", "800", "900"],
+  variable: "--font-heading",
   display: "swap",
 });
-
-/* ------------------------------
-   SEO Metadata + Favicons
------------------------------- */
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://oatclub.in"),
-
-  alternates: {
-    canonical: "https://oatclub.in",
-  },
-
+  alternates: { canonical: "https://oatclub.in" },
   title: {
-    default: "OATCLUB | Premium Everyday Essentials",
+    default: "OATCLUB | Own All Trends",
     template: "%s | OATCLUB",
   },
-
   description:
-    "Discover premium everyday essentials designed for comfort, simplicity, and modern living. Explore timeless apparel and elevated basics crafted for effortless style.",
-
+    "Shop OATCLUB premium women's fashion, curated trend edits, elevated wardrobe staples, and modern occasion-ready styles.",
   keywords: [
     "OATCLUB",
-    "premium clothing",
-    "everyday essentials",
-    "minimal fashion",
-    "streetwear",
-    "modern apparel",
-    "premium basics",
-    "online clothing store",
+    "Own All Trends",
+    "women's fashion",
+    "premium fashion",
+    "online fashion store",
+    "modern clothing",
+    "trend edits",
   ],
-
   openGraph: {
-    title: "OATCLUB | Premium Everyday Essentials",
+    title: "OATCLUB | Own All Trends",
     description:
-      "Premium essentials. Timeless silhouettes. Everyday comfort. Discover elevated basics designed for modern lifestyles.",
+      "Premium women's fashion, sharp everyday edits, and trend-led styles curated by OATCLUB.",
     type: "website",
     siteName: "OATCLUB",
     locale: "en_IN",
@@ -64,19 +48,17 @@ export const metadata: Metadata = {
         url: "https://oatclub.in/og-default.jpg",
         width: 1200,
         height: 630,
-        alt: "OATCLUB - Premium Everyday Essentials",
+        alt: "OATCLUB - Own All Trends",
       },
     ],
   },
-
   twitter: {
     card: "summary_large_image",
-    title: "OATCLUB | Premium Everyday Essentials",
+    title: "OATCLUB | Own All Trends",
     description:
-      "Premium essentials designed for comfort, simplicity, and modern living.",
+      "Premium women's fashion and trend-led wardrobe edits by OATCLUB.",
     images: ["https://oatclub.in/og-default.jpg"],
   },
-
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -85,13 +67,8 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
-
   manifest: "/site.webmanifest",
 };
-
-/* ------------------------------
-   Root Layout
------------------------------- */
 
 export default function RootLayout({
   children,
@@ -99,7 +76,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${poppins.variable} ${bebas.variable}`}>
+    <html lang="en" className={`${lato.variable} ${nunitoSans.variable}`}>
       <body>
         <LayoutClient>{children}</LayoutClient>
       </body>

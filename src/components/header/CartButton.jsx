@@ -163,7 +163,7 @@ export default function CartButton() {
 
         {/* Badge */}
         {!!cartCount && (
-          <span className="absolute -top-1.5 -right-1.5 bg-black text-white text-[10px] font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center shadow-sm">
+          <span className="absolute -right-1.5 -top-1.5 flex h-[16px] min-w-[16px] items-center justify-center bg-black px-[4px] text-[9px] font-black text-white">
             {cartCount}
           </span>
         )}
@@ -171,11 +171,11 @@ export default function CartButton() {
 
       {/* Dropdown (Desktop only) */}
       {open && !isMobile && (
-        <div className="absolute right-0 mt-3 w-72 bg-white shadow-xl border border-gray-200 rounded-xl p-4 z-50">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Cart Items</h3>
+        <div className="absolute right-0 z-50 mt-3 w-72 border border-black/10 bg-white p-4 shadow-[0_24px_80px_-38px_rgba(0,0,0,0.28)]">
+          <h3 className="mb-3 text-[11px] font-black uppercase tracking-[0.16em] text-black">CART ITEMS</h3>
 
           {!items.length ? (
-            <p className="text-gray-500 text-sm py-2">Your cart is empty.</p>
+            <p className="py-2 text-xs font-bold uppercase tracking-[0.08em] text-black/50">YOUR CART IS EMPTY.</p>
           ) : (
             <div className="max-h-60 overflow-y-auto space-y-3">
               {items.map((item, idx) => {
@@ -191,11 +191,11 @@ export default function CartButton() {
                         alt={item?.name || "Product"}
                         width={48}
                         height={48}
-                        className="w-12 h-12 rounded-md object-cover bg-gray-100"
+                        className="h-12 w-12 bg-gray-100 object-contain"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[10px] text-gray-500">
-                        No image
+                      <div className="flex h-12 w-12 items-center justify-center bg-gray-100 text-[10px] uppercase text-gray-500">
+                        NO IMAGE
                       </div>
                     )}
 
@@ -214,9 +214,9 @@ export default function CartButton() {
           <button
             type="button"
             onClick={goToCart}
-            className="w-full bg-black text-white py-2 mt-4 rounded-lg text-sm font-medium hover:bg-black/90 active:scale-95 transition"
+            className="mt-4 w-full bg-black py-2 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-black/85 active:scale-95"
           >
-            Go to Cart
+            GO TO CART
           </button>
         </div>
       )}

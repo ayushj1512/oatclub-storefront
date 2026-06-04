@@ -42,23 +42,7 @@ export default function HeaderSearchBar({ className = "" }) {
 
   return (
     <div
-      className={`
-        flex
-        h-11
-        items-center
-        gap-2
-        rounded-xl
-        border
-        border-black/10
-        bg-[#fafafa]
-        px-3
-        transition-all
-        duration-200
-        hover:bg-white
-        focus-within:border-black/25
-        focus-within:bg-white
-        ${className}
-      `}
+      className={`flex h-11 items-center gap-2 border-b border-black/15 bg-transparent px-1 transition duration-200 focus-within:border-black ${className}`}
     >
       <Search className="h-4 w-4 shrink-0 text-black/40" />
 
@@ -85,20 +69,8 @@ export default function HeaderSearchBar({ className = "" }) {
       <button
         type="button"
         onClick={handleSearch}
-        className="
-          flex
-          h-8
-          w-8
-          items-center
-          justify-center
-          rounded-lg
-          bg-black
-          text-white
-          transition-all
-          duration-200
-          hover:bg-black/85
-          active:scale-95
-        "
+        className="flex h-8 w-8 items-center justify-center text-black transition duration-200 hover:text-black/50 active:scale-95"
+        aria-label="SEARCH"
       >
         <Search className="h-3.5 w-3.5" />
       </button>

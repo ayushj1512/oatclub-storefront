@@ -2,8 +2,9 @@
 "use client";
 
 import { use, useEffect, useMemo, useState, useCallback } from "react";
-import { ShoppingCart, Heart, Zap, Share2, Plus, Minus } from "lucide-react";
+import { BadgeCheck, Heart, RotateCcw, Share2, ShoppingCart, Sparkles, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
@@ -15,8 +16,6 @@ import ProductGallery from "@/components/productDetail/ProductGallery";
 import RelatedProducts from "@/components/productDetail/relatedProducts";
 import WashcareSection from "@/components/productDetail/WashcareSection";
 import ProductDetailSection from "@/components/productDetail/ProductDetailSection";
-import ReviewSection from "@/components/productDetail/ReviewSection";
-import SupportSection from "@/components/productDetail/SupportSection";
 import RecentlyViewedProducts from "@/components/productDetail/RecentlyViewedProducts"
 import ColorSelector from "@/components/productDetail/ColorSelector";
 import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
@@ -27,32 +26,46 @@ import useGtmStore from "@/store/gtmStore";
 import ProductNotFound from "@/components/productDetail/ProductNotFound";
 import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 
-const BRAND = { black: "#111111" };
-
 const money = (n) => {
   const num = Number(n);
   if (!Number.isFinite(num)) return "0";
   return num.toLocaleString("en-IN");
 };
 
-/* -------- accordion ---------- */
-function Accordion({ title, children, defaultOpen = false, borderTop = true }) {
-  const [open, setOpen] = useState(defaultOpen);
+function TrustStrip() {
   return (
-    <div className={`${borderTop ? "border-t border-gray-200" : ""} py-3`}>
+    <div className="grid grid-cols-3 gap-2 border-y border-black/10 py-4 text-center">
+      {[
+        [BadgeCheck, "Quality Check"],
+        [RotateCcw, "Easy Exchange"],
+        [Sparkles, "Curated For You"],
+      ].map(([Icon, label]) => (
+        <div key={label} className="flex flex-col items-center gap-2 px-1">
+          <Icon className="h-4 w-4 text-black" />
+          <span className="text-[10px] font-bold uppercase leading-tight tracking-[0.12em] text-black/65">
+            {label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Accordion({ title, children }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="border-t border-black/10 py-3">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex justify-between items-center w-full text-left"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between text-left text-sm font-bold uppercase tracking-[0.12em] text-black"
         aria-expanded={open}
       >
-        <span className="text-base md:text-lg font-semibold text-black">{title}</span>
-        {open ? <Minus className="h-5 w-5 text-black" /> : <Plus className="h-5 w-5 text-black" />}
+        {title}
+        <span className="text-lg leading-none">{open ? "-" : "+"}</span>
       </button>
-
-      <div className={`transition-all overflow-hidden duration-300 ${open ? "max-h-[900px] mt-3" : "max-h-0"}`}>
-        {open ? children : null}
-      </div>
+      {open ? <div className="mt-3">{children}</div> : null}
     </div>
   );
 }
@@ -75,10 +88,9 @@ function SizeAvailabilityNotice({ product, selectedSize }) {
   const isAvailable = availableQty > 0;
 
   return (
-    <div className="mt-4 rounded-2xl bg-white px-4 py-3.5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+    <div className="mt-4 bg-neutral-50 px-4 py-3.5">
       <div className="flex items-start gap-3">
         
-        {/* ICON */}
         <div
           className={`flex h-9 w-9 items-center justify-center rounded-full ${
             isAvailable ? "bg-black text-white" : "bg-neutral-200 text-black"
@@ -87,18 +99,17 @@ function SizeAvailabilityNotice({ product, selectedSize }) {
           <Zap className="h-4 w-4" />
         </div>
 
-        {/* TEXT */}
         <div className="min-w-0">
           <p className="text-sm font-semibold tracking-tight text-black">
             {isAvailable
-              ? "Dispatch within 48 hours"
-              : "Dispatch within 5–7 days"}
+              ? "DISPATCH WITHIN 48 HOURS"
+              : "DISPATCH WITHIN 5-7 DAYS"}
           </p>
 
           <p className="mt-0.5 text-xs text-neutral-500 leading-relaxed">
             {isAvailable
-              ? "Ready to ship. Your selected size is in stock."
-              : "Made specially for you. Slightly longer dispatch time."}
+              ? "READY TO SHIP. YOUR SELECTED SIZE IS IN STOCK."
+              : "MADE SPECIALLY FOR YOU. SLIGHTLY LONGER DISPATCH TIME."}
           </p>
         </div>
       </div>
@@ -585,25 +596,15 @@ export default function ProductPage({ params }) {
   }, [cartItems, selectedCartKey]);
 
   const handleAddToCart = useCallback(() => {
-    console.log("🛒 [ADD TO CART CLICK]");
-    console.log("productType:", product?.productType);
-    console.log("requireSize:", requireSize, "requireColor:", requireColor);
-    console.log("selectedSize:", selectedSize);
-    console.log("selectedColor:", selectedColor);
-    console.log("selectedVariantId:", selectedVariantId);
 
-    console.log("normalized.raw?.variants len:", normalized?.raw?.variants?.length);
-    console.log("normalized?.variants len:", normalized?.variants?.length);
     if (!normalized || !product) return;
 
-    if (requireSize && !selectedSize) return notify.error("Please select a size");
-    if (requireColor && !selectedColor) return notify.error("Please select a color");
+    if (requireSize && !selectedSize) return notify.error("PLEASE SELECT A SIZE");
+    if (requireColor && !selectedColor) return notify.error("PLEASE SELECT A COLOR");
 
     if (product.productType === "variable" && !selectedVariantId) {
-      return notify.error(requireColor ? "Please select size & color" : "Please select a size");
+      return notify.error(requireColor ? "PLEASE SELECT SIZE & COLOR" : "PLEASE SELECT A SIZE");
     }
-    const allowed = new Set(["XS", "S", "M", "L", "XL"]);
-
     const finalColor = requireColor ? selectedColor : null;
     addToCart({
       product: normalized,
@@ -612,14 +613,6 @@ export default function ProductPage({ params }) {
       selectedColor: finalColor,  // ✅ yahi important
       variantId: product.productType === "variable" || requireSize ? selectedVariantId : null,
     });
-    console.log("FINAL COLOR", requireColor, selectedColor, finalColor);
-
-
-    // cartStore also calls notify.cartAdded, but this is OK to keep minimal feedback:
-    // If you see double toasts, remove this line.
-    // notify.cartAdded({ name: product.name, selectedSize });
-
-    // no timer state: buttons stay because selectionInCart is derived from store
   }, [
     addToCart,
     normalized,
@@ -644,17 +637,17 @@ export default function ProductPage({ params }) {
     if (!normalized || !product) return;
 
     if (requireSize && !selectedSize) {
-      notify.error("Please select a size");
+      notify.error("PLEASE SELECT A SIZE");
       return;
     }
 
     if (requireColor && !selectedColor) {
-      notify.error("Please select a color");
+      notify.error("PLEASE SELECT A COLOR");
       return;
     }
 
     if ((product.productType === "variable" || requireSize || requireColor) && !selectedVariantId) {
-      notify.error(requireColor ? "Please select size & color" : "Please select a size");
+      notify.error(requireColor ? "PLEASE SELECT SIZE & COLOR" : "PLEASE SELECT A SIZE");
       return;
     }
     const finalColor = requireColor ? selectedColor : null;
@@ -690,8 +683,8 @@ router.push("/checkout?mode=buy-now");
   const shareMessage = useMemo(() => {
     if (!product) return "";
     const link = typeof window !== "undefined" ? window.location.href : "";
-    return `✨ ${product.name}\n₹${money(product.price)}${selectedSize ? ` • Size: ${selectedSize}` : ""
-      }${selectedColor ? ` • Color: ${selectedColor}` : ""}\n${link}`;
+    return `${product.name}\nRS. ${money(product.price)}${selectedSize ? ` / SIZE: ${selectedSize}` : ""
+      }${selectedColor ? ` / COLOR: ${selectedColor}` : ""}\n${link}`;
 
   }, [product, selectedSize, selectedColor]);
 
@@ -702,10 +695,10 @@ router.push("/checkout?mode=buy-now");
     try {
       if (navigator.share) {
         await navigator.share({ title: product.name, text: shareMessage, url });
-        notify.info("Thanks for sharing!");
+        notify.info("THANKS FOR SHARING");
       } else {
         await navigator.clipboard.writeText(shareMessage);
-        notify.copied("Share text copied ✅");
+        notify.copied("SHARE TEXT COPIED");
       }
     } catch { }
   };
@@ -724,27 +717,27 @@ router.push("/checkout?mode=buy-now");
 
   return (
   <div className="w-full bg-white text-black">
-    <div className="w-full px-4 py-5 md:px-8 lg:px-12 lg:py-10">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start lg:gap-10 xl:gap-12">
+    <div className="w-full px-3 py-4 md:px-6 lg:px-8 lg:py-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[55fr_45fr] lg:items-start lg:gap-1">
         {/* LEFT IMAGE */}
-        <section className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+        <section className="min-w-0">
           <div className="w-full bg-white">
             <ProductGallery images={product.images || []} />
           </div>
         </section>
 
         {/* RIGHT DETAILS */}
-        <aside className="min-w-0">
-          <div className="space-y-6">
+        <aside className="min-w-0 bg-white px-1 md:px-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-96px)] lg:overflow-y-auto lg:px-8 lg:py-5">
+          <div className="space-y-5">
             {/* Breadcrumb */}
-            <div className="flex flex-wrap items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-black/40">
-              <a href="/" className="transition hover:text-black">
+            <div className="flex flex-wrap items-center gap-1 text-[10px] font-black uppercase tracking-[0.22em] text-black/40">
+              <Link href="/" className="transition hover:text-black">
                 Home
-              </a>
+              </Link>
               <span>/</span>
-              <a
+              <Link
                 href={`/category/${category}`}
-                className="capitalize transition hover:text-black"
+                className="transition hover:text-black"
               >
                 {product?.raw?.categories?.[0]?.name
                   ? decodeURIComponent(product.raw.categories[0].name)
@@ -753,7 +746,7 @@ router.push("/checkout?mode=buy-now");
                   : decodeURIComponent(category || "")
                       .replace(/-/g, " ")
                       .trim()}
-              </a>
+              </Link>
             </div>
 
             {/* Title */}
@@ -761,13 +754,13 @@ router.push("/checkout?mode=buy-now");
               <div className="flex flex-wrap items-center gap-2">
                 {product?.raw?.categories?.[0]?.name ? (
                   <span className="bg-black px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white">
-                    {product.raw.categories[0].name}
+                    {String(product.raw.categories[0].name).toUpperCase()}
                   </span>
                 ) : null}
 
                 {product?.productCode ? (
                   <span className="border border-black px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-black">
-                    Code {product.productCode}
+                    CODE {product.productCode}
                   </span>
                   
                 ) : null}
@@ -800,12 +793,12 @@ router.push("/checkout?mode=buy-now");
 
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h1 className="text-[30px] font-semibold leading-[1.02] tracking-[-0.045em] text-black md:text-[42px] lg:text-[48px]">
+                  <h1 className="text-[24px] font-black uppercase leading-[1.05] text-black md:text-[30px] lg:text-[34px]">
                     {product.name}
                   </h1>
 
                   {product.shortDescription ? (
-                    <p className="mt-4 max-w-2xl text-sm leading-6 text-black/60 md:text-[15px]">
+                    <p className="mt-4 max-w-2xl text-[11px] font-bold uppercase leading-6 tracking-[0.08em] text-black/55 md:text-xs">
                       {product.shortDescription}
                     </p>
                   ) : null}
@@ -823,14 +816,14 @@ router.push("/checkout?mode=buy-now");
             <div className="border-b border-black/10 pb-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex flex-wrap items-end gap-3">
-                  <span className="text-[32px] font-semibold leading-none tracking-[-0.04em] text-black md:text-[40px]">
-                    ₹{money(product.price)}
+                  <span className="text-[24px] font-black leading-none text-black md:text-[30px]">
+                    RS. {money(product.price)}
                   </span>
 
                   {product.regularPrice > product.price ? (
                     <>
                       <span className="pb-1 text-base font-medium text-black/35 line-through">
-                        ₹{money(product.regularPrice)}
+                        RS. {money(product.regularPrice)}
                       </span>
 
                       <span className="mb-1 bg-black px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
@@ -846,7 +839,7 @@ router.push("/checkout?mode=buy-now");
                 </div>
 
                 <p className="text-xs font-medium text-black/45">
-                  Inclusive of all taxes
+                  INCLUSIVE OF ALL TAXES
                 </p>
               </div>
             </div>
@@ -857,10 +850,10 @@ router.push("/checkout?mode=buy-now");
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-black">
-                      Select Size
+                      SELECT SIZE
                     </h3>
                     <p className="mt-0.5 text-xs text-black/45">
-                      Choose your preferred fit
+                      CHOOSE YOUR PREFERRED FIT
                     </p>
                   </div>
 
@@ -869,7 +862,7 @@ router.push("/checkout?mode=buy-now");
                     onClick={() => setSizeGuideOpen(true)}
                     className="text-xs font-semibold text-black underline underline-offset-4 transition hover:text-black/60"
                   >
-                    Size Guide
+                    SIZE GUIDE
                   </button>
                 </div>
 
@@ -992,6 +985,10 @@ router.push("/checkout?mode=buy-now");
               </div>
             )}
 
+            <TrustStrip />
+
+            <ShippingHighlights />
+
             <CrossSellProducts
               category={category}
               items={product?.raw?.crossSellProducts || []}
@@ -1002,35 +999,35 @@ router.push("/checkout?mode=buy-now");
               {!selectionInCart ? (
                 <button
                   onClick={handleAddToCart}
-                  className="inline-flex h-13 items-center justify-center gap-2 bg-black px-5 py-4 text-sm font-semibold text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black active:scale-[0.99]"
+                  className="inline-flex h-12 items-center justify-center gap-2 bg-black px-5 py-4 text-sm font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black active:scale-[0.99]"
                 >
                   <ShoppingCart size={18} />
-                  Add to Cart
+                  ADD TO BAG
                 </button>
               ) : (
                 <button
                   type="button"
                   disabled
-                  className="inline-flex h-13 cursor-default items-center justify-center gap-2 bg-black px-5 py-4 text-sm font-semibold text-white"
+                  className="inline-flex h-12 cursor-default items-center justify-center gap-2 bg-black px-5 py-4 text-sm font-bold uppercase tracking-[0.12em] text-white"
                 >
                   <ShoppingCart size={18} />
-                  Added to Cart
+                  ADDED TO BAG
                 </button>
               )}
 
               <button
                 onClick={handleBuyNowOrViewCart}
-                className="inline-flex h-13 items-center justify-center gap-2 border border-black bg-white px-5 py-4 text-sm font-semibold text-black transition hover:bg-black hover:text-white active:scale-[0.99]"
+                className="inline-flex h-12 items-center justify-center gap-2 border border-black bg-white px-5 py-4 text-sm font-bold uppercase tracking-[0.12em] text-black transition hover:bg-black hover:text-white active:scale-[0.99]"
               >
                 {selectionInCart ? (
                   <>
                     <ShoppingCart size={18} />
-                    View Cart
+                    VIEW CART
                   </>
                 ) : (
                   <>
                     <Zap size={18} />
-                    Buy Now
+                    BUY NOW
                   </>
                 )}
               </button>
@@ -1039,18 +1036,18 @@ router.push("/checkout?mode=buy-now");
             {/* Details */}
             <div className="space-y-3 border-t border-black/10 pt-6">
               <ProductDetailSection
-                title="Product Details"
+                title="PRODUCT DETAILS"
                 content={product.description}
               />
 
               <WashcareSection
-                title="Washcare & Instructions"
+                title="WASHCARE & INSTRUCTIONS"
                 items={[
-                  "Machine wash cold with like colors",
-                  "Do not bleach",
-                  "Tumble dry low or hang dry",
-                  "Cool iron if needed",
-                  "Do not dry clean",
+                  "MACHINE WASH COLD WITH LIKE COLORS",
+                  "DO NOT BLEACH",
+                  "TUMBLE DRY LOW OR HANG DRY",
+                  "COOL IRON IF NEEDED",
+                  "DO NOT DRY CLEAN",
                 ]}
               />
 
@@ -1065,6 +1062,25 @@ router.push("/checkout?mode=buy-now");
         onClose={() => setSizeGuideOpen(false)}
         categoryId={product?.raw?.categories?.[0]?._id}
       />
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white p-3 shadow-[0_-12px_30px_rgba(0,0,0,0.08)] md:hidden">
+        <div className="grid grid-cols-[1fr_1.1fr] gap-2">
+          <button
+            type="button"
+            onClick={selectionInCart ? handleViewCart : handleAddToCart}
+            className="h-11 border border-black bg-white text-[11px] font-bold uppercase tracking-[0.12em] text-black"
+          >
+            {selectionInCart ? "VIEW CART" : "ADD"}
+          </button>
+          <button
+            type="button"
+            onClick={handleBuyNowOrViewCart}
+            className="h-11 bg-black text-[11px] font-bold uppercase tracking-[0.12em] text-white"
+          >
+            {selectionInCart ? "CHECKOUT" : "BUY NOW"}
+          </button>
+        </div>
+      </div>
 
       <div className="mt-12 border-t border-black/10 pt-10">
         <RelatedProducts

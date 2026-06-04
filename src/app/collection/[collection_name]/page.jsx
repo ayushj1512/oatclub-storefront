@@ -144,7 +144,7 @@ export default function CollectionPage() {
                 </span>
               </div>
 
-              <h1 className="text-3xl font-semibold leading-none tracking-tight text-black md:text-6xl">
+              <h1 className="text-2xl font-extrabold uppercase leading-tight text-black md:text-4xl">
                 {title}
               </h1>
 

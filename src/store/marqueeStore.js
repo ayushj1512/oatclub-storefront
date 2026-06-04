@@ -73,7 +73,7 @@ export const useMarqueeStore = create(
       },
     }),
     {
-      name: "miray_marquee_store",
+      name: "oatclub_marquee_store",
       storage: createJSONStorage(() => localStorage),
       partialize: (st) => ({
         // keep only cached marquee

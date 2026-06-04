@@ -9,11 +9,11 @@ import { Phone, Mail, MapPin, Clock, ArrowUpRight, Copy, Check } from "lucide-re
 // CONTACT CONFIG
 // =======================
 const CONTACT = {
-  brand: "Miray Fashion",
+  brand: "OATCLUB",
   phoneDisplay: "+91 7303491206",
   phoneHref: "tel:+917303491206",
-  email: "support@mirayfashions.com",
-  emailHref: "mailto:support@mirayfashions.com",
+  email: "support@oatclub.in",
+  emailHref: "mailto:support@oatclub.in",
   addressLines: [
     "TA-97-A, Gali No.-2,",
     "Tuglakabad Extension,",
@@ -286,7 +286,7 @@ export default function ContactPage() {
                 </div>
                 <div className="relative aspect-[4/3] w-full bg-black/5">
                   <iframe
-                    title="Miray Fashion Location"
+                    title="OATCLUB Location"
                     src={CONTACT.mapEmbedUrl}
                     className="absolute inset-0 h-full w-full"
                     loading="lazy"
@@ -371,3 +371,4 @@ export default function ContactPage() {
     </main>
   );
 }
+

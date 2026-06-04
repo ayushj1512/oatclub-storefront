@@ -28,9 +28,9 @@ const nextConfig: NextConfig = {
       // Cloudinary
       { protocol: "https", hostname: "res.cloudinary.com", pathname: "/**" },
 
-      // Miray domains
-      { protocol: "https", hostname: "mirayfashions.com", pathname: "/**" },
-      { protocol: "https", hostname: "mirayfashions.in", pathname: "/**" },
+      // OATCLUB domains
+      { protocol: "https", hostname: "oatclub.in", pathname: "/**" },
+      { protocol: "https", hostname: "admin.oatclub.in", pathname: "/**" },
 
       // WordPress / Gravatar CDN
       { protocol: "https", hostname: "secure.gravatar.com", pathname: "/**" },
@@ -62,6 +62,8 @@ const nextConfig: NextConfig = {
         hostname: "images.streetstylestore.com",
         pathname: "/**",
       },
+      // ShopCider
+      { protocol: "https", hostname: "img.shopcider.com", pathname: "/**" },
 
       // Nefs Finds Shopify CDN
       {

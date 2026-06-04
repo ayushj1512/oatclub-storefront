@@ -44,7 +44,7 @@ export default function OurMission() {
           >
             At{" "}
             <span className="font-semibold text-[#2b0004]">
-              Miray Fashions
+              OATCLUB
             </span>
             , our mission is to redefine modern luxury by making premium,
             elegant, and high-quality fashion accessible to everyone. We believe
@@ -76,3 +76,4 @@ export default function OurMission() {
     </section>
   );
 }
+

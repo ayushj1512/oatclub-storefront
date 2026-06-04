@@ -518,7 +518,7 @@ export default function TheFitCheckEditApplyPage() {
 
                   <p className="mt-4 text-xs leading-5 text-black/50">
                     By applying, you agree to share your details for collaboration
-                    review by the Miray team.
+                    review by the OATCLUB team.
                   </p>
                 </motion.div>
               )}

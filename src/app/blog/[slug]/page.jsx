@@ -1,17 +1,9 @@
 "use client";
 
-import { use as usePromise, useEffect, useMemo } from "react";
+import { use as usePromise, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  Facebook,
-  Twitter,
-  Share2,
-  ArrowLeft,
-  Tag,
-  MessageCircle,
-} from "lucide-react";
-
+import { ArrowLeft, Facebook, MessageCircle, Share2, Tag, Twitter } from "lucide-react";
 import { useBlogStore } from "@/store/blogStore";
 import RecommendedProducts from "@/components/blog/RecommendedProducts";
 import RelatedBlogs from "@/components/blog/RelatedBlogs";
@@ -43,24 +35,24 @@ export default function BlogDetailPage({ params }) {
     fetchBlogs,
     clearCurrentBlog,
   } = useBlogStore();
+  const [canNativeShare, setCanNativeShare] = useState(false);
 
-  const shareUrl = useMemo(
-    () => (typeof window === "undefined" ? "" : window.location.href),
-    []
-  );
+  useEffect(() => {
+    setCanNativeShare(Boolean(navigator.share));
+  }, []);
 
   useEffect(() => {
     fetchSingleBlog(slug);
     if (!blogs?.length) fetchBlogs({ page: 1, limit: 12 });
     return () => clearCurrentBlog();
-  }, [slug, fetchSingleBlog, fetchBlogs, clearCurrentBlog]);
+  }, [slug, fetchSingleBlog, fetchBlogs, clearCurrentBlog, blogs?.length]);
 
   const productIds = useMemo(
     () =>
       currentBlog?.products?.length
         ? Array.from(new Set(currentBlog.products.map(getPid).filter(Boolean)))
         : [],
-    [currentBlog?.products]
+    [currentBlog]
   );
 
   if (loading && !currentBlog) {
@@ -73,141 +65,126 @@ export default function BlogDetailPage({ params }) {
 
   if (error && !currentBlog) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white text-black">
-        Failed to load blog.
+      <div className="flex min-h-screen items-center justify-center bg-white text-sm font-black uppercase tracking-[0.2em] text-black">
+        FAILED TO LOAD JOURNAL
       </div>
     );
   }
 
   if (!loading && !currentBlog) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white text-black">
-        Blog not found.
+      <div className="flex min-h-screen items-center justify-center bg-white text-sm font-black uppercase tracking-[0.2em] text-black">
+        JOURNAL NOT FOUND
       </div>
     );
   }
 
   const blog = currentBlog;
   const paragraphs = splitParagraphs(extractCleanBlogContent(blog.content));
-  const shareText = blog?.title || "Check out this article";
+  const shareUrl = typeof window === "undefined" ? "" : window.location.href;
+  const shareText = blog?.title || "OATCLUB JOURNAL";
 
   const handleNativeShare = async () => {
     if (!navigator.share) return;
     try {
       await navigator.share({ title: blog.title, text: blog.excerpt, url: shareUrl });
-    } catch { }
+    } catch {}
   };
 
   return (
-    <main className="bg-white text-black">
-      <article className="mx-auto max-w-6xl px-4 py-4 md:px-8 md:py-6">
+    <main className="bg-[#fafafa] text-black">
+      <article className="mx-auto max-w-7xl px-3 py-6 md:px-8 md:py-10">
         <Link
           href="/blog"
-          className="mb-4 inline-flex items-center gap-2 border border-black px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide hover:bg-black hover:text-white"
+          className="mb-6 inline-flex items-center gap-2 border border-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition hover:bg-black hover:text-white"
         >
           <ArrowLeft size={13} />
-          Back
+          BACK TO JOURNAL
         </Link>
 
-        <div className="border-y-2 border-black py-3 text-center">
-          <p className="font-serif text-3xl font-black uppercase leading-none tracking-tight md:text-6xl">
-            THE OATCLUB TIMES
-          </p>
-          <div className="mt-2 border-t border-black pt-2">
-
-
-            <p className=" text-xs font-semibold uppercase tracking-[0.45em] text-black/60">
-              OWN ALL TRENDS
+        <header className="grid gap-6 border-b border-neutral-200 pb-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.34em] text-black/45">
+              OATCLUB JOURNAL
             </p>
+            <h1 className="mt-4 text-3xl font-black uppercase leading-tight text-black md:text-5xl">
+              {blog.title}
+            </h1>
+            {blog.excerpt ? (
+              <p className="mt-4 max-w-2xl text-xs font-bold uppercase leading-6 tracking-[0.08em] text-black/50">
+                {blog.excerpt}
+              </p>
+            ) : null}
           </div>
-        </div>
 
-        <header className="border-b-2 border-black py-5 text-center">
-          <h1 className="mx-auto max-w-4xl font-serif text-3xl font-black uppercase leading-[0.98] tracking-tight md:text-6xl">
-            {blog.title}
-          </h1>
-
-          {blog.excerpt && (
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-black/70">
-              {blog.excerpt}
-            </p>
-          )}
-
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.18em] text-black/60">
-            <span>Style Report</span>
-            <span>•</span>
-            <span>{blog.category || "Fashion"}</span>
-          </div>
-        </header>
-
-        {blog.image && (
-          <div className="mt-5 grid gap-3 border-b-2 border-black pb-5 md:grid-cols-[1.6fr_0.4fr]">
-            <div className="relative aspect-[16/9] overflow-hidden bg-black/5">
+          {blog.image ? (
+            <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 lg:aspect-[16/11]">
               <Image
                 src={blog.image}
                 alt={blog.title}
                 fill
                 priority
+                sizes="(max-width: 1024px) 100vw, 54vw"
                 className="object-cover"
               />
             </div>
+          ) : null}
+        </header>
 
-            <aside className="border border-black p-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.25em]">
-                Front Page
-              </p>
-              <h2 className="mt-3 text-2xl font-black uppercase leading-none">
-                Own All Trends
-              </h2>
-              <p className="mt-3 text-xs leading-5 text-black/60">
-                Fresh from the Oatclub editorial desk.
-              </p>
-            </aside>
-          </div>
-        )}
-
-        {blog.tags?.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {blog.tags.map((tag, i) => (
+        {blog.tags?.length ? (
+          <div className="mt-5 flex flex-wrap gap-2">
+            {blog.tags.map((tag) => (
               <span
-                key={i}
-                className="inline-flex items-center gap-1 border border-black px-2.5 py-1 text-[10px] font-bold uppercase"
+                key={tag}
+                className="inline-flex items-center gap-1 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-black/60"
               >
                 <Tag size={11} /> {tag}
               </span>
             ))}
           </div>
-        )}
+        ) : null}
 
-        <section className="mx-auto mt-6 max-w-5xl columns-1 gap-8 border-b-2 border-black pb-7 md:columns-2">
-          {paragraphs.length ? (
-            paragraphs.map((p, i) => (
-              <p
-                key={i}
-                className={`mb-4 break-inside-avoid text-[14px] leading-7 text-black/80 ${i === 0
-                    ? "first-letter:float-left first-letter:mr-2 first-letter:font-serif first-letter:text-6xl first-letter:font-black first-letter:leading-[0.8] first-letter:text-black"
-                    : ""
-                  }`}
-              >
-                {p}
+        <section className="mx-auto mt-8 grid max-w-6xl gap-8 border-b border-neutral-200 pb-10 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="hidden lg:block">
+            <div className="sticky top-28 border-t border-black pt-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-black/45">
+                EDITORIAL
               </p>
-            ))
-          ) : (
-            <p className="text-sm italic text-black/50">Full content coming soon…</p>
-          )}
+              <p className="mt-3 text-xs font-bold uppercase leading-6 tracking-[0.08em] text-black/55">
+                CURATED BY OATCLUB FOR YOUR NEXT WARDROBE MOVE.
+              </p>
+            </div>
+          </aside>
+
+          <div className="space-y-5 bg-white px-4 py-5 md:px-8 md:py-8">
+            {paragraphs.length ? (
+              paragraphs.map((paragraph, index) => (
+                <p
+                  key={index}
+                  className="text-sm font-bold uppercase leading-8 tracking-[0.04em] text-black/70 md:text-[15px]"
+                >
+                  {paragraph}
+                </p>
+              ))
+            ) : (
+              <p className="text-sm font-bold uppercase tracking-[0.12em] text-black/45">
+                FULL CONTENT COMING SOON.
+              </p>
+            )}
+          </div>
         </section>
 
-        <section className="mx-auto mt-6 max-w-5xl">
-          <h3 className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em]">
+        <section className="mx-auto mt-6 max-w-6xl">
+          <h3 className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em]">
             <Share2 size={15} />
-            Share
+            SHARE EDIT
           </h3>
 
           <div className="flex gap-2">
             {[
               {
                 icon: MessageCircle,
-                href: `https://wa.me/?text=${encodeURIComponent(`${shareText} — ${shareUrl}`)}`,
+                href: `https://wa.me/?text=${encodeURIComponent(`${shareText} - ${shareUrl}`)}`,
               },
               {
                 icon: Facebook,
@@ -217,35 +194,37 @@ export default function BlogDetailPage({ params }) {
                 icon: Twitter,
                 href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
               },
-            ].map(({ icon: Icon, href }, i) => (
+            ].map(({ icon: Icon, href }) => (
               <a
-                key={i}
+                key={href}
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="grid h-9 w-9 place-items-center border border-black hover:bg-black hover:text-white"
+                className="grid h-10 w-10 place-items-center border border-black bg-white transition hover:bg-black hover:text-white"
+                aria-label="SHARE"
               >
                 <Icon size={16} />
               </a>
             ))}
 
-            {"navigator" in globalThis && (
+            {canNativeShare ? (
               <button
                 onClick={handleNativeShare}
-                className="grid h-9 w-9 place-items-center border border-black hover:bg-black hover:text-white"
+                className="grid h-10 w-10 place-items-center border border-black bg-white transition hover:bg-black hover:text-white"
+                aria-label="NATIVE SHARE"
               >
                 <Share2 size={16} />
               </button>
-            )}
+            ) : null}
           </div>
         </section>
       </article>
 
-      <section className="mx-auto mt-8 max-w-6xl px-4 md:px-8">
+      <section className="mx-auto mt-8 max-w-7xl px-3 md:px-8">
         <RecommendedProducts productIds={productIds} tags={blog.tags} category={blog.category} limit={10} />
       </section>
 
-      <section className="mx-auto mt-10 max-w-6xl px-4 pb-10 md:px-8">
+      <section className="mx-auto mt-10 max-w-7xl px-3 pb-10 md:px-8">
         <RelatedBlogs blogs={blogs} currentSlug={slug} />
       </section>
     </main>

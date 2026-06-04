@@ -50,7 +50,7 @@ const perks = [
   {
     icon: Gift,
     title: "Gifted Collaborations",
-    desc: "Get access to selected styles and create authentic fit-check content with Miray.",
+    desc: "Get access to selected styles and create authentic fit-check content with OATCLUB.",
   },
   {
     icon: BadgePercent,
@@ -160,7 +160,7 @@ function HeroSection() {
               className="mt-5 max-w-xl text-sm leading-6 text-black/62 sm:text-[15px]"
             >
               <span className="font-semibold text-black">The FitCheck Edit</span>{" "}
-              is Miray’s influencer collaboration program for creators who love
+              is OATCLUB’s influencer collaboration program for creators who love
               styling, outfit storytelling, reels, and premium fashion content.
               From gifted edits to affiliate perks, this is where great fits meet
               meaningful collaborations.
@@ -221,7 +221,7 @@ function HeroSection() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/40">
-                          Miray Creator Program
+                          OATCLUB Creator Program
                         </p>
                         <p className="mt-1 text-lg font-semibold tracking-[-0.03em] text-black">
                           The FitCheck Edit
@@ -251,7 +251,7 @@ function HeroSection() {
 
                       <p className="mt-3 text-sm leading-6 text-black/58">
                         Premium styles, thoughtful collaborations, and creator-led
-                        visibility with Miray.
+                        visibility with OATCLUB.
                       </p>
                     </div>
 
@@ -492,7 +492,7 @@ function CTASection() {
           </div>
 
           <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.04em] sm:text-4xl">
-            Ready to create with Miray?
+            Ready to create with OATCLUB?
           </h2>
 
           <p className="mt-3 text-sm leading-6 text-white/70 sm:text-[15px]">

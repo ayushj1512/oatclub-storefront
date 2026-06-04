@@ -4,11 +4,11 @@ import Link from "next/link";
    SEO CONFIG
 ======================= */
 export const metadata = {
-  title: "Cancellation & Refund Policy | Miray Fashion",
+  title: "Cancellation & Refund Policy | OATCLUB",
   description:
-    "Read Miray Fashion’s Cancellation & Refund Policy. Enjoy instant order cancellation with no questions asked and a 7-day refund policy for eligible orders.",
+    "Read OATCLUB’s Cancellation & Refund Policy. Enjoy instant order cancellation with no questions asked and a 7-day refund policy for eligible orders.",
   alternates: {
-    canonical: "https://www.mirayfashions.com/cancellation-and-refund",
+    canonical: "https://www.oatclub.in/cancellation-and-refund",
   },
 };
 
@@ -22,7 +22,7 @@ return (
         <div className="relative mb-16 overflow-hidden rounded-4xl border border-gray-200 bg-white p-8 md:p-12">
           <div className="max-w-3xl">
             <p className="text-[11px] font-semibold tracking-[0.35em] uppercase text-gray-500">
-              Miray Fashion · Policy
+              OATCLUB · Policy
             </p>
 
             <h1 className="mt-4 text-3xl md:text-5xl font-extrabold tracking-tight">
@@ -31,7 +31,7 @@ return (
 
             <p className="mt-4 text-base md:text-lg text-gray-600 leading-relaxed">
               Simple, transparent, and customer-first.  
-              Everything you need to know about cancellations and refunds at Miray.
+              Everything you need to know about cancellations and refunds at OATCLUB.
             </p>
 
             <p className="mt-3 text-xs text-gray-400">
@@ -51,7 +51,7 @@ return (
             {/* Intro Card */}
             <div className="rounded-3xl bg-white p-6 md:p-8 shadow-sm border border-gray-200">
               <p className="text-base text-gray-700 leading-relaxed">
-                At Miray Fashion, your satisfaction matters. If something doesn’t feel right,
+                At OATCLUB, your satisfaction matters. If something doesn’t feel right,
                 we offer a clear and stress-free cancellation and refund process —
                 designed to respect your time and trust.
               </p>
@@ -170,7 +170,7 @@ return (
             </div>
 
             <p className="text-xs text-gray-500">
-              This policy applies to all orders placed on Miray Fashion.
+              This policy applies to all orders placed on OATCLUB.
             </p>
           </div>
 
@@ -197,3 +197,4 @@ return (
 
 
 }
+

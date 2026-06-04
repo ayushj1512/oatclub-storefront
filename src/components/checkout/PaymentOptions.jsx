@@ -264,7 +264,7 @@ const finalPayable = Math.max(0, remainingAfterWallet);
 
                     <div>
                       <div className="text-sm font-extrabold text-emerald-950">
-                        Miray Credits Available
+                        OATCLUB Credits Available
                       </div>
                       <div className="mt-0.5 text-xs text-emerald-800">
                         Balance:{" "}
@@ -459,7 +459,7 @@ const finalPayable = Math.max(0, remainingAfterWallet);
         ) : (
           <p className="mt-2 text-center text-[11px] leading-relaxed text-gray-500">
             {finalPayable === 0
-              ? "Your order will be fully paid using Miray credits."
+              ? "Your order will be fully paid using OATCLUB credits."
               : appliedWalletAmount > 0
               ? "Credits will be used first. Remaining amount will be paid by selected method."
               : isCOD

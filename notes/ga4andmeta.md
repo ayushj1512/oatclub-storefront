@@ -1,6 +1,6 @@
 # ✅ Tracking Setup (Meta Pixel + GA4) — Today’s Implementation
 
-This document summarizes all tracking work completed today for **Miray Fashions** checkout funnel and cart.
+This document summarizes all tracking work completed today for **OATCLUB** checkout funnel and cart.
 
 Tracking has been implemented for:  
 ✅ Meta Pixel (Pixel + CAPI via `trackMeta`)  
@@ -166,3 +166,4 @@ So purchase won’t fire twice accidentally.
 ---
 
 ✅ Tracking work completed successfully.
+

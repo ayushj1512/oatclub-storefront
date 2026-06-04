@@ -11,7 +11,8 @@ import { useCategoryStore } from "@/store/categoryStore";
 import { useCollectionStore } from "@/store/collectionStore";
 import { SOCIAL_LINKS } from "@/data/socials";
 
-const LOGO_URL = "https://res.cloudinary.com/djtva6hec/image/upload/v1764916639/miray/media/k0yvgu5m0ij1husm3ugh.png";
+const LOGO_URL =
+  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780338447/qavpt44lsxsy3wrvuwi8.png";
 const toSentence = (s) => String(s ?? "").trim().toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
 
 export default function MobileSidebarDrawer({ open, onClose }) {
@@ -70,8 +71,8 @@ export default function MobileSidebarDrawer({ open, onClose }) {
           <motion.div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[999998]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
           <motion.aside className="fixed inset-0 z-[999999] bg-white flex flex-col" initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", stiffness: 260, damping: 30 }}>
             <div className="px-7 py-6 flex items-center justify-between border-b border-zinc-200">
-              <Link href="/" onClick={onClose} className="flex items-center"><Image src={LOGO_URL} alt="Miray Fashion" width={120} height={40} priority className="object-contain" /></Link>
-              <button onClick={onClose} className="p-2.5 rounded-full hover:bg-zinc-100 transition" aria-label="Close menu"><X size={24} /></button>
+              <Link href="/" onClick={onClose} className="flex items-center"><Image src={LOGO_URL} alt="OATCLUB" width={120} height={40} priority className="object-contain" /></Link>
+              <button onClick={onClose} className="p-2.5 text-black transition hover:text-black/55" aria-label="Close menu"><X size={24} /></button>
             </div>
 
             <nav className="flex-1 overflow-y-auto">
@@ -121,9 +122,9 @@ export default function MobileSidebarDrawer({ open, onClose }) {
             </nav>
 
             <div className="px-7 py-6 border-t border-zinc-200 space-y-5">
-              <Link href="/profile" onClick={onClose} className="flex items-center gap-5 rounded-xl bg-zinc-50 px-5 py-5 hover:bg-zinc-100 transition">
-                <span className="w-11 h-11 rounded-xl bg-black/10 text-black flex items-center justify-center"><User size={20} /></span>
-                <div><div className="text-base font-semibold text-zinc-900">My Account</div><div className="text-sm text-zinc-500">Orders • Profile • Settings</div></div>
+              <Link href="/profile" onClick={onClose} className="flex items-center gap-4 border border-black/10 px-5 py-4 transition hover:border-black">
+                <span className="flex h-9 w-9 items-center justify-center text-black"><User size={20} /></span>
+                <div><div className="text-xs font-black uppercase tracking-[0.16em] text-zinc-900">MY ACCOUNT</div><div className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500">ORDERS / PROFILE / SETTINGS</div></div>
               </Link>
 
               <div className="flex items-center justify-center gap-5 text-zinc-500">
@@ -136,9 +137,9 @@ export default function MobileSidebarDrawer({ open, onClose }) {
           </motion.aside>
 
           <style jsx global>{`
-            .menu-item { display:flex; align-items:center; gap:16px; padding:20px 18px; font-size:16px; font-weight:500; color:#18181b; transition:background .2s ease; }
+            .menu-item { display:flex; align-items:center; gap:16px; padding:18px 18px; font-size:13px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; color:#18181b; transition:background .2s ease, color .2s ease; }
             .menu-item:hover { background:#f4f4f5; }
-            .submenu-item { display:block; padding:14px 18px; font-size:15px; border-radius:12px; color:#18181b; transition:background .2s ease; }
+            .submenu-item { display:block; padding:13px 18px; font-size:12px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#18181b; transition:background .2s ease; }
             .submenu-item:hover { background:#f4f4f5; }
           `}</style>
         </>
@@ -147,3 +148,4 @@ export default function MobileSidebarDrawer({ open, onClose }) {
     document.body
   );
 }
+

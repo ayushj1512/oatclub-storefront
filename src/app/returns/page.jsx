@@ -10,7 +10,7 @@ export default function ExchangeAndReturnPage() {
         {/* Header */}
         <header className="mb-12 space-y-3">
        <p className="text-xs font-medium tracking-[0.25em] uppercase text-gray-500">
-  Miray Fashions
+  OATCLUB
 </p>
 
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
@@ -113,7 +113,7 @@ export default function ExchangeAndReturnPage() {
             <section className="rounded-2xl border border-gray-200 bg-gray-50 p-6 space-y-4">
               <h2 className="font-bold">Need Help?</h2>
               <p className="text-gray-700">
-                Please raise a ticket from your Miray Fashion account. Our team
+                Please raise a ticket from your OATCLUB account. Our team
                 aims to resolve concerns within <strong>48 hours</strong>.
               </p>
               <div className="flex flex-wrap gap-3">
@@ -133,7 +133,7 @@ export default function ExchangeAndReturnPage() {
             </section>
 
             <p className="text-xs text-gray-500">
-              Miray Fashion reserves the right to amend this policy at any time.
+              OATCLUB reserves the right to amend this policy at any time.
               All requests are subject to inspection and approval.
             </p>
           </article>
@@ -178,3 +178,4 @@ export default function ExchangeAndReturnPage() {
     </main>
   );
 }
+

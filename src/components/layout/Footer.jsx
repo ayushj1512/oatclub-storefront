@@ -17,7 +17,7 @@ const logo =
 
 const quickLinks = [
   ["Home", "/"],
-  ["Shop", "/categories"],
+  ["Shop", "/all-clothing"],
   ["About", "/about"],
   ["Contact", "/contact"],
 ];

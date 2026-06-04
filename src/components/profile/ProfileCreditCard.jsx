@@ -16,7 +16,7 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   "";
 
-const money = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
+const money = (v) => `RS. ${Number(v || 0).toLocaleString("en-IN")}`;
 
 const pretty = (v) =>
   String(v || "")
@@ -115,52 +115,52 @@ export default function ProfileCreditCard({ customer }) {
   }, [fetchFreshCredits]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="overflow-hidden border border-neutral-200 bg-white">
       <div className="bg-black p-5 text-white">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="flex items-center gap-2 text-sm text-white/70">
+            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/70">
               <Wallet size={16} />
-              Miray Credits
+              OATCLUB CREDITS
               {loading ? <Loader2 size={13} className="animate-spin" /> : null}
             </p>
 
-            <h3 className="mt-2 text-3xl font-semibold tracking-tight">
+            <h3 className="mt-2 text-3xl font-black tracking-tight">
               {money(credits?.balance)}
             </h3>
 
-            <p className="mt-1 text-xs text-white/60">
-              Use credits during checkout to reduce your payable amount.
+            <p className="mt-1 text-xs font-bold uppercase leading-5 tracking-[0.08em] text-white/60">
+              USE CREDITS DURING CHECKOUT TO REDUCE YOUR PAYABLE AMOUNT.
             </p>
           </div>
 
           <Link
             href="/profile/credit"
-            className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-black transition hover:bg-gray-100"
+            className="bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-black transition hover:bg-gray-100"
           >
-            View
+            VIEW
           </Link>
         </div>
       </div>
 
       <div className="p-4">
         <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-gray-50 p-3">
-            <p className="text-[11px] text-gray-500">Credited</p>
+          <div className="bg-neutral-50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-500">CREDITED</p>
             <p className="mt-1 text-sm font-semibold text-gray-900">
               {money(credits?.totalCredited)}
             </p>
           </div>
 
-          <div className="rounded-xl bg-gray-50 p-3">
-            <p className="text-[11px] text-gray-500">Used</p>
+          <div className="bg-neutral-50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-500">USED</p>
             <p className="mt-1 text-sm font-semibold text-gray-900">
               {money(credits?.totalDebited)}
             </p>
           </div>
 
-          <div className="rounded-xl bg-gray-50 p-3">
-            <p className="text-[11px] text-gray-500">Refunds</p>
+          <div className="bg-neutral-50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-500">REFUNDS</p>
             <p className="mt-1 text-sm font-semibold text-gray-900">
               {money(credits?.totalRefundCredits)}
             </p>
@@ -169,14 +169,14 @@ export default function ProfileCreditCard({ customer }) {
 
         <div className="mt-4 flex items-center justify-between">
           <h4 className="text-sm font-semibold text-gray-900">
-            Recent Credit Activity
+            RECENT CREDIT ACTIVITY
           </h4>
 
           <Link
             href="/profile/credit"
             className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-black"
           >
-            See all <ChevronRight size={14} />
+            SEE ALL <ChevronRight size={14} />
           </Link>
         </div>
 
@@ -188,14 +188,12 @@ export default function ProfileCreditCard({ customer }) {
               return (
                 <div
                   key={log?.creditId || idx}
-                  className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2"
+                  className="flex items-center justify-between bg-neutral-50 px-3 py-2"
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <span
                       className={`grid size-8 shrink-0 place-items-center rounded-full ${
-                        isCredit
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
+                        "bg-white text-black"
                       }`}
                     >
                       {getLogIcon(log?.type)}
@@ -212,9 +210,7 @@ export default function ProfileCreditCard({ customer }) {
                   </div>
 
                   <p
-                    className={`text-sm font-semibold ${
-                      isCredit ? "text-green-700" : "text-red-700"
-                    }`}
+                    className="text-sm font-black text-black"
                   >
                     {isCredit ? "+" : "-"} {money(log?.amount)}
                   </p>
@@ -223,8 +219,8 @@ export default function ProfileCreditCard({ customer }) {
             })}
           </div>
         ) : (
-          <p className="mt-3 rounded-xl bg-gray-50 px-3 py-3 text-xs text-gray-500">
-            No credit activity yet.
+          <p className="mt-3 bg-neutral-50 px-3 py-3 text-xs font-bold uppercase tracking-[0.1em] text-gray-500">
+            NO CREDIT ACTIVITY YET.
           </p>
         )}
       </div>

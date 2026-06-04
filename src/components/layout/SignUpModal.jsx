@@ -88,7 +88,7 @@ export default function SignupModal({ closeAll }) {
         {step === 1 && (
           <>
             <h2 className="mb-3 text-center text-2xl font-extrabold tracking-tight">
-              Welcome to Miray
+              Welcome to OATCLUB
             </h2>
 
             <p className="mb-6 text-center text-sm leading-relaxed text-black/70">
@@ -213,3 +213,4 @@ export default function SignupModal({ closeAll }) {
     </div>
   );
 }
+

@@ -53,7 +53,7 @@ export default function ProfileCreditPage() {
               <div>
                 <p className="flex items-center gap-2 text-sm text-white/65">
                   <Wallet size={16} />
-                  Miray Credits
+                  OATCLUB Credits
                 </p>
 
                 <h1 className="mt-2 text-4xl font-semibold tracking-tight">

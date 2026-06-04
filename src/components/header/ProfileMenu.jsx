@@ -43,34 +43,34 @@ export default function ProfileMenu() {
   return (
     <div className="relative inline-block py-2" ref={ref}>
       {/* Profile Icon */}
-      <button type="button" onClick={onIconClick} className="flex items-center">
-        <User className="w-6 h-6 text-white  transition" />
+      <button type="button" onClick={onIconClick} className="flex items-center text-black transition hover:text-black/55">
+        <User className="h-6 w-6 text-black transition" />
       </button>
 
       {/* Dropdown (Desktop only) */}
       {open && !isMobile && (
-        <div className="absolute right-0 mt-3 w-72 bg-white border border-gray-200 rounded-xl shadow-xl p-5 z-50">
+        <div className="absolute right-0 z-50 mt-3 w-72 border border-black/10 bg-white p-5 shadow-[0_24px_80px_-38px_rgba(0,0,0,0.28)]">
           {/* User Info */}
           <div className="mb-3">
             {isAuthenticated ? (
               <>
-                <p className="text-gray-900 font-semibold text-[15px]">{user?.name || "User"}</p>
-                <p className="text-gray-500 text-sm">{user?.email || "No email available"}</p>
+                <p className="text-[13px] font-black uppercase tracking-[0.08em] text-black">{user?.name || "USER"}</p>
+                <p className="mt-1 text-xs font-bold uppercase tracking-[0.06em] text-black/45">{user?.email || "NO EMAIL AVAILABLE"}</p>
               </>
             ) : (
-              <p className="text-gray-600 text-sm">You are not logged in</p>
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-black/55">YOU ARE NOT LOGGED IN</p>
             )}
           </div>
 
-          <hr className="border-gray-200 mb-3" />
+          <hr className="mb-3 border-black/10" />
 
           {/* Profile Link */}
           <Link
             href="/profile"
             onClick={() => setOpen(false)} // ✅ close dropdown when navigating
-            className="block w-full text-center bg-black text-white py-2 rounded-lg hover:bg-black/90 transition text-sm font-medium"
+            className="block w-full bg-black py-2 text-center text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-black/85"
           >
-            View Profile
+            VIEW PROFILE
           </Link>
 
           {/* Logout button */}
@@ -80,10 +80,10 @@ export default function ProfileMenu() {
                 setOpen(false);
                 requestLogout();
               }}
-              className="w-full mt-3 flex items-center justify-center gap-2 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+              className="mt-3 flex w-full items-center justify-center gap-2 border border-black/10 py-2 text-xs font-black uppercase tracking-[0.14em] text-black/60 transition hover:border-black hover:text-black"
             >
               <LogOut className="w-4 h-4" />
-              Logout
+              LOGOUT
             </button>
           )}
         </div>

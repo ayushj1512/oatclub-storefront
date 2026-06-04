@@ -144,7 +144,7 @@ export default function LeopardFeatureCollection() {
         className="absolute inset-0 bg-center bg-cover"
         style={{
           backgroundImage:
-            "url('https://res.cloudinary.com/djtva6hec/image/upload/v1769025183/miray/media/vlba9cmxpri63ceh2rvl.png')",
+            "url('https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=1400&q=80')",
           // slightly less dull than before
           filter: "saturate(0.95) contrast(0.98) brightness(0.85)",
         }}
@@ -226,3 +226,4 @@ export default function LeopardFeatureCollection() {
     </motion.section>
   );
 }
+

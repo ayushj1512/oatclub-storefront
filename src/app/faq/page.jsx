@@ -4,8 +4,8 @@ import Link from "next/link";
 
 const FAQS = [
   {
-    q: "What is Miray Fashion’s Exchange policy? How does it work?",
-    a: "Miray Fashion’s 7 days Size Exchange policy gives you the option to exchange items purchased from the website/app for size only within 7 days of receipt of the item. Please ensure the product is unused and preserved in its original condition with tags and packaging intact. You may try the product, but please take measures to keep it in original condition. All exchanges are subject to stock availability.",
+    q: "What is OATCLUB’s Exchange policy? How does it work?",
+    a: "OATCLUB’s 7 days Size Exchange policy gives you the option to exchange items purchased from the website/app for size only within 7 days of receipt of the item. Please ensure the product is unused and preserved in its original condition with tags and packaging intact. You may try the product, but please take measures to keep it in original condition. All exchanges are subject to stock availability.",
   },
   {
     q: "Is there any exchange fee?",
@@ -13,7 +13,7 @@ const FAQS = [
   },
   {
     q: "Do you offer returns and refunds?",
-    a: "Yes. Miray Fashion offers a 7-day open window for returns from the date of delivery. Returns are no-questions-asked within 7 days, provided the product is unused, in original condition, and has all tags and packaging intact. Refunds are processed after the returned product passes an inspection/verification process.",
+    a: "Yes. OATCLUB offers a 7-day open window for returns from the date of delivery. Returns are no-questions-asked within 7 days, provided the product is unused, in original condition, and has all tags and packaging intact. Refunds are processed after the returned product passes an inspection/verification process.",
   },
   {
     q: "What are the conditions for Exchange/Return?",
@@ -21,7 +21,7 @@ const FAQS = [
   },
   {
     q: "When will the Exchange/Return option show in my account?",
-    a: "Please allow up to 24 hours post-delivery for the Exchange/Return option to be updated beside your order in your Miray Fashion account.",
+    a: "Please allow up to 24 hours post-delivery for the Exchange/Return option to be updated beside your order in your OATCLUB account.",
   },
   {
     q: "Will the courier pick up any product I give them?",
@@ -41,7 +41,7 @@ const FAQS = [
   },
   {
     q: "What should I do if I receive a damaged/defective/incomplete/wrong order?",
-    a: "Please notify us within 24 hours of delivery by raising a TICKET from your Miray Fashion account. After inspection, we will replace the product(s) with the correct one.",
+    a: "Please notify us within 24 hours of delivery by raising a TICKET from your OATCLUB account. After inspection, we will replace the product(s) with the correct one.",
   },
   {
     q: "When will my pickup for size exchange/return take place?",
@@ -49,11 +49,11 @@ const FAQS = [
   },
   {
     q: "Why did the pickup of my order fail?",
-    a: "We make three attempts to pick up the order. If it is not picked up on the third attempt, the pickup request is marked as failed. Please raise a TICKET from your Miray Fashion account, and we will reinitiate the pickup.",
+    a: "We make three attempts to pick up the order. If it is not picked up on the third attempt, the pickup request is marked as failed. Please raise a TICKET from your OATCLUB account, and we will reinitiate the pickup.",
   },
   {
     q: "How do I contact support for an issue?",
-    a: "For any issue, please raise a TICKET from your Miray Fashion account. We aim to provide a solution within 48 hours of raising the ticket. You can also reach us via the Contact page.",
+    a: "For any issue, please raise a TICKET from your OATCLUB account. We aim to provide a solution within 48 hours of raising the ticket. You can also reach us via the Contact page.",
   },
 ];
 
@@ -66,7 +66,7 @@ return (
         {/* ================= HEADER ================= */}
         <div className="mb-14 max-w-3xl">
           <p className="text-[11px] font-semibold tracking-[0.35em] uppercase text-black/60">
-            Miray Fashion · Help
+            OATCLUB · Help
           </p>
 
           <h1 className="mt-4 text-3xl md:text-5xl font-extrabold tracking-tight">
@@ -185,7 +185,7 @@ return (
 
         {/* ================= FOOTER NOTE ================= */}
         <p className="mt-14 max-w-4xl text-xs leading-relaxed text-black/50">
-          Miray Fashion reserves the right to update these FAQs at any time.
+          OATCLUB reserves the right to update these FAQs at any time.
           Exchange and return requests are subject to inspection and approval.
         </p>
 
@@ -195,3 +195,4 @@ return (
 );
 
 }
+

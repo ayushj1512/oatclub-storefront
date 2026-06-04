@@ -126,32 +126,32 @@ export default function DesktopHeader() {
               aria-label="Open menu"
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
-              className="group flex h-11 items-center gap-2 rounded-xl bg-black px-4 text-white transition-all duration-200 hover:bg-black/85 active:scale-[0.98]"
+              className="group flex h-11 items-center gap-2 text-black transition duration-200 hover:text-black/55 active:scale-[0.98]"
             >
               <Menu className="h-[18px] w-[18px] transition duration-200 group-hover:rotate-90" />
-              <span className="text-[13px] font-semibold tracking-wide">
-                Menu
+              <span className="text-[11px] font-black uppercase tracking-[0.18em]">
+                MENU
               </span>
             </button>
 
             {open && (
-              <div className="absolute left-0 top-14 z-50 w-[640px] max-w-[86vw] rounded-2xl bg-white p-4 shadow-[0_24px_80px_-38px_rgba(0,0,0,0.36)] ring-1 ring-black/10">
+              <div className="absolute left-0 top-14 z-50 w-[640px] max-w-[86vw] bg-white p-5 shadow-[0_24px_80px_-38px_rgba(0,0,0,0.28)]">
                 <div className="flex items-center justify-between px-1">
                   <div>
-                    <p className="text-[14px] font-semibold text-black">
-                      Explore Oatclub
+                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-black/45">
+                      OATCLUB MENU
                     </p>
-                    <p className="mt-0.5 text-[12px] text-black/45">
-                      Minimal essentials, categories and drops.
+                    <p className="mt-1 text-[18px] font-black uppercase leading-tight text-black">
+                      EXPLORE THE EDIT
                     </p>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="rounded-lg bg-black/[0.04] px-3 py-1.5 text-[12px] font-medium text-black/55 transition hover:bg-black hover:text-white"
+                    className="text-[10px] font-black uppercase tracking-[0.18em] text-black/45 transition hover:text-black"
                   >
-                    Close
+                    CLOSE
                   </button>
                 </div>
 
@@ -173,17 +173,17 @@ export default function DesktopHeader() {
                   )}
 
                   {!colLoading && !colError && cols.length > 0 && (
-                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 lg:grid-cols-4">
                       {cols.map((x, index) => (
                         <Link
                           key={x.key}
                           href={`/collection/${x.slug}`}
                           onClick={() => setOpen(false)}
                           title={x.label}
-                          className={`flex h-11 items-center justify-center rounded-xl px-3 text-center text-[13px] font-semibold transition ${
+                          className={`flex h-10 items-center border-b px-0 text-left text-[11px] font-black uppercase tracking-[0.12em] transition ${
                             index === 0
-                              ? "bg-black text-white hover:bg-black/80"
-                              : "bg-black/[0.035] text-black/75 hover:bg-black hover:text-white"
+                              ? "border-black text-black"
+                              : "border-black/10 text-black/65 hover:border-black hover:text-black"
                           }`}
                         >
                           <span className="truncate">{x.label}</span>
@@ -219,14 +219,14 @@ export default function DesktopHeader() {
                   )}
 
                   {!catLoading && !catError && cats.length > 0 && (
-                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 lg:grid-cols-4">
                       {cats.map((x) => (
                         <Link
                           key={x.key}
                           href={`/category/${x.slug}`}
                           onClick={() => setOpen(false)}
                           title={x.label}
-                          className="flex h-11 items-center justify-center rounded-xl bg-black/[0.035] px-3 text-center text-[13px] font-semibold text-black/70 transition hover:bg-black hover:text-white"
+                          className="flex h-10 items-center border-b border-black/10 px-0 text-left text-[11px] font-black uppercase tracking-[0.12em] text-black/65 transition hover:border-black hover:text-black"
                         >
                           <span className="truncate">{x.label}</span>
                         </Link>
@@ -269,15 +269,15 @@ export default function DesktopHeader() {
         <div className="ml-auto flex flex-1 items-center justify-end gap-3">
           <HeaderSearchBar className="w-[280px] lg:w-[360px]" />
 
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-white text-black transition-all duration-200 hover:border-black hover:bg-black hover:text-white">
+          <div className="flex h-11 w-8 items-center justify-center text-black transition duration-200 hover:text-black/55">
             <WishlistButton />
           </div>
 
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-white text-black transition-all duration-200 hover:border-black hover:bg-black hover:text-white">
+          <div className="flex h-11 w-8 items-center justify-center text-black transition duration-200 hover:text-black/55">
             <CartButton />
           </div>
 
-          <div className="flex h-11 items-center justify-center rounded-xl bg-black px-4 text-white transition-all duration-200 hover:bg-black/85 active:scale-[0.98]">
+          <div className="flex h-11 items-center justify-center px-1 text-black transition duration-200 hover:text-black/55 active:scale-[0.98]">
             <ProfileMenu fallbackIcon={<UserRound className="h-5 w-5" />} />
           </div>
         </div>

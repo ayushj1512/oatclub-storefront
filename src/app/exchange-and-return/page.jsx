@@ -4,11 +4,11 @@ import Link from "next/link";
    SEO CONFIG
 ======================= */
 export const metadata = {
-  title: "Exchange & Return Policy | Miray Fashion",
+  title: "Exchange & Return Policy | OATCLUB",
   description:
-    "Read Miray Fashion’s Exchange & Return Policy. Enjoy a simple 7-day exchange and return policy with no questions asked on unused products.",
+    "Read OATCLUB’s Exchange & Return Policy. Enjoy a simple 7-day exchange and return policy with no questions asked on unused products.",
   alternates: {
-    canonical: "https://www.mirayfashions.com/exchange-and-return",
+    canonical: "https://www.oatclub.in/exchange-and-return",
   },
 };
 
@@ -22,7 +22,7 @@ export default function ExchangeAndReturnPage() {
         <div className="relative mb-16 overflow-hidden rounded-[32px] border border-black/10 bg-white p-8 md:p-12">
           <div className="max-w-3xl">
             <p className="text-[11px] font-semibold tracking-[0.35em] uppercase text-black/60">
-              Miray Fashion · Policy
+              OATCLUB · Policy
             </p>
 
             <h1 className="mt-4 text-3xl md:text-5xl font-extrabold tracking-tight">
@@ -51,7 +51,7 @@ export default function ExchangeAndReturnPage() {
             {/* Intro */}
             <div className="rounded-3xl border border-black/10 bg-white p-6 md:p-8 shadow-sm">
               <p className="text-base leading-relaxed text-black/75">
-                At Miray Fashion, your satisfaction comes first. If you wish to exchange
+                At OATCLUB, your satisfaction comes first. If you wish to exchange
                 or return a product, please review the policy below for a smooth,
                 transparent, and hassle-free experience.
               </p>
@@ -164,7 +164,7 @@ export default function ExchangeAndReturnPage() {
             </div>
 
             <p className="text-xs text-black/50">
-              This policy applies to all purchases made on Miray Fashion.
+              This policy applies to all purchases made on OATCLUB.
               The latest version published on this page will always apply.
             </p>
           </div>
@@ -197,7 +197,7 @@ export default function ExchangeAndReturnPage() {
             <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
               <h3 className="mb-2 text-sm font-bold">Important</h3>
               <p className="text-sm text-black/70">
-                By placing an order with Miray Fashion, you agree to this
+                By placing an order with OATCLUB, you agree to this
                 Exchange & Return Policy.
               </p>
             </div>
@@ -210,3 +210,4 @@ export default function ExchangeAndReturnPage() {
 );
 
 }
+

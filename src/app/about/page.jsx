@@ -12,7 +12,7 @@ export default function AboutPage() {
       {/* ================= HEADER ================= */}
       <div className="max-w-3xl">
         <p className="text-[11px] font-semibold tracking-[0.3em] uppercase text-gray-500">
-          Miray Fashions
+          OATCLUB
         </p>
         <h1 className="mt-3 text-3xl md:text-5xl font-extrabold tracking-tight">
           About Us
@@ -32,7 +32,7 @@ export default function AboutPage() {
           </span>
 
           <h2 className="mt-6 text-2xl md:text-4xl font-extrabold leading-tight">
-            Miray is inspired by a Turkish word that reflects
+            OATCLUB is inspired by a Turkish word that reflects
             <span className="block text-black">strength & empowerment.</span>
           </h2>
 
@@ -180,3 +180,4 @@ export default function AboutPage() {
 
   );
 }
+
