@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Home, RefreshCcw, Search, ShoppingBag } from "lucide-react";
@@ -15,30 +14,6 @@ const QUICK_LINKS = [
 
 export default function NotFound() {
   const router = useRouter();
-  const cancelledRef = useRef(false);
-  const [secondsLeft, setSecondsLeft] = useState(12);
-
-  useEffect(() => {
-    cancelledRef.current = false;
-
-    const intervalId = window.setInterval(() => {
-      setSecondsLeft((value) => (value > 0 ? value - 1 : 0));
-    }, 1000);
-
-    const timeoutId = window.setTimeout(() => {
-      if (!cancelledRef.current) router.replace("/");
-    }, 12000);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.clearTimeout(timeoutId);
-    };
-  }, [router]);
-
-  const holdPage = () => {
-    cancelledRef.current = true;
-    setSecondsLeft(0);
-  };
 
   return (
     <main className="min-h-screen bg-white px-3 py-5 text-black md:px-8 md:py-8">
@@ -54,13 +29,9 @@ export default function NotFound() {
             <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/55">
               OATCLUB ROUTE CHECK
             </p>
-            <button
-              type="button"
-              onClick={holdPage}
-              className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55 underline underline-offset-4"
-            >
-              STAY HERE
-            </button>
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
+              NO AUTO REDIRECT
+            </span>
           </div>
 
           <div className="relative z-10 py-8 md:py-12">
@@ -109,25 +80,9 @@ export default function NotFound() {
             edit, or straight to search.
           </p>
 
-          <div className="mt-5 border-y border-black/10 py-3">
-            <div className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-black/45 sm:flex-row sm:items-center sm:justify-between">
-              <span>
-                {secondsLeft > 0 ? `AUTO RETURN HOME IN ${secondsLeft}S` : "AUTO RETURN PAUSED"}
-              </span>
-              <button
-                type="button"
-                onClick={holdPage}
-                className="w-fit text-black underline underline-offset-4"
-              >
-                PAUSE
-              </button>
-            </div>
-          </div>
-
           <div className="mt-5 grid gap-2 sm:grid-cols-2">
             <Link
               href="/"
-              onClick={holdPage}
               className="flex h-11 items-center justify-center gap-2 bg-black text-[10px] font-black uppercase tracking-[0.18em] text-white"
             >
               <Home className="h-4 w-4" />
@@ -135,7 +90,6 @@ export default function NotFound() {
             </Link>
             <Link
               href="/search"
-              onClick={holdPage}
               className="flex h-11 items-center justify-center gap-2 border border-black text-[10px] font-black uppercase tracking-[0.18em] text-black"
             >
               <Search className="h-4 w-4" />
@@ -146,7 +100,6 @@ export default function NotFound() {
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <Link
               href="/products"
-              onClick={holdPage}
               className="flex h-10 items-center justify-center gap-2 border border-black/10 bg-white text-[9px] font-black uppercase tracking-[0.16em] text-black"
             >
               <ShoppingBag className="h-3.5 w-3.5" />
@@ -155,7 +108,6 @@ export default function NotFound() {
             <button
               type="button"
               onClick={() => {
-                holdPage();
                 window.location.reload();
               }}
               className="flex h-10 items-center justify-center gap-2 border border-black/10 bg-white text-[9px] font-black uppercase tracking-[0.16em] text-black"
@@ -174,7 +126,6 @@ export default function NotFound() {
                 <Link
                   key={href}
                   href={href}
-                  onClick={holdPage}
                   className="flex items-center justify-between border-b border-black/10 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-black/65 transition hover:text-black"
                 >
                   {label}
@@ -187,7 +138,6 @@ export default function NotFound() {
           <button
             type="button"
             onClick={() => {
-              holdPage();
               router.back();
             }}
             className="mt-5 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-black/55 underline underline-offset-4"

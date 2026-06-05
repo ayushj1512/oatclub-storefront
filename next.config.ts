@@ -96,6 +96,26 @@ const nextConfig: NextConfig = {
         destination: "/collection/party-protocol",
         permanent: true,
       },
+      {
+        source: "/the-FitCheck-Edit",
+        destination: "/the-oatclub-edit",
+        permanent: true,
+      },
+      {
+        source: "/the-FitCheck-Edit/apply",
+        destination: "/the-oatclub-edit/apply",
+        permanent: true,
+      },
+      {
+        source: "/the-Fitclub-Edit",
+        destination: "/the-oatclub-edit",
+        permanent: true,
+      },
+      {
+        source: "/the-Fitclub-Edit/apply",
+        destination: "/the-oatclub-edit/apply",
+        permanent: true,
+      },
     ];
   },
 };

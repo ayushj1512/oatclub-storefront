@@ -9,6 +9,7 @@ import { Menu, ShoppingBag, User, Search } from "lucide-react";
 import WishlistButton from "@/components/header/WishlistButton";
 import MobileSidebarDrawer from "@/components/header/MobileSidebarDrawer";
 import TopbarHeadline from "@/components/layout/TopbarHeadline";
+import HeaderNavStrip from "@/components/header/HeaderNavStrip";
 
 import { useCartStore } from "@/store/cartStore";
 import { trackMeta } from "@/lib/meta/track";
@@ -170,13 +171,23 @@ export default function MobileHeader() {
         <TopbarHeadline />
 
         <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <button
-            onClick={handleOpenMenu}
-            aria-label="Open menu"
-            className="group flex shrink-0 items-center gap-1.5 text-black transition hover:text-black/55"
-          >
-            <Menu size={24} className="transition group-hover:rotate-90" />
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              onClick={handleOpenMenu}
+              aria-label="Open menu"
+              className="group flex items-center text-black transition hover:text-black/55"
+            >
+              <Menu size={24} className="transition group-hover:rotate-90" />
+            </button>
+
+            <button
+              onClick={() => router.push("/search")}
+              aria-label="Search"
+              className="text-black transition hover:text-black/55"
+            >
+              <Search size={22} />
+            </button>
+          </div>
 
           <Link
             href="/"
@@ -196,14 +207,6 @@ export default function MobileHeader() {
           </Link>
 
           <div className="shrink-0 flex items-center gap-3">
-            <button
-              onClick={() => router.push("/search")}
-              aria-label="Search"
-              className="text-black transition hover:text-black/55"
-            >
-              <Search size={22} />
-            </button>
-
             <WishlistButton size={22} />
 
             <button
@@ -229,6 +232,8 @@ export default function MobileHeader() {
             </Link>
           </div>
         </div>
+
+        <HeaderNavStrip variant="mobile" />
       </header>
 
       {/* Drawer controls body scroll lock/unlock itself */}

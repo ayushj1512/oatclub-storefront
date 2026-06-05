@@ -10,6 +10,7 @@ import WishlistButton from "@/components/header/WishlistButton";
 import CartButton from "@/components/header/CartButton";
 import HeaderSearchBar from "@/components/header/HeaderSearchBar";
 import TopbarHeadline from "@/components/layout/TopbarHeadline";
+import HeaderNavStrip from "@/components/header/HeaderNavStrip";
 
 import { useCategoryStore } from "@/store/categoryStore";
 import { useCollectionStore } from "@/store/collectionStore";
@@ -282,6 +283,8 @@ export default function DesktopHeader() {
           </div>
         </div>
       </div>
+
+      <HeaderNavStrip />
     </header>
   );
 }

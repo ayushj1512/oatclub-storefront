@@ -1,7 +1,5 @@
 "use client";
 
-import { BadgeCheck, Ruler, Shirt, Sparkles } from "lucide-react";
-
 const str = (value) => (value == null ? "" : String(value).trim());
 
 const hasPositiveDimension = (dimensions = {}) =>
@@ -22,19 +20,16 @@ const specValue = (specs = [], key = "") => {
   return str(specs.find((item) => str(item?.key).toLowerCase() === needle)?.value);
 };
 
-function Section({ icon: Icon, eyebrow, title, children }) {
+function Section({ eyebrow, title, children }) {
   return (
-    <section className="border-t border-neutral-200 py-4">
-      <div className="mb-3 flex items-start gap-2.5">
-        <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-black" />
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-black/38">
-            {eyebrow}
-          </p>
-          <h3 className="mt-1 text-[12px] font-black uppercase tracking-[0.12em] text-black">
-            {title}
-          </h3>
-        </div>
+    <section className="border-t border-neutral-200 py-3.5">
+      <div className="mb-2.5">
+        <p className="text-[8.5px] font-extrabold uppercase tracking-[0.2em] text-black/38">
+          {eyebrow}
+        </p>
+        <h3 className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.1em] text-black">
+          {title}
+        </h3>
       </div>
       {children}
     </section>
@@ -44,7 +39,7 @@ function Section({ icon: Icon, eyebrow, title, children }) {
 function TextBlock({ children }) {
   if (!children) return null;
   return (
-    <p className="text-xs font-bold uppercase leading-6 tracking-[0.06em] text-black/58">
+    <p className="text-[11px] font-semibold uppercase leading-5 tracking-[0.05em] text-black/58">
       {children}
     </p>
   );
@@ -61,10 +56,10 @@ function KeyValueTable({ items = [] }) {
           key={`${item.label}-${item.value}`}
           className="grid grid-cols-[42%_58%] border-b border-neutral-200 last:border-b-0"
         >
-          <div className="border-r border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] text-black/45">
+          <div className="border-r border-neutral-200 bg-neutral-50 px-3 py-2 text-[8.5px] font-extrabold uppercase tracking-[0.14em] text-black/45">
             {item.label}
           </div>
-          <div className="px-3 py-2.5 text-[10px] font-black uppercase leading-5 tracking-[0.08em] text-black/75">
+          <div className="px-3 py-2 text-[9.5px] font-bold uppercase leading-5 tracking-[0.07em] text-black/72">
             {item.value}
           </div>
         </div>
@@ -112,8 +107,8 @@ export default function ProductInformationSuite({ product }) {
   return (
     <div className="space-y-0">
       {hasStory ? (
-        <Section icon={Sparkles} eyebrow="STYLE INTENT" title="HOW THIS PIECE WORKS">
-          <div className="space-y-4">
+        <Section eyebrow="STYLE INTENT" title="HOW THIS PIECE WORKS">
+          <div className="space-y-3">
             <TextBlock>{raw.howToStyle}</TextBlock>
             <TextBlock>{raw.fabricDetails}</TextBlock>
           </div>
@@ -121,12 +116,12 @@ export default function ProductInformationSuite({ product }) {
       ) : null}
 
       {features.length ? (
-        <Section icon={BadgeCheck} eyebrow="DETAILS" title="KEY FEATURES">
+        <Section eyebrow="DETAILS" title="KEY FEATURES">
           <div className="flex flex-wrap gap-2">
             {features.map((feature) => (
               <span
                 key={feature}
-                className="bg-neutral-100 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-black/58"
+                className="bg-neutral-100 px-2.5 py-1.5 text-[8.5px] font-extrabold uppercase tracking-[0.11em] text-black/58"
               >
                 {feature}
               </span>
@@ -136,13 +131,13 @@ export default function ProductInformationSuite({ product }) {
       ) : null}
 
       {productMeta.some((item) => str(item.value)) ? (
-        <Section icon={Ruler} eyebrow="PRODUCT DATA" title="SPECIFICATIONS">
+        <Section eyebrow="PRODUCT DATA" title="SPECIFICATIONS">
           <KeyValueTable items={productMeta} />
         </Section>
       ) : null}
 
       {fabrics.length ? (
-        <Section icon={Shirt} eyebrow="MATERIAL" title="FABRIC BREAKDOWN">
+        <Section eyebrow="MATERIAL" title="FABRIC BREAKDOWN">
           <KeyValueTable
             items={fabrics.map((fabric, index) => ({
               label: fabric.role || `Fabric ${index + 1}`,
@@ -153,14 +148,14 @@ export default function ProductInformationSuite({ product }) {
       ) : null}
 
       {care || tags.length ? (
-        <Section icon={Sparkles} eyebrow="CARE & TAGS" title="MORE TO KNOW">
+        <Section eyebrow="CARE & TAGS" title="MORE TO KNOW">
           {care ? <TextBlock>{care}</TextBlock> : null}
           {tags.length ? (
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {tags.map((tag) => (
                 <span
                   key={tag}
-                  className="bg-neutral-100 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-black/50"
+                  className="bg-neutral-100 px-2.5 py-1.5 text-[8.5px] font-extrabold uppercase tracking-[0.12em] text-black/50"
                 >
                   {tag}
                 </span>

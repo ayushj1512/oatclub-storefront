@@ -2,7 +2,7 @@
 "use client";
 
 import { use, useEffect, useMemo, useState, useCallback } from "react";
-import { BadgeCheck, Heart, RotateCcw, Share2, ShieldCheck, ShoppingCart, Sparkles, Truck, Zap } from "lucide-react";
+import { Heart, RotateCcw, Share2, ShieldCheck, ShoppingCart, Truck, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -45,10 +45,10 @@ function TrustStrip({ product }) {
     <section className="border-y border-neutral-200">
       <div className="grid divide-y divide-neutral-200 md:grid-cols-3 md:divide-x md:divide-y-0">
         {items.map(([Icon, title, desc]) => (
-        <div key={title} className="flex gap-3 px-1 py-4 md:px-4">
+        <div key={title} className="flex gap-3 px-1 py-3 md:px-4">
           <Icon className="mt-0.5 h-4 w-4 shrink-0 text-black" />
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-black">
               {title}
             </p>
             <p className="mt-1 text-[10px] font-bold uppercase leading-4 tracking-[0.06em] text-black/48">
@@ -77,53 +77,6 @@ function Accordion({ title, children }) {
         <span className="text-lg leading-none">{open ? "-" : "+"}</span>
       </button>
       {open ? <div className="mt-3">{children}</div> : null}
-    </div>
-  );
-}
-
-function SizeAvailabilityNotice({ product, selectedSize }) {
-  if (!selectedSize) return null;
-
-  const raw = product?.raw || product;
-  const variants = Array.isArray(raw?.variants) ? raw.variants : [];
-
-  const selectedVariant = variants.find((v) => {
-    const size =
-      str(getAttrValue(v?.attributes, "size")).trim().toUpperCase() ||
-      getSizeFromSku(v?.sku);
-
-    return size === str(selectedSize).trim().toUpperCase();
-  });
-
-  const availableQty = Number(selectedVariant?.stock ?? 0);
-  const isAvailable = availableQty > 0;
-
-  return (
-    <div className="mt-4 bg-neutral-50 px-4 py-3.5">
-      <div className="flex items-start gap-3">
-        
-        <div
-          className={`flex h-9 w-9 items-center justify-center rounded-full ${
-            isAvailable ? "bg-black text-white" : "bg-neutral-200 text-black"
-          }`}
-        >
-          <Zap className="h-4 w-4" />
-        </div>
-
-        <div className="min-w-0">
-          <p className="text-sm font-semibold tracking-tight text-black">
-            {isAvailable
-              ? "DISPATCH WITHIN 48 HOURS"
-              : "DISPATCH WITHIN 5-7 DAYS"}
-          </p>
-
-          <p className="mt-0.5 text-xs text-neutral-500 leading-relaxed">
-            {isAvailable
-              ? "READY TO SHIP. YOUR SELECTED SIZE IS IN STOCK."
-              : "MADE SPECIALLY FOR YOU. SLIGHTLY LONGER DISPATCH TIME."}
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
@@ -755,7 +708,7 @@ router.push("/checkout?mode=buy-now");
 
   return (
   <div className="w-full bg-white text-black">
-    <div className="w-full px-3 py-4 md:px-6 lg:px-8 lg:py-6">
+    <div className="w-full px-3 py-3 md:px-6 lg:px-8 lg:py-5">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[55fr_45fr] lg:items-start lg:gap-1">
         {/* LEFT IMAGE */}
         <section className="min-w-0">
@@ -766,9 +719,9 @@ router.push("/checkout?mode=buy-now");
 
         {/* RIGHT DETAILS */}
         <aside className="min-w-0 bg-white px-1 md:px-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-96px)] lg:overflow-y-auto lg:px-8 lg:py-5">
-          <div className="space-y-5">
+          <div className="space-y-4">
             {/* Breadcrumb */}
-            <div className="flex flex-wrap items-center gap-1 text-[10px] font-black uppercase tracking-[0.22em] text-black/40">
+            <div className="flex flex-wrap items-center gap-1 text-[9px] font-extrabold uppercase tracking-[0.2em] text-black/40">
               <Link href="/" className="transition hover:text-black">
                 Home
               </Link>
@@ -788,21 +741,23 @@ router.push("/checkout?mode=buy-now");
             </div>
 
             {/* Title */}
-            <div className="space-y-4 border-b border-black/10 pb-6">
-              <div className="flex flex-wrap items-center gap-2">
-                {product?.raw?.categories?.[0]?.name ? (
-                  <span className="bg-black px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white">
-                    {String(product.raw.categories[0].name).toUpperCase()}
-                  </span>
-                ) : null}
+            <div className="space-y-3 border-b border-black/10 pb-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  {product?.raw?.categories?.[0]?.name ? (
+                    <span className="bg-black px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white">
+                      {String(product.raw.categories[0].name).toUpperCase()}
+                    </span>
+                  ) : null}
 
-                {product?.productCode ? (
-                  <span className="border border-black px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-black">
-                    CODE {product.productCode}
-                  </span>
-                  
-                ) : null}
-                 <div className="flex shrink-0 items-center gap-2">
+                  {product?.productCode ? (
+                    <span className="border border-black px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-black">
+                      CODE {product.productCode}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="ml-auto flex shrink-0 items-center gap-2">
                   <button
                     onClick={handleToggleWishlist}
                     className="grid h-10 w-10 place-items-center border border-black text-black transition hover:bg-black hover:text-white active:scale-95"
@@ -826,20 +781,13 @@ router.push("/checkout?mode=buy-now");
                     <Share2 size={18} />
                   </button>
                 </div>
-                
               </div>
 
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h1 className="text-[24px] font-black uppercase leading-[1.05] text-black md:text-[30px] lg:text-[34px]">
+                  <h1 className="text-[22px] font-extrabold uppercase leading-[1.08] text-black md:text-[28px] lg:text-[31px]">
                     {product.name}
                   </h1>
-
-                  {product.shortDescription ? (
-                    <p className="mt-4 max-w-2xl text-[11px] font-bold uppercase leading-6 tracking-[0.08em] text-black/55 md:text-xs">
-                      {product.shortDescription}
-                    </p>
-                  ) : null}
                 </div>
 
                
@@ -851,10 +799,10 @@ router.push("/checkout?mode=buy-now");
             />
 
             {/* Price */}
-            <div className="border-b border-black/10 pb-6">
+            <div className="border-b border-black/10 pb-4">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex flex-wrap items-end gap-3">
-                  <span className="text-[24px] font-black leading-none text-black md:text-[30px]">
+                  <span className="text-[22px] font-extrabold leading-none text-black md:text-[27px]">
                     RS. {money(product.price)}
                   </span>
 
@@ -864,7 +812,7 @@ router.push("/checkout?mode=buy-now");
                         RS. {money(product.regularPrice)}
                       </span>
 
-                      <span className="mb-1 bg-black px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
+                      <span className="mb-1 bg-black px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-white">
                         {Math.round(
                           ((product.regularPrice - product.price) /
                             product.regularPrice) *
@@ -884,13 +832,13 @@ router.push("/checkout?mode=buy-now");
 
             {/* Size Selector */}
             {(product.sizes || []).length > 0 && (
-              <div className="border-b border-black/10 pb-6">
+              <div className="border-b border-black/10 pb-4">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-black">
+                    <h3 className="text-xs font-extrabold uppercase tracking-[0.08em] text-black">
                       SELECT SIZE
                     </h3>
-                    <p className="mt-0.5 text-xs text-black/45">
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-black/45">
                       CHOOSE YOUR PREFERRED FIT
                     </p>
                   </div>
@@ -898,7 +846,7 @@ router.push("/checkout?mode=buy-now");
                   <button
                     type="button"
                     onClick={() => setSizeGuideOpen(true)}
-                    className="text-xs font-semibold text-black underline underline-offset-4 transition hover:text-black/60"
+                    className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-black underline underline-offset-4 transition hover:text-black/60"
                   >
                     SIZE GUIDE
                   </button>
@@ -981,7 +929,7 @@ router.push("/checkout?mode=buy-now");
 
                             setSelectedVariantId(vid);
                           }}
-                          className={`h-11 min-w-12 border border-black px-4 text-sm font-semibold transition active:scale-95 ${
+                          className={`h-10 min-w-11 border border-black px-3.5 text-xs font-semibold transition active:scale-95 ${
                             active
                               ? "bg-black text-white"
                               : "bg-white text-black hover:bg-black hover:text-white"
@@ -994,16 +942,12 @@ router.push("/checkout?mode=buy-now");
                   })()}
                 </div>
 
-                <SizeAvailabilityNotice
-                  product={product}
-                  selectedSize={selectedSize}
-                />
               </div>
             )}
 
             {/* Color Selector */}
             {requireColor && (
-              <div className="border-b border-black/10 pb-6">
+              <div className="border-b border-black/10 pb-4">
                 <ColorSelector
                   colors={product.colors}
                   selectedColor={selectedColor}
@@ -1023,10 +967,6 @@ router.push("/checkout?mode=buy-now");
               </div>
             )}
 
-            <TrustStrip product={product} />
-
-            <ShippingHighlights />
-
             <CrossSellProducts
               category={category}
               items={product?.raw?.crossSellProducts || []}
@@ -1037,7 +977,7 @@ router.push("/checkout?mode=buy-now");
               {!selectionInCart ? (
                 <button
                   onClick={handleAddToCart}
-                  className="inline-flex h-12 items-center justify-center gap-2 bg-black px-5 py-4 text-sm font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black active:scale-[0.99]"
+                  className="inline-flex h-11 items-center justify-center gap-2 bg-black px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white hover:text-black hover:ring-1 hover:ring-black active:scale-[0.99]"
                 >
                   <ShoppingCart size={18} />
                   ADD TO BAG
@@ -1046,7 +986,7 @@ router.push("/checkout?mode=buy-now");
                 <button
                   type="button"
                   disabled
-                  className="inline-flex h-12 cursor-default items-center justify-center gap-2 bg-black px-5 py-4 text-sm font-bold uppercase tracking-[0.12em] text-white"
+                  className="inline-flex h-11 cursor-default items-center justify-center gap-2 bg-black px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white"
                 >
                   <ShoppingCart size={18} />
                   ADDED TO BAG
@@ -1055,7 +995,7 @@ router.push("/checkout?mode=buy-now");
 
               <button
                 onClick={handleBuyNowOrViewCart}
-                className="inline-flex h-12 items-center justify-center gap-2 border border-black bg-white px-5 py-4 text-sm font-bold uppercase tracking-[0.12em] text-black transition hover:bg-black hover:text-white active:scale-[0.99]"
+                className="inline-flex h-11 items-center justify-center gap-2 border border-black bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-black transition hover:bg-black hover:text-white active:scale-[0.99]"
               >
                 {selectionInCart ? (
                   <>
@@ -1071,8 +1011,10 @@ router.push("/checkout?mode=buy-now");
               </button>
             </div>
 
+            <TrustStrip product={product} />
+
             {/* Details */}
-            <div className="space-y-3 border-t border-black/10 pt-6">
+            <div className="space-y-2 border-t border-black/10 pt-4">
               <ProductDetailSection
                 title="PRODUCT DETAILS"
                 content={product.description}
@@ -1084,6 +1026,8 @@ router.push("/checkout?mode=buy-now");
                 title="WASHCARE & INSTRUCTIONS"
                 items={getCareInstructions(product)}
               />
+
+              <ShippingHighlights />
 
           
             </div>

@@ -14,6 +14,7 @@ import DesktopHeader from "@/components/layout/DesktopHeader";
 import MobileHeader from "@/components/layout/MobileHeader";
 import Footer from "@/components/layout/Footer";
 import ScrollToTop from "@/components/layout/ScrollToTop";
+import DynamicTabTitle from "@/components/layout/DynamicTabTitle";
 import ClientProviders from "@/components/layout/ClientProviders";
 import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
 
@@ -66,6 +67,7 @@ export default function LayoutClient({
     <>
       <AuthInit />
       <MarketingCampaignInit />
+      <DynamicTabTitle />
 
       <Suspense fallback={null}>
         <MetaPixel pixelId={META_PIXEL_ID} trackPageView debug />

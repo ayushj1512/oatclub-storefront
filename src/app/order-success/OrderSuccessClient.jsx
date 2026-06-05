@@ -5,61 +5,97 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  AlertTriangle,
+  ArrowRight,
+  Check,
   CheckCircle2,
   Copy,
-  Check,
-  ArrowRight,
+  Mail,
+  MapPin,
   Package,
   ReceiptText,
-  MapPin,
-  AlertTriangle,
-  Mail,
+  ShieldCheck,
+  Sparkles,
+  Truck,
 } from "lucide-react";
 import useGtmStore from "@/store/gtmStore";
 
-const BRAND = "#16a34a";
 const API =
   process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
 
-const safeJson = async (r) => {
+const safeJson = async (res) => {
   try {
-    return await r.json();
+    return await res.json();
   } catch {
     return null;
   }
 };
 
-const money = (n, cur = "INR") => {
-  const v = Number.isFinite(Number(n)) ? Number(n) : 0;
-  const s = v.toLocaleString("en-IN");
-  return cur === "INR" ? `₹${s}` : `${s} ${cur}`;
+const money = (value, currency = "INR") => {
+  const amount = Number.isFinite(Number(value)) ? Number(value) : 0;
+  const formatted = amount.toLocaleString("en-IN");
+  return currency === "INR" ? `RS. ${formatted}` : `${formatted} ${currency}`;
 };
 
 const sumQty = (items = []) =>
-  items.reduce((s, it) => s + Number(it?.quantity || 0), 0);
+  items.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
 
-const isObjectIdLike = (v) => /^[a-f\d]{24}$/i.test(String(v || "").trim());
+const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || "").trim());
 
-const toSlug = (s = "") =>
-  String(s)
+const toSlug = (value = "") =>
+  String(value)
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
-const Section = ({ title, Icon, children }) => (
-  <div className="rounded-2xl border border-black/10 bg-white p-4 sm:p-5 shadow-[0_18px_40px_rgba(0,0,0,0.06)]">
-    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-      {Icon ? <Icon className="w-4 h-4" /> : null}
-      <span>{title}</span>
+function Section({ title, Icon, children, className = "" }) {
+  return (
+    <div className={`border border-neutral-200 bg-white p-4 sm:p-5 ${className}`}>
+      <div className="flex items-center justify-between gap-3 border-b border-neutral-200 pb-3">
+        <div className="flex items-center gap-2">
+          {Icon ? <Icon size={17} className="text-black" /> : null}
+          <h2 className="text-xs font-black uppercase tracking-[0.14em] text-black">
+            {title}
+          </h2>
+        </div>
+      </div>
+      <div className="mt-4">{children}</div>
     </div>
-    <div className="mt-3">{children}</div>
-  </div>
-);
+  );
+}
+
+function StatusRail() {
+  const steps = [
+    ["CONFIRMED", "ORDER LOCKED"],
+    ["PACKED NEXT", "QUALITY CHECK"],
+    ["DISPATCH", "TRACKING SOON"],
+  ];
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-3">
+      {steps.map(([title, desc], index) => (
+        <div key={title} className="border border-neutral-200 bg-neutral-50 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid h-6 w-6 place-items-center bg-black text-[10px] font-black text-white">
+              {index + 1}
+            </span>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-black">
+              {title}
+            </p>
+          </div>
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.1em] text-black/45">
+            {desc}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function OrderSuccessClient() {
-  const sp = useSearchParams();
-  const orderParam = useMemo(() => (sp.get("order") || "").trim(), [sp]);
+  const searchParams = useSearchParams();
+  const orderParam = useMemo(() => (searchParams.get("order") || "").trim(), [searchParams]);
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -77,7 +113,7 @@ export default function OrderSuccessClient() {
 
       try {
         if (!API) throw new Error("NEXT_PUBLIC_BACKEND_URL or NEXT_PUBLIC_API_URL missing");
-        if (!orderParam) throw new Error("Missing ?order= in URL");
+        if (!orderParam) throw new Error("Missing order reference in URL");
 
         const path = isObjectIdLike(orderParam)
           ? `/api/orders/${encodeURIComponent(orderParam)}`
@@ -88,8 +124,8 @@ export default function OrderSuccessClient() {
 
         if (!res.ok) throw new Error(data?.message || "Failed to load order");
         if (mounted) setOrder(data);
-      } catch (e) {
-        if (mounted) setErr(e?.message || "Failed to load order");
+      } catch (error) {
+        if (mounted) setErr(error?.message || "Failed to load order");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -108,20 +144,20 @@ export default function OrderSuccessClient() {
         if (!order?.items?.length || !API) return;
 
         const ids = order.items
-          .map((it) => String(it?.productId?._id || it?.productId || ""))
+          .map((item) => String(item?.productId?._id || item?.productId || ""))
           .filter(Boolean);
 
         const results = await Promise.all(
           [...new Set(ids)].map(async (id) => {
             try {
-              const r = await fetch(`${API}/api/products/${id}`, {
+              const res = await fetch(`${API}/api/products/${id}`, {
                 cache: "no-store",
               });
-              const j = await safeJson(r);
-              if (!r.ok) return null;
+              const data = await safeJson(res);
+              if (!res.ok) return null;
 
-              const prod = j?.product || j?.data || j;
-              return prod ? { id, prod } : null;
+              const product = data?.product || data?.data || data;
+              return product ? { id, product } : null;
             } catch {
               return null;
             }
@@ -129,13 +165,13 @@ export default function OrderSuccessClient() {
         );
 
         const map = {};
-        results.filter(Boolean).forEach(({ id, prod }) => {
-          map[id] = prod;
+        results.filter(Boolean).forEach(({ id, product }) => {
+          map[id] = product;
         });
 
         if (mounted) setProductMap(map);
-      } catch (e) {
-        console.warn("❌ productMap fetch failed", e);
+      } catch (error) {
+        console.warn("Product map fetch failed", error);
       }
     })();
 
@@ -154,27 +190,26 @@ export default function OrderSuccessClient() {
       if (localStorage.getItem(storageKey)) return;
 
       const orderItems = Array.isArray(order?.items)
-        ? order.items.map((it) => {
-            const pid = String(it?.productId?._id || it?.productId || "");
-            const prod = productMap?.[pid] || {};
-            const attrs = Array.isArray(it?.variant?.attributes)
-              ? it.variant.attributes
+        ? order.items.map((item) => {
+            const productId = String(item?.productId?._id || item?.productId || "");
+            const product = productMap?.[productId] || {};
+            const attrs = Array.isArray(item?.variant?.attributes)
+              ? item.variant.attributes
               : [];
-
             const variantText =
-              attrs.map((a) => a?.value).filter(Boolean).join(" / ") ||
-              it?.variantId ||
+              attrs.map((attr) => attr?.value).filter(Boolean).join(" / ") ||
+              item?.variantId ||
               "";
 
             return {
-              productId: pid,
-              productCode: prod?.productCode || it?.productSnapshot?.productCode || "",
-              name: prod?.name || prod?.title || it?.productSnapshot?.title || "Item",
-              price: Number(it?.price || prod?.price || 0),
-              quantity: Number(it?.quantity || 1),
-              category: prod?.category?.name || prod?.categoryName || "",
+              productId,
+              productCode: product?.productCode || item?.productSnapshot?.productCode || "",
+              name: product?.name || product?.title || item?.productSnapshot?.title || "Item",
+              price: Number(item?.price || product?.price || 0),
+              quantity: Number(item?.quantity || 1),
+              category: product?.category?.name || product?.categoryName || "",
               variant: variantText,
-              sku: it?.variant?.sku || prod?.sku || "",
+              sku: item?.variant?.sku || product?.sku || "",
             };
           })
         : [];
@@ -193,198 +228,240 @@ export default function OrderSuccessClient() {
       });
 
       localStorage.setItem(storageKey, "1");
-    } catch (e) {
-      console.warn("📈 GTM purchase failed", e);
+    } catch (error) {
+      console.warn("GTM purchase failed", error);
     }
   }, [order, productMap]);
 
   const onCopy = async () => {
-    const txt = order?.orderNumber || orderParam;
-    if (!txt) return;
+    const text = order?.orderNumber || orderParam;
+    if (!text) return;
 
     try {
-      await navigator.clipboard.writeText(txt);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 900);
     } catch {}
   };
 
-  const cur = order?.currency || "INR";
+  const currency = order?.currency || "INR";
   const items = Array.isArray(order?.items) ? order.items : [];
-  const ship = order?.shippingAddressSnapshot || {};
+  const shipping = order?.shippingAddressSnapshot || {};
   const qty = sumQty(items);
-
   const orderEmail =
-    ship?.email ||
+    shipping?.email ||
     order?.customerId?.email ||
     order?.billingAddressSnapshot?.email ||
     "";
+  const orderNumber = order?.orderNumber || orderParam || "PENDING";
 
   return (
-    <section className="min-h-[85vh] bg-[#F6F6F8]">
-      <div className="w-full px-4 sm:px-6 lg:px-10 py-7 sm:py-10">
-        <div className="w-full rounded-[22px] overflow-hidden border border-black/5 bg-white shadow-[0_18px_50px_rgba(0,0,0,0.08)] os-fade">
-          <header
-            className="relative w-full px-4 sm:px-7 py-6 sm:py-9"
-            style={{ backgroundColor: BRAND }}
-          >
-            <div className="absolute inset-0 opacity-[0.18] bg-[radial-gradient(circle_at_20%_20%,white_0,transparent_45%),radial-gradient(circle_at_80%_30%,white_0,transparent_42%)]" />
+    <section className="min-h-[85vh] bg-[#f7f7f5] text-black">
+      <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-5 sm:py-8 lg:px-8">
+        <div className="border border-neutral-200 bg-white">
+          <header className="grid gap-0 border-b border-neutral-200 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="relative overflow-hidden bg-black p-5 text-white sm:p-8 lg:p-10">
+              <div className="absolute inset-0 opacity-[0.14] [background-image:linear-gradient(135deg,transparent_0_45%,white_45%_46%,transparent_46%_100%)] [background-size:18px_18px]" />
+              <div className="relative max-w-3xl">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-12 w-12 place-items-center border border-white/25 bg-white text-black sm:h-14 sm:w-14">
+                    <CheckCircle2 size={30} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/55">
+                      ORDER CONFIRMED
+                    </p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.1em] text-white/70">
+                      THANK YOU FOR SHOPPING OATCLUB
+                    </p>
+                  </div>
+                </div>
 
-            <div className="relative flex flex-col items-center text-center gap-2 sm:gap-3">
-              <div className="grid place-items-center rounded-3xl border border-white/25 bg-white/15 shadow-[0_22px_60px_rgba(0,0,0,0.22)] os-pop size-14 sm:size-18">
-                <div className="grid place-items-center rounded-2xl bg-white shadow-[0_18px_45px_rgba(0,0,0,0.20)] size-11 sm:size-14">
-                  <CheckCircle2
-                    className="w-7 h-7 sm:w-9 sm:h-9"
-                    style={{ color: BRAND }}
-                  />
+                <h1 className="mt-7 max-w-2xl text-3xl font-black uppercase leading-[0.95] tracking-normal text-white sm:text-5xl lg:text-6xl">
+                  YOUR EDIT IS LOCKED.
+                </h1>
+                <p className="mt-4 max-w-xl text-xs font-bold uppercase leading-6 tracking-[0.09em] text-white/62 sm:text-sm">
+                  WE ARE QUALITY CHECKING YOUR PIECES, PACKING THEM WITH CARE,
+                  AND SENDING TRACKING DETAILS SOON.
+                </p>
+
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Link
+                    href="/all-clothing"
+                    className="inline-flex h-11 items-center justify-center gap-2 bg-white px-5 text-[10px] font-black uppercase tracking-[0.16em] text-black transition hover:bg-neutral-200"
+                  >
+                    CONTINUE SHOPPING <ArrowRight size={15} />
+                  </Link>
+                  <Link
+                    href="/profile/orders"
+                    className="inline-flex h-11 items-center justify-center border border-white/25 px-5 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-white hover:text-black"
+                  >
+                    VIEW ORDERS
+                  </Link>
                 </div>
               </div>
+            </div>
 
-              <div className="space-y-1">
-                <p className="text-[11px] sm:text-xs tracking-wide text-white/80">
-                  Order Confirmed
-                </p>
-                <h1 className="text-xl sm:text-3xl font-semibold text-white">
-                  Thank you — your order is placed
-                </h1>
-                <p className="text-xs sm:text-base text-white/85">
-                  We’ll share updates on WhatsApp / Email.
-                </p>
-              </div>
-
-              <div className="mt-1 sm:mt-2 flex flex-wrap items-center justify-center gap-2">
-                <span className="text-[11px] sm:text-xs font-semibold text-white/80">
-                  Order:
+            <div className="bg-white p-4 sm:p-6 lg:p-7">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black/45">
+                ORDER REFERENCE
+              </p>
+              <div className="mt-3 flex items-center justify-between gap-3 border border-neutral-200 bg-neutral-50 p-3">
+                <span className="min-w-0 truncate text-lg font-black uppercase tracking-[0.08em] text-black">
+                  {orderNumber}
                 </span>
-
-                <span className="inline-flex items-center rounded-xl px-3 py-2 text-sm font-semibold tabular-nums border border-white/25 bg-white/12 text-white">
-                  {order?.orderNumber || orderParam || "—"}
-                </span>
-
                 <button
                   type="button"
                   onClick={onCopy}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold border border-white/25 bg-white/10 text-white hover:bg-white/15 active:scale-[0.99] transition"
+                  className="grid h-10 w-10 shrink-0 place-items-center border border-neutral-300 bg-white text-black transition hover:border-black"
+                  aria-label="Copy order number"
+                  title="Copy order number"
                 >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copied ? "Copied" : "Copy"}
+                  {copied ? <Check size={17} /> : <Copy size={17} />}
                 </button>
               </div>
 
-              <div className="mt-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-[11px] sm:text-xs text-white/90">
-                <Mail className="w-4 h-4" />
-                <span className="font-medium">
-                  Order confirmation sent to{" "}
-                  <span className="font-semibold text-white">
-                    {orderEmail || "your email"}
-                  </span>
-                </span>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="border border-neutral-200 p-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-black/42">
+                    ITEMS
+                  </p>
+                  <p className="mt-2 text-2xl font-black leading-none text-black">
+                    {qty || 0}
+                  </p>
+                </div>
+                <div className="border border-neutral-200 p-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-black/42">
+                    PAYABLE
+                  </p>
+                  <p className="mt-2 text-lg font-black leading-none text-black">
+                    {money(order?.finalPayable ?? 0, currency)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-start gap-3 border border-neutral-200 bg-neutral-50 p-3">
+                <Mail size={17} className="mt-0.5 shrink-0 text-black/60" />
+                <p className="text-[11px] font-bold uppercase leading-5 tracking-[0.08em] text-black/50">
+                  CONFIRMATION SENT TO{" "}
+                  <span className="text-black">{orderEmail || "YOUR EMAIL"}</span>
+                </p>
               </div>
             </div>
           </header>
 
-          <div className="p-4 sm:p-7">
+          <main className="p-3 sm:p-5 lg:p-7">
             {loading ? (
-              <div className="text-center text-gray-500 text-sm py-10">
-                Loading your order…
+              <div className="grid min-h-[260px] place-items-center border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center">
+                <div>
+                  <div className="mx-auto flex w-fit gap-2">
+                    <span className="h-3 w-3 animate-bounce bg-black" />
+                    <span className="h-3 w-3 animate-bounce bg-black [animation-delay:120ms]" />
+                    <span className="h-3 w-3 animate-bounce bg-black [animation-delay:240ms]" />
+                  </div>
+                  <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-black/45">
+                    LOADING YOUR ORDER
+                  </p>
+                </div>
               </div>
             ) : err ? (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <div className="border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 mt-0.5" />
+                  <AlertTriangle size={20} className="mt-0.5" />
                   <div className="min-w-0">
-                    <div className="font-semibold">Couldn’t load order</div>
+                    <div className="font-black uppercase tracking-[0.08em]">COULD NOT LOAD ORDER</div>
                     <div className="mt-1">{err}</div>
                   </div>
                 </div>
               </div>
             ) : !order ? (
-              <div className="text-center text-gray-500 text-sm py-10">
-                Order not found.
+              <div className="grid min-h-[220px] place-items-center border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center text-xs font-black uppercase tracking-[0.16em] text-black/45">
+                ORDER NOT FOUND.
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
-                <div className="lg:col-span-8 space-y-3 sm:space-y-4">
-                  <Section title={`Items (${qty} ${qty === 1 ? "item" : "items"})`} Icon={Package}>
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
+                <div className="space-y-4">
+                  <StatusRail />
+
+                  <Section title={`ITEMS (${qty} ${qty === 1 ? "ITEM" : "ITEMS"})`} Icon={Package}>
                     <div className="space-y-3">
-                      {items.map((it, idx) => {
-                        const pid = String(it?.productId?._id || it?.productId || "");
-                        const prod = productMap?.[pid] || {};
-
-                        const title = prod?.name || prod?.title || "Item";
-                        const images = Array.isArray(prod?.images) ? prod.images : [];
-                        const thumb = prod?.thumbnail || images?.[0] || "/placeholder.png";
-
-                        const unit = Number(it?.price || prod?.price || 0);
-                        const q = Number(it?.quantity || 0);
-                        const sub = Number(it?.subtotal ?? unit * q);
-
-                        const attrs = Array.isArray(it?.variant?.attributes)
-                          ? it.variant.attributes
+                      {items.map((item, index) => {
+                        const productId = String(item?.productId?._id || item?.productId || "");
+                        const product = productMap?.[productId] || {};
+                        const title =
+                          product?.name ||
+                          product?.title ||
+                          item?.productSnapshot?.title ||
+                          "ITEM";
+                        const images = Array.isArray(product?.images) ? product.images : [];
+                        const thumb =
+                          product?.thumbnail ||
+                          images?.[0] ||
+                          item?.productSnapshot?.image ||
+                          "/placeholder.png";
+                        const unit = Number(item?.price || product?.price || 0);
+                        const quantity = Number(item?.quantity || 0);
+                        const subtotal = Number(item?.subtotal ?? unit * quantity);
+                        const attrs = Array.isArray(item?.variant?.attributes)
+                          ? item.variant.attributes
                           : [];
-
                         const attrText = attrs.length
-                          ? attrs.map((a) => `${a.key}: ${a.value}`).join(" • ")
+                          ? attrs.map((attr) => `${attr.key}: ${attr.value}`).join(" / ")
                           : "";
-
-                        const category = prod?.category?.slug || prod?.categorySlug || "all";
-                        const productName = prod?.slug || toSlug(title);
-                        const href = `/category/${encodeURIComponent(category)}/${encodeURIComponent(
-                          productName
-                        )}/${encodeURIComponent(pid)}`;
+                        const category = product?.category?.slug || product?.categorySlug || "all";
+                        const productName = product?.slug || toSlug(title);
+                        const href = productId
+                          ? `/category/${encodeURIComponent(category)}/${encodeURIComponent(productName)}/${encodeURIComponent(productId)}`
+                          : "/all-clothing";
 
                         return (
-                          <Link key={`${pid || idx}-${idx}`} href={href} className="block">
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-2xl border border-black/10 bg-white p-3 sm:p-4 hover:bg-black/[0.02] transition cursor-pointer">
-                              <div className="w-full sm:w-[92px] h-[116px] sm:h-[120px] rounded-2xl overflow-hidden bg-black/[0.03] border border-black/5 shrink-0">
-                                <img
-                                  src={thumb}
-                                  alt={title}
-                                  className="w-full h-full object-contain p-2"
-                                />
+                          <Link
+                            key={`${productId || index}-${index}`}
+                            href={href}
+                            className="grid gap-3 border border-neutral-200 bg-neutral-50 p-3 transition hover:border-black hover:bg-white sm:grid-cols-[92px_minmax(0,1fr)]"
+                          >
+                            <div className="aspect-[4/5] w-full bg-white sm:w-[92px]">
+                              <img
+                                src={thumb}
+                                alt={title}
+                                className="h-full w-full object-contain p-2"
+                              />
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <h3 className="truncate text-sm font-black uppercase tracking-[0.08em] text-black">
+                                    {title}
+                                  </h3>
+                                  {attrText ? (
+                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
+                                      {attrText}
+                                    </p>
+                                  ) : null}
+                                  {product?.sku ? (
+                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-black/35">
+                                      SKU: {product.sku}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-black/35">
+                                    SUBTOTAL
+                                  </p>
+                                  <p className="mt-1 text-sm font-black text-black">
+                                    {money(subtotal, currency)}
+                                  </p>
+                                </div>
                               </div>
 
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <div className="text-sm sm:text-base font-semibold text-gray-900 truncate">
-                                      {title}
-                                    </div>
-
-                                    {attrText ? (
-                                      <div className="mt-1 text-xs text-gray-600">
-                                        {attrText}
-                                      </div>
-                                    ) : null}
-
-                                    {prod?.sku ? (
-                                      <div className="mt-1 text-[11px] text-gray-500">
-                                        SKU: {prod.sku}
-                                      </div>
-                                    ) : null}
-                                  </div>
-
-                                  <div className="text-right">
-                                    <div className="text-[11px] text-gray-500">
-                                      Subtotal
-                                    </div>
-                                    <div
-                                      className="text-sm sm:text-base font-semibold tabular-nums"
-                                      style={{ color: BRAND }}
-                                    >
-                                      {money(sub, cur)}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
-                                    Qty: {q}
-                                  </span>
-                                  <span className="text-[11px] px-2 py-1 rounded-xl bg-black/4 border border-black/5 text-gray-700">
-                                    {money(unit, cur)} each
-                                  </span>
-                                </div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <span className="border border-neutral-200 bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-black/55">
+                                  QTY {quantity}
+                                </span>
+                                <span className="border border-neutral-200 bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-black/55">
+                                  {money(unit, currency)} EACH
+                                </span>
                               </div>
                             </div>
                           </Link>
@@ -392,97 +469,78 @@ export default function OrderSuccessClient() {
                       })}
                     </div>
                   </Section>
-
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Link
-                      href="/shop"
-                      className="flex-1 inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold border border-black/10 bg-white hover:bg-black/[0.02] transition"
-                    >
-                      Continue Shopping <ArrowRight className="w-4 h-4 ml-2" />
-                    </Link>
-
-                    <Link
-                      href="/profile/orders"
-                      className="flex-1 inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-white active:scale-[0.99] transition"
-                      style={{ backgroundColor: BRAND }}
-                    >
-                      View Orders
-                    </Link>
-                  </div>
                 </div>
 
-                <div className="lg:col-span-4 space-y-3 sm:space-y-4">
-                  <Section title="Payment Summary" Icon={ReceiptText}>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-4 text-sm">
-                        <span className="text-gray-600">Subtotal</span>
-                        <span className="font-semibold tabular-nums text-gray-900">
-                          {money(order?.subtotal ?? 0, cur)}
-                        </span>
+                <aside className="space-y-4">
+                  <Section title="PAYMENT SUMMARY" Icon={ReceiptText}>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="font-bold uppercase tracking-[0.08em] text-black/50">SUBTOTAL</span>
+                        <span className="font-black text-black">{money(order?.subtotal ?? 0, currency)}</span>
                       </div>
-
-                      <div className="flex items-center justify-between gap-4 text-sm">
-                        <span className="text-gray-600">Shipping</span>
-                        <span className="font-semibold tabular-nums text-green-700">
-                          FREE
-                        </span>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="font-bold uppercase tracking-[0.08em] text-black/50">SHIPPING</span>
+                        <span className="font-black text-black">FREE</span>
                       </div>
-
-                      {(order?.discount ?? 0) > 0 && (
-                        <div className="flex items-center justify-between gap-4 text-sm">
-                          <span className="text-gray-600">Discount</span>
-                          <span className="font-semibold tabular-nums text-gray-900">
-                            - {money(order?.discount ?? 0, cur)}
+                      {(order?.discount ?? 0) > 0 ? (
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-bold uppercase tracking-[0.08em] text-black/50">DISCOUNT</span>
+                          <span className="font-black text-black">- {money(order?.discount ?? 0, currency)}</span>
+                        </div>
+                      ) : null}
+                      <div className="border-t border-neutral-200 pt-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-xs font-black uppercase tracking-[0.12em] text-black">TOTAL PAID</span>
+                          <span className="text-xl font-black text-black">
+                            {money(order?.finalPayable ?? 0, currency)}
                           </span>
                         </div>
-                      )}
-
-                      <div className="h-px bg-black/5 my-2" />
-
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm font-semibold text-gray-900">
-                          Payable
-                        </span>
-                        <span
-                          className="text-lg font-semibold tabular-nums"
-                          style={{ color: BRAND }}
-                        >
-                          {money(order?.finalPayable ?? 0, cur)}
-                        </span>
                       </div>
                     </div>
                   </Section>
 
-                  <Section title="Shipping Address" Icon={MapPin}>
-                    <div className="text-sm text-gray-700 leading-relaxed">
-                      <div className="font-semibold text-gray-900">
-                        {ship?.fullName || "—"}
-                      </div>
-
-                      <div className="mt-1">
-                        {[ship?.phone ? `📞 ${ship.phone}` : "", orderEmail ? `✉️ ${orderEmail}` : ""]
+                  <Section title="SHIPPING ADDRESS" Icon={MapPin}>
+                    <div className="text-xs font-bold uppercase leading-6 tracking-[0.08em] text-black/55">
+                      <p className="font-black text-black">{shipping?.fullName || "-"}</p>
+                      <p>{shipping?.phone || ""}</p>
+                      <p>{orderEmail || ""}</p>
+                      <p className="mt-2">
+                        {[shipping?.line1, shipping?.line2, shipping?.city, shipping?.state, shipping?.country, shipping?.pincode]
                           .filter(Boolean)
-                          .join(" • ")}
-                      </div>
-
-                      <div className="mt-2">
-                        {[ship?.line1, ship?.line2, ship?.city, ship?.state, ship?.country, ship?.pincode]
-                          .filter(Boolean)
-                          .join(", ") || "—"}
-                      </div>
+                          .join(", ") || "-"}
+                      </p>
                     </div>
                   </Section>
-                </div>
+
+                  <div className="border border-neutral-200 bg-black p-4 text-white">
+                    <div className="flex items-center gap-2">
+                      <Truck size={18} />
+                      <p className="text-xs font-black uppercase tracking-[0.14em]">
+                        WHAT HAPPENS NEXT
+                      </p>
+                    </div>
+                    <p className="mt-3 text-[11px] font-bold uppercase leading-5 tracking-[0.08em] text-white/62">
+                      WE AIM TO SHIP WITHIN 7 DAYS. TRACKING DETAILS WILL LAND
+                      IN YOUR INBOX ONCE YOUR PIECES MOVE.
+                    </p>
+                  </div>
+                </aside>
               </div>
             )}
-          </div>
+          </main>
 
-          <div className="px-4 sm:px-7 py-4 border-t border-black/5 bg-white">
-            <div className="text-xs text-gray-500 flex items-center gap-2">
-              <span className="size-2 rounded-full bg-black/30" />
-              Packed with care
+          <footer className="border-t border-neutral-200 bg-neutral-50 px-4 py-4 sm:px-7">
+            <div className="flex flex-col gap-3 text-[10px] font-black uppercase tracking-[0.14em] text-black/45 sm:flex-row sm:items-center sm:justify-between">
+              <span className="inline-flex items-center gap-2">
+                <ShieldCheck size={14} />
+                QUALITY CHECKED PIECES
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Sparkles size={14} />
+                PACKED WITH CARE
+              </span>
             </div>
-          </div>
+          </footer>
         </div>
       </div>
     </section>

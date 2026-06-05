@@ -16,6 +16,10 @@ import { useCartStore } from "@/store/cartStore";
 import { useAddressStore } from "@/store/addressStore"
 const COOKIE_KEY = "user_auth";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+const buildCustomerId = (firebaseUser) => {
+  const uid = String(firebaseUser?.uid || "").trim();
+  return uid ? `firebase_${uid}` : "";
+};
 // ✅ Returns true = skip event, false = fire event
 const shouldSkipAuthMetaEvent  = (get, set, key, windowMs = 4000) => {
   const now = Date.now();
@@ -176,6 +180,12 @@ setActiveCart: (cartId, type = "cart") => {
       return null;
     }
 
+    const customerId = buildCustomerId(firebaseUser);
+    if (!customerId) {
+      console.error("❌ Firebase UID missing for customer sync");
+      return null;
+    }
+
     // 🔐 Always refresh token
     const token = await firebaseUser.getIdToken(true);
 
@@ -188,7 +198,10 @@ setActiveCart: (cartId, type = "cart") => {
 
     // ✅ Build payload but avoid sending empty strings
     const payload = {
+      customerId,
       firebaseUID: firebaseUser.uid,
+      firebaseUid: firebaseUser.uid,
+      uid: firebaseUser.uid,
       ...(overrideName || clean(firebaseUser.displayName)
         ? { name: overrideName || clean(firebaseUser.displayName) }
         : {}),

@@ -28,6 +28,7 @@ import NewArrivalsFeatureRow from "@/components/home/NewArrivalsFeatureRow";
 import ReturnExchangeHelp from "@/components/home/ReturnExchangeHelp";
 import ShopByCategoryRow from "@/components/home/ShopByCategoryRow";
 import StyleOfTheWeek from "@/components/home/StyleOfTheWeek";
+import CategoryMosaic from "@/components/home/CategoryMosaic";
 
 function HomeBrandStrip() {
   const items = [
@@ -87,6 +88,7 @@ export default function HomeClient() {
 
         <HeroSection />
         <HomeBrandStrip />
+        <CategoryMosaic />
         <ShopByCategoryRow />
 
         <BestSellerSection />

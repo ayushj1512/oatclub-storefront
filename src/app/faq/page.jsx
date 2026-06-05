@@ -61,32 +61,32 @@ export default function FAQPage() {
       <div className="space-y-2">
         {FAQS.map(([question, answer], index) => (
           <details key={question} className="group border border-black/10 bg-white">
-            <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4">
-              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-black/35">
+            <summary className="flex cursor-pointer list-none items-start gap-2.5 px-3 py-3 md:items-center md:gap-3 md:px-4 md:py-4">
+              <span className="pt-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-black/35 md:pt-0 md:text-[10px] md:tracking-[0.18em]">
                 {String(index + 1).padStart(2, "0")}
               </span>
-              <span className="text-sm font-black uppercase leading-5 tracking-[0.04em]">
+              <span className="min-w-0 flex-1 text-[12px] font-black uppercase leading-5 tracking-[0.035em] md:text-sm md:tracking-[0.04em]">
                 {question}
               </span>
-              <span className="ml-auto text-lg leading-none group-open:hidden">+</span>
-              <span className="ml-auto hidden text-lg leading-none group-open:block">-</span>
+              <span className="ml-auto shrink-0 text-base leading-none group-open:hidden md:text-lg">+</span>
+              <span className="ml-auto hidden shrink-0 text-base leading-none group-open:block md:text-lg">-</span>
             </summary>
-            <div className="border-t border-black/10 px-4 py-4 text-sm font-medium leading-7 text-black/65">
+            <div className="border-t border-black/10 px-3 py-3 text-[13px] font-medium leading-6 text-black/65 md:px-4 md:py-4 md:text-sm md:leading-7">
               {answer}
             </div>
           </details>
         ))}
       </div>
 
-      <div className="border border-black bg-black p-4 text-white">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/50">
+      <div className="border border-black bg-black p-3.5 text-white md:p-4">
+        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/50 md:text-[10px] md:tracking-[0.22em]">
           NEED POLICY DETAILS?
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/exchange-and-return" className="border border-white/25 px-3 py-2 text-[9px] font-black uppercase tracking-[0.16em]">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Link href="/exchange-and-return" className="flex h-9 items-center justify-center border border-white/25 px-3 text-[8.5px] font-black uppercase tracking-[0.14em] md:text-[9px] md:tracking-[0.16em]">
             Exchange & Return
           </Link>
-          <Link href="/shipping-policy" className="border border-white/25 px-3 py-2 text-[9px] font-black uppercase tracking-[0.16em]">
+          <Link href="/shipping-policy" className="flex h-9 items-center justify-center border border-white/25 px-3 text-[8.5px] font-black uppercase tracking-[0.14em] md:text-[9px] md:tracking-[0.16em]">
             Shipping
           </Link>
         </div>

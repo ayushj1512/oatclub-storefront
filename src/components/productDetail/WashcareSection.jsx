@@ -39,8 +39,8 @@ export default function WashcareSection({
   items = [],
 }) {
   return (
-    <section className="border-t border-neutral-200 py-4">
-      <h3 className="mb-3 text-[12px] font-black uppercase tracking-[0.12em] text-black">
+    <section className="border-t border-neutral-200 py-3.5">
+      <h3 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-black">
         {title}
       </h3>
 
@@ -49,7 +49,7 @@ export default function WashcareSection({
           {items.map((text, index) => (
             <li
               key={`${text}-${index}`}
-              className="flex items-center gap-3 text-[10px] font-bold uppercase leading-5 tracking-[0.08em] text-black/58"
+              className="flex items-center gap-3 text-[9.5px] font-semibold uppercase leading-5 tracking-[0.07em] text-black/58"
             >
               {getIcon(text)}
               <span>{text}</span>
@@ -57,7 +57,7 @@ export default function WashcareSection({
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-black/50">
+        <p className="text-[11px] text-black/50">
           Care instructions will be updated soon.
         </p>
       )}
