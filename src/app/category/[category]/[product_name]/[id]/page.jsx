@@ -2,7 +2,7 @@
 "use client";
 
 import { use, useEffect, useMemo, useState, useCallback } from "react";
-import { BadgeCheck, Heart, RotateCcw, Share2, ShoppingCart, Sparkles, Zap } from "lucide-react";
+import { BadgeCheck, Heart, RotateCcw, Share2, ShieldCheck, ShoppingCart, Sparkles, Truck, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -16,12 +16,12 @@ import ProductGallery from "@/components/productDetail/ProductGallery";
 import RelatedProducts from "@/components/productDetail/relatedProducts";
 import WashcareSection from "@/components/productDetail/WashcareSection";
 import ProductDetailSection from "@/components/productDetail/ProductDetailSection";
-import RecentlyViewedProducts from "@/components/productDetail/RecentlyViewedProducts"
 import ColorSelector from "@/components/productDetail/ColorSelector";
 import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 import ShippingHighlights from "@/components/productDetail/ShippingHighlights";
 import CrossSellProducts from "@/components/productDetail/CrossSellProducts";
 import LepordCollectionAnnouncement from "@/components/productDetail/LepordCollectionAnnouncement";
+import ProductInformationSuite from "@/components/productDetail/ProductInformationSuite";
 import useGtmStore from "@/store/gtmStore";
 import ProductNotFound from "@/components/productDetail/ProductNotFound";
 import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
@@ -32,22 +32,33 @@ const money = (n) => {
   return num.toLocaleString("en-IN");
 };
 
-function TrustStrip() {
+function TrustStrip({ product }) {
+  const raw = product?.raw || product || {};
+  const inStock = Boolean(raw.isInStock ?? product?.isInStock);
+  const items = [
+    [ShieldCheck, "Verified Quality", "Finish and fabric reviewed before dispatch."],
+    [Truck, inStock ? "Fast Dispatch" : "Made For You", inStock ? "Ready pieces move quickly from our studio." : "Dispatch timeline adjusts for limited stock pieces."],
+    [RotateCcw, "Exchange Support", "Simple account-led support for size or fit concerns."],
+  ];
+
   return (
-    <div className="grid grid-cols-3 gap-2 border-y border-black/10 py-4 text-center">
-      {[
-        [BadgeCheck, "Quality Check"],
-        [RotateCcw, "Easy Exchange"],
-        [Sparkles, "Curated For You"],
-      ].map(([Icon, label]) => (
-        <div key={label} className="flex flex-col items-center gap-2 px-1">
-          <Icon className="h-4 w-4 text-black" />
-          <span className="text-[10px] font-bold uppercase leading-tight tracking-[0.12em] text-black/65">
-            {label}
-          </span>
+    <section className="border-y border-neutral-200">
+      <div className="grid divide-y divide-neutral-200 md:grid-cols-3 md:divide-x md:divide-y-0">
+        {items.map(([Icon, title, desc]) => (
+        <div key={title} className="flex gap-3 px-1 py-4 md:px-4">
+          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-black" />
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black">
+              {title}
+            </p>
+            <p className="mt-1 text-[10px] font-bold uppercase leading-4 tracking-[0.06em] text-black/48">
+              {desc}
+            </p>
+          </div>
         </div>
       ))}
-    </div>
+      </div>
+    </section>
   );
 }
 
@@ -339,6 +350,33 @@ const deriveImageList = (normalized) => {
   const thumb = normalized?.thumbnail || normalized?.image || images?.[0] || "";
   const merged = [thumb, ...images].filter(Boolean).map(String);
   return Array.from(new Set(merged));
+};
+
+const getSpecValue = (product, key) => {
+  const raw = product?.raw || product || {};
+  const specs = Array.isArray(raw?.specifications) ? raw.specifications : [];
+  const found = specs.find(
+    (item) => str(item?.key).trim().toLowerCase() === str(key).trim().toLowerCase()
+  );
+  return str(found?.value);
+};
+
+const getCareInstructions = (product) => {
+  const backendCare = getSpecValue(product, "Care Instructions");
+  if (backendCare) {
+    return backendCare
+      .split(/[,|]/)
+      .map((item) => item.trim().toUpperCase())
+      .filter(Boolean);
+  }
+
+  return [
+    "MACHINE WASH COLD WITH LIKE COLORS",
+    "DO NOT BLEACH",
+    "TUMBLE DRY LOW OR HANG DRY",
+    "COOL IRON IF NEEDED",
+    "DO NOT DRY CLEAN",
+  ];
 };
 
 const findVariantIdByAttributes = (normalized, picked = {}) => {
@@ -985,7 +1023,7 @@ router.push("/checkout?mode=buy-now");
               </div>
             )}
 
-            <TrustStrip />
+            <TrustStrip product={product} />
 
             <ShippingHighlights />
 
@@ -1040,15 +1078,11 @@ router.push("/checkout?mode=buy-now");
                 content={product.description}
               />
 
+              <ProductInformationSuite product={product} />
+
               <WashcareSection
                 title="WASHCARE & INSTRUCTIONS"
-                items={[
-                  "MACHINE WASH COLD WITH LIKE COLORS",
-                  "DO NOT BLEACH",
-                  "TUMBLE DRY LOW OR HANG DRY",
-                  "COOL IRON IF NEEDED",
-                  "DO NOT DRY CLEAN",
-                ]}
+                items={getCareInstructions(product)}
               />
 
           
@@ -1088,7 +1122,6 @@ router.push("/checkout?mode=buy-now");
         />
       </div>
 
-      <RecentlyViewedProducts />
     </div>
   </div>
 );

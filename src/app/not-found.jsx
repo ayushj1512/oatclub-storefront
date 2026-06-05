@@ -1,32 +1,32 @@
-// src/app/not-found.jsx
 "use client";
 
-import "./style/not-found.css";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Search, RefreshCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Home, RefreshCcw, Search, ShoppingBag } from "lucide-react";
+
+const QUICK_LINKS = [
+  ["NEW ARRIVALS", "/new-arrivals"],
+  ["BESTSELLERS", "/bestseller"],
+  ["ALL CLOTHING", "/all-clothing"],
+  ["SUPPORT", "/support"],
+];
 
 export default function NotFound() {
   const router = useRouter();
-
-  // ✅ 12 seconds countdown
-  const [secondsLeft, setSecondsLeft] = useState(12);
   const cancelledRef = useRef(false);
+  const [secondsLeft, setSecondsLeft] = useState(12);
 
   useEffect(() => {
     cancelledRef.current = false;
 
-    // tick down every 1s
     const intervalId = window.setInterval(() => {
-      setSecondsLeft((s) => (s > 0 ? s - 1 : 0));
+      setSecondsLeft((value) => (value > 0 ? value - 1 : 0));
     }, 1000);
 
-    // redirect after 12s
     const timeoutId = window.setTimeout(() => {
-      if (cancelledRef.current) return;
-      router.replace("/");
+      if (!cancelledRef.current) router.replace("/");
     }, 12000);
 
     return () => {
@@ -35,188 +35,168 @@ export default function NotFound() {
     };
   }, [router]);
 
-  const cancelRedirect = () => {
+  const holdPage = () => {
     cancelledRef.current = true;
     setSecondsLeft(0);
   };
 
   return (
-    <main className="nf-wrap">
-      <motion.div
-        aria-hidden
-        className="nf-blob nf-blob-1"
-        initial={{ opacity: 0.25, scale: 0.9 }}
-        animate={{ opacity: [0.2, 0.45, 0.28], scale: [0.95, 1.06, 1] }}
-        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        aria-hidden
-        className="nf-blob nf-blob-2"
-        initial={{ opacity: 0.18, scale: 0.9 }}
-        animate={{ opacity: [0.15, 0.35, 0.2], scale: [0.98, 1.08, 1] }}
-        transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      <section className="nf-card">
-        <div className="nf-top">
-          <span className="nf-dot" />
-          <span className="nf-topText">404</span>
-          <span className="nf-sep">•</span>
-          <span className="nf-topText">Page Not Found</span>
-        </div>
-
-        <div className="nf-grid">
-          <div className="nf-ghostWrap">
-            <motion.div
-              className="nf-ghostRing"
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6 }}
-            >
-              <motion.div
-                className="nf-ghost"
-                initial={{ y: -8 }}
-                animate={{ y: [-8, 10, -8] }}
-                transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <svg viewBox="0 0 180 180" className="nf-ghostSvg" aria-label="Cute ghost">
-                  <path
-                    d="M90 20 C62 20 42 40 42 68 V130 C42 140 50 146 59 141 C66 137 70 137 76 141 C82 146 98 146 104 141 C110 137 114 137 121 141 C130 146 138 140 138 130 V68 C138 40 118 20 90 20Z"
-                    fill="url(#nfG)"
-                    stroke="rgba(0,0,0,0.10)"
-                    strokeWidth="3"
-                  />
-                  <path
-                    d="M42 128 C52 140 64 140 74 128 C84 116 96 116 106 128 C116 140 128 140 138 128 V130 C138 140 130 146 121 141 C114 137 110 137 104 141 C98 146 82 146 76 141 C70 137 66 137 59 141 C50 146 42 140 42 130Z"
-                    fill="rgba(255,255,255,0.85)"
-                  />
-                  <rect x="64" y="78" width="13" height="18" rx="6.5" fill="#0B0B0F" />
-                  <g className="nf-wink">
-                    <path
-                      d="M103 87 Q109 83 115 87"
-                      fill="none"
-                      stroke="#0B0B0F"
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d="M118 75 l3 6 l6 3 l-6 3 l-3 6 l-3-6 l-6-3 l6-3z"
-                      fill="rgba(128,0,32,0.28)"
-                      className="nf-twinkle"
-                    />
-                  </g>
-                  <circle cx="58" cy="104" r="7" fill="rgba(128,0,32,0.18)" />
-                  <circle cx="122" cy="104" r="7" fill="rgba(128,0,32,0.18)" />
-                  <path
-                    d="M76 116 Q90 130 104 116"
-                    fill="none"
-                    stroke="#0B0B0F"
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                    className="nf-smile"
-                  />
-                  <path
-                    d="M112 118 Q116 120 112 122"
-                    fill="none"
-                    stroke="rgba(11,11,15,0.6)"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                  />
-                  <defs>
-                    <linearGradient id="nfG" x1="40" y1="20" x2="140" y2="160">
-                      <stop stopColor="white" />
-                      <stop offset="1" stopColor="rgba(255,255,255,0.92)" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </motion.div>
-
-              <motion.div
-                aria-hidden
-                className="nf-shadow"
-                initial={{ opacity: 0.12, scale: 1 }}
-                animate={{ opacity: [0.1, 0.18, 0.1], scale: [0.92, 1.08, 0.92] }}
-                transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-              />
-            </motion.div>
+    <main className="min-h-screen bg-white px-3 py-5 text-black md:px-8 md:py-8">
+      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl content-center gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div className="relative overflow-hidden border border-black bg-black p-4 text-white md:p-6">
+          <div className="absolute inset-x-0 top-0 grid grid-cols-12 opacity-30">
+            {Array.from({ length: 12 }).map((_, index) => (
+              <span key={index} className="h-14 border-r border-white/20 last:border-r-0" />
+            ))}
           </div>
 
-          <div className="nf-copy">
-            <motion.h1
-              className="nf-title"
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7 }}
-            >
-              This page slipped away.
-            </motion.h1>
-
-            <motion.p
-              className="nf-sub"
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.12, duration: 0.7 }}
-            >
-              The link might be wrong, or the page has been moved. No stress — let’s get you back to shopping.
-            </motion.p>
-
-            {/* ✅ Countdown */}
-            <div className="nf-countdown" role="status" aria-live="polite">
-              {secondsLeft > 0 ? (
-                <span>
-                  Redirecting to Home in <strong>{secondsLeft}</strong>s…
-                </span>
-              ) : (
-                <span>Redirecting…</span>
-              )}
-              <button type="button" className="nf-countdownCancel" onClick={cancelRedirect}>
-                Stay here
-              </button>
-            </div>
-
-            <div className="nf-actions">
-              <Link
-                href="/"
-                className="nf-btn nf-btnPrimary"
-                onClick={() => {
-                  cancelledRef.current = true;
-                }}
-              >
-                <ArrowLeft size={16} />
-                <span>Go Home</span>
-              </Link>
-
-              <Link
-                href="/products"
-                className="nf-btn nf-btnGhost"
-                onClick={() => {
-                  cancelledRef.current = true;
-                }}
-              >
-                <Search size={16} />
-                <span>Browse Products</span>
-              </Link>
-            </div>
-
+          <div className="relative z-10 flex items-center justify-between border-b border-white/15 pb-4">
+            <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/55">
+              OATCLUB ROUTE CHECK
+            </p>
             <button
               type="button"
-              className="nf-reload"
-              onClick={() => {
-                cancelledRef.current = true;
-                window.location.reload();
-              }}
-              aria-label="Reload page"
+              onClick={holdPage}
+              className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55 underline underline-offset-4"
             >
-              <RefreshCcw size={16} />
-              Try reloading
+              STAY HERE
             </button>
+          </div>
 
-            <div className="nf-divider" />
+          <div className="relative z-10 py-8 md:py-12">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="grid grid-cols-3 gap-2 text-[22vw] font-black leading-none tracking-[-0.02em] md:text-[9rem] lg:text-[11rem]"
+            >
+              {["4", "0", "4"].map((digit, index) => (
+                <span
+                  key={`${digit}-${index}`}
+                  className="grid aspect-[3/4] place-items-center border border-white/15 bg-white text-black"
+                >
+                  {digit}
+                </span>
+              ))}
+            </motion.div>
+
+            <motion.div
+              aria-hidden
+              className="mt-4 h-1 bg-white"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: [0, 1, 0.45, 1] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+              style={{ transformOrigin: "left" }}
+            />
+
+            <div className="mt-5 grid grid-cols-3 gap-2 text-[8px] font-black uppercase tracking-[0.2em] text-white/45">
+              <span>LINK MISSING</span>
+              <span className="text-center">EDIT RECOVERABLE</span>
+              <span className="text-right">HOME READY</span>
+            </div>
           </div>
         </div>
-      </section>
 
-      <p className="nf-foot">Tip: Check the URL spelling or use the menu to navigate.</p>
+        <div className="border border-black/10 bg-[#fbfbfb] p-4 md:p-6">
+          <p className="text-[9px] font-black uppercase tracking-[0.32em] text-black/40">
+            PAGE NOT FOUND
+          </p>
+          <h1 className="mt-2 text-2xl font-black uppercase leading-tight md:text-4xl">
+            THIS EDIT SLIPPED OUT OF THE RACK.
+          </h1>
+          <p className="mt-3 max-w-xl text-xs font-bold uppercase leading-6 tracking-[0.08em] text-black/55 md:text-sm">
+            The URL may be old, mistyped, or moved. We can take you back home, into the product
+            edit, or straight to search.
+          </p>
+
+          <div className="mt-5 border-y border-black/10 py-3">
+            <div className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-black/45 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                {secondsLeft > 0 ? `AUTO RETURN HOME IN ${secondsLeft}S` : "AUTO RETURN PAUSED"}
+              </span>
+              <button
+                type="button"
+                onClick={holdPage}
+                className="w-fit text-black underline underline-offset-4"
+              >
+                PAUSE
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <Link
+              href="/"
+              onClick={holdPage}
+              className="flex h-11 items-center justify-center gap-2 bg-black text-[10px] font-black uppercase tracking-[0.18em] text-white"
+            >
+              <Home className="h-4 w-4" />
+              GO HOME
+            </Link>
+            <Link
+              href="/search"
+              onClick={holdPage}
+              className="flex h-11 items-center justify-center gap-2 border border-black text-[10px] font-black uppercase tracking-[0.18em] text-black"
+            >
+              <Search className="h-4 w-4" />
+              SEARCH
+            </Link>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <Link
+              href="/products"
+              onClick={holdPage}
+              className="flex h-10 items-center justify-center gap-2 border border-black/10 bg-white text-[9px] font-black uppercase tracking-[0.16em] text-black"
+            >
+              <ShoppingBag className="h-3.5 w-3.5" />
+              BROWSE PRODUCTS
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                holdPage();
+                window.location.reload();
+              }}
+              className="flex h-10 items-center justify-center gap-2 border border-black/10 bg-white text-[9px] font-black uppercase tracking-[0.16em] text-black"
+            >
+              <RefreshCcw className="h-3.5 w-3.5" />
+              RELOAD
+            </button>
+          </div>
+
+          <div className="mt-5">
+            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-black/35">
+              QUICK ROUTES
+            </p>
+            <div className="mt-2 grid gap-1.5">
+              {QUICK_LINKS.map(([label, href]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={holdPage}
+                  className="flex items-center justify-between border-b border-black/10 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-black/65 transition hover:text-black"
+                >
+                  {label}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              holdPage();
+              router.back();
+            }}
+            className="mt-5 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-black/55 underline underline-offset-4"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            GO BACK
+          </button>
+        </div>
+      </section>
     </main>
   );
 }

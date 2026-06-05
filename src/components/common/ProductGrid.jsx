@@ -35,8 +35,8 @@ export default function ProductGrid({ products = [], title = "", loading = false
   }, [loading, safeProducts.length]);
 
   const gridClass =
-    "grid grid-cols-2 gap-2 px-3 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 md:px-4 lg:grid-cols-5";
-  const skeleton = Array.from({ length: 12 });
+    "grid grid-cols-2 gap-2 px-3 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 md:px-4";
+  const skeleton = Array.from({ length: 8 });
 
   return (
     <section className="w-full bg-white">

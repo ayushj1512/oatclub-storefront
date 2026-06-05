@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSearchStore } from "@/store/searchStore";
 
@@ -42,9 +42,15 @@ export default function HeaderSearchBar({ className = "" }) {
 
   return (
     <div
-      className={`flex h-11 items-center gap-2 border-b border-black/15 bg-transparent px-1 transition duration-200 focus-within:border-black ${className}`}
+      className={`group relative flex h-11 items-center gap-2 border border-black/10 bg-white px-3 shadow-[0_10px_30px_rgba(0,0,0,0.035)] transition duration-200 focus-within:border-black hover:border-black/30 ${className}`}
     >
-      <Search className="h-4 w-4 shrink-0 text-black/40" />
+      <span className="absolute inset-x-3 bottom-0 h-px origin-left scale-x-0 bg-black transition duration-300 group-focus-within:scale-x-100" />
+
+      <Search className="h-3.5 w-3.5 shrink-0 text-black/45 transition group-focus-within:text-black" />
+
+      <span className="hidden shrink-0 text-[8px] font-black uppercase tracking-[0.2em] text-black/30 lg:inline">
+        FIND
+      </span>
 
       <input
         value={query}
@@ -58,8 +64,10 @@ export default function HeaderSearchBar({ className = "" }) {
           min-w-0
           flex-1
           bg-transparent
-          text-[13px]
-          font-medium
+          text-[11px]
+          font-black
+          uppercase
+          tracking-[0.12em]
           text-black
           outline-none
           placeholder:text-black/35
@@ -69,10 +77,11 @@ export default function HeaderSearchBar({ className = "" }) {
       <button
         type="button"
         onClick={handleSearch}
-        className="flex h-8 w-8 items-center justify-center text-black transition duration-200 hover:text-black/50 active:scale-95"
+        className="flex h-8 items-center justify-center gap-1.5 pl-2 text-[9px] font-black uppercase tracking-[0.16em] text-black/45 transition duration-200 hover:text-black active:scale-95"
         aria-label="SEARCH"
       >
-        <Search className="h-3.5 w-3.5" />
+        GO
+        <ArrowRight className="h-3.5 w-3.5" />
       </button>
     </div>
   );

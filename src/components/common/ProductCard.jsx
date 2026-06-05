@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Crown, Heart, TrendingUp } from "lucide-react";
+import { Heart } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useAnalyticsStore } from "@/store/analyticsStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
@@ -87,7 +87,7 @@ const comparePrice = (product) => {
 function ProductCardSkeleton() {
   return (
     <div className="select-none">
-      <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100">
+      <div className="relative aspect-[4/5] overflow-hidden bg-white">
         <div className="absolute inset-0 shimmer" />
       </div>
         <div className="space-y-2 pt-3">
@@ -136,7 +136,18 @@ export default function ProductCard({
       product.slug || productName
     )}/${encodeURIComponent(productCode)}`;
 
-    return { id, productName, productCode, image, hover: hoverImage(product), price, compareAt, link };
+    const hover = hoverImage(product);
+
+    return {
+      id,
+      productName,
+      productCode,
+      image,
+      hover: hover && hover !== image ? hover : "",
+      price,
+      compareAt,
+      link,
+    };
   }, [product]);
 
   if (loading || !model) return <ProductCardSkeleton />;
@@ -162,11 +173,11 @@ export default function ProductCard({
       onClick={() => trackProductView?.(model.id)}
       className="group block h-full bg-white"
     >
-      <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100">
+      <div className="relative isolate aspect-[4/5] overflow-hidden bg-white">
         {(isBestSeller || isTrending) && (
-          <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
-            {isBestSeller && <Badge icon={Crown} label="Bestseller" />}
-            {isTrending && <Badge icon={TrendingUp} label="Trending" />}
+          <div className="absolute left-2 top-2 z-20">
+            {isBestSeller && <Badge label="Bestseller" />}
+            {isTrending && <Badge label="Trending" />}
           </div>
         )}
 
@@ -176,18 +187,20 @@ export default function ProductCard({
           fill
           loading="lazy"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
-          className="object-contain p-1 transition duration-300 group-hover:scale-[1.02]"
+          className="z-0 object-contain p-1 transition duration-300 md:group-hover:scale-[1.01]"
         />
 
         {model.hover && (
-          <Image
-            src={model.hover}
-            alt={`${model.productName} alternate view`}
-            fill
-            loading="lazy"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
-            className="hidden object-contain p-1 opacity-0 transition duration-300 group-hover:opacity-100 md:block"
-          />
+          <div className="pointer-events-none absolute inset-0 z-10 hidden bg-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 md:block">
+            <Image
+              src={model.hover}
+              alt={`${model.productName} alternate view`}
+              fill
+              loading="lazy"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
+              className="object-contain p-1"
+            />
+          </div>
         )}
 
         {!hideWishlistIcon && (
@@ -196,49 +209,42 @@ export default function ProductCard({
             onClick={toggleWishlist}
             aria-label={wishlisted ? "REMOVE FROM WISHLIST" : "ADD TO WISHLIST"}
             title={wishlisted ? "WISHLISTED" : "ADD TO WISHLIST"}
-            className="group/wishlist absolute right-2 top-2 z-20 flex h-9 items-center justify-center gap-1.5 px-1 text-black transition duration-200 active:scale-95 md:right-3 md:top-3"
+            className="group/wishlist absolute right-2 top-2 z-20 grid h-8 w-8 place-items-center text-black transition duration-200 active:scale-95 md:right-3 md:top-3"
           >
             <Heart
               strokeWidth={2.15}
-              className={`h-[19px] w-[19px] drop-shadow-[0_1px_8px_rgba(255,255,255,0.85)] transition duration-200 md:h-5 md:w-5 ${
+              className={`h-[18px] w-[18px] drop-shadow-[0_1px_8px_rgba(255,255,255,0.9)] transition duration-200 ${
                 wishlisted
                   ? "fill-black text-black"
                   : "fill-white/70 text-black/75 group-hover/wishlist:fill-black group-hover/wishlist:text-black"
               }`}
             />
-            <span
-              className={`hidden text-[9px] font-black uppercase tracking-[0.16em] transition md:inline ${
-                wishlisted ? "text-black" : "text-black/0 group-hover/wishlist:text-black"
-              }`}
-            >
-              {wishlisted ? "SAVED" : "SAVE"}
-            </span>
           </button>
         )}
       </div>
 
-      <div className="border-b border-neutral-200 pb-3 pt-3">
-        <div className="flex items-start justify-between gap-3">
+      <div className="border-b border-neutral-200 pb-2.5 pt-2.5">
+        <div>
           <h3
             title={model.productName}
-            className="line-clamp-2 min-h-[34px] text-[11px] font-black uppercase leading-[17px] tracking-[0.08em] text-black md:min-h-[36px] md:text-[12px] md:leading-[18px]"
+            className="line-clamp-2 min-h-[30px] text-[10.5px] font-black uppercase leading-[15px] tracking-[0.06em] text-black md:min-h-[32px] md:text-[11px] md:leading-4"
           >
             {model.productName}
           </h3>
-          {discount > 0 && (
-            <span className="shrink-0 bg-black px-1.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-white">
-              {discount}% OFF
-            </span>
-          )}
         </div>
 
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="text-[12px] font-black uppercase tracking-[0.08em] text-black md:text-[13px]">
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+          <span className="text-[11.5px] font-black uppercase tracking-[0.06em] text-black md:text-xs">
             RS. {money(model.price)}
           </span>
           {showCompare && (
-            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-black/35 line-through md:text-[11px]">
+            <span className="text-[9.5px] font-bold uppercase tracking-[0.06em] text-black/35 line-through md:text-[10px]">
               RS. {money(model.compareAt)}
+            </span>
+          )}
+          {discount > 0 && (
+            <span className="text-[9px] font-black uppercase tracking-[0.08em] text-black/45">
+              {discount}% OFF
             </span>
           )}
         </div>
@@ -247,10 +253,9 @@ export default function ProductCard({
   );
 }
 
-function Badge({ icon: Icon, label }) {
+function Badge({ label }) {
   return (
-    <span className="inline-flex items-center gap-1 bg-black/75 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white backdrop-blur">
-      <Icon className="h-3 w-3" />
+    <span className="inline-flex bg-white/85 px-2 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-black backdrop-blur">
       {label.toUpperCase()}
     </span>
   );

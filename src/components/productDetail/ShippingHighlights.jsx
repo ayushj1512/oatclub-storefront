@@ -10,19 +10,21 @@ const ITEMS = [
 
 export default function ShippingHighlights() {
   return (
-    <section className="bg-neutral-50 p-4">
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-black/50">
-        Shipping & Returns
+    <section className="border-y border-neutral-200 py-4">
+      <p className="mb-3 text-[9px] font-black uppercase tracking-[0.22em] text-black/38">
+        SHIPPING & RETURNS
       </p>
-      <div className="grid gap-3">
+      <div className="grid gap-0 divide-y divide-neutral-200">
         {ITEMS.map(([Icon, title, desc]) => (
-          <div key={title} className="flex items-start gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center bg-white text-black">
-              <Icon className="h-4 w-4" />
-            </span>
+          <div key={title} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-black" />
             <div>
-              <p className="text-sm font-bold text-black">{title}</p>
-              <p className="mt-0.5 text-xs leading-5 text-black/55">{desc}</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.12em] text-black">
+                {title}
+              </p>
+              <p className="mt-1 text-[10px] font-bold uppercase leading-4 tracking-[0.06em] text-black/48">
+                {desc}
+              </p>
             </div>
           </div>
         ))}

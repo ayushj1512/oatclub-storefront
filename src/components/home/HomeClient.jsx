@@ -27,22 +27,32 @@ import StyleByOccasion from "@/components/home/StyleByOccasion";
 import NewArrivalsFeatureRow from "@/components/home/NewArrivalsFeatureRow";
 import ReturnExchangeHelp from "@/components/home/ReturnExchangeHelp";
 import ShopByCategoryRow from "@/components/home/ShopByCategoryRow";
+import StyleOfTheWeek from "@/components/home/StyleOfTheWeek";
 
 function HomeBrandStrip() {
-  const items = ["NEW DROPS WEEKLY", "CONTAINED PRODUCT IMAGERY", "CLEAN OATCLUB EDITS"];
+  const items = [
+    { title: "NEW DROPS WEEKLY", text: "Fresh edits without the scroll fatigue." },
+    { title: "CONTAINED IMAGERY", text: "Product visuals stay clean and inspectable." },
+    { title: "CURATED OATCLUB FLOW", text: "Sharper pieces, simpler discovery." },
+  ];
 
   return (
-    <section className="grid border-y border-neutral-200 bg-[#fafafa] text-black md:grid-cols-3">
-      {items.map((item) => (
+    <section className="bg-[#fafafa] px-3 py-3 text-black md:px-8">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto md:grid md:grid-cols-3 md:gap-0 md:overflow-visible md:border-y md:border-neutral-200">
+        {items.map((item) => (
         <div
-          key={item}
-          className="border-b border-neutral-200 px-3 py-4 text-center md:border-b-0 md:border-r md:px-8"
+          key={item.title}
+          className="min-w-[76vw] border border-neutral-200 bg-white px-4 py-3 md:min-w-0 md:border-y-0 md:border-l-0 md:border-r md:bg-transparent md:px-6 md:py-4"
         >
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black/55">
-            {item}
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black">
+            {item.title}
+          </p>
+          <p className="mt-1 text-[10px] font-bold uppercase leading-4 tracking-[0.08em] text-black/45">
+            {item.text}
           </p>
         </div>
-      ))}
+        ))}
+      </div>
     </section>
   );
 }
@@ -80,6 +90,7 @@ export default function HomeClient() {
         <ShopByCategoryRow />
 
         <BestSellerSection />
+        <StyleOfTheWeek />
         <NewArrivalsFeatureRow title="NEW ARRIVALS" limit={12} />
         <StyleByOccasion />
 

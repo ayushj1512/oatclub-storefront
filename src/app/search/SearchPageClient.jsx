@@ -120,33 +120,33 @@ export default function SearchPageClient() {
               : "PRESS SEARCH TO FIND PRODUCTS";
 
   return (
-    <main className="min-h-screen bg-[#fafafa] px-3 py-8 text-black md:px-8 md:py-10">
+    <main className="min-h-screen bg-white px-2.5 py-4 text-black md:px-6 md:py-7">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6 border-b border-neutral-200 pb-6">
-          <p className="text-[10px] font-black uppercase tracking-[0.34em] text-black/45">
+        <header className="mb-3 border-b border-neutral-200 pb-3 md:mb-4 md:pb-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.28em] text-black/45">
             OATCLUB SEARCH
           </p>
-          <h1 className="mt-2 text-2xl font-black uppercase leading-tight md:text-4xl">
+          <h1 className="mt-1.5 text-xl font-black uppercase leading-tight md:text-3xl">
             FIND YOUR NEXT EDIT
           </h1>
         </header>
 
-        <form onSubmit={handleSubmit} className="bg-white p-3 md:p-4">
-          <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-            <label className="flex h-12 items-center gap-3 border border-black/10 bg-neutral-50 px-4">
-              <Search className="h-4 w-4 text-black/45" />
+        <form onSubmit={handleSubmit} className="border-b border-neutral-200 pb-3 md:pb-4">
+          <div className="grid gap-2 md:grid-cols-[1fr_150px]">
+            <label className="flex h-10 items-center gap-2.5 border border-black/10 bg-white px-3 md:h-11">
+              <Search className="h-3.5 w-3.5 text-black/45" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="SEARCH PRODUCT CODE, TITLE, CATEGORY"
-                className="w-full bg-transparent text-xs font-bold uppercase tracking-[0.12em] text-black outline-none placeholder:text-black/35"
+                className="w-full bg-transparent text-[10px] font-bold uppercase tracking-[0.12em] text-black outline-none placeholder:text-black/35 md:text-xs"
               />
             </label>
 
             <button
               type="submit"
               disabled={!canSearch || loading}
-              className="flex h-12 items-center justify-center gap-2 bg-black text-[10px] font-black uppercase tracking-[0.22em] text-white transition hover:bg-neutral-800 disabled:bg-neutral-300"
+              className="flex h-10 items-center justify-center gap-2 bg-black text-[9px] font-black uppercase tracking-[0.2em] text-white transition hover:bg-neutral-800 disabled:bg-neutral-300 md:h-11 md:text-[10px]"
             >
               SEARCH
               <ArrowRight className="h-3.5 w-3.5" />
@@ -154,7 +154,7 @@ export default function SearchPageClient() {
           </div>
         </form>
 
-        <p className="my-5 text-center text-[10px] font-black uppercase tracking-[0.22em] text-black/45">
+        <p className="my-3 text-center text-[9px] font-black uppercase tracking-[0.2em] text-black/45 md:my-4 md:text-[10px]">
           {helperText}
         </p>
 
@@ -163,13 +163,13 @@ export default function SearchPageClient() {
         ) : canSearch ? (
           <>
             <ProductGrid products={gridProducts} loading={false} />
-            <div ref={loaderRef} className="flex h-20 items-center justify-center">
+            <div ref={loaderRef} className="flex min-h-14 items-center justify-center py-3">
               {loading && gridProducts.length > 0 ? <UniversalLuxuryLoader /> : null}
               {!loading && hasMore ? (
                 <button
                   type="button"
                   onClick={loadMore}
-                  className="border border-black px-5 py-2 text-[10px] font-black uppercase tracking-[0.22em] transition hover:bg-black hover:text-white"
+                  className="border border-black px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] transition hover:bg-black hover:text-white"
                 >
                   LOAD MORE
                 </button>

@@ -39,17 +39,17 @@ export default function WashcareSection({
   items = [],
 }) {
   return (
-    <section className="border-t border-black/10 py-4">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-black">
+    <section className="border-t border-neutral-200 py-4">
+      <h3 className="mb-3 text-[12px] font-black uppercase tracking-[0.12em] text-black">
         {title}
       </h3>
 
       {items.length ? (
-        <ul className="space-y-2.5">
+        <ul className="grid gap-2">
           {items.map((text, index) => (
             <li
               key={`${text}-${index}`}
-              className="flex items-center gap-3 text-sm text-black/75"
+              className="flex items-center gap-3 text-[10px] font-bold uppercase leading-5 tracking-[0.08em] text-black/58"
             >
               {getIcon(text)}
               <span>{text}</span>

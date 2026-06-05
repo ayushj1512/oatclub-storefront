@@ -1,83 +1,44 @@
 "use client";
 
-import { Sparkles, BadgeCheck, TrendingUp } from "lucide-react";
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { BadgeCheck, Sparkles, TrendingUp } from "lucide-react";
 
-function Shimmer({ className = "" }) {
-  return (
-    <div className={`relative overflow-hidden bg-black/10 ${className}`}>
-      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/70 to-transparent animate-shimmer" />
-    </div>
-  );
-}
+const TRUST_ITEMS = [
+  {
+    title: "CURATED EDITS",
+    desc: "STYLES PICKED TO FEEL CURRENT, CLEAN AND EASY TO WEAR.",
+    Icon: Sparkles,
+  },
+  {
+    title: "QUALITY CHECKED",
+    desc: "PRODUCTS REVIEWED FOR FINISH, FABRIC FEEL AND EVERYDAY COMFORT.",
+    Icon: BadgeCheck,
+  },
+  {
+    title: "TREND AWARE",
+    desc: "FRESH SILHOUETTES WITHOUT MAKING YOUR WARDROBE FEEL LOUD.",
+    Icon: TrendingUp,
+  },
+];
 
 export default function InfoStrip() {
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 250);
-    return () => clearTimeout(t);
-  }, []);
-
-  const infos = [
-    {
-      title: "Specially Curated For You",
-      desc: "Thoughtfully picked styles for your everyday statement.",
-      Icon: Sparkles,
-    },
-    {
-      title: "Quality Product",
-      desc: "Clean finishing, soft fabrics and reliable craftsmanship.",
-      Icon: BadgeCheck,
-    },
-    {
-      title: "Stay In Trend",
-      desc: "Fresh silhouettes inspired by what’s moving now.",
-      Icon: TrendingUp,
-    },
-  ];
-
   return (
-    <section className="w-full bg-white px-3 py-6 md:px-16 md:py-8">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:gap-5">
-        {loading
-          ? Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 rounded-2xl bg-gray-50 p-4"
-              >
-                <Shimmer className="size-10 shrink-0 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Shimmer className="h-3 w-2/3 rounded" />
-                  <Shimmer className="h-3 w-full rounded" />
-                </div>
+    <section className="w-full bg-white px-3 py-8 text-black md:px-8 md:py-10">
+      <div className="border-y border-neutral-200">
+        <div className="grid divide-y divide-neutral-200 md:grid-cols-3 md:divide-x md:divide-y-0">
+          {TRUST_ITEMS.map(({ title, desc, Icon }) => (
+            <div key={title} className="flex gap-3 px-2 py-5 md:px-6">
+              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-black" />
+              <div>
+                <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-black">
+                  {title}
+                </h3>
+                <p className="mt-2 max-w-sm text-[10px] font-bold uppercase leading-5 tracking-[0.08em] text-black/50">
+                  {desc}
+                </p>
               </div>
-            ))
-          : infos.map(({ title, desc, Icon }, i) => (
-              <motion.div
-                key={title}
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.25, delay: i * 0.06 }}
-                className="group flex items-start gap-3 rounded-2xl bg-gray-50 p-4 transition hover:bg-black hover:text-white"
-              >
-                <div className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-black shadow-sm">
-                  <Icon className="h-5 w-5" />
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-semibold leading-snug text-current md:text-base">
-                    {title}
-                  </h3>
-
-                  <p className="mt-1 text-xs leading-snug text-black/55 transition group-hover:text-white/65 md:text-sm">
-                    {desc}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

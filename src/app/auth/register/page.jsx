@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, User, UserPlus } from "lucide-react";
+import { Lock, Mail, ShieldCheck, User, UserPlus } from "lucide-react";
 import GoogleSignInButton from "@/components/auth/GoogleSignIn";
 import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 import { useAuthStore } from "@/store/authStore";
@@ -45,11 +45,11 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#fafafa] px-3 py-6 text-black md:py-10">
-      <section className="mx-auto w-full max-w-md bg-white px-4 py-6 md:px-6 md:py-7">
-        <div className="mb-6 text-center">
-          <Link href="/" aria-label="GO TO OATCLUB HOME" className="mx-auto mb-5 block w-fit">
-            <div className="relative h-12 w-36 md:h-14 md:w-40">
+    <main className="min-h-screen bg-white px-3 py-5 text-black md:bg-[#fafafa] md:py-8">
+      <section className="mx-auto w-full max-w-[410px] border border-black/10 bg-white px-4 py-5 shadow-[0_18px_55px_rgba(0,0,0,0.04)] md:px-6 md:py-6">
+        <div className="mb-5 text-center">
+          <Link href="/" aria-label="GO TO OATCLUB HOME" className="mx-auto mb-4 block w-fit">
+            <div className="relative h-10 w-32 md:h-12 md:w-36">
               <Image
                 src={AUTH_IMAGE}
                 alt="OATCLUB"
@@ -60,15 +60,19 @@ export default function RegisterPage() {
               />
             </div>
           </Link>
-          <div className="mx-auto mb-5 h-px w-16 bg-black/15" />
-          <p className="text-[9px] font-black uppercase tracking-[0.32em] text-black/45">
-            JOIN OATCLUB
+          <div className="mx-auto mb-4 flex w-24 items-center gap-2">
+            <span className="h-px flex-1 bg-black/15" />
+            <span className="h-1 w-1 rounded-full bg-black/35" />
+            <span className="h-px flex-1 bg-black/15" />
+          </div>
+          <p className="text-[8.5px] font-black uppercase tracking-[0.32em] text-black/45">
+            JOIN THE EDIT
           </p>
-          <h1 className="mt-2 text-xl font-black uppercase leading-tight md:text-2xl">
+          <h1 className="mt-1.5 text-[22px] font-black uppercase leading-tight md:text-2xl">
             CREATE ACCOUNT
           </h1>
-          <p className="mx-auto mt-2 max-w-xs text-[10px] font-bold uppercase leading-5 tracking-[0.08em] text-black/50">
-            START YOUR STYLE EDIT WITH FASTER CHECKOUT, ORDERS AND CREDITS.
+          <p className="mx-auto mt-2 max-w-[290px] text-[9.5px] font-bold uppercase leading-5 tracking-[0.08em] text-black/50">
+            BUILD YOUR OATCLUB PROFILE FOR SAVED DETAILS, CREDITS AND ORDERS.
           </p>
         </div>
 
@@ -77,7 +81,7 @@ export default function RegisterPage() {
             <UniversalLuxuryLoader />
           ) : (
             <>
-              <form onSubmit={handleRegister} className="space-y-3">
+              <form onSubmit={handleRegister} className="space-y-2.5">
                 <Field
                   icon={<User className="h-4 w-4" />}
                   placeholder="FULL NAME"
@@ -106,26 +110,31 @@ export default function RegisterPage() {
                   onChange={(value) => setForm({ ...form, confirmPassword: value })}
                 />
 
-                {error ? <p className="text-xs font-bold uppercase text-red-600">{error}</p> : null}
+                {error ? <p className="text-[10px] font-bold uppercase leading-4 text-red-600">{error}</p> : null}
 
                 <button
                   type="submit"
-                  className="flex h-12 w-full items-center justify-center gap-2 bg-black text-xs font-black uppercase tracking-[0.24em] text-white"
+                  className="flex h-11 w-full items-center justify-center gap-2 bg-black text-[10px] font-black uppercase tracking-[0.22em] text-white transition hover:bg-neutral-800"
                 >
                   <UserPlus className="h-4 w-4" />
                   CREATE ACCOUNT
                 </button>
               </form>
 
-              <div className="my-5 flex items-center gap-3">
+              <div className="my-4 flex items-center gap-3">
                 <span className="h-px flex-1 bg-neutral-200" />
-                <span className="text-[10px] font-black uppercase tracking-[0.24em] text-black/35">OR</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.24em] text-black/35">OR</span>
                 <span className="h-px flex-1 bg-neutral-200" />
               </div>
 
               <GoogleSignInButton />
 
-              <p className="mt-6 text-center text-[11px] font-bold uppercase tracking-[0.1em] text-black/50">
+              <div className="mt-4 flex items-center justify-center gap-2 border-y border-black/10 py-2 text-[8.5px] font-black uppercase tracking-[0.14em] text-black/45">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                SECURE MEMBER CHECKOUT
+              </div>
+
+              <p className="mt-4 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-black/50">
                 ALREADY A MEMBER?{" "}
                 <Link href="/auth/login" className="font-black text-black underline underline-offset-4">
                   SIGN IN
@@ -141,7 +150,7 @@ export default function RegisterPage() {
 
 function Field({ icon, placeholder, value, onChange, type = "text" }) {
   return (
-    <label className="flex h-12 items-center gap-3 border border-black/10 bg-neutral-50 px-4">
+    <label className="flex h-11 items-center gap-3 border border-black/10 bg-white px-3.5 transition focus-within:border-black">
       <span className="text-black/45">{icon}</span>
       <input
         type={type}
@@ -149,7 +158,7 @@ function Field({ icon, placeholder, value, onChange, type = "text" }) {
         placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full bg-transparent text-xs font-bold uppercase tracking-[0.12em] text-black outline-none placeholder:text-black/35"
+        className="w-full bg-transparent text-[11px] font-bold uppercase tracking-[0.12em] text-black outline-none placeholder:text-black/35"
       />
     </label>
   );

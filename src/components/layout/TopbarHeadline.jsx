@@ -6,10 +6,10 @@ import { useEffect, useMemo, useState } from "react";
 export default function TopbarHeadline({ interval = 3200 }) {
   const items = useMemo(
     () => [
-      "NEW DROPS JUST LANDED",
-      "FIRST ORDER GETS 10% OFF WITH FIRST10",
-      "RS. 500 OFF ABOVE RS. 2499",
-      "CURATED OATCLUB EDITS FOR EVERYDAY STYLE",
+      "CURATED DROPS. LIMITED RUNS. EVERYDAY LUXE.",
+      "FIRST ORDER PRIVILEGE: 10% OFF WITH FIRST10",
+      "PRIVATE EDIT: RS. 500 OFF ABOVE RS. 2499",
+      "QUALITY CHECKED PIECES, PACKED WITH CARE",
     ],
     []
   );
@@ -32,14 +32,14 @@ export default function TopbarHeadline({ interval = 3200 }) {
 
       <div className="relative flex h-8 items-center justify-center gap-3 px-3 md:h-9">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="h-px w-5 bg-white/25" />
+          <span className="h-px w-4 bg-white/30 md:w-6" />
           <span
             key={active}
-            className="topbar-copy max-w-[78vw] truncate text-center text-[10px] font-black uppercase tracking-[0.2em] md:max-w-none md:text-[11px]"
+            className="topbar-copy max-w-[76vw] truncate text-center text-[9px] font-black uppercase tracking-[0.18em] md:max-w-none md:text-[10px] md:tracking-[0.24em]"
           >
             {items[active]}
           </span>
-          <ArrowRight className="h-3 w-3 shrink-0 text-white/55" />
+          <ArrowRight className="h-3 w-3 shrink-0 text-white/60" />
         </div>
       </div>
 

@@ -176,7 +176,6 @@ export default function MobileHeader() {
             className="group flex shrink-0 items-center gap-1.5 text-black transition hover:text-black/55"
           >
             <Menu size={24} className="transition group-hover:rotate-90" />
-            <span className="text-[9px] font-black uppercase tracking-[0.16em]">MENU</span>
           </button>
 
           <Link

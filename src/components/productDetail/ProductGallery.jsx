@@ -9,6 +9,7 @@ export default function ProductGallery({ images = [] }) {
   const [active, setActive] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const mobileRowRef = useRef(null);
+  const touchStartRef = useRef({ x: 0, y: 0 });
 
   const activeIndex = Math.min(active, safeImages.length - 1);
   const current = safeImages[activeIndex] || safeImages[0];
@@ -33,6 +34,8 @@ export default function ProductGallery({ images = [] }) {
     setLightboxOpen(true);
   };
 
+  const closeLightbox = () => setLightboxOpen(false);
+
   const handleMobileScroll = () => {
     const row = mobileRowRef.current;
     if (!row?.clientWidth) return;
@@ -40,11 +43,28 @@ export default function ProductGallery({ images = [] }) {
     if (next !== activeIndex) setActive(Math.max(0, Math.min(next, safeImages.length - 1)));
   };
 
+  const handleLightboxTouchStart = (event) => {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleLightboxTouchEnd = (event) => {
+    const touch = event.changedTouches?.[0];
+    if (!touch || safeImages.length < 2) return;
+
+    const diffX = touch.clientX - touchStartRef.current.x;
+    const diffY = touch.clientY - touchStartRef.current.y;
+    if (Math.abs(diffX) < 42 || Math.abs(diffX) < Math.abs(diffY)) return;
+
+    move(diffX < 0 ? "next" : "prev");
+  };
+
   useEffect(() => {
     if (!lightboxOpen) return;
 
     const onKeyDown = (event) => {
-      if (event.key === "Escape") setLightboxOpen(false);
+      if (event.key === "Escape") closeLightbox();
       if (event.key === "ArrowRight") move("next");
       if (event.key === "ArrowLeft") move("prev");
     };
@@ -159,17 +179,24 @@ export default function ProductGallery({ images = [] }) {
       </div>
 
       {lightboxOpen && (
-        <div className="fixed inset-0 z-[90] bg-white text-black">
-          <div className="absolute left-3 top-3 z-10 text-[10px] font-black uppercase tracking-[0.22em] text-black/50 md:left-6 md:top-6">
+        <div
+          className="fixed inset-0 z-[90] bg-white text-black"
+          role="dialog"
+          aria-modal="true"
+          aria-label="PRODUCT IMAGE VIEWER"
+          onTouchStart={handleLightboxTouchStart}
+          onTouchEnd={handleLightboxTouchEnd}
+        >
+          <div className="absolute left-3 top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-10 text-[10px] font-black uppercase tracking-[0.22em] text-black/50 md:left-6 md:top-6">
             {String(activeIndex + 1).padStart(2, "0")} / {String(safeImages.length).padStart(2, "0")}
           </div>
           <button
             type="button"
-            onClick={() => setLightboxOpen(false)}
-            className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:right-6 md:top-6"
+            onClick={closeLightbox}
+            className="absolute right-3 top-[calc(env(safe-area-inset-top,0px)+0.55rem)] z-20 grid h-11 w-11 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:right-6 md:top-6 md:h-10 md:w-10"
             aria-label="CLOSE IMAGE VIEWER"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5 md:h-4 md:w-4" />
           </button>
 
           {safeImages.length > 1 && (
@@ -177,7 +204,7 @@ export default function ProductGallery({ images = [] }) {
               <button
                 type="button"
                 onClick={() => move("prev")}
-                className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:left-6"
+                className="absolute left-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:grid md:left-6"
                 aria-label="PREVIOUS IMAGE"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -185,7 +212,7 @@ export default function ProductGallery({ images = [] }) {
               <button
                 type="button"
                 onClick={() => move("next")}
-                className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:right-6"
+                className="absolute right-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:grid md:right-6"
                 aria-label="NEXT IMAGE"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -193,7 +220,7 @@ export default function ProductGallery({ images = [] }) {
             </>
           )}
 
-          <div className="flex h-full w-full items-center justify-center px-4 py-16 md:px-20">
+          <div className="flex h-full w-full items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] pt-[calc(env(safe-area-inset-top,0px)+4rem)] md:px-20 md:py-16">
             <div className="relative h-full w-full">
               <Image
                 src={current}
@@ -204,6 +231,40 @@ export default function ProductGallery({ images = [] }) {
                 className="object-contain"
               />
             </div>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-3 md:hidden">
+            <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
+              <button
+                type="button"
+                onClick={() => move("prev")}
+                disabled={safeImages.length < 2}
+                className="grid h-11 place-items-center border border-black/15 text-black disabled:opacity-25"
+                aria-label="PREVIOUS IMAGE"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={closeLightbox}
+                className="flex h-11 items-center justify-center gap-2 bg-black text-[10px] font-black uppercase tracking-[0.22em] text-white"
+              >
+                <X className="h-4 w-4" />
+                CLOSE
+              </button>
+              <button
+                type="button"
+                onClick={() => move("next")}
+                disabled={safeImages.length < 2}
+                className="grid h-11 place-items-center border border-black/15 text-black disabled:opacity-25"
+                aria-label="NEXT IMAGE"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-2 text-center text-[8px] font-black uppercase tracking-[0.18em] text-black/35">
+              SWIPE TO BROWSE
+            </p>
           </div>
         </div>
       )}
