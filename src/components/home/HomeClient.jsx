@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Script from "next/script";
 import { generateSEO } from "@/utils/seoConfig";
 
@@ -19,7 +20,6 @@ import RecommendationFeatureRow from "@/components/home/RecommendationFeatureRow
 import VideoRow from "@/components/home/VideoRow";
 import BlogSection from "@/components/home/BlogSection";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
-import InfoStrip from "@/components/home/InfoStrip";
 import Newsletter from "@/components/home/Newsletter";
 import LeopardFeatureCollection from "@/components/home/LeopardFeatureCollection";
 import PolkadotFeatureCollection from "@/components/home/PolkadotFeatureCollection";
@@ -29,36 +29,16 @@ import ReturnExchangeHelp from "@/components/home/ReturnExchangeHelp";
 import ShopByCategoryRow from "@/components/home/ShopByCategoryRow";
 import StyleOfTheWeek from "@/components/home/StyleOfTheWeek";
 import CategoryMosaic from "@/components/home/CategoryMosaic";
-
-function HomeBrandStrip() {
-  const items = [
-    { title: "NEW DROPS WEEKLY", text: "Fresh edits without the scroll fatigue." },
-    { title: "CONTAINED IMAGERY", text: "Product visuals stay clean and inspectable." },
-    { title: "CURATED OATCLUB FLOW", text: "Sharper pieces, simpler discovery." },
-  ];
-
-  return (
-    <section className="bg-[#fafafa] px-3 py-3 text-black md:px-8">
-      <div className="no-scrollbar flex gap-2 overflow-x-auto md:grid md:grid-cols-3 md:gap-0 md:overflow-visible md:border-y md:border-neutral-200">
-        {items.map((item) => (
-        <div
-          key={item.title}
-          className="min-w-[76vw] border border-neutral-200 bg-white px-4 py-3 md:min-w-0 md:border-y-0 md:border-l-0 md:border-r md:bg-transparent md:px-6 md:py-4"
-        >
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black">
-            {item.title}
-          </p>
-          <p className="mt-1 text-[10px] font-bold uppercase leading-4 tracking-[0.08em] text-black/45">
-            {item.text}
-          </p>
-        </div>
-        ))}
-      </div>
-    </section>
-  );
-}
+import OatclubOverlayLoader from "@/components/common/OatclubOverlayLoader";
 
 export default function HomeClient() {
+  const [showHomeLoader, setShowHomeLoader] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowHomeLoader(false), 1400);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const { structuredData } = generateSEO({
     type: "website",
     title: "OATCLUB",
@@ -79,6 +59,7 @@ export default function HomeClient() {
       )}
 
       {/* <InstagramDownModal /> */}
+      <OatclubOverlayLoader show={showHomeLoader} />
 
       <main className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white text-gray-900">
         {/* ABOVE THE FOLD */}
@@ -87,7 +68,6 @@ export default function HomeClient() {
         </div> */}
 
         <HeroSection />
-        <HomeBrandStrip />
         <CategoryMosaic />
         <ShopByCategoryRow />
 
@@ -110,7 +90,6 @@ export default function HomeClient() {
 
         <BlogSection />
         <RecentlyViewed />
-        <InfoStrip />
         <ReturnExchangeHelp />
         {/* <Newsletter /> */}
       </main>

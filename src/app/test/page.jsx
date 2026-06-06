@@ -1,243 +1,100 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Play, Sparkles } from "lucide-react";
+import OatclubOverlayLoader from "@/components/common/OatclubOverlayLoader";
+
 export default function TestPage() {
-  const options = [
-    {
-      title: "Option 1",
-      content: (
-        <div className="text-center">
-          <h2 className="text-4xl md:text-6xl font-semibold">
-            Shop By Collection
-          </h2>
-        </div>
-      ),
-    },
+  const [showLoader, setShowLoader] = useState(true);
 
-    {
-      title: "Option 2",
-      content: (
-        <div className="flex items-center gap-4">
-          <div className="flex-1 h-px bg-black/10" />
-          <h2 className="uppercase tracking-[0.35em] text-sm md:text-lg font-medium">
-            Shop By Collection
-          </h2>
-          <div className="flex-1 h-px bg-black/10" />
-        </div>
-      ),
-    },
+  const replayLoader = () => {
+    setShowLoader(true);
+    window.setTimeout(() => setShowLoader(false), 2600);
+  };
 
-    {
-      title: "Option 3",
-      content: (
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-[0.4em] text-black/40">
-            Discover
-          </p>
-          <h2 className="mt-2 text-4xl md:text-6xl font-semibold">
-            Collections
-          </h2>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 4",
-      content: (
-        <div className="text-center">
-          <h2 className="text-5xl md:text-7xl font-bold tracking-tight">
-            COLLECTIONS
-          </h2>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 5",
-      content: (
-        <div className="text-center">
-          <h2 className="text-3xl md:text-5xl font-semibold">
-            Shop By Collection
-          </h2>
-          <div className="w-14 h-px bg-black mx-auto mt-4" />
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 6",
-      content: (
-        <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-black/40 mb-2">
-            OATCLUB
-          </p>
-          <h2 className="text-3xl md:text-5xl font-semibold">
-            Shop By Collection
-          </h2>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 7",
-      content: (
-        <div className="text-center">
-          <span className="border border-black/10 rounded-full px-4 py-1 text-xs uppercase tracking-[0.3em]">
-            Collections
-          </span>
-          <h2 className="mt-4 text-3xl md:text-5xl font-semibold">
-            Style By Collection
-          </h2>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 8",
-      content: (
-        <div className="text-center">
-          <div className="inline-flex items-center gap-3">
-            <div className="w-8 h-px bg-black/20" />
-            <span className="text-xs uppercase tracking-[0.4em] text-black/40">
-              Collections
-            </span>
-            <div className="w-8 h-px bg-black/20" />
-          </div>
-
-          <h2 className="mt-4 text-4xl md:text-6xl font-semibold tracking-tight">
-            Shop By Collection
-          </h2>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 9",
-      content: (
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-[0.5em] text-black/40">
-            OATCLUB
-          </p>
-
-          <h2 className="mt-3 text-5xl md:text-7xl font-semibold tracking-tight">
-            Collections
-          </h2>
-
-          <p className="mt-3 text-sm text-black/50">
-            Designed for every version of you
-          </p>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 10",
-      content: (
-        <div className="text-center">
-          <h2 className="text-6xl md:text-8xl font-bold tracking-[-0.05em]">
-            OAT
-          </h2>
-
-          <p className="mt-2 uppercase tracking-[0.45em] text-sm text-black/50">
-            Shop By Collection
-          </p>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 11",
-      content: (
-        <div className="text-center">
-          <span className="text-xs uppercase tracking-[0.4em] text-black/40">
-            Explore
-          </span>
-
-          <h2 className="mt-3 text-4xl md:text-6xl font-semibold">
-            Find Your Style
-          </h2>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 12",
-      content: (
-        <div className="flex items-center gap-5">
-          <div className="flex-1 h-px bg-black/10" />
-
-          <div className="text-center">
-            <p className="text-[10px] uppercase tracking-[0.35em] text-black/40">
-              OATCLUB
-            </p>
-
-            <h2 className="text-xl md:text-3xl font-semibold">
-              Shop By Collection
-            </h2>
-          </div>
-
-          <div className="flex-1 h-px bg-black/10" />
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 13",
-      content: (
-        <div className="flex justify-between items-end">
-          <h2 className="text-4xl md:text-6xl font-semibold">
-            Collections
-          </h2>
-
-          <span className="uppercase text-xs tracking-[0.3em] text-black/40">
-            OATCLUB
-          </span>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 14",
-      content: (
-        <div className="text-center">
-          <h2 className="text-3xl md:text-5xl font-light">
-            Shop By
-            <span className="font-semibold"> Collection</span>
-          </h2>
-        </div>
-      ),
-    },
-
-    {
-      title: "Option 15",
-      content: (
-        <div className="text-center">
-          <span className="uppercase tracking-[0.5em] text-xs text-black/40">
-            Curated
-          </span>
-
-          <h2 className="mt-4 text-4xl md:text-6xl font-semibold tracking-tight">
-            Shop By Collection
-          </h2>
-
-          <p className="mt-2 text-sm text-black/50">
-            Own All Trends
-          </p>
-        </div>
-      ),
-    },
-  ];
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowLoader(false), 2600);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
-    <div className="bg-white min-h-screen p-6 md:p-12">
-      <div className="max-w-6xl mx-auto space-y-20">
-        {options.map((item) => (
-          <div key={item.title}>
-            <div className="mb-6 text-xs font-medium text-black/40 uppercase">
-              {item.title}
+    <section className="min-h-screen bg-[#f7f7f5] px-3 py-4 text-black sm:px-5 sm:py-8">
+      <OatclubOverlayLoader show={showLoader} />
+
+      <div className="w-full space-y-4">
+        <header className="grid border border-neutral-200 bg-white lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="bg-black p-5 text-white sm:p-8">
+            <p className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-white/55">
+              <Sparkles size={14} />
+              LOADER TEST LAB
+            </p>
+            <h1 className="mt-5 text-3xl font-black uppercase leading-none sm:text-5xl">
+              OATCLUB OVERLAY LOADER.
+            </h1>
+            <p className="mt-4 max-w-2xl text-xs font-bold uppercase leading-6 tracking-[0.09em] text-white/62">
+              SAMPLE ONLY. THIS IS NOT MOUNTED GLOBALLY YET. TEST THE FEEL,
+              TIMING, COPY AND MOTION HERE FIRST.
+            </p>
+          </div>
+
+          <div className="flex flex-col justify-between border-t border-neutral-200 bg-white p-4 lg:border-l lg:border-t-0 lg:p-6">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black/45">
+                PREVIEW CONTROL
+              </p>
+              <p className="mt-3 text-sm font-black uppercase leading-6 tracking-[0.08em] text-black">
+                FULL SCREEN, CLIENT ONLY, CLEANUP READY.
+              </p>
             </div>
 
-            {item.content}
+            <button
+              type="button"
+              onClick={replayLoader}
+              className="mt-5 inline-flex h-11 items-center justify-center gap-2 bg-black px-5 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800"
+            >
+              <Play size={15} />
+              REPLAY LOADER
+            </button>
           </div>
-        ))}
+        </header>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            ["STYLE", "MINIMAL FASHION-FOCUSED COPY"],
+            ["MOTION", "DOTS PLUS A THIN PROGRESS SWEEP"],
+            ["SAFETY", "NO SERVER RUN, TIMER CLEARS CLEANLY"],
+          ].map(([title, text]) => (
+            <div key={title} className="border border-neutral-200 bg-white p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/42">
+                {title}
+              </p>
+              <p className="mt-3 text-xs font-black uppercase leading-6 tracking-[0.08em] text-black">
+                {text}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="border border-neutral-200 bg-white p-4 sm:p-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-black/45">
+            SAMPLE PAGE BEHIND LOADER
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {["DRESSES", "TOPS", "BOTTOMS", "CO-ORD SETS"].map((item) => (
+              <div
+                key={item}
+                className="aspect-[4/5] border border-neutral-200 bg-neutral-50 p-3"
+              >
+                <div className="flex h-full items-end">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-black/55">
+                    {item}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
