@@ -751,8 +751,9 @@ router.push("/checkout?mode=buy-now");
                   ) : null}
 
                   {product?.productCode ? (
-                    <span className="border border-black px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-black">
-                      CODE {product.productCode}
+                    <span className="inline-flex items-center gap-1.5 border border-neutral-200 bg-[#f8f6f1] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-black/68">
+                      <span className="text-black/36">Style ID</span>
+                      <span className="text-black">{product.productCode}</span>
                     </span>
                   ) : null}
                 </div>
@@ -760,7 +761,7 @@ router.push("/checkout?mode=buy-now");
                 <div className="ml-auto flex shrink-0 items-center gap-2">
                   <button
                     onClick={handleToggleWishlist}
-                    className="grid h-10 w-10 place-items-center border border-black text-black transition hover:bg-black hover:text-white active:scale-95"
+                    className="grid h-9 w-9 place-items-center bg-transparent text-black transition hover:text-black/55 active:scale-95"
                     aria-label={
                       wishlisted ? "Remove from wishlist" : "Add to wishlist"
                     }
@@ -774,7 +775,7 @@ router.push("/checkout?mode=buy-now");
 
                   <button
                     onClick={handleShare}
-                    className="grid h-10 w-10 place-items-center border border-black text-black transition hover:bg-black hover:text-white active:scale-95"
+                    className="grid h-9 w-9 place-items-center bg-transparent text-black transition hover:text-black/55 active:scale-95"
                     aria-label="Share"
                     title="Share"
                   >

@@ -184,11 +184,11 @@ ${window.location.href}`;
 
               <button
                 onClick={handleWishlist}
-                className="flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-pink-600 text-pink-600 hover:bg-pink-50 transition"
+                className="flex items-center justify-center gap-2 bg-transparent px-2 py-3 text-black transition hover:text-black/55"
               >
                 <Heart
                   className={`w-5 h-5 ${
-                    isWishlisted ? "fill-pink-600 text-pink-600" : ""
+                    isWishlisted ? "fill-current" : ""
                   }`}
                 />
                 {isWishlisted ? "Wishlisted" : "Add to Wishlist"}
@@ -196,7 +196,7 @@ ${window.location.href}`;
 
               <button
                 onClick={handleShare}
-                className="flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-gray-300 hover:bg-gray-100 transition"
+                className="flex items-center justify-center gap-2 bg-transparent px-2 py-3 text-black transition hover:text-black/55"
               >
                 <Share2 className="w-5 h-5" />
                 Share
