@@ -1,9 +1,14 @@
 import { InfoBlock, InfoCallout, InfoPageLayout, InfoTable } from "@/components/info/InfoPageLayout";
+import { buildSeoMetadata } from "@/lib/seo/seoMeta";
 
-export const metadata = {
-  title: "Shipping Policy | OATCLUB",
-  description: "OATCLUB shipping timelines, tracking, and delivery coverage across India.",
-};
+export const metadata = buildSeoMetadata({
+  title: "Shipping Policy | OATCLUB India",
+  description:
+    "Read OATCLUB India shipping timelines, order dispatch, tracking updates and delivery coverage for women clothing orders across India.",
+  path: "/shipping-policy",
+  image: "/og-default.jpg",
+  keywords: ["OATCLUB shipping", "women clothing online india", "OATCLUB India delivery"],
+});
 
 export default function ShippingPolicyPage() {
   return (

@@ -1,60 +1,23 @@
 // src/app/blog/layout.jsx
 
-export const metadata = {
-  title: "The OATCLUB Journal | Style, Culture & Everyday Essentials",
+import { buildSeoMetadata } from "@/lib/seo/seoMeta";
 
+export const metadata = buildSeoMetadata({
+  title: "OATCLUB Journal | Women Fashion, Outfit Ideas & Style Edits",
   description:
-    "Explore The OATCLUB Journal — style guides, everyday essentials, modern culture, design inspiration, and stories behind intentional living.",
-
-  alternates: {
-    canonical: "https://oatclub.in/blog",
-  },
-
-  openGraph: {
-    title: "The OATCLUB Journal | OATCLUB",
-
-    description:
-      "Style guides, everyday essentials, culture, design inspiration, and modern lifestyle stories from OATCLUB.",
-
-    url: "https://oatclub.in/blog",
-
-    siteName: "OATCLUB",
-
-    type: "website",
-
-    locale: "en_IN",
-
-    images: [
-      {
-        url: "https://oatclub.in/og-blog.jpg",
-        width: 1200,
-        height: 630,
-        alt: "The OATCLUB Journal",
-      },
-    ],
-  },
-
-  twitter: {
-    card: "summary_large_image",
-
-    title: "The OATCLUB Journal | OATCLUB",
-
-    description:
-      "Read style guides, culture stories, and everyday inspiration from OATCLUB.",
-
-    images: ["https://oatclub.in/og-blog.jpg"],
-  },
-
-  robots: {
-    index: true,
-    follow: true,
-
-    googleBot: {
-      index: true,
-      follow: true,
-    },
-  },
-};
+    "Read The OATCLUB Journal for women fashion trends, western wear styling, co ord set edits, party wear ideas, casual outfits and modern wardrobe inspiration.",
+  path: "/blog",
+  image: "/og-blog.jpg",
+  imageAlt: "The OATCLUB Journal",
+  keywords: [
+    "women fashion trends India",
+    "western wear styling",
+    "outfit ideas for women",
+    "co ord set styling",
+    "party wear ideas for women",
+    "casual outfit ideas women",
+  ],
+});
 
 export default function BlogLayout({ children }) {
   return children;

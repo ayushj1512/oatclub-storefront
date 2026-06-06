@@ -51,6 +51,17 @@ function pickCategorySlug(product) {
   return "shop";
 }
 
+function collectSlugs(items) {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((item) => {
+      if (typeof item === "string") return slugify(item);
+      return slugify(item?.slug || item?.name || item?.title);
+    })
+    .filter(Boolean);
+}
+
 async function fetchAllProducts() {
   const products = [];
   const LIMIT = 50;
@@ -127,7 +138,7 @@ export default async function sitemap() {
       changeFrequency: "daily",
     },
     {
-      path: "/shop",
+      path: "/all-clothing",
       priority: 0.95,
       changeFrequency: "daily",
     },
@@ -137,7 +148,7 @@ export default async function sitemap() {
       changeFrequency: "daily",
     },
     {
-      path: "/bestsellers",
+      path: "/bestseller",
       priority: 0.9,
       changeFrequency: "weekly",
     },
@@ -145,6 +156,21 @@ export default async function sitemap() {
       path: "/collections",
       priority: 0.85,
       changeFrequency: "weekly",
+    },
+    {
+      path: "/blog",
+      priority: 0.72,
+      changeFrequency: "weekly",
+    },
+    {
+      path: "/the-oatclub-edit",
+      priority: 0.72,
+      changeFrequency: "weekly",
+    },
+    {
+      path: "/mission",
+      priority: 0.62,
+      changeFrequency: "monthly",
     },
     {
       path: "/about",
@@ -159,6 +185,21 @@ export default async function sitemap() {
     {
       path: "/support",
       priority: 0.5,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/faq",
+      priority: 0.5,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/exchange-and-return",
+      priority: 0.45,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/cancellation-and-refund",
+      priority: 0.45,
       changeFrequency: "monthly",
     },
     {
@@ -205,6 +246,30 @@ export default async function sitemap() {
     priority: 0.75,
   }));
 
+  const collectionSlugs = Array.from(
+    new Set(
+      products.flatMap((product) => collectSlugs(product?.collections))
+    )
+  );
+
+  const collectionRoutes = collectionSlugs.map((collection) => ({
+    url: `${SITE_URL}/collection/${collection}`,
+    lastModified: now,
+    changeFrequency: "weekly",
+    priority: 0.76,
+  }));
+
+  const tagSlugs = Array.from(
+    new Set(products.flatMap((product) => collectSlugs(product?.tags)))
+  );
+
+  const tagRoutes = tagSlugs.map((tag) => ({
+    url: `${SITE_URL}/tag/${tag}`,
+    lastModified: now,
+    changeFrequency: "weekly",
+    priority: 0.58,
+  }));
+
   const productRoutes = products.map((product) => {
     const id = String(product?._id || product?.id || "");
     const category = pickCategorySlug(product);
@@ -232,6 +297,8 @@ export default async function sitemap() {
   return [
     ...staticRoutes,
     ...categoryRoutes,
+    ...collectionRoutes,
+    ...tagRoutes,
     ...productRoutes,
   ];
 }

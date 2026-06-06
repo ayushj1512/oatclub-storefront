@@ -1,9 +1,14 @@
 import { InfoBlock, InfoCallout, InfoPageLayout, InfoTable } from "@/components/info/InfoPageLayout";
+import { buildSeoMetadata } from "@/lib/seo/seoMeta";
 
-export const metadata = {
-  title: "Cancellation & Refund | OATCLUB",
-  description: "OATCLUB cancellation and refund timelines.",
-};
+export const metadata = buildSeoMetadata({
+  title: "Cancellation & Refund Policy | OATCLUB India",
+  description:
+    "Read OATCLUB India cancellation and refund timelines for women fashion, western wear and online clothing orders.",
+  path: "/cancellation-and-refund",
+  image: "/og-default.jpg",
+  keywords: ["OATCLUB refund", "OATCLUB cancellation", "OATCLUB India"],
+});
 
 export default function CancellationAndRefundPage() {
   return (

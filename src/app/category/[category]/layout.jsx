@@ -1,6 +1,6 @@
 // src/app/category/[category]/layout.jsx
 
-const SITE_URL = "https://oatclub.in";
+import { CATEGORY_KEYWORDS, buildSeoMetadata, uniqueKeywords } from "@/lib/seo/seoMeta";
 
 export async function generateMetadata({ params }) {
   const { category } = await params;
@@ -11,55 +11,18 @@ export async function generateMetadata({ params }) {
 
   const formattedName = capitalizeWords(name);
 
-  const title = `${formattedName} | OATCLUB`;
+  const title = `${formattedName} For Women | OATCLUB`;
 
-  const description = `Explore ${formattedName} at OATCLUB. Discover thoughtfully designed everyday essentials, premium apparel, and timeless wardrobe pieces.`;
+  const description = `Shop ${formattedName} for women at OATCLUB India. Discover premium women fashion, western wear, modern outfits, party wear, casual wear and trend-led clothing online.`;
 
-  const url = `${SITE_URL}/category/${category}`;
-
-  return {
+  return buildSeoMetadata({
     title,
     description,
-
-    alternates: {
-      canonical: url,
-    },
-
-    openGraph: {
-      title,
-      description,
-      url,
-      siteName: "OATCLUB",
-      type: "website",
-      locale: "en_IN",
-
-      images: [
-        {
-          url: `${SITE_URL}/og-category.jpg`,
-          width: 1200,
-          height: 630,
-          alt: `${formattedName} | OATCLUB`,
-        },
-      ],
-    },
-
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [`${SITE_URL}/og-category.jpg`],
-    },
-
-    robots: {
-      index: true,
-      follow: true,
-
-      googleBot: {
-        index: true,
-        follow: true,
-      },
-    },
-  };
+    path: `/category/${category}`,
+    image: "/og-category.jpg",
+    imageAlt: `${formattedName} For Women | OATCLUB`,
+    keywords: uniqueKeywords([formattedName, `${formattedName} for women`, `${formattedName} online`], CATEGORY_KEYWORDS),
+  });
 }
 
 function capitalizeWords(str = "") {

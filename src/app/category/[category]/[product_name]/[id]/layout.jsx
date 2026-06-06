@@ -4,6 +4,8 @@
 // ✅ Default availability ALWAYS InStock
 // ✅ Server-only
 
+import { CATEGORY_KEYWORDS, SEO_KEYWORDS, uniqueKeywords } from "@/lib/seo/seoMeta";
+
 const SITE = "https://oatclub.in";
 const BRAND_NAME = "OATCLUB";
 const FALLBACK_IMAGE = `${SITE}/og-default.jpg`;
@@ -77,7 +79,7 @@ function buildProductDescription(product, raw) {
   return (
     product?.shortDescription ||
     (product?.description ? cap(product.description, 5000) : "") ||
-    `Discover ${raw} from OATCLUB. Premium everyday essentials designed for comfort, simplicity, and timeless style.`
+    `Shop ${raw} from OATCLUB India. Premium women fashion, western wear and modern outfits designed for party wear, casual wear and everyday style.`
   );
 }
 
@@ -126,6 +128,7 @@ function buildSchema({ product, url, product_name }) {
       "@type": "Brand",
       name: BRAND_NAME,
     },
+    category: product?.category?.name || product?.categoryName || "",
     offers: {
       "@type": "Offer",
       url,
@@ -153,13 +156,24 @@ export async function generateMetadata({ params }) {
   const description =
     product?.shortDescription ||
     (product?.description ? cap(product.description, 160) : "") ||
-    `Discover ${raw} from OATCLUB. Premium everyday essentials designed for comfort, simplicity, and timeless style.`;
+    `Shop ${raw} from OATCLUB India. Premium women fashion, western wear, modern outfits and trend-led clothing online.`;
 
   const isIndexable = product?.isActive !== false;
 
   return {
     title: name65,
     description,
+    keywords: uniqueKeywords(
+      SEO_KEYWORDS,
+      CATEGORY_KEYWORDS,
+      [
+        raw,
+        `${raw} OATCLUB`,
+        `${raw} women`,
+        `${raw} online`,
+        `${toTitle(category)} for women`,
+      ]
+    ),
 
     alternates: {
       canonical: url,

@@ -1,9 +1,14 @@
 import { InfoBlock, InfoCallout, InfoPageLayout, InfoTable } from "@/components/info/InfoPageLayout";
+import { buildSeoMetadata } from "@/lib/seo/seoMeta";
 
-export const metadata = {
-  title: "Privacy Policy | OATCLUB",
-  description: "How OATCLUB collects, uses, and protects customer information.",
-};
+export const metadata = buildSeoMetadata({
+  title: "Privacy Policy | OATCLUB India",
+  description:
+    "Read how OATCLUB India collects, uses and protects customer information for online women clothing and fashion orders.",
+  path: "/privacy-policy",
+  image: "/og-default.jpg",
+  keywords: ["OATCLUB privacy policy", "OATCLUB India", "OATCLUB clothing"],
+});
 
 export default function PrivacyPolicyPage() {
   return (

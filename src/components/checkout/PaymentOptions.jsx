@@ -9,13 +9,14 @@ import {
   ArrowRight,
   Sparkles,
   ShieldCheck,
+  CheckCircle2,
 } from "lucide-react";
 
 import RazorpayCheckoutButton from "@/components/checkout/RazorpayCheckoutButton";
 
 const GlassCard = ({ children, className = "" }) => (
   <div
-    className={`rounded-[22px] bg-white/75 backdrop-blur-xl shadow-[0_18px_45px_rgba(0,0,0,0.08)] ${className}`}
+    className={`border border-neutral-200 bg-white shadow-[0_14px_38px_rgba(30,25,18,0.04)] ${className}`}
   >
     {children}
   </div>
@@ -24,14 +25,14 @@ const GlassCard = ({ children, className = "" }) => (
 const Chip = ({ children, tone = "neutral" }) => {
   const toneCls =
     tone === "success"
-      ? "bg-green-50 text-green-800 border border-green-200/70"
+      ? "border border-[#2f7d46] bg-[#edf8ef] text-[#1f6a38]"
       : tone === "wallet"
-      ? "bg-emerald-50 text-emerald-800 border border-emerald-200/70"
-      : "bg-black/4 text-gray-700";
+      ? "bg-white text-black border border-neutral-200"
+      : "bg-[#fbfaf7] text-black/55 border border-neutral-200";
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] ${toneCls}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${toneCls}`}
     >
       {children}
     </span>
@@ -58,30 +59,49 @@ function PayCard({
       }}
       aria-pressed={active}
       disabled={disabled}
-      className={`w-full rounded-2xl px-4 py-4 text-left shadow-[0_12px_28px_rgba(0,0,0,0.07)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${
-        active ? "bg-white" : "bg-white/60 hover:bg-white/80"
+      className={`relative w-full border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 sm:px-3.5 ${
+        active
+          ? "border-[#2f7d46] bg-[#edf8ef]"
+          : "border-neutral-200 bg-[#fbfaf7] hover:border-black hover:bg-white"
       }`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-black/4 text-gray-800">
+          <span
+            className={`grid size-9 shrink-0 place-items-center border bg-white ${
+              active ? "border-[#2f7d46] text-[#1f6a38]" : "border-neutral-200 text-black"
+            }`}
+          >
             {icon}
           </span>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="text-sm font-semibold text-gray-900">{label}</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <div
+                className={`text-xs font-black uppercase tracking-[0.08em] ${
+                  active ? "text-[#1f6a38]" : "text-black"
+                }`}
+              >
+                {label}
+              </div>
               {badge}
+              {active && (
+                <span className="inline-flex items-center gap-1 border border-[#2f7d46]/30 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#1f6a38]">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Selected
+                </span>
+              )}
             </div>
-            <div className="truncate text-xs text-gray-500">{sub}</div>
+            <div
+              className={`mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.06em] ${
+                active ? "text-[#1f6a38]/70" : "text-black/45"
+              }`}
+            >
+              {sub}
+            </div>
           </div>
         </div>
 
-        <span
-          className={`size-5 shrink-0 rounded-full border-2 transition ${
-            active ? "border-black bg-black" : "border-black/20"
-          }`}
-        />
       </div>
     </button>
   );
@@ -237,15 +257,15 @@ const finalPayable = Math.max(0, remainingAfterWallet);
 
   return (
     <>
-      <GlassCard className="p-4 sm:p-5">
+      <GlassCard className="p-3.5 sm:p-4">
         <button
           type="button"
           onClick={() => setShowPayment((s) => !s)}
           className="flex w-full items-center justify-between"
         >
           <div className="min-w-0">
-            <div className="text-sm text-gray-500">Step 3</div>
-            <div className="text-lg font-semibold text-gray-900">
+            <div className="text-[9px] font-black uppercase tracking-[0.18em] text-black/36">Step 3</div>
+            <div className="text-sm font-black uppercase tracking-[0.08em] text-black">
               Payment Method
             </div>
           </div>
@@ -253,20 +273,20 @@ const finalPayable = Math.max(0, remainingAfterWallet);
         </button>
 
         {showPayment && (
-          <div className="pt-4">
+          <div className="pt-3">
             {hasWalletBalance && (
-              <div className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
+              <div className="mb-3 border border-neutral-200 bg-[#fbfaf7] p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-white text-emerald-700 shadow-sm">
+                    <span className="grid size-9 shrink-0 place-items-center border border-neutral-200 bg-white text-black">
                       <Wallet className="h-5 w-5" />
                     </span>
 
                     <div>
-                      <div className="text-sm font-extrabold text-emerald-950">
+                      <div className="text-xs font-black uppercase tracking-[0.08em] text-black">
                         OATCLUB Credits Available
                       </div>
-                      <div className="mt-0.5 text-xs text-emerald-800">
+                      <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/50">
                         Balance:{" "}
                         <b className="tabular-nums">
                           ₹{money(safeWalletBalance)}
@@ -275,19 +295,19 @@ const finalPayable = Math.max(0, remainingAfterWallet);
                     </div>
                   </div>
 
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-bold text-emerald-900 shadow-sm">
+                  <label className="inline-flex cursor-pointer items-center gap-2 border border-neutral-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-black">
                     <input
                       type="checkbox"
                       checked={useWallet}
                       onChange={(e) => updateWalletToggle(e.target.checked)}
-                      className="h-4 w-4 accent-emerald-700"
+                      className="h-4 w-4 accent-black"
                     />
                     Use Credits
                   </label>
                 </div>
 
                 {useWallet && (
-                  <div className="mt-4 rounded-xl bg-white px-3 py-2 text-xs text-emerald-900">
+                  <div className="mt-4 border border-neutral-200 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
                     Credits Applied:{" "}
                     <b className="tabular-nums">
                       ₹{money(appliedWalletAmount)}
@@ -301,9 +321,18 @@ const finalPayable = Math.max(0, remainingAfterWallet);
               </div>
             )}
 
+            <div className="mb-2.5 flex items-center justify-between gap-3 border border-neutral-200 bg-[#fbfaf7] px-3 py-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.12em] text-black">
+                Choose Your Payment
+              </span>
+              <span className="text-[9px] font-black uppercase tracking-[0.1em] text-black/40">
+                {isOnline ? "Online Selected" : "Offline Selected"}
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <PayCard
-                label="Cash on Delivery"
+                label="Offline / COD"
                 value="cod"
                 icon={<Wallet />}
                 sub={
@@ -327,7 +356,7 @@ const finalPayable = Math.max(0, remainingAfterWallet);
                 selected={selectedPayment}
                 setSelected={handleSelectPayment}
                 badge={
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-green-300 bg-gradient-to-r from-amber-50 to-green-50 px-2.5 py-1 text-[10px] font-extrabold text-green-900 shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 border border-neutral-200 bg-white px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-black">
                     <Sparkles className="h-3.5 w-3.5" />
                     10% EXTRA OFF
                   </span>
@@ -338,24 +367,24 @@ const finalPayable = Math.max(0, remainingAfterWallet);
         )}
 
         {showPayment && isOnline && remainingAfterWallet > 0 && (
-          <div className="mt-3 rounded-2xl border border-green-300 bg-gradient-to-r from-green-50 via-emerald-50 to-amber-50 px-4 py-3 shadow-[0_14px_34px_rgba(16,185,129,0.18)]">
+          <div className="mt-3 border border-neutral-200 bg-[#fbfaf7] px-3 py-3">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 grid size-9 place-items-center rounded-2xl border border-green-200/60 bg-white text-green-700 shadow-sm">
+              <span className="mt-0.5 grid size-9 place-items-center border border-neutral-200 bg-white text-black">
                 <ShieldCheck className="h-4 w-4" />
               </span>
 
               <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-extrabold text-green-900">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.08em] text-black">
                   Online Payment Offer Applied
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm">
+                  <span className="inline-flex items-center gap-1 bg-black px-2 py-0.5 text-[9px] font-black text-white">
                     <Sparkles className="h-3 w-3" />
                     10% OFF
                   </span>
                 </div>
 
                 {showExtra && (
-                  <div className="mt-2 inline-flex items-center gap-2 rounded-xl border border-green-200/60 bg-white/80 px-3 py-1.5 text-xs text-green-900 shadow-sm">
-                    <Sparkles className="h-4 w-4 text-green-700" />
+                  <div className="mt-2 inline-flex items-center gap-2 border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
+                    <Sparkles className="h-4 w-4 text-black" />
                     You save{" "}
                     <span className="font-extrabold tabular-nums">
                       ₹{money(safeExtra)}
@@ -369,11 +398,11 @@ const finalPayable = Math.max(0, remainingAfterWallet);
         )}
       </GlassCard>
 
-      <GlassCard className="p-4 sm:p-5">
+      <GlassCard className="p-3.5 sm:p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             {coupon && Number(discount || 0) > 0 && (
-              <div className="mt-1 flex items-center justify-between text-sm text-green-700">
+              <div className="mt-1 flex items-center justify-between text-sm text-black">
                 <span className="truncate">
                   Coupon <b>{coupon.code}</b>
                 </span>
@@ -384,7 +413,7 @@ const finalPayable = Math.max(0, remainingAfterWallet);
             )}
 
             {appliedWalletAmount > 0 && (
-              <div className="mt-1 flex items-center justify-between text-sm text-emerald-700">
+              <div className="mt-1 flex items-center justify-between text-sm text-black">
                 <span className="truncate">
                   Wallet Credits <b>Applied</b>
                 </span>
@@ -395,7 +424,7 @@ const finalPayable = Math.max(0, remainingAfterWallet);
             )}
 
             {showExtra && (
-              <div className="mt-1 flex items-center justify-between text-sm text-green-700">
+              <div className="mt-1 flex items-center justify-between text-sm text-black">
                 <span className="truncate">
                   Online Payment Offer <b>(10% extra)</b>
                 </span>
@@ -405,13 +434,13 @@ const finalPayable = Math.max(0, remainingAfterWallet);
               </div>
             )}
 
-            <div className="mt-2 text-sm text-gray-500">Total Payment</div>
-            <div className="text-2xl font-semibold tabular-nums text-gray-900">
+            <div className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-black/42">Total Payment</div>
+            <div className="text-xl font-black tabular-nums text-black">
               ₹{money(finalPayable)}
             </div>
 
-            <div className="mt-1 text-xs text-gray-500">
-              Shipping: <span className="font-semibold text-green-700">Free</span>
+            <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
+              Shipping: <span className="font-black text-black">Free</span>
             </div>
           </div>
 
@@ -439,7 +468,7 @@ const finalPayable = Math.max(0, remainingAfterWallet);
             type="button"
             onClick={placeNormalOrder}
             disabled={disabledCTA}
-            className="mt-4 w-full rounded-2xl bg-black py-3 text-base font-semibold text-white shadow-[0_16px_34px_rgba(0,0,0,0.24)] transition hover:opacity-90 active:scale-[0.99] disabled:bg-black/20 disabled:text-black/40"
+            className="mt-3 h-11 w-full bg-black text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800 disabled:bg-black/20 disabled:text-black/40"
           >
             {placing
               ? "Placing..."

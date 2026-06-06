@@ -11,7 +11,7 @@ const money = (n) => (Number.isFinite(+n) ? (+n).toLocaleString("en-IN") : "0");
 const couponLabel = (c) =>
   c?.discountType === "percentage"
     ? `${c.discountValue}% OFF`
-    : `₹${money(c?.discountValue)} OFF`;
+    : `RS. ${money(c?.discountValue)} OFF`;
 
 const isValidEmail = (v) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
@@ -22,49 +22,27 @@ const isPublic = (c) =>
 const getCouponMeta = (coupon) => {
   const e = coupon?._eligibility || {};
   const desc = String(coupon?.description || "").trim();
-
   const eligible =
     e.isEligible !== undefined
       ? Boolean(e.isEligible)
       : e.okDate !== false && e.okMin !== false && e.okQty !== false;
 
-  if (eligible) {
-    return {
-      eligible: true,
-      text: desc || "Tap to apply",
-    };
-  }
-
-  if (e.okDate === false) {
-    return {
-      eligible: false,
-      text: desc || "Expired",
-    };
-  }
-
+  if (eligible) return { eligible: true, text: desc || "Tap To Apply" };
+  if (e.okDate === false) return { eligible: false, text: desc || "Expired" };
   if (e.okMin === false) {
-    return {
-      eligible: false,
-      text: desc || `Min ₹${money(coupon.minPurchase)}`,
-    };
+    return { eligible: false, text: desc || `Min RS. ${money(coupon.minPurchase)}` };
   }
-
   if (e.okQty === false && Number(e.remainingQty || 0) > 0) {
     const qty = Number(e.remainingQty || 0);
     return {
       eligible: false,
       text:
         desc ||
-        `Add ${qty} more item${qty > 1 ? "s" : ""} to unlock ${couponLabel(
-          coupon
-        ).toLowerCase()}`,
+        `Add ${qty} More Item${qty > 1 ? "s" : ""} To Unlock ${couponLabel(coupon)}`,
     };
   }
 
-  return {
-    eligible: false,
-    text: desc || "Locked",
-  };
+  return { eligible: false, text: desc || "Locked" };
 };
 
 export default function CheckoutCouponSection({
@@ -75,7 +53,6 @@ export default function CheckoutCouponSection({
   customerId,
 }) {
   const pathname = usePathname();
-
   const [code, setCode] = useState("");
   const [clicked, setClicked] = useState("");
   const [stepError, setStepError] = useState("");
@@ -102,14 +79,7 @@ export default function CheckoutCouponSection({
 
   const loadSuggestions = useCallback(() => {
     if (hasCoupon || !(cartTotal > 0)) return;
-
-    fetchSuggestedCoupons?.({
-      cartTotal,
-      cartItems,
-      email,
-      phone,
-      customerId,
-    });
+    fetchSuggestedCoupons?.({ cartTotal, cartItems, email, phone, customerId });
   }, [
     hasCoupon,
     cartTotal,
@@ -121,10 +91,7 @@ export default function CheckoutCouponSection({
   ]);
 
   const publicCoupons = useMemo(
-    () =>
-      Array.isArray(suggestedCoupons)
-        ? suggestedCoupons.filter(isPublic)
-        : [],
+    () => (Array.isArray(suggestedCoupons) ? suggestedCoupons.filter(isPublic) : []),
     [suggestedCoupons]
   );
 
@@ -135,13 +102,7 @@ export default function CheckoutCouponSection({
     clearCouponMessages?.();
 
     if (hasCoupon && cartTotal > 0 && emailOk) {
-      rehydrateCoupon?.({
-        cartTotal,
-        cartItems,
-        email,
-        phone,
-        customerId,
-      });
+      rehydrateCoupon?.({ cartTotal, cartItems, email, phone, customerId });
       return;
     }
 
@@ -169,7 +130,7 @@ export default function CheckoutCouponSection({
     if (!nextCode || isApplying) return;
 
     if (!emailOk) {
-      setStepError("Please enter email");
+      setStepError("Please Enter Email");
       return;
     }
 
@@ -216,16 +177,17 @@ export default function CheckoutCouponSection({
 
   return (
     <div className="mt-3 space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-xl bg-black/5 text-gray-800">
+          <span className="grid size-8 place-items-center border border-neutral-200 bg-white text-black">
             <Tag className="h-4 w-4" />
           </span>
-
           <div>
-            <p className="text-xs font-semibold text-gray-900">Coupons</p>
-            <p className="text-[11px] text-gray-500">
-              Apply code to get discount
+            <p className="text-xs font-black uppercase tracking-[0.08em] text-black">
+              Coupons
+            </p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
+              Apply Code To Get Discount
             </p>
           </div>
         </div>
@@ -234,7 +196,7 @@ export default function CheckoutCouponSection({
           <button
             type="button"
             onClick={loadSuggestions}
-            className="text-[11px] font-semibold text-gray-600 transition hover:text-black"
+            className="text-[10px] font-black uppercase tracking-[0.12em] text-black/45 transition hover:text-black"
           >
             Refresh
           </button>
@@ -242,19 +204,19 @@ export default function CheckoutCouponSection({
       </div>
 
       {!emailOk && (
-        <p className="text-[11px] text-amber-700">
-          Enter email in Step 1 to apply coupon.
+        <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
+          Enter Email In Step 1 To Apply Coupon.
         </p>
       )}
 
       {hasCoupon ? (
-        <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-3 py-2">
+        <div className="flex items-center justify-between border border-neutral-200 bg-white px-3 py-2">
           <div>
-            <p className="text-xs font-semibold text-green-800">
-              {coupon.code} applied ✅
+            <p className="text-xs font-black uppercase tracking-[0.08em] text-black">
+              {coupon.code} Applied
             </p>
-            <p className="text-[11px] text-green-700">
-              Saved <b>₹{money(saved)}</b>
+            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
+              Saved <b>RS. {money(saved)}</b>
             </p>
           </div>
 
@@ -262,9 +224,9 @@ export default function CheckoutCouponSection({
             type="button"
             onClick={onRemove}
             aria-label="Remove coupon"
-            className="grid h-8 w-8 place-items-center rounded-full bg-black/5 transition hover:bg-black/10"
+            className="grid h-8 w-8 place-items-center border border-neutral-200 bg-white transition hover:border-black"
           >
-            <X className="h-4 w-4 text-gray-900" />
+            <X className="h-4 w-4 text-black" />
           </button>
         </div>
       ) : (
@@ -276,15 +238,15 @@ export default function CheckoutCouponSection({
                 setCode(e.target.value.toUpperCase());
                 if (stepError) setStepError("");
               }}
-              placeholder="Enter code"
-              className="flex-1 rounded-xl bg-white px-3 py-2 text-xs outline-none shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] transition focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.18)]"
+              placeholder="ENTER CODE"
+              className="h-10 flex-1 border border-neutral-300 bg-white px-3 text-xs font-bold uppercase tracking-[0.08em] outline-none transition placeholder:text-black/28 focus:border-black"
             />
 
             <button
               type="button"
               disabled={isApplying || !code.trim() || !emailOk}
               onClick={() => onApply()}
-              className="inline-flex items-center justify-center rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:bg-black/20 disabled:text-black/40"
+              className="inline-flex h-10 items-center justify-center bg-black px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-neutral-800 disabled:bg-black/20 disabled:text-black/40"
             >
               {isApplying && clicked === code.trim().toUpperCase() ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -295,15 +257,21 @@ export default function CheckoutCouponSection({
           </div>
 
           <div className="space-y-2">
-            {stepError && <p className="text-[11px] text-red-600">{stepError}</p>}
+            {stepError && (
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-red-600">
+                {stepError}
+              </p>
+            )}
 
             {isLoadingSuggestions ? (
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading...
+                Loading Coupons...
               </div>
             ) : suggestionError ? (
-              <p className="text-xs text-red-600">{suggestionError}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-red-600">
+                {suggestionError}
+              </p>
             ) : publicCoupons.length ? (
               <div className="flex flex-wrap gap-2">
                 {publicCoupons.map((item) => {
@@ -318,11 +286,10 @@ export default function CheckoutCouponSection({
                       disabled={isApplying || !emailOk || !eligible}
                       onClick={() => onApply(couponCode)}
                       className={[
-                        "rounded-xl px-3 py-2 text-left text-[11px] font-semibold transition",
-                        "max-w-[210px]",
+                        "max-w-[210px] border px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.08em] transition",
                         eligible
-                          ? "bg-green-50 text-green-800 shadow-[inset_0_0_0_1px_rgba(22,163,74,0.22)] hover:bg-green-600 hover:text-white"
-                          : "cursor-not-allowed bg-zinc-100 text-zinc-500 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
+                          ? "border-neutral-300 bg-white text-black hover:border-black"
+                          : "cursor-not-allowed border-neutral-200 bg-neutral-100 text-black/35",
                       ].join(" ")}
                     >
                       <span className="flex items-center gap-1">
@@ -346,13 +313,21 @@ export default function CheckoutCouponSection({
                 })}
               </div>
             ) : (
-              <p className="text-[11px] text-gray-500">
-                No public coupons available
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
+                No Public Coupons Available
               </p>
             )}
 
-            {error && <p className="text-[11px] text-red-600">{error}</p>}
-            {message && <p className="text-[11px] text-green-700">{message}</p>}
+            {error && (
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-red-600">
+                {error}
+              </p>
+            )}
+            {message && (
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black">
+                {message}
+              </p>
+            )}
           </div>
         </>
       )}

@@ -1,45 +1,52 @@
 // src/lib/seo/pagesMeta.js
 
-const SITE = {
-  name: "OATCLUB",
-  url: "https://oatclub.in",
-  locale: "en_IN",
-  twitterCard: "summary_large_image",
-};
+import { CATEGORY_KEYWORDS, SEO_KEYWORDS, buildSeoMetadata, uniqueKeywords } from "@/lib/seo/seoMeta";
 
 const PAGES = {
   "all-clothing": {
-    title: "All Clothing | OATCLUB",
+    title: "Women Clothing Online India | OATCLUB",
     description:
-      "Explore all clothing from OATCLUB — premium everyday essentials, timeless wardrobe pieces, and modern apparel designed for effortless style.",
+      "Shop all OATCLUB women clothing online in India: premium western wear, dresses, tops, co ord sets, bottom wear, party wear and casual outfits.",
     path: "/all-clothing",
     ogImage: "/og-all-clothing.jpg",
-    ogAlt: "All Clothing | OATCLUB",
+    ogAlt: "Women Clothing Online India | OATCLUB",
+    keywords: [
+      "women clothing online india",
+      "western wear for women",
+      "modern women clothing",
+      "affordable premium fashion",
+    ],
   },
 
   "new-arrivals": {
-    title: "New Arrivals | OATCLUB",
+    title: "New Arrivals Women Fashion | OATCLUB",
     description:
-      "Shop new arrivals from OATCLUB — fresh essentials, premium apparel, and timeless pieces designed for modern everyday wear.",
+      "Shop OATCLUB new arrivals for trendy clothes for women, premium western wear, modern party outfits, vacation outfits and fresh everyday edits.",
     path: "/new-arrivals",
     ogImage: "/og-new-arrivals.jpg",
-    ogAlt: "New Arrivals | OATCLUB",
+    ogAlt: "New Arrivals Women Fashion | OATCLUB",
+    keywords: [
+      "trendy clothes for women",
+      "shop western wear for women online",
+      "modern party wear outfits for women",
+      "vacation outfits for women",
+    ],
   },
 
   bestsellers: {
-    title: "Bestsellers | OATCLUB",
+    title: "Bestseller Women Fashion India | OATCLUB",
     description:
-      "Discover OATCLUB bestsellers — customer-loved essentials, premium basics, and timeless wardrobe pieces made for everyday comfort.",
+      "Discover OATCLUB bestsellers: premium women fashion in India, statement outfits, co ord sets, dresses, tops and modern everyday clothing.",
     path: "/bestseller",
     ogImage: "/og-bestsellers.jpg",
-    ogAlt: "Bestsellers | OATCLUB",
+    ogAlt: "Bestseller Women Fashion India | OATCLUB",
+    keywords: [
+      "premium women fashion india",
+      "statement outfits for women online",
+      "co ord sets for women",
+      "women dresses online",
+    ],
   },
-};
-
-const abs = (p) => {
-  if (!p) return undefined;
-  if (String(p).startsWith("http")) return p;
-  return `${SITE.url}${String(p).startsWith("/") ? "" : "/"}${p}`;
 };
 
 export const buildPageMetadata = (pageKey, overrides = {}) => {
@@ -47,59 +54,17 @@ export const buildPageMetadata = (pageKey, overrides = {}) => {
 
   if (!cfg) {
     throw new Error(
-      `buildPageMetadata: unknown pageKey "${pageKey}". Allowed: ${Object.keys(
-        PAGES
-      ).join(", ")}`
+      `buildPageMetadata: unknown pageKey "${pageKey}". Allowed: ${Object.keys(PAGES).join(", ")}`
     );
   }
 
-  const title = overrides.title || cfg.title;
-  const description = overrides.description || cfg.description;
-
-  const canonical = overrides.canonical || abs(cfg.path);
-  const ogImage = abs(overrides.ogImage || cfg.ogImage);
-
-  return {
-    title,
-    description,
-
-    alternates: {
-      canonical,
-    },
-
-    openGraph: {
-      title: overrides.ogTitle || title,
-      description: overrides.ogDescription || description,
-      url: canonical,
-      siteName: SITE.name,
-      type: "website",
-      locale: SITE.locale,
-      images: ogImage
-        ? [
-            {
-              url: ogImage,
-              width: 1200,
-              height: 630,
-              alt: overrides.ogAlt || cfg.ogAlt || title,
-            },
-          ]
-        : [],
-    },
-
-    twitter: {
-      card: SITE.twitterCard,
-      title: overrides.twitterTitle || title,
-      description: overrides.twitterDescription || description,
-      images: ogImage ? [ogImage] : [],
-    },
-
-    robots: overrides.robots || {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-      },
-    },
-  };
+  return buildSeoMetadata({
+    title: overrides.title || cfg.title,
+    description: overrides.description || cfg.description,
+    path: overrides.canonical || cfg.path,
+    image: overrides.ogImage || cfg.ogImage,
+    imageAlt: overrides.ogAlt || cfg.ogAlt || cfg.title,
+    keywords: uniqueKeywords(SEO_KEYWORDS, CATEGORY_KEYWORDS, cfg.keywords || [], overrides.keywords || []),
+    robots: overrides.robots,
+  });
 };

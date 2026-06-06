@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ShieldCheck, RefreshCcw, Sparkles, Check } from "lucide-react";
+import { Check, RefreshCcw, ShieldCheck, Sparkles } from "lucide-react";
 
 const generateCaptcha = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -44,67 +44,112 @@ export default function CodConfirmCaptcha({ open, onClose, onVerified }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md px-4">
-      <div className={`w-full max-w-sm rounded-3xl bg-white p-6 shadow-[0_30px_80px_rgba(0,0,0,0.35)] transition ${error ? "animate-shake" : ""}`}>
-        
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-11 h-11 rounded-2xl bg-black/10 flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5 text-black" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm">
+      <div
+        className={`w-full max-w-sm border border-neutral-200 bg-white p-5 transition sm:p-6 ${
+          error ? "animate-shake" : ""
+        }`}
+      >
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center border border-neutral-200 bg-neutral-50">
+            <ShieldCheck className="h-5 w-5 text-black" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-black">Confirm Cash on Delivery</p>
-            <p className="text-xs text-gray-500">One last step to place your order</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-black">
+              Confirm Cash On Delivery
+            </p>
+            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
+              One Last Step To Place Your Order
+            </p>
           </div>
         </div>
 
-        {/* Captcha */}
-        <div className="mb-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+        <div className="mb-4 border border-neutral-200 bg-neutral-50 p-4">
           <div className="flex items-center justify-between">
-            <div className="flex gap-1 text-xl font-extrabold tracking-widest select-none text-black">
+            <div className="flex select-none gap-1 text-xl font-black tracking-[0.22em] text-black">
               {captcha.split("").map((c, i) => (
-                <span key={i} className={i % 2 ? "-rotate-6 translate-y-[2px]" : "rotate-6 -translate-y-[2px]"}>{c}</span>
+                <span
+                  key={`${c}-${i}`}
+                  className={i % 2 ? "-rotate-6 translate-y-[2px]" : "rotate-6 -translate-y-[2px]"}
+                >
+                  {c}
+                </span>
               ))}
             </div>
-            <button onClick={() => setCaptcha(generateCaptcha())} className="p-2 rounded-full hover:bg-black/5 transition">
-              <RefreshCcw className="w-4 h-4 text-gray-500" />
+            <button
+              type="button"
+              onClick={() => setCaptcha(generateCaptcha())}
+              className="border border-neutral-200 bg-white p-2 transition hover:border-black"
+            >
+              <RefreshCcw className="h-4 w-4 text-black" />
             </button>
           </div>
-          <p className="mt-2 text-[11px] text-gray-500 flex items-center gap-1">
-            <Sparkles className="w-3 h-3" /> Enter exactly as shown
+          <p className="mt-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
+            <Sparkles className="h-3 w-3" /> Enter Exactly As Shown
           </p>
         </div>
 
-        {/* Input */}
         <input
           value={input}
           disabled={loading || success}
-          onChange={(e) => { setInput(e.target.value.toUpperCase()); setError(false); }}
-          placeholder="Enter captcha"
-          className="w-full rounded-2xl px-4 py-3 text-sm outline-none shadow-[inset_0_0_0_1px_rgba(0,0,0,0.14)] focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.6)] transition"
+          onChange={(e) => {
+            setInput(e.target.value.toUpperCase());
+            setError(false);
+          }}
+          placeholder="ENTER CAPTCHA"
+          className="h-12 w-full border border-neutral-300 bg-white px-4 text-xs font-bold uppercase tracking-[0.12em] outline-none transition placeholder:text-black/30 focus:border-black"
         />
 
-        {error && <p className="mt-2 text-xs text-red-600">Incorrect code. Please try again.</p>}
+        {error && (
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.08em] text-red-600">
+            Incorrect Code. Please Try Again.
+          </p>
+        )}
 
-        {/* CTA */}
         <button
+          type="button"
           onClick={verify}
           disabled={!input || loading || success}
-          className="mt-5 w-full rounded-2xl py-3 text-sm font-semibold text-white bg-black shadow-[0_18px_40px_rgba(0,0,0,0.35)] flex items-center justify-center gap-2 transition active:scale-[0.97] disabled:opacity-60"
+          className="mt-5 flex h-12 w-full items-center justify-center gap-2 bg-black text-[11px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800 disabled:bg-black/20 disabled:text-black/40"
         >
-          {loading && <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Verifying…</>}
-          {success && <span className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-white flex items-center justify-center"><Check className="w-4 h-4 text-black" /></span>Verified</span>}
+          {loading && (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              Verifying...
+            </>
+          )}
+          {success && (
+            <span className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center bg-white">
+                <Check className="h-3.5 w-3.5 text-black" />
+              </span>
+              Verified
+            </span>
+          )}
           {!loading && !success && "Confirm COD Order"}
         </button>
 
-        <button onClick={onClose} disabled={loading} className="mt-3 w-full text-xs text-gray-500 hover:text-black transition">
-          Cancel & go back
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={loading}
+          className="mt-3 w-full text-[10px] font-black uppercase tracking-[0.14em] text-black/45 transition hover:text-black"
+        >
+          Cancel & Go Back
         </button>
       </div>
 
       <style jsx global>{`
-        @keyframes shake { 0%{transform:translateX(0)}25%{transform:translateX(-4px)}50%{transform:translateX(4px)}75%{transform:translateX(-3px)}100%{transform:translateX(0)} }
-        .animate-shake { animation: shake 0.35s ease-in-out; }
+        @keyframes shake {
+          0% { transform: translateX(0); }
+          25% { transform: translateX(-4px); }
+          50% { transform: translateX(4px); }
+          75% { transform: translateX(-3px); }
+          100% { transform: translateX(0); }
+        }
+        .animate-shake {
+          animation: shake 0.35s ease-in-out;
+        }
       `}</style>
     </div>
   );

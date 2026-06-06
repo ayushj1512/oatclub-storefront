@@ -1,9 +1,14 @@
 import { InfoBlock, InfoCallout, InfoPageLayout, InfoTable } from "@/components/info/InfoPageLayout";
+import { buildSeoMetadata } from "@/lib/seo/seoMeta";
 
-export const metadata = {
-  title: "Terms & Conditions | OATCLUB",
-  description: "OATCLUB website and shopping terms.",
-};
+export const metadata = buildSeoMetadata({
+  title: "Terms & Conditions | OATCLUB India",
+  description:
+    "Read OATCLUB India website, shopping, pricing, availability, content and online women clothing order terms.",
+  path: "/terms-and-conditions",
+  image: "/og-default.jpg",
+  keywords: ["OATCLUB terms", "OATCLUB India", "OATCLUB clothing"],
+});
 
 export default function TermsAndConditionsPage() {
   return (

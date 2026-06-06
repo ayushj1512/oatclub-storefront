@@ -1,5 +1,7 @@
 // src/app/blog/[slug]/layout.jsx
 
+import { SEO_KEYWORDS, uniqueKeywords } from "@/lib/seo/seoMeta";
+
 const SITE_URL = "https://oatclub.in";
 const FALLBACK_IMAGE = `${SITE_URL}/og-blog.jpg`;
 
@@ -32,6 +34,13 @@ export async function generateMetadata({ params }) {
     return {
       title,
       description,
+      keywords: uniqueKeywords(SEO_KEYWORDS, [
+        blog.title,
+        "women fashion blog India",
+        "OATCLUB Journal",
+        "western wear styling",
+        "modern women clothing",
+      ]),
 
       alternates: {
         canonical: url,

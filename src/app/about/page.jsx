@@ -1,9 +1,14 @@
 import { InfoBlock, InfoCallout, InfoPageLayout, InfoTable } from "@/components/info/InfoPageLayout";
+import { buildSeoMetadata } from "@/lib/seo/seoMeta";
 
-export const metadata = {
-  title: "About OATCLUB",
-  description: "OATCLUB is clean, minimal streetwear made with care for real life.",
-};
+export const metadata = buildSeoMetadata({
+  title: "About OATCLUB India | Own All Trends",
+  description:
+    "Learn about OATCLUB India, a premium women fashion brand for modern western wear, minimal everyday outfits, statement pieces and trend-led clothing.",
+  path: "/about",
+  image: "/og-default.jpg",
+  keywords: ["OATCLUB India", "OATCLUB fashion", "premium women fashion india", "minimal fashion women"],
+});
 
 export default function AboutPage() {
   return (

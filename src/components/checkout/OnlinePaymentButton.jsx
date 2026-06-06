@@ -9,34 +9,36 @@ function PaymentCard({ label, value, icon, sub, selected, setSelected }) {
       type="button"
       onClick={() => setSelected(value)}
       aria-pressed={active}
-      className={`w-full rounded-2xl px-4 py-4 text-left shadow-[0_12px_28px_rgba(0,0,0,0.07)] transition active:scale-[0.99] ${active ? "bg-white" : "bg-white/60 hover:bg-white/80"}`}
+      className={`w-full border px-4 py-4 text-left transition ${
+        active ? "border-black bg-white" : "border-neutral-200 bg-neutral-50 hover:border-black hover:bg-white"
+      }`}
     >
       <div className="flex items-center justify-between gap-3">
-        {/* Left */}
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="grid place-items-center size-10 rounded-2xl bg-black/5 text-gray-800 shrink-0">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center border border-neutral-200 bg-white text-black">
             {icon}
           </span>
 
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-gray-900">
+            <div className="text-xs font-black uppercase tracking-[0.08em] text-black">
               {label}
             </div>
-            <div className="text-xs text-gray-500 truncate">
+            <div className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.06em] text-black/45">
               {sub}
             </div>
 
             {isRazorpay && (
-              <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
-                <span>Powered by Razorpay</span>
+              <div className="mt-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.1em] text-black/35">
+                <span>Powered By Razorpay</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right radio */}
         <span
-          className={`size-5 rounded-full border-2 transition shrink-0 ${active ? "border-black bg-black" : "border-black/20"}`}
+          className={`size-4 shrink-0 border transition ${
+            active ? "border-black bg-black" : "border-black/20"
+          }`}
         />
       </div>
     </button>
@@ -44,4 +46,3 @@ function PaymentCard({ label, value, icon, sub, selected, setSelected }) {
 }
 
 export default PaymentCard;
-

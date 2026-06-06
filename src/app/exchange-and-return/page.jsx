@@ -1,9 +1,14 @@
 import { InfoBlock, InfoCallout, InfoPageLayout, InfoTable } from "@/components/info/InfoPageLayout";
+import { buildSeoMetadata } from "@/lib/seo/seoMeta";
 
-export const metadata = {
-  title: "Exchange & Return Policy | OATCLUB",
-  description: "OATCLUB 7-day exchange and return policy for eligible orders.",
-};
+export const metadata = buildSeoMetadata({
+  title: "Exchange & Return Policy | OATCLUB India",
+  description:
+    "Read the OATCLUB India 7-day exchange and return policy for eligible women fashion, western wear and clothing orders.",
+  path: "/exchange-and-return",
+  image: "/og-default.jpg",
+  keywords: ["OATCLUB exchange", "OATCLUB return policy", "women clothing online india"],
+});
 
 export default function ExchangeAndReturnPage() {
   return (

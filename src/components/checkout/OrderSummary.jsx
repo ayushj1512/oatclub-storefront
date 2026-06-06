@@ -56,7 +56,7 @@ const getProductHref = (item) => {
 
 const GlassCard = ({ children, className = "" }) => (
   <div
-    className={`rounded-[22px] bg-white/75 shadow-[0_18px_45px_rgba(0,0,0,0.08)] backdrop-blur-xl ${className}`}
+    className={`border border-neutral-200 bg-white shadow-[0_14px_38px_rgba(30,25,18,0.04)] ${className}`}
   >
     {children}
   </div>
@@ -65,17 +65,17 @@ const GlassCard = ({ children, className = "" }) => (
 const Line = ({ label, value, tone = "default", strike = false }) => {
   const toneClass =
     tone === "green"
-      ? "text-green-700"
+      ? "text-black"
       : tone === "dark"
-      ? "text-gray-900"
-      : "text-gray-600";
+      ? "text-black"
+      : "text-black/55";
 
   return (
-    <div className="flex items-center justify-between text-sm">
+    <div className="flex items-center justify-between text-[13px]">
       <span className={toneClass}>{label}</span>
       <span
         className={`font-semibold tabular-nums ${
-          tone === "green" ? "text-green-700" : "text-gray-900"
+          tone === "green" ? "text-black" : "text-black"
         } ${strike ? "line-through" : ""}`}
       >
         {value}
@@ -126,15 +126,15 @@ export default function OrderSummary({
     : Math.max(0, safeSubtotal - Math.min(totalDiscount, safeSubtotal));
 
   return (
-    <GlassCard className="p-4 sm:p-5">
+    <GlassCard className="p-3.5 sm:p-4">
       <button
         type="button"
         onClick={() => setShowSummary((s) => !s)}
         className="flex w-full items-center justify-between"
       >
         <div className="min-w-0">
-          <div className="text-sm text-gray-500">Step 2</div>
-          <div className="text-lg font-semibold text-gray-900">
+          <div className="text-[9px] font-black uppercase tracking-[0.18em] text-black/36">Step 2</div>
+          <div className="text-sm font-black uppercase tracking-[0.08em] text-black">
             Order Summary
           </div>
         </div>
@@ -172,15 +172,15 @@ export default function OrderSummary({
                   );
 
                   const Tile = (
-                    <div className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-white/60 px-3 py-2 shadow-[0_10px_25px_rgba(0,0,0,0.06)] transition hover:bg-white/75">
+                    <div className="flex cursor-pointer items-center justify-between gap-3 border border-neutral-200 bg-[#fbfaf7] px-3 py-2 transition hover:border-black hover:bg-white">
                       <div className="flex min-w-0 items-center gap-3">
-                        <div className="relative h-[64px] w-[56px] shrink-0 overflow-hidden rounded-xl bg-black/4">
+                        <div className="relative h-[72px] w-[58px] shrink-0 overflow-hidden bg-white">
                           {src ? (
                             <Image
                               src={src}
                               alt={item?.name || "Product"}
                               fill
-                              className="object-cover"
+                              className="object-contain p-1"
                               sizes="56px"
                             />
                           ) : (
@@ -191,28 +191,28 @@ export default function OrderSummary({
                         </div>
 
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-black">
+                          <p className="truncate text-[11px] font-black uppercase tracking-[0.06em] text-black">
                             {item?.name || item?.productSnapshot?.title || "Product"}
                           </p>
 
                           <div className="mt-0.5 flex flex-wrap items-center gap-2">
                             {item?.selectedSize && (
-                              <span className="rounded-xl bg-black/5 px-2 py-0.5 text-[11px] text-black/70">
+                              <span className="border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
                                 Size: {String(item.selectedSize).toUpperCase()}
                               </span>
                             )}
 
                             {item?.selectedColor && (
-                              <span className="rounded-xl bg-black/5 px-2 py-0.5 text-[11px] text-black/70">
+                              <span className="border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
                                 Color: {String(item.selectedColor).replace(/-/g, " ")}
                               </span>
                             )}
                           </div>
 
-                          <p className="mt-1 text-xs text-black/60">Qty: {qty}</p>
+                          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">Qty: {qty}</p>
 
                           {showMrp && (
-                            <p className="mt-0.5 text-[12px] text-green-700">
+                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
                               You save ₹{money((mrp - price) * qty)}
                             </p>
                           )}
@@ -231,7 +231,7 @@ export default function OrderSummary({
                         </div>
 
                         {discountPercent > 0 && (
-                          <div className="text-[11px] font-semibold text-green-700">
+                          <div className="text-[10px] font-black uppercase tracking-[0.08em] text-black/45">
                             {discountPercent}% OFF
                           </div>
                         )}
@@ -249,7 +249,7 @@ export default function OrderSummary({
                 })}
               </div>
 
-              <div className="mt-4 space-y-2 rounded-2xl bg-white/70 p-4 shadow-[0_10px_25px_rgba(0,0,0,0.06)]">
+              <div className="mt-3 space-y-2 border border-neutral-200 bg-[#fbfaf7] p-3">
                 {totalMrp > safeSubtotal && (
                   <Line label="MRP Total" value={`₹${money(totalMrp)}`} strike />
                 )}
@@ -273,8 +273,8 @@ export default function OrderSummary({
 />
 
                 {coupon?.code && safeCouponDiscount > 0 && (
-                  <div className="rounded-2xl bg-green-50 p-3 ring-1 ring-green-100">
-                    <div className="flex items-center justify-between text-sm text-green-700">
+                  <div className="border border-neutral-200 bg-white p-3">
+                    <div className="flex items-center justify-between text-sm text-black">
                       <span>
                         Coupon <b>{coupon.code}</b>
                       </span>
@@ -284,7 +284,7 @@ export default function OrderSummary({
                     </div>
 
                     {Number(eligibleTotal || 0) > 0 && (
-                      <p className="mt-1 text-[11px] text-green-700/80">
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-black/45">
                         Applied on ₹{money(eligibleTotal)} eligible value
                       </p>
                     )}
@@ -295,7 +295,7 @@ export default function OrderSummary({
                           {discountBreakdown.slice(0, 3).map((row, index) => (
                             <div
                               key={`${row.productId || row.productCode || index}`}
-                              className="flex items-center justify-between gap-3 text-[11px] text-green-800/80"
+                              className="flex items-center justify-between gap-3 text-[11px] font-bold uppercase tracking-[0.06em] text-black/55"
                             >
                               <span className="truncate">
                                 {row.title || row.productCode || "Item"}
@@ -346,7 +346,7 @@ export default function OrderSummary({
 
                 <div className="text-[11px] text-gray-500">
                   Shipping:{" "}
-                  <span className="font-semibold text-green-700">Free</span>
+                    <span className="font-black text-black">Free</span>
                 </div>
               </div>
             </>

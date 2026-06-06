@@ -8,7 +8,7 @@ import { Plus, ChevronDown, ChevronUp, CheckCircle2, Loader2 } from "lucide-reac
 /* ---------------- UI ---------------- */
 const GlassCard = ({ children, className = "" }) => (
   <div
-    className={`rounded-[22px] bg-white/75 backdrop-blur-xl shadow-[0_18px_45px_rgba(0,0,0,0.08)] ${className}`}
+    className={`border border-neutral-200 bg-white shadow-[0_14px_38px_rgba(30,25,18,0.04)] ${className}`}
   >
     {children}
   </div>
@@ -29,7 +29,7 @@ function FormField({
 }) {
   return (
     <div className="flex flex-col">
-      <label className="text-xs text-gray-600 mb-1">{label}</label>
+      <label className="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-black/42">{label}</label>
 
       <div className="relative">
         <input
@@ -41,12 +41,12 @@ function FormField({
           inputMode={inputMode}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full rounded-2xl bg-white/80 px-4 py-3 pr-12 text-sm outline-none shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] transition
+          className={`h-11 w-full border border-neutral-300 bg-[#fffefa] px-3 pr-12 text-[13px] font-bold uppercase tracking-[0.05em] text-black outline-none transition placeholder:font-bold placeholder:uppercase placeholder:text-black/28
           ${disabled ? "opacity-60 cursor-not-allowed" : ""}
           ${
             error
-              ? "shadow-[inset_0_0_0_2px_rgba(220,38,38,0.45)]"
-              : "focus:shadow-[inset_0_0_0_2px_rgba(0,0,0,0.22)]"
+              ? "border-red-500"
+              : "focus:border-black"
           }`}
         />
         {rightNode ? (
@@ -54,7 +54,7 @@ function FormField({
         ) : null}
       </div>
 
-      {error ? <p className="text-[11px] text-red-600 mt-1">{error}</p> : null}
+      {error ? <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-red-600">{error}</p> : null}
     </div>
   );
 }
@@ -249,7 +249,7 @@ if (res.ok && data?.exists && data?.customer?.firebaseUID) {
 
   /* ---------------- Render ---------------- */
   return (
-    <GlassCard className="p-4 sm:p-5">
+    <GlassCard className="p-3.5 sm:p-4">
       {/* HEADER */}
       <button
         type="button"
@@ -257,18 +257,18 @@ if (res.ok && data?.exists && data?.customer?.firebaseUID) {
         className="w-full flex items-center justify-between"
       >
         <div className="min-w-0">
-          <div className="text-sm text-gray-500">Step 1</div>
-          <div className="text-lg font-semibold text-gray-900">Email & Address</div>
+          <div className="text-[9px] font-black uppercase tracking-[0.18em] text-black/36">Step 1</div>
+          <div className="text-sm font-black uppercase tracking-[0.08em] text-black">Email & Address</div>
         </div>
         {showAddress ? <ChevronUp /> : <ChevronDown />}
       </button>
 
       {/* BODY */}
       {showAddress && (
-        <div className="pt-4 space-y-4">
+        <div className="space-y-3 pt-3">
           {/* EMAIL (Guest) */}
           {!isLoggedIn && (
-            <div className="rounded-2xl bg-white/70 p-4 shadow-[0_10px_25px_rgba(0,0,0,0.06)]">
+            <div className="border border-neutral-200 bg-[#fbfaf7] p-3">
               <FormField
                 label="Email"
                 name="email"
@@ -309,7 +309,7 @@ if (res.ok && data?.exists && data?.customer?.firebaseUID) {
                         updateAddressField({ target: { name: "email", value: em.toLowerCase() } });
                         setEmailToCheck(em.toLowerCase());
                       }}
-                      className="text-[11px] px-3 py-1 rounded-full bg-black/5 hover:bg-black hover:text-white transition"
+                      className="border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-black/55 transition hover:border-black hover:text-black"
                     >
                       {em}
                     </button>
@@ -331,17 +331,17 @@ if (res.ok && data?.exists && data?.customer?.firebaseUID) {
                 return (
                   <label
                     key={addr._id}
-                    className={`block rounded-2xl p-4 cursor-pointer transition shadow-[0_10px_25px_rgba(0,0,0,0.06)] ${
-                      active ? "bg-white" : "bg-white/60 hover:bg-white/80"
+                    className={`block cursor-pointer border p-3 transition sm:p-4 ${
+                      active ? "border-black bg-white" : "border-neutral-200 bg-[#fbfaf7] hover:border-black hover:bg-white"
                     }`}
                     onClick={() => setSelectedAddressId(addr._id)}
                   >
                     <div className="flex items-start gap-3">
-                      <input type="radio" readOnly checked={active} className="mt-1 w-5 h-5 accent-black" />
+                      <input type="radio" readOnly checked={active} className="mt-1 h-4 w-4 accent-black" />
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900">{addr.fullName}</p>
-                        <p className="text-xs text-gray-600">{addr.phone}</p>
-                        <p className="text-sm text-gray-700 mt-1 leading-5">
+                        <p className="text-xs font-black uppercase tracking-[0.08em] text-black">{addr.fullName}</p>
+                        <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-black/50">{addr.phone}</p>
+                        <p className="mt-2 text-[11px] font-bold uppercase leading-5 tracking-[0.06em] text-black/55">
                           {addr.addressLine1}
                           {addr.addressLine2 ? `, ${addr.addressLine2}` : ""},{" "}
                           {addr.city}, {addr.state} - {addr.postalCode}
@@ -353,7 +353,7 @@ if (res.ok && data?.exists && data?.customer?.firebaseUID) {
               })}
             </div>
           ) : (
-            <p className="text-gray-600 text-sm">
+            <p className="border border-dashed border-neutral-300 bg-[#fbfaf7] p-3 text-[11px] font-bold uppercase tracking-[0.1em] text-black/45">
               {isLoggedIn || existingCustomer ? "No saved addresses." : "Enter email to continue."}
             </p>
           )}
@@ -362,15 +362,15 @@ if (res.ok && data?.exists && data?.customer?.firebaseUID) {
           <button
             type="button"
             onClick={() => setShowAddressForm((s) => !s)}
-            className="inline-flex items-center gap-2 rounded-2xl bg-black text-white px-4 py-2 text-sm font-semibold shadow-[0_14px_28px_rgba(0,0,0,0.18)] active:scale-[0.99] transition"
+            className="inline-flex h-10 items-center gap-2 bg-black px-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800"
           >
             <Plus size={16} /> Add New Address
           </button>
 
           {/* FORM */}
           {showAddressForm && (
-            <div className="rounded-2xl bg-white/70 p-4 sm:p-5 shadow-[0_18px_45px_rgba(0,0,0,0.08)]">
-              <h3 className="font-semibold text-gray-900 mb-3">New Address</h3>
+            <div className="border border-neutral-200 bg-[#fbfaf7] p-3">
+              <h3 className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-black">New Address</h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
@@ -513,7 +513,7 @@ if (res.ok && data?.exists && data?.customer?.firebaseUID) {
       console.groupEnd();
     }
   }}
-  className="mt-4 w-full rounded-2xl bg-black py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(0,0,0,0.22)] transition hover:opacity-90 disabled:bg-black/20 disabled:text-black/40 active:scale-[0.99]"
+  className="mt-4 h-11 w-full bg-black text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800 disabled:bg-black/20 disabled:text-black/40"
 >
   {checkingEmail || loadingAddresses
     ? "Checking..."

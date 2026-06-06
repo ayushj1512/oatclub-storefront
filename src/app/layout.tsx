@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Lato, Nunito_Sans } from "next/font/google";
 import LayoutClient from "./layout.client";
+import { CATEGORY_KEYWORDS, SEO_KEYWORDS } from "@/lib/seo/seoMeta";
 
 const lato = Lato({
   subsets: ["latin"],
@@ -21,24 +22,29 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://oatclub.in"),
   alternates: { canonical: "https://oatclub.in" },
   title: {
-    default: "OATCLUB | Own All Trends",
+    default: "OATCLUB | Premium Women Fashion Online India",
     template: "%s | OATCLUB",
   },
   description:
-    "Shop OATCLUB premium women's fashion, curated trend edits, elevated wardrobe staples, and modern occasion-ready styles.",
-  keywords: [
-    "OATCLUB",
-    "Own All Trends",
-    "women's fashion",
-    "premium fashion",
-    "online fashion store",
-    "modern clothing",
-    "trend edits",
-  ],
+    "Shop OATCLUB for premium women fashion online in India: western wear, co ord sets, dresses, tops, bottom wear, party wear, casual wear and modern outfits.",
+  applicationName: "OATCLUB",
+  category: "Fashion",
+  keywords: [...SEO_KEYWORDS, ...CATEGORY_KEYWORDS],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
-    title: "OATCLUB | Own All Trends",
+    title: "OATCLUB | Premium Women Fashion Online India",
     description:
-      "Premium women's fashion, sharp everyday edits, and trend-led styles curated by OATCLUB.",
+      "Premium women fashion, western wear, co ord sets, dresses, tops and trend-led outfits curated by OATCLUB India.",
     type: "website",
     siteName: "OATCLUB",
     locale: "en_IN",
@@ -54,9 +60,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "OATCLUB | Own All Trends",
+    title: "OATCLUB | Premium Women Fashion Online India",
     description:
-      "Premium women's fashion and trend-led wardrobe edits by OATCLUB.",
+      "Shop OATCLUB women clothing online in India: premium western wear, co ord sets, dresses, tops and modern outfits.",
     images: ["https://oatclub.in/og-default.jpg"],
   },
   icons: {

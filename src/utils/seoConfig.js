@@ -1,27 +1,33 @@
 // src/utils/seoConfig.js
 
+import { SEO_KEYWORDS, SITE, uniqueKeywords } from "@/lib/seo/seoMeta";
+
 export function generateSEO({
-  title = "OATCLUB | Premium Everyday Essentials",
-  description = "Explore OATCLUB — premium everyday essentials, timeless wardrobe pieces, and modern apparel designed for effortless style.",
-  url = "https://oatclub.in",
+  title = "OATCLUB | Premium Women Fashion Online India",
+  description = "Shop OATCLUB for premium women fashion online in India: western wear, co ord sets, dresses, tops, bottom wear, party wear and modern outfits.",
+  url = SITE.url,
   image = "https://oatclub.in/og-image.jpg",
   type = "website",
-  keywords = "OATCLUB, premium clothing, everyday essentials, minimal fashion, modern apparel, premium basics, online clothing store",
+  keywords = SEO_KEYWORDS,
   product = null,
 }) {
+  const finalKeywords = Array.isArray(keywords)
+    ? uniqueKeywords(SEO_KEYWORDS, keywords)
+    : uniqueKeywords(SEO_KEYWORDS, String(keywords).split(","));
+
   const metadata = {
     title,
     description,
-    keywords,
+    keywords: finalKeywords,
 
     openGraph: {
       title,
       description,
       url,
-      siteName: "OATCLUB",
+      siteName: SITE.name,
       images: [{ url: image }],
       type,
-      locale: "en_IN",
+      locale: SITE.locale,
     },
 
     twitter: {
@@ -42,7 +48,7 @@ export function generateSEO({
         sku: product.sku || product.id,
         brand: {
           "@type": "Brand",
-          name: "OATCLUB",
+          name: SITE.name,
         },
         offers: {
           "@type": "Offer",

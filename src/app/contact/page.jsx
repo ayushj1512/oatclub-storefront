@@ -1,10 +1,15 @@
 import { Instagram, Mail } from "lucide-react";
 import { InfoBlock, InfoCallout, InfoPageLayout, InfoTable } from "@/components/info/InfoPageLayout";
+import { buildSeoMetadata } from "@/lib/seo/seoMeta";
 
-export const metadata = {
-  title: "Contact OATCLUB",
-  description: "Contact OATCLUB for orders, complaints, sizing, returns, and product support.",
-};
+export const metadata = buildSeoMetadata({
+  title: "Contact OATCLUB India | Order & Style Support",
+  description:
+    "Contact OATCLUB India for women fashion orders, sizing help, shipping, exchange, returns, refunds and premium clothing support.",
+  path: "/contact",
+  image: "/og-default.jpg",
+  keywords: ["OATCLUB India", "OATCLUB clothing", "women fashion support", "OATCLUB contact"],
+});
 
 export default function ContactPage() {
   return (

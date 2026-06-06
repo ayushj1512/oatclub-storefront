@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock } from "lucide-react";
+import { Lock, PackageCheck, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
 
 // import CodConfirmCaptcha from "@/components/checkout/CodConfirmCaptcha";
@@ -25,9 +25,21 @@ import useCustomerStore from "@/store/customerStore";
 
 /* ---------- tiny UI ---------- */
 const Chip = ({ children }) => (
-  <span className="inline-flex items-center gap-1.5 rounded-full bg-black/4 px-3 py-1 text-[11px] text-gray-700">
+  <span className="inline-flex h-7 items-center gap-1.5 border border-neutral-200 bg-[#fbfaf7] px-2.5 text-[9px] font-black uppercase tracking-[0.14em] text-black/55">
     {children}
   </span>
+);
+
+const HeaderPromise = ({ icon, title, text }) => (
+  <div className="border-l border-neutral-200 px-2 first:border-l-0 sm:px-4 sm:first:pl-0">
+    <div className="flex flex-col items-center gap-1 text-center text-[8px] font-black uppercase leading-3 tracking-[0.08em] text-black sm:flex-row sm:text-left sm:text-[10px] sm:tracking-[0.14em]">
+      {icon}
+      {title}
+    </div>
+    <p className="mt-1 hidden text-[9px] font-bold uppercase leading-4 tracking-[0.08em] text-black/42 sm:block">
+      {text}
+    </p>
+  </div>
 );
 
 export default function CheckoutPage() {
@@ -877,24 +889,47 @@ walletAmount: appliedWalletAmount,        items: orderItems,
 
   /* ---------------- UI ---------------- */
   return (
-    <section className="w-full min-h-screen bg-[#F6F6F8]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-black/[0.06] to-transparent" />
+    <section className="min-h-screen w-full bg-[#f6f4ef] text-black">
+      <div className="relative w-full px-3 py-3 sm:px-5 sm:py-6 lg:px-8">
+        <div className="mx-auto mb-3 w-full max-w-3xl border border-neutral-200 bg-white p-3.5 shadow-[0_18px_50px_rgba(30,25,18,0.05)] sm:mb-4 sm:p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-black/38">
+                OATCLUB Checkout
+              </p>
+              <h1 className="mt-1.5 text-xl font-black uppercase leading-none tracking-normal text-black sm:text-2xl">
+                Finish The Fit
+              </h1>
+              <p className="mt-2 max-w-xl text-[10px] font-bold uppercase leading-4 tracking-[0.08em] text-black/45">
+                Quick Details, Secure Payment, Fresh Pieces On The Way.
+              </p>
+            </div>
 
-      <div className="relative w-full px-4 sm:px-6 lg:px-10 py-8 sm:py-10">
-        <div className="flex flex-col items-center gap-3 mb-6">
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">
-            Checkout
-          </h1>
-          <div className="flex flex-wrap items-center justify-center gap-2">
             <Chip>
-              <Lock className="w-3.5 h-3.5" /> Secure
+              <Lock className="h-3.5 w-3.5" /> Protected
             </Chip>
-            <Chip>Fast dispatch</Chip>
-            <Chip>Easy returns</Chip>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 border-t border-neutral-200 pt-3">
+            <HeaderPromise
+              icon={<ShieldCheck className="h-3.5 w-3.5" />}
+              title="Secure"
+              text="Private Checkout Flow"
+            />
+            <HeaderPromise
+              icon={<PackageCheck className="h-3.5 w-3.5" />}
+              title="Packed With Care"
+              text="Quality Checked Before Dispatch"
+            />
+            <HeaderPromise
+              icon={<Lock className="h-3.5 w-3.5" />}
+              title="Easy Support"
+              text="Order Help When You Need It"
+            />
           </div>
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-2.5 sm:gap-3">
           {/* Step 1: Email + Address */}
           <AddressSelection
             user={user}
