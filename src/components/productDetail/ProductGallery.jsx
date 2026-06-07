@@ -8,14 +8,44 @@ export default function ProductGallery({ images = [] }) {
   const safeImages = images.filter(Boolean).map(String);
   const [active, setActive] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [zoomed, setZoomed] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const mobileRowRef = useRef(null);
   const mobileThumbRef = useRef(null);
+  const lightboxStageRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0 });
+  const pointerStartRef = useRef({ x: 0, y: 0 });
 
   const activeIndex = Math.min(active, safeImages.length - 1);
   const current = safeImages[activeIndex] || safeImages[0];
   const desktopImages = safeImages.length > 1 ? safeImages.slice(0, 6) : safeImages;
+  const zoomed = zoomLevel > 1;
+
+  const resetZoom = () => {
+    setZoomLevel(1);
+    requestAnimationFrame(() => {
+      const stage = lightboxStageRef.current;
+      if (!stage) return;
+      stage.scrollTo({
+        left: Math.max(0, (stage.scrollWidth - stage.clientWidth) / 2),
+        top: Math.max(0, (stage.scrollHeight - stage.clientHeight) / 2),
+        behavior: "auto",
+      });
+    });
+  };
+
+  const setZoom = (nextLevel) => {
+    const next = Math.max(1, Math.min(3, nextLevel));
+    setZoomLevel(next);
+    requestAnimationFrame(() => {
+      const stage = lightboxStageRef.current;
+      if (!stage) return;
+      stage.scrollTo({
+        left: Math.max(0, (stage.scrollWidth - stage.clientWidth) / 2),
+        top: Math.max(0, (stage.scrollHeight - stage.clientHeight) / 2),
+        behavior: "smooth",
+      });
+    });
+  };
 
   const showImage = (index) => {
     setActive(index);
@@ -35,12 +65,12 @@ export default function ProductGallery({ images = [] }) {
 
   const openLightbox = (index) => {
     setActive(index);
-    setZoomed(false);
+    setZoomLevel(1);
     setLightboxOpen(true);
   };
 
   const closeLightbox = () => {
-    setZoomed(false);
+    setZoomLevel(1);
     setLightboxOpen(false);
   };
 
@@ -69,7 +99,18 @@ export default function ProductGallery({ images = [] }) {
     move(diffX < 0 ? "next" : "prev");
   };
 
-  const toggleZoom = () => setZoomed((value) => !value);
+  const toggleZoom = () => setZoom(zoomLevel >= 2.4 ? 1 : zoomLevel === 1 ? 1.8 : 2.6);
+
+  const handleStagePointerDown = (event) => {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handleStagePointerUp = (event) => {
+    const diffX = event.clientX - pointerStartRef.current.x;
+    const diffY = event.clientY - pointerStartRef.current.y;
+    if (Math.hypot(diffX, diffY) > 10) return;
+    toggleZoom();
+  };
 
   useEffect(() => {
     if (!lightboxOpen) return;
@@ -77,11 +118,11 @@ export default function ProductGallery({ images = [] }) {
     const onKeyDown = (event) => {
       if (event.key === "Escape") closeLightbox();
       if (event.key === "ArrowRight") {
-        setZoomed(false);
+        resetZoom();
         move("next");
       }
       if (event.key === "ArrowLeft") {
-        setZoomed(false);
+        resetZoom();
         move("prev");
       }
     };
@@ -103,14 +144,14 @@ export default function ProductGallery({ images = [] }) {
         <div
           ref={mobileRowRef}
           onScroll={handleMobileScroll}
-          className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth bg-white"
+          className="no-scrollbar flex w-screen snap-x snap-mandatory overflow-x-auto scroll-smooth bg-white"
         >
           {safeImages.map((src, index) => (
             <button
               key={`${src}-mobile-${index}`}
               type="button"
               onClick={() => openLightbox(index)}
-              className="relative aspect-[4/5] w-full shrink-0 snap-center bg-white"
+              className="relative aspect-[3/4] w-screen shrink-0 snap-center bg-white"
               aria-label={`OPEN PRODUCT IMAGE ${index + 1}`}
             >
               <Image
@@ -119,7 +160,7 @@ export default function ProductGallery({ images = [] }) {
                 fill
                 priority={index === 0}
                 sizes="100vw"
-                className="object-contain"
+                className="object-cover"
               />
             </button>
           ))}
@@ -212,7 +253,7 @@ export default function ProductGallery({ images = [] }) {
               <button
                 type="button"
                 onClick={() => {
-                  setZoomed(false);
+                  resetZoom();
                   move("prev");
                 }}
                 className="absolute left-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:grid md:left-6"
@@ -223,7 +264,7 @@ export default function ProductGallery({ images = [] }) {
               <button
                 type="button"
                 onClick={() => {
-                  setZoomed(false);
+                  resetZoom();
                   move("next");
                 }}
                 className="absolute right-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:grid md:right-6"
@@ -234,34 +275,74 @@ export default function ProductGallery({ images = [] }) {
             </>
           )}
 
-          <div className="flex h-full w-full items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] pt-[calc(env(safe-area-inset-top,0px)+4rem)] md:px-20 md:py-16">
-            <button
-              type="button"
-              onClick={toggleZoom}
-              className={`relative h-full w-full overflow-auto touch-pan-x touch-pan-y ${
+          <div className="flex h-full w-full items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+6rem)] pt-[calc(env(safe-area-inset-top,0px)+4rem)] md:px-20 md:py-16">
+            <div
+              role="button"
+              tabIndex={0}
+              onPointerDown={handleStagePointerDown}
+              onPointerUp={handleStagePointerUp}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") toggleZoom();
+              }}
+              className={`relative h-full w-full ${
                 zoomed ? "cursor-zoom-out" : "cursor-zoom-in"
               }`}
               aria-label={zoomed ? "ZOOM OUT PRODUCT IMAGE" : "ZOOM IN PRODUCT IMAGE"}
             >
-              <Image
-                src={current}
-                alt={`PRODUCT IMAGE ${activeIndex + 1}`}
-                fill
-                sizes="100vw"
-                priority
-                className={`object-contain transition-transform duration-300 ${
-                  zoomed ? "scale-[1.85]" : "scale-100"
+              <div
+                ref={lightboxStageRef}
+                className={`h-full w-full overscroll-contain ${
+                  zoomed ? "overflow-auto touch-pan-x touch-pan-y" : "overflow-hidden"
                 }`}
-              />
-            </button>
+              >
+                <div
+                  className="flex min-h-full min-w-full items-center justify-center"
+                  style={{
+                    width: zoomed ? `${zoomLevel * 100}%` : "100%",
+                    height: zoomed ? `${zoomLevel * 100}%` : "100%",
+                  }}
+                >
+                  <img
+                    src={current}
+                    alt={`PRODUCT IMAGE ${activeIndex + 1}`}
+                    className="max-h-full max-w-full select-none object-contain"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="absolute inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-3 md:hidden">
+            <div className="mb-2 grid grid-cols-[44px_1fr_44px] items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setZoom(zoomLevel - 0.8)}
+                disabled={zoomLevel <= 1}
+                className="grid h-10 place-items-center border border-black/15 text-black disabled:opacity-25"
+                aria-label="ZOOM OUT"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </button>
+              <div className="flex h-10 items-center justify-center border border-black/10 bg-neutral-50 text-[9px] font-black uppercase tracking-[0.18em] text-black/45">
+                {Math.round(zoomLevel * 100)}%
+              </div>
+              <button
+                type="button"
+                onClick={() => setZoom(zoomLevel + 0.8)}
+                disabled={zoomLevel >= 3}
+                className="grid h-10 place-items-center border border-black/15 text-black disabled:opacity-25"
+                aria-label="ZOOM IN"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </button>
+            </div>
+
             <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  setZoomed(false);
+                  resetZoom();
                   move("prev");
                 }}
                 disabled={safeImages.length < 2}
@@ -281,7 +362,7 @@ export default function ProductGallery({ images = [] }) {
               <button
                 type="button"
                 onClick={() => {
-                  setZoomed(false);
+                  resetZoom();
                   move("next");
                 }}
                 disabled={safeImages.length < 2}
@@ -292,7 +373,7 @@ export default function ProductGallery({ images = [] }) {
               </button>
             </div>
             <p className="mt-2 text-center text-[8px] font-black uppercase tracking-[0.18em] text-black/35">
-              TAP IMAGE TO ZOOM
+              TAP IMAGE TO ZOOM, DRAG TO PAN
             </p>
           </div>
         </div>

@@ -69,6 +69,7 @@ export default function HomeClient() {
 
         <HeroSection />
         <CategoryMosaic />
+        <VideoRow />
         <ShopByCategoryRow />
 
         <BestSellerSection />
@@ -81,7 +82,6 @@ export default function HomeClient() {
 
         {/* Recommendation row */}
         <RecommendationFeatureRow limit={12} seedCount={6} />
-        <VideoRow />
 
         {/* BELOW THE FOLD */}
         {/* <TrendingSection /> */}

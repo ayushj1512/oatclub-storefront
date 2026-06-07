@@ -170,8 +170,8 @@ export default function MobileHeader() {
       >
         <TopbarHeadline />
 
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div className="flex shrink-0 items-center gap-3">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3">
+          <div className="flex items-center gap-3 justify-self-start">
             <button
               onClick={handleOpenMenu}
               aria-label="Open menu"
@@ -192,9 +192,9 @@ export default function MobileHeader() {
           <Link
             href="/"
             aria-label="Go to homepage"
-            className="flex-1 flex items-center justify-center select-none"
+            className="flex items-center justify-center select-none justify-self-center"
           >
-            <div className="relative h-8 w-full max-w-[160px]">
+            <div className="relative h-8 w-[150px]">
               <Image
                 src={LOGO_URL}
                 alt="OATCLUB"
@@ -206,7 +206,7 @@ export default function MobileHeader() {
             </div>
           </Link>
 
-          <div className="shrink-0 flex items-center gap-3">
+          <div className="flex items-center gap-3 justify-self-end">
             <WishlistButton size={22} />
 
             <button

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 const str = (value) => (value == null ? "" : String(value).trim());
 
 const hasPositiveDimension = (dimensions = {}) =>
@@ -21,17 +23,27 @@ const specValue = (specs = [], key = "") => {
 };
 
 function Section({ eyebrow, title, children }) {
+  const [open, setOpen] = useState(true);
+
   return (
-    <section className="border-t border-neutral-200 py-3.5">
-      <div className="mb-2.5">
-        <p className="text-[8.5px] font-extrabold uppercase tracking-[0.2em] text-black/38">
-          {eyebrow}
-        </p>
-        <h3 className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.1em] text-black">
+    <section className="border-t border-neutral-200 py-2.5">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={open}
+      >
+        <span>
+          <span className="block text-[8px] font-extrabold uppercase tracking-[0.18em] text-black/35">
+            {eyebrow}
+          </span>
+          <span className="mt-0.5 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-black">
           {title}
-        </h3>
-      </div>
-      {children}
+          </span>
+        </span>
+        <span className="text-base font-light leading-none text-black">{open ? "-" : "+"}</span>
+      </button>
+      {open ? <div className="mt-2">{children}</div> : null}
     </section>
   );
 }

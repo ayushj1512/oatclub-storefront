@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   WashingMachine,
   Droplets,
@@ -38,29 +39,41 @@ export default function WashcareSection({
   title = "Washing Instructions",
   items = [],
 }) {
-  return (
-    <section className="border-t border-neutral-200 py-3.5">
-      <h3 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-black">
-        {title}
-      </h3>
+  const [open, setOpen] = useState(true);
 
-      {items.length ? (
-        <ul className="grid gap-2">
-          {items.map((text, index) => (
-            <li
-              key={`${text}-${index}`}
-              className="flex items-center gap-3 text-[9.5px] font-semibold uppercase leading-5 tracking-[0.07em] text-black/58"
-            >
-              {getIcon(text)}
-              <span>{text}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-[11px] text-black/50">
-          Care instructions will be updated soon.
-        </p>
-      )}
+  return (
+    <section className="border-t border-neutral-200 py-2.5">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={open}
+      >
+        <h3 className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-black">
+          {title}
+        </h3>
+        <span className="text-base font-light leading-none text-black">{open ? "-" : "+"}</span>
+      </button>
+
+      {open ? (
+        items.length ? (
+          <ul className="mt-2 grid gap-2">
+            {items.map((text, index) => (
+              <li
+                key={`${text}-${index}`}
+                className="flex items-center gap-3 text-[9.5px] font-semibold uppercase leading-5 tracking-[0.07em] text-black/58"
+              >
+                {getIcon(text)}
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-[11px] text-black/50">
+            Care instructions will be updated soon.
+          </p>
+        )
+      ) : null}
     </section>
   );
 }

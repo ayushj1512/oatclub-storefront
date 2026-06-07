@@ -708,8 +708,8 @@ router.push("/checkout?mode=buy-now");
 
   return (
   <div className="w-full bg-white text-black">
-    <div className="w-full px-3 py-3 md:px-6 lg:px-8 lg:py-5">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[55fr_45fr] lg:items-start lg:gap-1">
+    <div className="w-full px-0 py-0 md:px-6 md:py-3 lg:px-8 lg:py-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[55fr_45fr] lg:items-start lg:gap-1">
         {/* LEFT IMAGE */}
         <section className="min-w-0">
           <div className="w-full bg-white">
@@ -718,8 +718,8 @@ router.push("/checkout?mode=buy-now");
         </section>
 
         {/* RIGHT DETAILS */}
-        <aside className="min-w-0 bg-white px-1 md:px-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-96px)] lg:overflow-y-auto lg:px-8 lg:py-5">
-          <div className="space-y-4">
+        <aside className="min-w-0 bg-white px-4 md:px-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-96px)] lg:overflow-y-auto lg:px-8 lg:py-5">
+          <div className="space-y-3">
             {/* Breadcrumb */}
             <div className="flex flex-wrap items-center gap-1 text-[9px] font-extrabold uppercase tracking-[0.2em] text-black/40">
               <Link href="/" className="transition hover:text-black">
@@ -741,7 +741,7 @@ router.push("/checkout?mode=buy-now");
             </div>
 
             {/* Title */}
-            <div className="space-y-3 border-b border-black/10 pb-4">
+            <div className="space-y-2 border-b border-black/10 pb-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   {product?.raw?.categories?.[0]?.name ? (
@@ -786,7 +786,7 @@ router.push("/checkout?mode=buy-now");
 
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h1 className="text-[22px] font-extrabold uppercase leading-[1.08] text-black md:text-[28px] lg:text-[31px]">
+                  <h1 className="text-[18px] font-extrabold uppercase leading-[1.08] text-black md:text-[24px] lg:text-[26px]">
                     {product.name}
                   </h1>
                 </div>
@@ -800,7 +800,7 @@ router.push("/checkout?mode=buy-now");
             />
 
             {/* Price */}
-            <div className="border-b border-black/10 pb-4">
+            <div className="border-b border-black/10 pb-3">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex flex-wrap items-end gap-3">
                   <span className="text-[22px] font-extrabold leading-none text-black md:text-[27px]">
@@ -943,6 +943,10 @@ router.push("/checkout?mode=buy-now");
                   })()}
                 </div>
 
+                <p className="mt-3 border border-black/10 bg-neutral-50 px-3 py-2 text-[10px] font-bold uppercase leading-4 tracking-[0.08em] text-black/58">
+                  We will dispatch within 7 days as this piece is specially curated for you only.
+                </p>
+
               </div>
             )}
 
@@ -1015,7 +1019,7 @@ router.push("/checkout?mode=buy-now");
             <TrustStrip product={product} />
 
             {/* Details */}
-            <div className="space-y-2 border-t border-black/10 pt-4">
+            <div className="space-y-0 border-t border-black/10 pt-2">
               <ProductDetailSection
                 title="PRODUCT DETAILS"
                 content={product.description}
