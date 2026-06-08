@@ -13,7 +13,7 @@ export default function ShippingHighlights() {
   const [open, setOpen] = useState(true);
 
   return (
-    <section className="border-y border-neutral-200 py-2.5">
+    <section className="bg-white py-2">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -27,9 +27,9 @@ export default function ShippingHighlights() {
       </button>
 
       {open ? (
-        <div className="mt-2 grid gap-0 divide-y divide-neutral-200">
+        <div className="mt-2 grid gap-2">
           {ITEMS.map(([Icon, title, desc]) => (
-            <div key={title} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+            <div key={title} className="flex items-start gap-3 bg-neutral-50 px-3 py-2.5">
               <Icon className="mt-0.5 h-4 w-4 shrink-0 text-black" />
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.12em] text-black">

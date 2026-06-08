@@ -22,24 +22,19 @@ const specValue = (specs = [], key = "") => {
   return str(specs.find((item) => str(item?.key).toLowerCase() === needle)?.value);
 };
 
-function Section({ eyebrow, title, children }) {
+function Section({ title, children }) {
   const [open, setOpen] = useState(true);
 
   return (
-    <section className="border-t border-neutral-200 py-2.5">
+    <section className="bg-white py-2">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="flex w-full items-center justify-between gap-3 text-left"
         aria-expanded={open}
       >
-        <span>
-          <span className="block text-[8px] font-extrabold uppercase tracking-[0.18em] text-black/35">
-            {eyebrow}
-          </span>
-          <span className="mt-0.5 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-black">
+        <span className="block text-[10px] font-extrabold uppercase tracking-[0.1em] text-black">
           {title}
-          </span>
         </span>
         <span className="text-base font-light leading-none text-black">{open ? "-" : "+"}</span>
       </button>
@@ -119,7 +114,7 @@ export default function ProductInformationSuite({ product }) {
   return (
     <div className="space-y-0">
       {hasStory ? (
-        <Section eyebrow="STYLE INTENT" title="HOW THIS PIECE WORKS">
+        <Section title="HOW THIS PIECE WORKS">
           <div className="space-y-3">
             <TextBlock>{raw.howToStyle}</TextBlock>
             <TextBlock>{raw.fabricDetails}</TextBlock>
@@ -128,7 +123,7 @@ export default function ProductInformationSuite({ product }) {
       ) : null}
 
       {features.length ? (
-        <Section eyebrow="DETAILS" title="KEY FEATURES">
+        <Section title="KEY FEATURES">
           <div className="flex flex-wrap gap-2">
             {features.map((feature) => (
               <span
@@ -143,13 +138,13 @@ export default function ProductInformationSuite({ product }) {
       ) : null}
 
       {productMeta.some((item) => str(item.value)) ? (
-        <Section eyebrow="PRODUCT DATA" title="SPECIFICATIONS">
+        <Section title="SPECIFICATIONS">
           <KeyValueTable items={productMeta} />
         </Section>
       ) : null}
 
       {fabrics.length ? (
-        <Section eyebrow="MATERIAL" title="FABRIC BREAKDOWN">
+        <Section title="FABRIC BREAKDOWN">
           <KeyValueTable
             items={fabrics.map((fabric, index) => ({
               label: fabric.role || `Fabric ${index + 1}`,
@@ -159,23 +154,6 @@ export default function ProductInformationSuite({ product }) {
         </Section>
       ) : null}
 
-      {care || tags.length ? (
-        <Section eyebrow="CARE & TAGS" title="MORE TO KNOW">
-          {care ? <TextBlock>{care}</TextBlock> : null}
-          {tags.length ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="bg-neutral-100 px-2.5 py-1.5 text-[8.5px] font-extrabold uppercase tracking-[0.12em] text-black/50"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </Section>
-      ) : null}
     </div>
   );
 }

@@ -11,7 +11,7 @@ export default function ProductDetailSection({
   if (!content) return null;
 
   return (
-    <section className="border-t border-neutral-200 py-2.5">
+    <section className="bg-white py-2">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}

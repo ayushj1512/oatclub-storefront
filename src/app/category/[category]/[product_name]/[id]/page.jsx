@@ -42,10 +42,10 @@ function TrustStrip({ product }) {
   ];
 
   return (
-    <section className="border-y border-neutral-200">
-      <div className="grid divide-y divide-neutral-200 md:grid-cols-3 md:divide-x md:divide-y-0">
+    <section className="bg-neutral-50">
+      <div className="grid gap-px bg-white md:grid-cols-3">
         {items.map(([Icon, title, desc]) => (
-        <div key={title} className="flex gap-3 px-1 py-3 md:px-4">
+        <div key={title} className="flex gap-3 bg-neutral-50 px-3 py-3 md:px-4">
           <Icon className="mt-0.5 h-4 w-4 shrink-0 text-black" />
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-black">
@@ -712,7 +712,7 @@ router.push("/checkout?mode=buy-now");
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[55fr_45fr] lg:items-start lg:gap-1">
         {/* LEFT IMAGE */}
         <section className="min-w-0">
-          <div className="w-full bg-white">
+          <div className="min-h-[133vw] w-full bg-white md:min-h-0">
             <ProductGallery images={product.images || []} />
           </div>
         </section>
@@ -1019,7 +1019,7 @@ router.push("/checkout?mode=buy-now");
             <TrustStrip product={product} />
 
             {/* Details */}
-            <div className="space-y-0 border-t border-black/10 pt-2">
+            <div className="space-y-1 pt-2">
               <ProductDetailSection
                 title="PRODUCT DETAILS"
                 content={product.description}

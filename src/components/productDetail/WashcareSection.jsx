@@ -42,7 +42,7 @@ export default function WashcareSection({
   const [open, setOpen] = useState(true);
 
   return (
-    <section className="border-t border-neutral-200 py-2.5">
+    <section className="bg-white py-2">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}

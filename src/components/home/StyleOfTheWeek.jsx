@@ -90,31 +90,39 @@ export default function StyleOfTheWeek() {
   if (!product) return null;
 
   return (
-    <section className="bg-white px-3 py-7 text-black md:px-8 md:py-14">
-      <div className="grid grid-cols-[118px_minmax(0,1fr)] gap-4 border-y border-neutral-200 py-4 md:grid-cols-[0.95fr_1.05fr] md:items-center md:gap-8 md:py-5">
-        <Link href={product.link} className="group relative aspect-[4/5] overflow-hidden bg-white md:aspect-[5/4]">
+    <section className="bg-white px-3 py-4 text-black md:px-8 md:py-7">
+      <div className="mx-auto max-w-md bg-neutral-50 p-2.5 md:max-w-[420px] md:p-3">
+        <div className="mb-2.5 flex items-center justify-between gap-3">
+          <p className="inline-flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.24em] text-black/45 md:text-[9px] md:tracking-[0.3em]">
+            <Sparkles className="h-3.5 w-3.5" />
+            STYLE OF THE WEEK
+          </p>
+          {discount ? (
+            <span className="bg-black px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-white">
+              {discount}% OFF
+            </span>
+          ) : null}
+        </div>
+
+        <Link href={product.link} className="group relative block aspect-[5/6] w-full overflow-hidden bg-white md:mx-auto md:h-[430px] md:aspect-auto md:max-w-[340px]">
           <Image
             src={product.image}
             alt={product.title}
             fill
-            sizes="(max-width: 768px) 118px, 48vw"
-            className="object-contain transition duration-500 group-hover:scale-[1.02]"
+            sizes="(max-width: 768px) 100vw, 768px"
+            className="object-cover transition duration-700 group-hover:scale-[1.025]"
           />
         </Link>
 
-        <div className="min-w-0 py-1 md:px-6 md:py-2">
-          <p className="inline-flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[0.22em] text-black/45 md:gap-2 md:text-[10px] md:tracking-[0.34em]">
-            <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" />
-            STYLE OF THE WEEK
-          </p>
-          <h2 className="mt-2 line-clamp-3 max-w-xl text-[15px] font-black uppercase leading-tight text-black md:mt-3 md:text-4xl">
+        <div className="bg-white px-3 py-3 text-center md:px-4 md:py-4">
+          <h2 className="mx-auto max-w-md text-[15px] font-black uppercase leading-tight text-black md:text-2xl">
             {product.title}
           </h2>
-          <p className="mt-3 hidden max-w-md text-[11px] font-bold uppercase leading-6 tracking-[0.08em] text-black/50 md:block">
+          <p className="mx-auto mt-2 max-w-xs text-[8.5px] font-bold uppercase leading-4 tracking-[0.08em] text-black/45 md:text-[9px]">
             ONE STANDOUT PIECE FROM THE CURRENT OATCLUB EDIT, PICKED TO BUILD THE WEEK AROUND.
           </p>
 
-          <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 md:mt-5 md:gap-3">
+          <div className="mt-2.5 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 md:gap-3">
             <span className="text-[12px] font-black uppercase tracking-[0.08em] text-black md:text-sm md:tracking-[0.1em]">
               RS. {money(product.price)}
             </span>
@@ -123,16 +131,11 @@ export default function StyleOfTheWeek() {
                 RS. {money(product.compareAt)}
               </span>
             ) : null}
-            {discount ? (
-              <span className="bg-black px-1.5 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-white md:px-2 md:text-[9px] md:tracking-[0.14em]">
-                {discount}% OFF
-              </span>
-            ) : null}
           </div>
 
           <Link
             href={product.link}
-            className="mt-4 inline-flex items-center gap-1.5 border border-black px-3 py-2 text-[8px] font-black uppercase tracking-[0.14em] transition hover:bg-black hover:text-white md:mt-6 md:gap-2 md:px-4 md:text-[10px] md:tracking-[0.2em]"
+            className="mt-3 inline-flex items-center gap-2 border border-black px-4 py-2 text-[8.5px] font-black uppercase tracking-[0.18em] transition hover:bg-black hover:text-white md:text-[9px] md:tracking-[0.2em]"
           >
             VIEW
             <ArrowRight className="h-3 w-3 md:h-3.5 md:w-3.5" />

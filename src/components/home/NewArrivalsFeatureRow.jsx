@@ -154,15 +154,11 @@ export default function NewArrivalsFeatureRow({ limit = 12, showOnlyActive = tru
     >
       <div className="mb-6 flex flex-col gap-4 border-b border-neutral-200 pb-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.34em] text-black/45">
-            JUST LANDED
-          </p>
+          
           <h2 className="mt-2 text-2xl font-black uppercase leading-tight text-black md:text-3xl">
             NEW ARRIVALS
           </h2>
-          <p className="mt-2 max-w-md text-[11px] font-bold uppercase leading-5 tracking-[0.08em] text-black/50">
-            FRESH PIECES, CLEAN SILHOUETTES, READY FOR YOUR NEXT OATCLUB EDIT.
-          </p>
+    
         </div>
 
         <button

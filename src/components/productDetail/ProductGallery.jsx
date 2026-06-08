@@ -135,7 +135,20 @@ export default function ProductGallery({ images = [] }) {
     };
   }, [activeIndex, lightboxOpen]);
 
-  if (!safeImages.length) return null;
+  if (!safeImages.length) {
+    return (
+      <div className="w-full" aria-label="Product gallery loading">
+        <div className="md:hidden">
+          <div className="aspect-[3/4] w-screen animate-pulse bg-neutral-100" />
+        </div>
+        <div className="hidden grid-cols-2 gap-3 bg-white md:grid">
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="aspect-[4/5] animate-pulse bg-neutral-100" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
