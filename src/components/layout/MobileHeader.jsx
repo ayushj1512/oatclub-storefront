@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, ShoppingBag, User, Search } from "lucide-react";
+import { Menu, ShoppingBag, Search } from "lucide-react";
 
 import WishlistButton from "@/components/header/WishlistButton";
 import MobileSidebarDrawer from "@/components/header/MobileSidebarDrawer";
@@ -222,14 +222,6 @@ export default function MobileHeader() {
                 </span>
               )}
             </button>
-
-            <Link
-              href="/profile"
-              aria-label="Profile"
-              className="text-black transition hover:text-black/55"
-            >
-              <User size={22} className="text-black" />
-            </Link>
           </div>
         </div>
 

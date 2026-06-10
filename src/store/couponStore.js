@@ -196,6 +196,7 @@ export const useCouponStore = create(
       message: null,
 
       suggestedCoupons: [],
+      earnedCoupons: [],
       isLoadingSuggestions: false,
       suggestionError: null,
 
@@ -245,6 +246,20 @@ export const useCouponStore = create(
         };
       },
 
+      getMyCoupons: () => {
+        const earned = Array.isArray(get().earnedCoupons) ? get().earnedCoupons : [];
+        const suggested = Array.isArray(get().suggestedCoupons) ? get().suggestedCoupons : [];
+        const map = new Map();
+
+        [...earned, ...suggested].forEach((coupon) => {
+          const code = normCode(coupon?.code);
+          if (!code) return;
+          map.set(code, { ...coupon, code });
+        });
+
+        return Array.from(map.values());
+      },
+
       /* ------------------------------------------------------------------
       INTERNAL SETTERS
       ------------------------------------------------------------------- */
@@ -266,6 +281,31 @@ export const useCouponStore = create(
         });
 
         return summary;
+      },
+
+      addEarnedCoupon: (coupon = {}) => {
+        const code = normCode(coupon.code);
+        if (!code) return null;
+
+        const item = {
+          code,
+          title: coupon.title || "OATCLUB reward",
+          description: coupon.description || "Unlocked from your OATCLUB activity.",
+          discountType: coupon.discountType || "percent",
+          discountValue: Number(coupon.discountValue || 0),
+          source: coupon.source || "reward",
+          unlockedAt: coupon.unlockedAt || new Date().toISOString(),
+          isActive: coupon.isActive !== false,
+          visibility: coupon.visibility || "private",
+        };
+
+        set((state) => {
+          const prev = Array.isArray(state.earnedCoupons) ? state.earnedCoupons : [];
+          const next = [item, ...prev.filter((c) => normCode(c?.code) !== code)];
+          return { earnedCoupons: next.slice(0, 30) };
+        });
+
+        return item;
       },
 
       clearPersistedCoupon: async () => {
@@ -770,6 +810,7 @@ export const useCouponStore = create(
       partialize: (state) => ({
         coupon: state.coupon?.code ? { code: state.coupon.code } : null,
         couponCustomerKey: state.couponCustomerKey || null,
+        earnedCoupons: Array.isArray(state.earnedCoupons) ? state.earnedCoupons : [],
       }),
     }
   )

@@ -29,11 +29,29 @@ const normalizeCategoryRow = (row = []) =>
       };
     });
 
+const normalizeCategoryBanners = (banners = []) =>
+  [...banners]
+    .filter((item) => item?.isActive !== false)
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+    .map((item, index) => ({
+      ...item,
+      categoryName: item?.categoryName || "",
+      categorySlug: item?.categorySlug || "",
+      title: item?.title || item?.categoryName || "",
+      subtitle: item?.subtitle || "",
+      image: item?.image || "",
+      mobileImage: item?.mobileImage || "",
+      link: item?.link || (item?.categorySlug ? `/category/${item.categorySlug}` : ""),
+      isActive: item?.isActive !== false,
+      sortOrder: index + 1,
+    }));
+
 export const useHomepageSettingsStore = create((set) => ({
   settings: null,
 
   heroBanners: [],
   categoryRow: [],
+  categoryBanners: [],
 
   loading: false,
   saving: false,
@@ -63,6 +81,7 @@ export const useHomepageSettingsStore = create((set) => ({
         settings: data,
         heroBanners: data.heroBanners || [],
         categoryRow: normalizeCategoryRow(data.categoryRow || []),
+        categoryBanners: normalizeCategoryBanners(data.categoryBanners || []),
         loading: false,
       });
 
@@ -88,6 +107,9 @@ export const useHomepageSettingsStore = create((set) => ({
         categoryRow: payload.categoryRow
           ? normalizeCategoryRow(payload.categoryRow)
           : payload.categoryRow,
+        categoryBanners: payload.categoryBanners
+          ? normalizeCategoryBanners(payload.categoryBanners)
+          : payload.categoryBanners,
       };
 
       const res = await fetch(API_BASE, {
@@ -106,6 +128,7 @@ export const useHomepageSettingsStore = create((set) => ({
         settings: data,
         heroBanners: data.heroBanners || [],
         categoryRow: normalizeCategoryRow(data.categoryRow || []),
+        categoryBanners: normalizeCategoryBanners(data.categoryBanners || []),
         saving: false,
         success: "Homepage settings updated ✅",
       });
@@ -207,6 +230,9 @@ export const useHomepageSettingsStore = create((set) => ({
 
   setCategoryRowLocal: (categoryRow = []) =>
     set({ categoryRow: normalizeCategoryRow(categoryRow) }),
+
+  setCategoryBannersLocal: (categoryBanners = []) =>
+    set({ categoryBanners: normalizeCategoryBanners(categoryBanners) }),
 
   /* ============================
      Helpers

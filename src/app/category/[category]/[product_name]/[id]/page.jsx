@@ -17,11 +17,11 @@ import RelatedProducts from "@/components/productDetail/relatedProducts";
 import WashcareSection from "@/components/productDetail/WashcareSection";
 import ProductDetailSection from "@/components/productDetail/ProductDetailSection";
 import ColorSelector from "@/components/productDetail/ColorSelector";
-import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 import ShippingHighlights from "@/components/productDetail/ShippingHighlights";
 import CrossSellProducts from "@/components/productDetail/CrossSellProducts";
 import LepordCollectionAnnouncement from "@/components/productDetail/LepordCollectionAnnouncement";
 import ProductInformationSuite from "@/components/productDetail/ProductInformationSuite";
+import ReviewSection from "@/components/productDetail/ReviewSection";
 import useGtmStore from "@/store/gtmStore";
 import ProductNotFound from "@/components/productDetail/ProductNotFound";
 import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
@@ -413,6 +413,12 @@ export default function ProductPage({ params }) {
   const trackProductView = useMarketingCampaignStore((s) => s.trackProductView);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.history.scrollRestoration = "manual";
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [id]);
+
+  useEffect(() => {
     cartInitialize?.();
     initWishlist?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -696,8 +702,32 @@ router.push("/checkout?mode=buy-now");
 
   if (loading || storeLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <UniversalLuxuryLoader />
+      <div className="w-full bg-white text-black">
+        <div className="w-full px-0 py-0 md:px-6 md:py-3 lg:px-8 lg:py-5">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[55fr_45fr] lg:items-start lg:gap-1">
+            <section className="min-w-0">
+              <div className="min-h-[133vw] w-full bg-white md:min-h-0">
+                <ProductGallery images={[]} />
+              </div>
+            </section>
+            <aside className="min-w-0 bg-white px-4 pt-4 md:px-4 lg:px-8 lg:py-5">
+              <div className="space-y-4">
+                <div className="h-3 w-40 animate-pulse bg-neutral-100" />
+                <div className="h-8 w-4/5 animate-pulse bg-neutral-100" />
+                <div className="h-7 w-44 animate-pulse bg-neutral-100" />
+                <div className="grid grid-cols-5 gap-2">
+                  {[0, 1, 2, 3, 4].map((item) => (
+                    <div key={item} className="h-10 animate-pulse border border-neutral-100 bg-neutral-50" />
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="h-11 animate-pulse bg-neutral-100" />
+                  <div className="h-11 animate-pulse bg-neutral-100" />
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1066,6 +1096,7 @@ router.push("/checkout?mode=buy-now");
       </div>
 
       <div className="mt-12 border-t border-black/10 pt-10">
+        <ReviewSection productCode={product?.productCode} />
         <RelatedProducts
           currentProduct={normalized?.raw || normalized || product?.raw || product}
         />

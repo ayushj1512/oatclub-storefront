@@ -6,7 +6,9 @@ import toast from "react-hot-toast";
 import {
   ChevronDown,
   ChevronUp,
+  Copy,
   Image as ImageIcon,
+  PartyPopper,
   Trash2,
   Video as VideoIcon,
 } from "lucide-react";
@@ -14,6 +16,7 @@ import {
 import { useMediaStore } from "@/store/useMediaStore";
 import { useReviewStore } from "@/store/useReviewStore";
 import { useAuthStore } from "@/store/authStore";
+import { useCouponStore } from "@/store/couponStore";
 
 const safe = (v) => (v == null ? "" : String(v));
 const s = (v) => safe(v).trim();
@@ -80,8 +83,10 @@ export default function OrderItemReviewSection({
 
   // ✅ NEW: parent hook
   onReviewed,
+  onSubmitted,
 }) {
   const auth = useAuthStore();
+  const addEarnedCoupon = useCouponStore((state) => state.addEarnedCoupon);
   const customerId = s(customerIdProp) || s(auth?.customer?._id);
   const token = tokenProp ?? auth?.token;
   const isAuthenticated =
@@ -109,6 +114,8 @@ export default function OrderItemReviewSection({
   const [rating, setRating] = useState(null);
   const [reviewText, setReviewText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [rewardVisible, setRewardVisible] = useState(false);
+  const [copiedCoupon, setCopiedCoupon] = useState(false);
 
   // local media: { id, file, preview, kind: "image"|"video" }
   const [localMedia, setLocalMedia] = useState([]);
@@ -411,22 +418,37 @@ export default function OrderItemReviewSection({
         } catch {}
       }
 
-      // ✅ inform parent so button disables instantly
-      try {
-        onReviewed?.(pid);
-      } catch {}
-
+      setRewardVisible(true);
+      addEarnedCoupon?.({
+        code: "THANKU10",
+        title: "Review reward",
+        description: "10% off unlocked for submitting your review.",
+        discountType: "percent",
+        discountValue: 10,
+        source: "review",
+        visibility: "private",
+      });
       setRating(null);
       setReviewText("");
       resetLocal();
       clearDraft();
 
-      // ✅ close after submit
-      onToggle?.(false);
+      // Keep the coupon visible in this panel. Parent review state can sync on next fetch/session check.
     } catch (e) {
       toast.error(e?.message || "Submit failed", { id: toastId });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const copyCoupon = async () => {
+    try {
+      await navigator.clipboard.writeText("THANKU10");
+      setCopiedCoupon(true);
+      toast.success("THANKU10 copied");
+      window.setTimeout(() => setCopiedCoupon(false), 1200);
+    } catch {
+      toast.success("Use code THANKU10");
     }
   };
 
@@ -464,8 +486,50 @@ export default function OrderItemReviewSection({
 
       {open ? (
         <div className="px-4 pb-4">
+          {rewardVisible ? (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-black bg-black text-white">
+              <div className="p-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-black">
+                    <PartyPopper size={19} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/55">
+                      Review received
+                    </p>
+                    <h3 className="mt-1 text-lg font-black uppercase leading-tight">
+                      Thank you for helping OATCLUB girls choose better.
+                    </h3>
+                    <p className="mt-2 text-xs font-bold uppercase leading-5 tracking-[0.08em] text-white/60">
+                      Use this on your next order for 10% off.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={copyCoupon}
+                  className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-left text-black"
+                >
+                  <span>
+                    <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-black/40">
+                      Coupon code
+                    </span>
+                    <span className="block text-2xl font-black uppercase tracking-[0.12em]">
+                      THANKU10
+                    </span>
+                  </span>
+                  <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em]">
+                    {copiedCoupon ? "Copied" : "Copy"}
+                    <Copy size={16} />
+                  </span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {/* Rating */}
-          <div className="mt-3 rounded-2xl bg-gray-50 p-3">
+          <div className={`mt-3 rounded-2xl bg-gray-50 p-3 ${rewardVisible ? "opacity-50" : ""}`}>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-900">Rating</p>
               {rating ? (

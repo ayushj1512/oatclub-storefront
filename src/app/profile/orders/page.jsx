@@ -63,10 +63,10 @@ export default function OrdersPage() {
 
   const myOrders = useMemo(() => (Array.isArray(orders) ? orders : []), [orders]);
 
-  const goToOrder = (order) => {
+  const goToOrder = (order, review = false) => {
     const orderUrlId = getOrderUrlId(order);
     if (!orderUrlId) return;
-    router.push(`/profile/orders/${orderUrlId}`);
+    router.push(`/profile/orders/${orderUrlId}${review ? "?review=1" : ""}`);
   };
 
   return (
@@ -80,6 +80,14 @@ export default function OrdersPage() {
         <p className="mt-1 text-sm text-black/50">
           Track purchases and manage orders.
         </p>
+        <div className="mt-4 border border-black bg-black p-4 text-white">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/50">
+            Review reward
+          </p>
+          <p className="mt-1 text-sm font-bold uppercase leading-5 tracking-[0.08em]">
+            Submit an honest review with images and unlock coupon code THANKU10.
+          </p>
+        </div>
       </div>
 
       {loading ? (
@@ -192,10 +200,10 @@ export default function OrdersPage() {
 
                     {statusKey === "delivered" ? (
                       <button
-                        onClick={() => goToOrder(order)}
+                        onClick={() => goToOrder(order, true)}
                         className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
                       >
-                        Return
+                        Review
                       </button>
                     ) : null}
                   </div>

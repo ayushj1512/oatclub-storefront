@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
+  Wallet,
 } from "lucide-react";
 import useGtmStore from "@/store/gtmStore";
 
@@ -254,6 +255,7 @@ export default function OrderSuccessClient() {
     order?.billingAddressSnapshot?.email ||
     "";
   const orderNumber = order?.orderNumber || orderParam || "PENDING";
+  const walletRewardAmount = Number(order?.walletReward?.amount || 0);
 
   return (
     <section className="min-h-[85vh] bg-[#f7f7f5] text-black">
@@ -347,6 +349,17 @@ export default function OrderSuccessClient() {
                   <span className="text-black">{orderEmail || "YOUR EMAIL"}</span>
                 </p>
               </div>
+
+              {walletRewardAmount > 0 ? (
+                <div className="mt-3 flex items-start gap-3 border border-black bg-black p-3 text-white">
+                  <Wallet size={18} className="mt-0.5 shrink-0 text-white" />
+                  <p className="text-[11px] font-bold uppercase leading-5 tracking-[0.08em] text-white/68">
+                    YOU EARNED{" "}
+                    <span className="text-white">{money(walletRewardAmount, currency)}</span>{" "}
+                    IN YOUR OATCLUB WALLET FOR YOUR NEXT PURCHASE.
+                  </p>
+                </div>
+              ) : null}
             </div>
           </header>
 
@@ -496,6 +509,16 @@ export default function OrderSuccessClient() {
                           </span>
                         </div>
                       </div>
+                      {walletRewardAmount > 0 ? (
+                        <div className="flex items-center justify-between gap-4 border border-neutral-200 bg-neutral-50 p-3">
+                          <span className="font-bold uppercase tracking-[0.08em] text-black/50">
+                            WALLET EARNED
+                          </span>
+                          <span className="font-black text-black">
+                            + {money(walletRewardAmount, currency)}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
                   </Section>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import { X } from "lucide-react";
 
@@ -55,6 +55,7 @@ const Modal = ({ children, onClose }) => (
 export default function OrderDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const {
     customer,
@@ -95,6 +96,7 @@ export default function OrderDetailsPage() {
   const [nowMs] = useState(() => Date.now());
 
   const reviewStore = useReviewStore();
+  const shouldOpenReview = searchParams.get("review") === "1";
 
   const reviewCheckFn =
     reviewStore?.checkReviewed ||
@@ -322,6 +324,27 @@ export default function OrderDetailsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?._id, customer?._id]);
 
+  useEffect(() => {
+    if (!shouldOpenReview || statusKey !== "delivered" || openReviewLineId || !safeItems.length) {
+      return;
+    }
+
+    const firstPendingIndex = safeItems.findIndex((item, index) => {
+      const lineKey = String(item?.lineId || index);
+      return !reviewedByLineId[lineKey];
+    });
+
+    if (firstPendingIndex >= 0) {
+      setOpenReviewLineId(safeItems[firstPendingIndex]?.lineId || firstPendingIndex);
+      window.setTimeout(() => {
+        document.getElementById("order-items-review-area")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 250);
+    }
+  }, [shouldOpenReview, statusKey, openReviewLineId, safeItems, reviewedByLineId]);
+
   const createReturnRma = async ({ item, reason }) => {
     let toastId = null;
 
@@ -514,8 +537,9 @@ export default function OrderDetailsPage() {
 
         <OrderProductTimeline order={order} />
 
-        <OrderItemsList
-          items={safeItems}
+        <div id="order-items-review-area">
+          <OrderItemsList
+            items={safeItems}
           statusKey={statusKey}
           canShowRma={canShowRma}
           rmaEnabled={rmaEnabled}
@@ -528,7 +552,8 @@ export default function OrderDetailsPage() {
           setShowExchangeModal={setShowExchangeModal}
           setReturnModal={setReturnModal}
           OrderItemReviewSection={OrderItemReviewSection}
-        />
+          />
+        </div>
 
         <OrderPaymentSummary order={order} />
 

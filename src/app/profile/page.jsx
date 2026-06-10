@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
+  TicketPercent,
   UserRound,
   X,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useOrderStore } from "@/store/orderStore";
 import OrderHelpCard from "@/components/profile/OrderHelpCard";
 import ProfileCreditCard from "@/components/profile/ProfileCreditCard";
+import ProfileCouponsSection from "@/components/profile/ProfileCouponsSection";
 import RecentlyViewedRow from "@/components/profile/RecentlyViewedRow";
 import SupportTicketsRow from "@/components/profile/SupportTicketsRow";
 
@@ -289,6 +291,7 @@ export default function ProfilePage() {
     { label: "EDIT", href: "/profile/edit", icon: UserRound },
     { label: "ADDRESS", href: "/profile/address", icon: MapPin },
     { label: "CREDITS", href: "/profile/credit", icon: CreditCard },
+    { label: "COUPONS", href: "/profile#my-coupons", icon: TicketPercent },
     { label: "WISHLIST", href: "/wishlist", icon: Heart },
     { label: "SUPPORT", href: "/profile/support", icon: Headphones },
   ];
@@ -415,6 +418,9 @@ export default function ProfilePage() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-4">
             <ProfileCreditCard customer={customer} />
+            <div id="my-coupons">
+              <ProfileCouponsSection customer={customer} />
+            </div>
             <SupportTicketsRow email={formData.email} />
           </div>
 

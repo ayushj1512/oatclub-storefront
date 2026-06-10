@@ -234,32 +234,46 @@ export default function ProductGallery({ images = [] }) {
 
       {lightboxOpen && (
         <div
-          className="fixed inset-0 z-[90] bg-white text-black"
+          className="fixed inset-0 z-[90] bg-black/88 text-white backdrop-blur-md"
           role="dialog"
           aria-modal="true"
           aria-label="PRODUCT IMAGE VIEWER"
           onTouchStart={handleLightboxTouchStart}
           onTouchEnd={handleLightboxTouchEnd}
         >
-          <div className="absolute left-3 top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-10 text-[10px] font-black uppercase tracking-[0.22em] text-black/50 md:left-6 md:top-6">
+          <div className="absolute left-4 top-[calc(env(safe-area-inset-top,0px)+1rem)] z-20 text-[10px] font-black uppercase tracking-[0.22em] text-white/55 md:left-6">
             {String(activeIndex + 1).padStart(2, "0")} / {String(safeImages.length).padStart(2, "0")}
           </div>
-          <button
-            type="button"
-            onClick={toggleZoom}
-            className="absolute right-[4.1rem] top-[calc(env(safe-area-inset-top,0px)+0.55rem)] z-20 grid h-11 w-11 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:hidden"
-            aria-label={zoomed ? "ZOOM OUT" : "ZOOM IN"}
-          >
-            {zoomed ? <ZoomOut className="h-5 w-5" /> : <ZoomIn className="h-5 w-5" />}
-          </button>
+
           <button
             type="button"
             onClick={closeLightbox}
-            className="absolute right-3 top-[calc(env(safe-area-inset-top,0px)+0.55rem)] z-20 grid h-11 w-11 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:right-6 md:top-6 md:h-10 md:w-10"
+            className="absolute right-4 top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-30 grid h-11 w-11 place-items-center bg-white text-black transition hover:bg-neutral-200 md:right-6"
             aria-label="CLOSE IMAGE VIEWER"
           >
-            <X className="h-5 w-5 md:h-4 md:w-4" />
+            <X className="h-5 w-5" />
           </button>
+
+          <div className="absolute left-1/2 top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-20 hidden -translate-x-1/2 items-center gap-2 md:flex">
+            <button
+              type="button"
+              onClick={() => setZoom(zoomLevel - 0.5)}
+              disabled={zoomLevel <= 1}
+              className="grid h-10 w-10 place-items-center bg-white/12 text-white backdrop-blur transition hover:bg-white/22 disabled:opacity-30"
+              aria-label="ZOOM OUT"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom(zoomLevel + 0.5)}
+              disabled={zoomLevel >= 3}
+              className="grid h-10 w-10 place-items-center bg-white/12 text-white backdrop-blur transition hover:bg-white/22 disabled:opacity-30"
+              aria-label="ZOOM IN"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+          </div>
 
           {safeImages.length > 1 && (
             <>
@@ -269,10 +283,10 @@ export default function ProductGallery({ images = [] }) {
                   resetZoom();
                   move("prev");
                 }}
-                className="absolute left-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:grid md:left-6"
+                className="absolute left-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 place-items-center bg-white/12 text-white backdrop-blur transition hover:bg-white/24 md:grid"
                 aria-label="PREVIOUS IMAGE"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-6 w-6" />
               </button>
               <button
                 type="button"
@@ -280,15 +294,15 @@ export default function ProductGallery({ images = [] }) {
                   resetZoom();
                   move("next");
                 }}
-                className="absolute right-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:grid md:right-6"
+                className="absolute right-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 place-items-center bg-white/12 text-white backdrop-blur transition hover:bg-white/24 md:grid"
                 aria-label="NEXT IMAGE"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-6 w-6" />
               </button>
             </>
           )}
 
-          <div className="flex h-full w-full items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+6rem)] pt-[calc(env(safe-area-inset-top,0px)+4rem)] md:px-20 md:py-16">
+          <div className="flex h-full w-full items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+6.75rem)] pt-[calc(env(safe-area-inset-top,0px)+4.25rem)] md:px-20 md:pb-28 md:pt-20">
             <div
               role="button"
               tabIndex={0}
@@ -297,9 +311,7 @@ export default function ProductGallery({ images = [] }) {
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") toggleZoom();
               }}
-              className={`relative h-full w-full ${
-                zoomed ? "cursor-zoom-out" : "cursor-zoom-in"
-              }`}
+              className={`relative h-full w-full ${zoomed ? "cursor-zoom-out" : "cursor-zoom-in"}`}
               aria-label={zoomed ? "ZOOM OUT PRODUCT IMAGE" : "ZOOM IN PRODUCT IMAGE"}
             >
               <div
@@ -326,68 +338,53 @@ export default function ProductGallery({ images = [] }) {
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-3 md:hidden">
-            <div className="mb-2 grid grid-cols-[44px_1fr_44px] items-center gap-2">
+          <div className="absolute inset-x-0 bottom-0 z-20 bg-black/45 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-3 backdrop-blur-md md:px-6">
+            <div className="mb-3 flex items-center justify-center gap-2 md:hidden">
               <button
                 type="button"
-                onClick={() => setZoom(zoomLevel - 0.8)}
+                onClick={() => setZoom(zoomLevel - 0.5)}
                 disabled={zoomLevel <= 1}
-                className="grid h-10 place-items-center border border-black/15 text-black disabled:opacity-25"
+                className="grid h-10 w-10 place-items-center bg-white/12 text-white disabled:opacity-30"
                 aria-label="ZOOM OUT"
               >
                 <ZoomOut className="h-4 w-4" />
               </button>
-              <div className="flex h-10 items-center justify-center border border-black/10 bg-neutral-50 text-[9px] font-black uppercase tracking-[0.18em] text-black/45">
+              <div className="flex h-10 min-w-20 items-center justify-center bg-white/10 text-[9px] font-black uppercase tracking-[0.18em] text-white/65">
                 {Math.round(zoomLevel * 100)}%
               </div>
               <button
                 type="button"
-                onClick={() => setZoom(zoomLevel + 0.8)}
+                onClick={() => setZoom(zoomLevel + 0.5)}
                 disabled={zoomLevel >= 3}
-                className="grid h-10 place-items-center border border-black/15 text-black disabled:opacity-25"
+                className="grid h-10 w-10 place-items-center bg-white/12 text-white disabled:opacity-30"
                 aria-label="ZOOM IN"
               >
                 <ZoomIn className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  resetZoom();
-                  move("prev");
-                }}
-                disabled={safeImages.length < 2}
-                className="grid h-11 place-items-center border border-black/15 text-black disabled:opacity-25"
-                aria-label="PREVIOUS IMAGE"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={closeLightbox}
-                className="flex h-11 items-center justify-center gap-2 bg-black text-[10px] font-black uppercase tracking-[0.22em] text-white"
-              >
-                <X className="h-4 w-4" />
-                CLOSE
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  resetZoom();
-                  move("next");
-                }}
-                disabled={safeImages.length < 2}
-                className="grid h-11 place-items-center border border-black/15 text-black disabled:opacity-25"
-                aria-label="NEXT IMAGE"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
+            <div
+              ref={mobileThumbRef}
+              className="no-scrollbar mx-auto flex max-w-4xl gap-2 overflow-x-auto scroll-smooth pb-1"
+            >
+              {safeImages.map((src, index) => (
+                <button
+                  key={`${src}-lightbox-thumb-${index}`}
+                  type="button"
+                  data-thumb={index}
+                  onClick={() => {
+                    resetZoom();
+                    showImage(index);
+                  }}
+                  className={`relative aspect-[4/5] w-12 shrink-0 overflow-hidden transition md:w-16 ${
+                    activeIndex === index ? "ring-2 ring-white" : "opacity-55 hover:opacity-100"
+                  }`}
+                  aria-label={`VIEW IMAGE ${index + 1}`}
+                >
+                  <img src={src} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
             </div>
-            <p className="mt-2 text-center text-[8px] font-black uppercase tracking-[0.18em] text-black/35">
-              TAP IMAGE TO ZOOM, DRAG TO PAN
-            </p>
           </div>
         </div>
       )}

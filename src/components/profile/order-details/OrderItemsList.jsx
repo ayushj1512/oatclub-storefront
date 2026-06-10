@@ -299,6 +299,13 @@ export default function OrderItemsList({
                       item?.productId
                   )
                 }
+                onReviewed={() =>
+                  markReviewed(
+                    lineKey,
+                    item?.productId?._id ||
+                      item?.productId
+                  )
+                }
               />
             </div>
           </div>
