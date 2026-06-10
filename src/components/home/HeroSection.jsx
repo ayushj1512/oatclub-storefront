@@ -41,7 +41,6 @@ export default function HeroSection() {
   useEffect(() => {
     setCurrent(0);
     setLoaded(false);
-
     if (firstImg) requestAnimationFrame(() => setLoaded(true));
   }, [firstImg]);
 
@@ -145,10 +144,7 @@ export default function HeroSection() {
 
   if (loading && !settings) {
     return (
-      <section
-        className="relative w-full overflow-hidden bg-gray-100"
-        style={{ paddingTop: "133.33%" }}
-      >
+      <section className="relative w-full overflow-hidden bg-gray-100 pt-[133.33%] md:pt-[41.6667%]">
         <div className="absolute inset-0 bg-gray-200">
           <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
         </div>
@@ -161,20 +157,11 @@ export default function HeroSection() {
   return (
     <section
       ref={containerRef}
-      className="relative w-full select-none overflow-hidden bg-gray-100 md:aspect-auto"
+      className="relative w-full select-none overflow-hidden bg-gray-100 pt-[133.33%] md:pt-[41.6667%]"
       style={{
-        paddingTop: "133.33%",
         touchAction: "pan-y",
       }}
     >
-      <style jsx>{`
-        @media (min-width: 768px) {
-          section {
-            padding-top: 41.67% !important;
-          }
-        }
-      `}</style>
-
       {!loaded && (
         <div className="absolute inset-0 bg-gray-200">
           <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
@@ -188,28 +175,28 @@ export default function HeroSection() {
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
         {banners.map((b, i) => {
-          const desktopImage = b.image || b.desktopImage || b.mobileImage;
+          const desktopImage = b.desktopImage || b.image || b.mobileImage;
           const mobileImage = b.mobileImage || desktopImage;
 
           const slide = (
             <div className="relative h-full w-full flex-shrink-0">
               <Image
-                key={desktopImage}
                 src={desktopImage}
                 alt={b.title || `Slide ${i + 1}`}
                 fill
                 priority={i === 0}
+                sizes="100vw"
                 className="hidden object-cover md:block"
                 onLoadingComplete={() => i === 0 && setLoaded(true)}
                 onError={() => i === 0 && setLoaded(true)}
               />
 
               <Image
-                key={mobileImage}
                 src={mobileImage}
                 alt={b.title || `Slide ${i + 1}`}
                 fill
                 priority={i === 0}
+                sizes="100vw"
                 className="block object-cover md:hidden"
                 onLoadingComplete={() => i === 0 && setLoaded(true)}
                 onError={() => i === 0 && setLoaded(true)}
@@ -249,7 +236,8 @@ export default function HeroSection() {
           <button
             type="button"
             onClick={prev}
-            className="absolute left-4 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-black/30 p-2 text-3xl text-white hover:bg-black/50 sm:flex"
+            className="absolute left-4 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-black/30 px-3 py-2 text-3xl leading-none text-white hover:bg-black/50 sm:flex"
+            aria-label="Previous banner"
           >
             &#10094;
           </button>
@@ -257,7 +245,8 @@ export default function HeroSection() {
           <button
             type="button"
             onClick={next}
-            className="absolute right-4 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-black/30 p-2 text-3xl text-white hover:bg-black/50 sm:flex"
+            className="absolute right-4 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-black/30 px-3 py-2 text-3xl leading-none text-white hover:bg-black/50 sm:flex"
+            aria-label="Next banner"
           >
             &#10095;
           </button>
@@ -265,14 +254,16 @@ export default function HeroSection() {
       )}
 
       {banners.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 z-20 hidden -translate-x-1/2 gap-2 md:flex">
+        <div className="absolute bottom-3 left-1/2 z-20 hidden -translate-x-1/2 gap-2 md:flex">
           {banners.map((_, i) => (
-            <span
+            <button
               key={i}
+              type="button"
               onClick={() => setCurrent(i)}
-              className={`h-3 w-3 cursor-pointer rounded-full ${
-                current === i ? "bg-white" : "bg-gray-400"
+              className={`h-2.5 w-2.5 rounded-full ${
+                current === i ? "bg-white" : "bg-white/45"
               }`}
+              aria-label={`Go to banner ${i + 1}`}
             />
           ))}
         </div>
