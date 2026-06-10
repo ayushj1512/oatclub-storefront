@@ -13,8 +13,6 @@ export default function HeroSection() {
   const [loaded, setLoaded] = useState(false);
 
   const timer = useRef(null);
-
-  // ✅ touch swipe refs
   const containerRef = useRef(null);
   const startX = useRef(0);
   const startY = useRef(0);
@@ -22,21 +20,24 @@ export default function HeroSection() {
   const isPaused = useRef(false);
   const blockClick = useRef(false);
 
-  // ✅ fetch once only
   useEffect(() => {
     if (!settings && !loading) fetchHomepageSettings();
   }, [settings, loading, fetchHomepageSettings]);
 
-  // ✅ banners
   const banners = useMemo(() => {
     return (settings?.heroBanners || [])
-      .filter((b) => b?.isActive && b?.image)
+      .filter(
+        (b) => b?.isActive && (b?.image || b?.desktopImage || b?.mobileImage)
+      )
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   }, [settings]);
 
-  const firstImg = banners?.[0]?.image || "";
+  const firstImg =
+    banners?.[0]?.image ||
+    banners?.[0]?.desktopImage ||
+    banners?.[0]?.mobileImage ||
+    "";
 
-  // ✅ reset only when first banner image changes
   useEffect(() => {
     setCurrent(0);
     setLoaded(false);
@@ -50,6 +51,7 @@ export default function HeroSection() {
 
   const start = () => {
     stop();
+
     if (banners.length > 1 && !isPaused.current) {
       timer.current = setInterval(() => {
         setCurrent((p) => (p + 1) % banners.length);
@@ -58,28 +60,28 @@ export default function HeroSection() {
   };
 
   const next = () => {
-    if (banners.length > 1)
+    if (banners.length > 1) {
       setCurrent((p) => (p + 1) % banners.length);
+    }
   };
 
   const prev = () => {
-    if (banners.length > 1)
+    if (banners.length > 1) {
       setCurrent((p) => (p - 1 + banners.length) % banners.length);
+    }
   };
 
-  // ✅ autoplay
   useEffect(() => {
     start();
     return stop;
   }, [banners.length]);
 
-  // ✅ TOUCH HANDLERS (native, works 100%)
   useEffect(() => {
     const el = containerRef.current;
     if (!el || banners.length <= 1) return;
 
-    const threshold = 50; // swipe distance
-    const verticalLimit = 25; // ignore if scrolling vertically
+    const threshold = 50;
+    const verticalLimit = 25;
 
     const onTouchStart = (e) => {
       isPaused.current = true;
@@ -99,21 +101,18 @@ export default function HeroSection() {
       const diffX = startX.current - x;
       const diffY = startY.current - y;
 
-      // ✅ if user is scrolling vertically, do nothing
       if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > verticalLimit)
         return;
 
-      // ✅ horizontal swipe detected
       if (Math.abs(diffX) > 10) {
         isSwiping.current = true;
         blockClick.current = true;
-        e.preventDefault(); // ✅ IMPORTANT (needs passive:false)
+        e.preventDefault();
       }
     };
 
     const onTouchEnd = (e) => {
       if (!isSwiping.current) {
-        // resume autoplay
         isPaused.current = false;
         start();
         return;
@@ -125,18 +124,16 @@ export default function HeroSection() {
       if (diffX > threshold) next();
       else if (diffX < -threshold) prev();
 
-      // ✅ resume autoplay
       isPaused.current = false;
       start();
 
-      // ✅ allow click again after swipe
       setTimeout(() => {
         blockClick.current = false;
       }, 200);
     };
 
     el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: false }); // ✅ must be false
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
 
     return () => {
@@ -146,12 +143,11 @@ export default function HeroSection() {
     };
   }, [banners.length]);
 
-  // ✅ loading shimmer
   if (loading && !settings) {
     return (
       <section
-        className="relative w-full bg-gray-100 overflow-hidden"
-        style={{ paddingTop: "41.67%" }}
+        className="relative w-full overflow-hidden bg-gray-100"
+        style={{ paddingTop: "133.33%" }}
       >
         <div className="absolute inset-0 bg-gray-200">
           <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
@@ -165,20 +161,26 @@ export default function HeroSection() {
   return (
     <section
       ref={containerRef}
-      className="relative w-full overflow-hidden bg-gray-100 select-none"
+      className="relative w-full select-none overflow-hidden bg-gray-100 md:aspect-auto"
       style={{
-        paddingTop: "41.67%",
-        touchAction: "pan-y", // ✅ allows vertical scroll but enables horizontal swipe
+        paddingTop: "133.33%",
+        touchAction: "pan-y",
       }}
     >
-      {/* ✅ Shimmer */}
+      <style jsx>{`
+        @media (min-width: 768px) {
+          section {
+            padding-top: 41.67% !important;
+          }
+        }
+      `}</style>
+
       {!loaded && (
         <div className="absolute inset-0 bg-gray-200">
           <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
         </div>
       )}
 
-      {/* ✅ Slider */}
       <div
         className={`absolute inset-0 flex transition-transform duration-700 ease-in-out ${
           loaded ? "opacity-100" : "opacity-0"
@@ -186,22 +188,35 @@ export default function HeroSection() {
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
         {banners.map((b, i) => {
+          const desktopImage = b.image || b.desktopImage || b.mobileImage;
+          const mobileImage = b.mobileImage || desktopImage;
+
           const slide = (
-            <div className="w-full h-full flex-shrink-0 relative">
+            <div className="relative h-full w-full flex-shrink-0">
               <Image
-                key={b.image}
-                src={b.image}
+                key={desktopImage}
+                src={desktopImage}
                 alt={b.title || `Slide ${i + 1}`}
                 fill
                 priority={i === 0}
-                className="object-cover"
+                className="hidden object-cover md:block"
+                onLoadingComplete={() => i === 0 && setLoaded(true)}
+                onError={() => i === 0 && setLoaded(true)}
+              />
+
+              <Image
+                key={mobileImage}
+                src={mobileImage}
+                alt={b.title || `Slide ${i + 1}`}
+                fill
+                priority={i === 0}
+                className="block object-cover md:hidden"
                 onLoadingComplete={() => i === 0 && setLoaded(true)}
                 onError={() => i === 0 && setLoaded(true)}
               />
             </div>
           );
 
-          // ✅ block Link click if user swiped
           const handleClick = (e) => {
             if (blockClick.current) {
               e.preventDefault();
@@ -211,54 +226,57 @@ export default function HeroSection() {
 
           return b.link ? (
             <Link
-              key={b._id || b.image || i}
+              key={b._id || desktopImage || mobileImage || i}
               href={b.link}
               onClick={handleClick}
-              className="w-full h-full flex-shrink-0"
+              className="h-full w-full flex-shrink-0"
             >
               {slide}
             </Link>
           ) : (
-            <div key={b._id || b.image || i} className="w-full h-full flex-shrink-0">
+            <div
+              key={b._id || desktopImage || mobileImage || i}
+              className="h-full w-full flex-shrink-0"
+            >
               {slide}
             </div>
           );
         })}
       </div>
 
-      {/* ✅ arrows */}
       {banners.length > 1 && (
         <>
           <button
+            type="button"
             onClick={prev}
-            className="hidden sm:flex absolute top-1/2 left-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
+            className="absolute left-4 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-black/30 p-2 text-3xl text-white hover:bg-black/50 sm:flex"
           >
             &#10094;
           </button>
+
           <button
+            type="button"
             onClick={next}
-            className="hidden sm:flex absolute top-1/2 right-4 -translate-y-1/2 text-white text-3xl bg-black/30 p-2 rounded-full hover:bg-black/50 z-20"
+            className="absolute right-4 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-black/30 p-2 text-3xl text-white hover:bg-black/50 sm:flex"
           >
             &#10095;
           </button>
         </>
       )}
 
-      {/* ✅ dots */}
-     {banners.length > 1 && (
-  <div className="hidden md:flex absolute bottom-2 left-1/2 -translate-x-1/2 gap-2 z-20">
-    {banners.map((_, i) => (
-      <span
-        key={i}
-        onClick={() => setCurrent(i)}
-        className={`w-3 h-3 rounded-full cursor-pointer ${
-          current === i ? "bg-white" : "bg-gray-400"
-        }`}
-      />
-    ))}
-  </div>
-)}
-
+      {banners.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 z-20 hidden -translate-x-1/2 gap-2 md:flex">
+          {banners.map((_, i) => (
+            <span
+              key={i}
+              onClick={() => setCurrent(i)}
+              className={`h-3 w-3 cursor-pointer rounded-full ${
+                current === i ? "bg-white" : "bg-gray-400"
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
