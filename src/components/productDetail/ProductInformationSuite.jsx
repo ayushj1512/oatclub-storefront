@@ -23,7 +23,7 @@ const specValue = (specs = [], key = "") => {
 };
 
 function Section({ title, children }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   return (
     <section className="bg-white py-2">

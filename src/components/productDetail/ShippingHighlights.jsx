@@ -10,7 +10,7 @@ const ITEMS = [
 ];
 
 export default function ShippingHighlights() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   return (
     <section className="bg-white py-2">

@@ -780,12 +780,14 @@ router.push("/checkout?mode=buy-now");
                     </span>
                   ) : null}
 
-                  {product?.productCode ? (
-                    <span className="inline-flex items-center gap-1.5 border border-neutral-200 bg-[#f8f6f1] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-black/68">
-                      <span className="text-black/36">Style ID</span>
-                      <span className="text-black">{product.productCode}</span>
-                    </span>
-                  ) : null}
+                 {product?.productCode ? (
+  <span className="text-[10px] uppercase tracking-[0.18em] text-black/50">
+    SKU{" "}
+    <span className="font-semibold text-black">
+      {product.productCode}
+    </span>
+  </span>
+) : null}
                 </div>
 
                 <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -973,9 +975,9 @@ router.push("/checkout?mode=buy-now");
                   })()}
                 </div>
 
-                <p className="mt-3 border border-black/10 bg-neutral-50 px-3 py-2 text-[10px] font-bold uppercase leading-4 tracking-[0.08em] text-black/58">
-                  We will dispatch within 7 days as this piece is specially curated for you only.
-                </p>
+           <p className="mt-3 text-[10px] font-medium uppercase leading-4 tracking-[0.08em] text-black/58">
+  We will dispatch within 7 days as this piece is specially curated for you only.
+</p>
 
               </div>
             )}

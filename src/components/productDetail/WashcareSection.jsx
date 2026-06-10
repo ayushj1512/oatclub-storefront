@@ -39,7 +39,7 @@ export default function WashcareSection({
   title = "Washing Instructions",
   items = [],
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   return (
     <section className="bg-white py-2">
