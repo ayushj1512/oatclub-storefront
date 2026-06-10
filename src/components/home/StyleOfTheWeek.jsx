@@ -94,7 +94,6 @@ export default function StyleOfTheWeek() {
       <div className="mx-auto max-w-md bg-neutral-50 p-2.5 md:max-w-[420px] md:p-3">
         <div className="mb-2.5 flex items-center justify-between gap-3">
           <p className="inline-flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.24em] text-black/45 md:text-[9px] md:tracking-[0.3em]">
-            <Sparkles className="h-3.5 w-3.5" />
             STYLE OF THE WEEK
           </p>
           {discount ? (
