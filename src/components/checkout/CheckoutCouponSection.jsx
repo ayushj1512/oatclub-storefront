@@ -22,6 +22,7 @@ const isPublic = (c) =>
 const getCouponMeta = (coupon) => {
   const e = coupon?._eligibility || {};
   const desc = String(coupon?.description || "").trim();
+
   const eligible =
     e.isEligible !== undefined
       ? Boolean(e.isEligible)
@@ -29,16 +30,23 @@ const getCouponMeta = (coupon) => {
 
   if (eligible) return { eligible: true, text: desc || "Tap To Apply" };
   if (e.okDate === false) return { eligible: false, text: desc || "Expired" };
+
   if (e.okMin === false) {
-    return { eligible: false, text: desc || `Min RS. ${money(coupon.minPurchase)}` };
+    return {
+      eligible: false,
+      text: desc || `Min RS. ${money(coupon.minPurchase)}`,
+    };
   }
+
   if (e.okQty === false && Number(e.remainingQty || 0) > 0) {
     const qty = Number(e.remainingQty || 0);
     return {
       eligible: false,
       text:
         desc ||
-        `Add ${qty} More Item${qty > 1 ? "s" : ""} To Unlock ${couponLabel(coupon)}`,
+        `Add ${qty} More Item${qty > 1 ? "s" : ""} To Unlock ${couponLabel(
+          coupon
+        )}`,
     };
   }
 
@@ -79,7 +87,14 @@ export default function CheckoutCouponSection({
 
   const loadSuggestions = useCallback(() => {
     if (hasCoupon || !(cartTotal > 0)) return;
-    fetchSuggestedCoupons?.({ cartTotal, cartItems, email, phone, customerId });
+
+    fetchSuggestedCoupons?.({
+      cartTotal,
+      cartItems,
+      email,
+      phone,
+      customerId,
+    });
   }, [
     hasCoupon,
     cartTotal,
@@ -91,7 +106,10 @@ export default function CheckoutCouponSection({
   ]);
 
   const publicCoupons = useMemo(
-    () => (Array.isArray(suggestedCoupons) ? suggestedCoupons.filter(isPublic) : []),
+    () =>
+      Array.isArray(suggestedCoupons)
+        ? suggestedCoupons.filter(isPublic)
+        : [],
     [suggestedCoupons]
   );
 
@@ -102,7 +120,13 @@ export default function CheckoutCouponSection({
     clearCouponMessages?.();
 
     if (hasCoupon && cartTotal > 0 && emailOk) {
-      rehydrateCoupon?.({ cartTotal, cartItems, email, phone, customerId });
+      rehydrateCoupon?.({
+        cartTotal,
+        cartItems,
+        email,
+        phone,
+        customerId,
+      });
       return;
     }
 
@@ -177,11 +201,23 @@ export default function CheckoutCouponSection({
 
   return (
     <div className="mt-3 space-y-2">
+      <style jsx>{`
+        .coupon-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .coupon-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="grid size-8 place-items-center border border-neutral-200 bg-white text-black">
+          <span className="grid size-8 shrink-0 place-items-center border border-neutral-200 bg-white text-black">
             <Tag className="h-4 w-4" />
           </span>
+
           <div>
             <p className="text-xs font-black uppercase tracking-[0.08em] text-black">
               Coupons
@@ -239,14 +275,14 @@ export default function CheckoutCouponSection({
                 if (stepError) setStepError("");
               }}
               placeholder="ENTER CODE"
-              className="h-10 flex-1 border border-neutral-300 bg-white px-3 text-xs font-bold uppercase tracking-[0.08em] outline-none transition placeholder:text-black/28 focus:border-black"
+              className="h-10 min-w-0 flex-1 border border-neutral-300 bg-white px-3 text-xs font-bold uppercase tracking-[0.08em] outline-none transition placeholder:text-black/28 focus:border-black"
             />
 
             <button
               type="button"
               disabled={isApplying || !code.trim() || !emailOk}
               onClick={() => onApply()}
-              className="inline-flex h-10 items-center justify-center bg-black px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-neutral-800 disabled:bg-black/20 disabled:text-black/40"
+              className="inline-flex h-10 shrink-0 items-center justify-center bg-black px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-neutral-800 disabled:bg-black/20 disabled:text-black/40"
             >
               {isApplying && clicked === code.trim().toUpperCase() ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -273,7 +309,7 @@ export default function CheckoutCouponSection({
                 {suggestionError}
               </p>
             ) : publicCoupons.length ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 coupon-scroll">
                 {publicCoupons.map((item) => {
                   const couponCode = String(item.code || "").toUpperCase();
                   const spin = isApplying && clicked === couponCode;
@@ -286,28 +322,34 @@ export default function CheckoutCouponSection({
                       disabled={isApplying || !emailOk || !eligible}
                       onClick={() => onApply(couponCode)}
                       className={[
-                        "max-w-[210px] border px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.08em] transition",
+                        "w-[150px] shrink-0 border px-2.5 py-2 text-left transition",
                         eligible
                           ? "border-neutral-300 bg-white text-black hover:border-black"
                           : "cursor-not-allowed border-neutral-200 bg-neutral-100 text-black/35",
                       ].join(" ")}
                     >
-                      <span className="flex items-center gap-1">
-                        {spin && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                        <span>{couponCode}</span>
-                        <span className="font-medium opacity-75">
-                          {couponLabel(item)}
-                        </span>
-                      </span>
+                      <div className="flex min-w-0 items-center gap-1">
+                        {spin && (
+                          <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                        )}
 
-                      <span
+                        <span className="truncate text-[11px] font-black uppercase tracking-[0.08em]">
+                          {couponCode}
+                        </span>
+                      </div>
+
+                      <div className="mt-0.5 truncate text-[10px] font-semibold uppercase text-black/70">
+                        {couponLabel(item)}
+                      </div>
+
+                      <div
                         className={[
-                          "mt-0.5 block truncate text-[10px] font-medium",
-                          eligible ? "opacity-60" : "text-zinc-400",
+                          "mt-1 line-clamp-2 text-[9px] leading-tight",
+                          eligible ? "text-black/50" : "text-zinc-400",
                         ].join(" ")}
                       >
                         {text}
-                      </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -323,6 +365,7 @@ export default function CheckoutCouponSection({
                 {error}
               </p>
             )}
+
             {message && (
               <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black">
                 {message}
