@@ -35,28 +35,52 @@ const money = (n) => {
 function TrustStrip({ product }) {
   const raw = product?.raw || product || {};
   const inStock = Boolean(raw.isInStock ?? product?.isInStock);
+
   const items = [
-    [ShieldCheck, "Verified Quality", "Finish and fabric reviewed before dispatch."],
-    [Truck, inStock ? "Fast Dispatch" : "Made For You", inStock ? "Ready pieces move quickly from our studio." : "Dispatch timeline adjusts for limited stock pieces."],
-    [RotateCcw, "Exchange Support", "Simple account-led support for size or fit concerns."],
+    [
+      ShieldCheck,
+      "Quality Checked",
+      "Finish and fabric reviewed before dispatch.",
+    ],
+    [
+      Truck,
+      inStock ? "Fast Dispatch" : "Made For You",
+      inStock
+        ? "Ready pieces move quickly from our studio."
+        : "Dispatch timeline adjusts for limited stock pieces.",
+    ],
+    [
+      RotateCcw,
+      "Easy Exchange",
+      "Simple account-led support for size or fit concerns.",
+    ],
   ];
 
   return (
-    <section className="bg-neutral-50">
-      <div className="grid gap-px bg-white md:grid-cols-3">
+    <section className="border-y border-neutral-200 bg-white">
+      <div className="grid grid-cols-3">
         {items.map(([Icon, title, desc]) => (
-        <div key={title} className="flex gap-3 bg-neutral-50 px-3 py-3 md:px-4">
-          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-black" />
-          <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-black">
-              {title}
-            </p>
-            <p className="mt-1 text-[10px] font-bold uppercase leading-4 tracking-[0.06em] text-black/48">
-              {desc}
-            </p>
+          <div
+            key={title}
+            className="flex flex-col items-center justify-center px-2 py-4 text-center md:flex-row md:items-start md:justify-start md:gap-3 md:px-4 md:text-left"
+          >
+            <Icon className="mb-2 h-4 w-4 shrink-0 text-emerald-600 md:mb-0 md:mt-0.5" />
+
+            <div>
+              <div className="flex items-center justify-center gap-1 md:justify-start">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+
+                <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-neutral-900 md:text-[10px]">
+                  {title}
+                </p>
+              </div>
+
+              <p className="mt-1 hidden text-[11px] leading-4 text-neutral-500 md:block">
+                {desc}
+              </p>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
       </div>
     </section>
   );
