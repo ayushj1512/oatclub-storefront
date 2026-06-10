@@ -18,9 +18,7 @@ export const notify = {
   info: (msg) => toast(safeString(msg)),
 
   // 🛒 CART
-  cartAdded: (product) =>
-    toast.success(`Added to cart: ${pretty(product)}`),
-
+  
   cartRemoved: (product) =>
     toast(`Removed from cart: ${pretty(product)}`),
 

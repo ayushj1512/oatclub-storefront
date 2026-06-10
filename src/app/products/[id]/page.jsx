@@ -62,7 +62,7 @@ export default function ProductDetail({ params }) {
       return;
     }
     addToCart({ ...product, selectedSize });
-    toast.success("Added to cart");
+    // toast.success("Added to cart");
   };
 
   const handleShare = async () => {
