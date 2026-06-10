@@ -13,7 +13,7 @@ import {
 import { SOCIAL_LINKS } from "@/data/socials";
 
 const logo =
-  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780350223/pqmudk6lvljcqdg1xdq2.png";
+  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1781123546/odb5ckquouajjzfbxin0.webp";
 
 const quickLinks = [
   ["Home", "/"],
