@@ -727,14 +727,14 @@ router.push("/checkout?mode=buy-now");
   if (loading || storeLoading) {
     return (
       <div className="w-full bg-white text-black">
-        <div className="w-full px-0 py-0 md:px-6 md:py-3 lg:px-8 lg:py-5">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[55fr_45fr] lg:items-start lg:gap-1">
+        <div className="w-full px-0 py-0 xl:px-8 xl:py-5">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[55fr_45fr] xl:items-start xl:gap-1">
             <section className="min-w-0">
-              <div className="min-h-[133vw] w-full bg-white md:min-h-0">
+              <div className="min-h-[133vw] w-full bg-white xl:min-h-0">
                 <ProductGallery images={[]} />
               </div>
             </section>
-            <aside className="min-w-0 bg-white px-4 pt-4 md:px-4 lg:px-8 lg:py-5">
+            <aside className="min-w-0 bg-white px-4 pt-4 md:px-6 xl:px-8 xl:py-5">
               <div className="space-y-4">
                 <div className="h-3 w-40 animate-pulse bg-neutral-100" />
                 <div className="h-8 w-4/5 animate-pulse bg-neutral-100" />
@@ -761,18 +761,18 @@ router.push("/checkout?mode=buy-now");
 }
 
   return (
-  <div className="w-full bg-white text-black">
-    <div className="w-full px-0 py-0 md:px-6 md:py-3 lg:px-8 lg:py-5">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[55fr_45fr] lg:items-start lg:gap-1">
+  <div className="w-full bg-white pb-20 text-black xl:pb-0">
+    <div className="w-full px-0 py-0 xl:px-8 xl:py-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[55fr_45fr] xl:items-start xl:gap-1">
         {/* LEFT IMAGE */}
         <section className="min-w-0">
-          <div className="min-h-[133vw] w-full bg-white md:min-h-0">
+          <div className="min-h-[133vw] w-full bg-white xl:min-h-0">
             <ProductGallery images={product.images || []} />
           </div>
         </section>
 
         {/* RIGHT DETAILS */}
-        <aside className="min-w-0 bg-white px-4 md:px-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-96px)] lg:overflow-y-auto lg:px-8 lg:py-5">
+        <aside className="min-w-0 bg-white px-4 md:px-6 xl:sticky xl:top-24 xl:max-h-[calc(100vh-96px)] xl:overflow-y-auto xl:px-8 xl:py-5">
           <div className="space-y-3">
             {/* Breadcrumb */}
             <div className="flex flex-wrap items-center gap-1 text-[9px] font-extrabold uppercase tracking-[0.2em] text-black/40">
@@ -842,7 +842,7 @@ router.push("/checkout?mode=buy-now");
 
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h1 className="text-[18px] font-extrabold uppercase leading-[1.08] text-black md:text-[24px] lg:text-[26px]">
+                  <h1 className="text-[18px] font-extrabold uppercase leading-[1.08] text-black md:text-[22px] xl:text-[26px]">
                     {product.name}
                   </h1>
                 </div>
@@ -1102,7 +1102,7 @@ router.push("/checkout?mode=buy-now");
         categoryId={product?.raw?.categories?.[0]?._id}
       />
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white p-3 shadow-[0_-12px_30px_rgba(0,0,0,0.08)] md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white p-3 shadow-[0_-12px_30px_rgba(0,0,0,0.08)] xl:hidden">
         <div className="grid grid-cols-[1fr_1.1fr] gap-2">
           <button
             type="button"

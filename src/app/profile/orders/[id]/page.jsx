@@ -106,10 +106,11 @@ export default function OrderDetailsPage() {
     reviewStore?.fetchMyReviewByProduct ||
     null;
 
-  const isOrderNumber = useMemo(() => {
-    const value = String(id || "").trim().toUpperCase();
-    return value.startsWith("MIRAY-");
-  }, [id]);
+ const isOrderNumber = useMemo(() => {
+  const value = String(id || "").trim();
+
+  return /^\d+$/.test(value);
+}, [id]);
 
   const refetchOrder = useCallback(
     async ({ silent = false } = {}) => {

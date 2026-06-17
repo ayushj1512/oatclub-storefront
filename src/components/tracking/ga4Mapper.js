@@ -5,5 +5,5 @@ export const mapItem = (p, qty = 1) => ({
   item_variant: p.variant || p.size || "",
   price: Number(p.price || 0),
   quantity: qty,
-  item_brand: "MIRAY",
+  item_brand: "Oatclub",
 });

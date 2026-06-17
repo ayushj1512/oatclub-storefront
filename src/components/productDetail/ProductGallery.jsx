@@ -94,11 +94,11 @@ export default function ProductGallery({ images = [] }) {
   if (!safeImages.length) {
     return (
       <div className="w-full">
-        <div className="md:hidden">
+        <div className="xl:hidden">
           <div className="aspect-[3/4] w-screen animate-pulse bg-neutral-100" />
         </div>
 
-        <div className="hidden grid-cols-2 gap-3 bg-white md:grid">
+        <div className="hidden grid-cols-2 gap-3 bg-white xl:grid">
           {[0, 1, 2, 3].map((item) => (
             <div key={item} className="aspect-[4/5] animate-pulse bg-neutral-100" />
           ))}
@@ -110,7 +110,7 @@ export default function ProductGallery({ images = [] }) {
   return (
     <div className="w-full">
       {/* MOBILE GALLERY */}
-      <div className="md:hidden">
+      <div className="xl:hidden">
         <div className="relative">
           <div
             ref={mobileRowRef}
@@ -161,7 +161,7 @@ export default function ProductGallery({ images = [] }) {
       </div>
 
       {/* DESKTOP GALLERY */}
-      <div className="hidden grid-cols-2 gap-3 bg-white md:grid">
+      <div className="hidden grid-cols-2 gap-3 bg-white xl:grid">
         {desktopImages.map((src, index) => (
           <button
             key={`${src}-${index}`}

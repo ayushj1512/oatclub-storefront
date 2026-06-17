@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, UserRound } from "lucide-react";
+import { Menu, UserRound, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import ProfileMenu from "@/components/header/ProfileMenu";
@@ -110,33 +110,32 @@ export default function DesktopHeader() {
 
   return (
     <header
-      className={`hidden w-full border-b border-black/[0.06] bg-white/95 text-black backdrop-blur-xl md:block ${
-        isSticky
+      className={`hidden w-full border-b border-black/[0.06] bg-white/95 text-black backdrop-blur-xl md:block ${isSticky
           ? "fixed left-0 top-0 z-50 shadow-[0_10px_40px_-30px_rgba(0,0,0,0.22)]"
           : "relative z-50"
-      }`}
+        }`}
     >
       <TopbarHeadline />
 
-      <div className="relative flex w-full items-center px-8 py-4 lg:px-10">
+      <div className="relative flex w-full items-center px-4 py-3 md:px-5 lg:px-10 lg:py-4">
         {/* LEFT MENU */}
-        <div className="flex flex-1 items-center">
+        <div className="flex min-w-0 flex-1 items-center">
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
               aria-label="Open menu"
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
-              className="group flex h-11 items-center gap-2 text-black transition duration-200 hover:text-black/55 active:scale-[0.98]"
+              className="group flex h-10 items-center gap-2 text-black transition duration-200 hover:text-black/55 active:scale-[0.98] lg:h-11"
             >
               <Menu className="h-[18px] w-[18px] transition duration-200 group-hover:rotate-90" />
-              <span className="text-[11px] font-black uppercase tracking-[0.18em]">
+              <span className="hidden text-[10px] font-black uppercase tracking-[0.16em] lg:inline">
                 MENU
               </span>
             </button>
 
             {open && (
-              <div className="absolute left-0 top-14 z-50 w-[640px] max-w-[86vw] bg-white p-5 shadow-[0_24px_80px_-38px_rgba(0,0,0,0.28)]">
+              <div className="absolute left-0 top-12 z-50 w-[640px] max-w-[86vw] bg-white p-5 shadow-[0_24px_80px_-38px_rgba(0,0,0,0.28)] lg:top-14">
                 <div className="flex items-center justify-between px-1">
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-[0.22em] text-black/45">
@@ -181,11 +180,10 @@ export default function DesktopHeader() {
                           href={`/collection/${x.slug}`}
                           onClick={() => setOpen(false)}
                           title={x.label}
-                          className={`flex h-10 items-center border-b px-0 text-left text-[11px] font-black uppercase tracking-[0.12em] transition ${
-                            index === 0
+                          className={`flex h-10 items-center border-b px-0 text-left text-[11px] font-black uppercase tracking-[0.12em] transition ${index === 0
                               ? "border-black text-black"
                               : "border-black/10 text-black/65 hover:border-black hover:text-black"
-                          }`}
+                            }`}
                         >
                           <span className="truncate">{x.label}</span>
                         </Link>
@@ -247,28 +245,39 @@ export default function DesktopHeader() {
         </div>
 
         {/* CENTER LOGO */}
-        <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
           <Link
             href="/"
             aria-label="Go to homepage"
             className="pointer-events-auto flex items-center justify-center"
           >
-            <div className="relative h-12 w-40">
+            <div className="relative h-10 w-28 lg:h-12 lg:w-40">
               <Image
                 src={LOGO_URL}
                 alt="Oatclub"
                 fill
                 priority
                 className="object-contain"
-                sizes="160px"
+                sizes="(min-width:1024px) 160px, 112px"
               />
             </div>
           </Link>
         </div>
 
         {/* RIGHT SEARCH + ICONS */}
-        <div className="ml-auto flex flex-1 items-center justify-end gap-3">
-          <HeaderSearchBar className="w-[280px] lg:w-[360px]" />
+        {/* RIGHT SEARCH + ICONS */}
+        <div className="ml-auto flex flex-1 items-center justify-end gap-2 lg:gap-3">
+          {/* iPad / Medium Screen Search */}
+          <Link
+            href="/search"
+            aria-label="Search products"
+            className="flex h-11 w-8 items-center justify-center text-black transition duration-200 hover:text-black/55 lg:hidden"
+          >
+            <Search className="h-5 w-5" />
+          </Link>
+
+          {/* Desktop Search */}
+          <HeaderSearchBar className="hidden lg:block lg:w-[360px]" />
 
           <div className="flex h-11 w-8 items-center justify-center text-black transition duration-200 hover:text-black/55">
             <WishlistButton />
