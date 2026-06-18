@@ -16,7 +16,7 @@ import { useCategoryStore } from "@/store/categoryStore";
 import { useCollectionStore } from "@/store/collectionStore";
 
 const LOGO_URL =
-  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780338447/qavpt44lsxsy3wrvuwi8.png";
+  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1781123545/bd7ip3bphemzjoul4ixp.webp";
 
 const toSentence = (s) =>
   String(s ?? "")
@@ -277,7 +277,7 @@ export default function DesktopHeader() {
           </Link>
 
           {/* Desktop Search */}
-          <HeaderSearchBar className="hidden lg:block lg:w-[360px]" />
+     <HeaderSearchBar className="hidden lg:block lg:w-[420px]" />
 
           <div className="flex h-11 w-8 items-center justify-center text-black transition duration-200 hover:text-black/55">
             <WishlistButton />

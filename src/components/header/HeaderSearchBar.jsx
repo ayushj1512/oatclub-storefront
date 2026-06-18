@@ -42,15 +42,17 @@ export default function HeaderSearchBar({ className = "" }) {
 
   return (
     <div
-      className={`group relative flex h-11 items-center gap-2 border border-black/10 bg-white px-3 shadow-[0_10px_30px_rgba(0,0,0,0.035)] transition duration-200 focus-within:border-black hover:border-black/30 ${className}`}
+      className={`
+        group relative flex h-11 items-center
+        border border-black/10 bg-white
+        px-4
+        transition duration-200
+        hover:border-black/25
+        focus-within:border-black/40
+        ${className}
+      `}
     >
-      <span className="absolute inset-x-3 bottom-0 h-px origin-left scale-x-0 bg-black transition duration-300 group-focus-within:scale-x-100" />
-
-      <Search className="h-3.5 w-3.5 shrink-0 text-black/45 transition group-focus-within:text-black" />
-
-      <span className="hidden shrink-0 text-[8px] font-black uppercase tracking-[0.2em] text-black/30 lg:inline">
-        FIND
-      </span>
+      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-black/45 transition group-focus-within:text-black" />
 
       <input
         value={query}
@@ -58,16 +60,17 @@ export default function HeaderSearchBar({ className = "" }) {
         onFocus={goSearchPage}
         onClick={goSearchPage}
         onKeyDown={handleKeyDown}
-        placeholder="Search products..."
+        placeholder="Search products"
         className="
           h-full
-          min-w-0
-          flex-1
+          w-full
           bg-transparent
+          pl-7
+          pr-14
           text-[11px]
-          font-black
+          font-semibold
           uppercase
-          tracking-[0.12em]
+          tracking-[0.16em]
           text-black
           outline-none
           placeholder:text-black/35
@@ -77,10 +80,16 @@ export default function HeaderSearchBar({ className = "" }) {
       <button
         type="button"
         onClick={handleSearch}
-        className="flex h-8 items-center justify-center gap-1.5 pl-2 text-[9px] font-black uppercase tracking-[0.16em] text-black/45 transition duration-200 hover:text-black active:scale-95"
-        aria-label="SEARCH"
+        className="
+          absolute right-3 top-1/2
+          flex -translate-y-1/2 items-center gap-1
+          text-[9px] font-black uppercase tracking-[0.18em]
+          text-black/45 transition duration-200
+          hover:text-black active:scale-95
+        "
+        aria-label="Search"
       >
-        GO
+        Go
         <ArrowRight className="h-3.5 w-3.5" />
       </button>
     </div>
