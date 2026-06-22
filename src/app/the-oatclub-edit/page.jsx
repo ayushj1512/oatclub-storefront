@@ -1,14 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Check, Gift, LineChart, Play, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Gift, LineChart, Sparkles } from "lucide-react";
 
 const PROGRAM_NAME = "OATCLUB EDIT";
-
-const heroImage =
-  "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=82";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 18 },
@@ -49,8 +45,8 @@ function Label({ children }) {
 export default function TheFitCheckEditPage() {
   return (
     <main className="min-h-screen bg-white text-black">
-      <section className="grid min-h-[calc(100vh-96px)] border-b border-black/10 lg:grid-cols-[1fr_0.92fr]">
-        <div className="flex flex-col justify-center px-3 py-8 md:px-8 lg:px-10">
+      <section className="border-b border-black/10 px-3 py-8 md:px-8 lg:px-10 lg:py-12">
+        <div className="flex min-h-[calc(100vh-96px)] flex-col justify-center">
           <motion.div variants={fadeUp} initial="hidden" animate="visible">
             <Label>{PROGRAM_NAME}</Label>
           </motion.div>
@@ -113,26 +109,28 @@ export default function TheFitCheckEditPage() {
               </div>
             ))}
           </motion.div>
-        </div>
 
-        <div className="relative min-h-[430px] overflow-hidden bg-black lg:min-h-0">
-          <Image src={heroImage} alt={PROGRAM_NAME} fill priority sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover opacity-90" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-4 md:p-6">
-            <div className="flex items-center justify-between border border-white/20 bg-black/30 p-3 text-white backdrop-blur">
+          <motion.div
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            custom={5}
+            className="mt-6 max-w-md border border-black/10 bg-[#fbfbfb] p-4"
+          >
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/55">
+                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-black/45">
                   EDIT BRIEF
                 </p>
                 <p className="mt-1 text-sm font-black uppercase tracking-[0.08em]">
                   STYLE IT. SHOOT IT. OWN THE EDIT.
                 </p>
               </div>
-              <span className="grid h-10 w-10 place-items-center bg-white text-black">
-                <Play className="h-4 w-4 fill-current" />
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-black/45">
+                Creator program
               </span>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
