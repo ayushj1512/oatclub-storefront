@@ -76,17 +76,17 @@ const bestPrice = (product) => {
 const comparePrice = (product) => {
   const base = toNum(
     product?.compareAtPrice ??
-      product?.compare_at_price ??
-      product?.mrp ??
-      product?.regular_price ??
-      product?.originalPrice ??
-      product?.compare_price
+    product?.compare_at_price ??
+    product?.mrp ??
+    product?.regular_price ??
+    product?.originalPrice ??
+    product?.compare_price
   );
 
   const variants = Array.isArray(product?.variants)
     ? product.variants
-        .map((v) => toNum(v?.compareAtPrice ?? v?.compare_at_price ?? v?.mrp))
-        .filter(Boolean)
+      .map((v) => toNum(v?.compareAtPrice ?? v?.compare_at_price ?? v?.mrp))
+      .filter(Boolean)
     : [];
 
   return base || (variants.length ? Math.max(...variants) : 0);
@@ -234,7 +234,7 @@ export default function ProductCard({
   };
 
   return (
-    <div className="relative h-full bg-white">
+    <div className="relative h-full min-w-0 bg-white">
       <Link
         href={model.link}
         onClick={() => trackProductView?.(model.id)}
@@ -281,45 +281,44 @@ export default function ProductCard({
         >
           <Heart
             strokeWidth={2.15}
-            className={`h-[18px] w-[18px] drop-shadow-[0_1px_8px_rgba(255,255,255,0.9)] ${
-              wishlisted
+            className={`h-[18px] w-[18px] drop-shadow-[0_1px_8px_rgba(255,255,255,0.9)] ${wishlisted
                 ? "fill-black text-black"
                 : "fill-white/70 text-black/75"
-            }`}
+              }`}
           />
         </button>
       )}
 
-      <div className="border-b border-neutral-200 pb-3 pt-2.5">
+      <div className="border-b border-neutral-200 pb-2.5 pt-2">
         <Link href={model.link} onClick={() => trackProductView?.(model.id)}>
           <h3
             title={model.productName}
-            className="line-clamp-2 min-h-[30px] text-[10.5px] font-black uppercase leading-[15px] tracking-[0.06em] text-black md:min-h-[32px] md:text-[11px] md:leading-4"
+            className="line-clamp-2 min-h-[30px] text-[9.5px] font-black uppercase leading-[14px] tracking-[0.04em] text-black sm:text-[10.5px] md:min-h-[32px] md:text-[11px] md:leading-4"
           >
             {model.productName}
           </h3>
         </Link>
 
-        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
-          <span className="text-[11.5px] font-black uppercase tracking-[0.06em] text-black md:text-xs">
+        <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0.5">
+          <span className="text-[10.5px] font-black uppercase tracking-[0.05em] text-black sm:text-[11.5px] md:text-xs">
             RS. {money(model.price)}
           </span>
 
           {showCompare && (
-            <span className="text-[9.5px] font-bold uppercase tracking-[0.06em] text-black/35 line-through md:text-[10px]">
+            <span className="text-[8.5px] font-bold uppercase tracking-[0.04em] text-black/35 line-through sm:text-[9.5px] md:text-[10px]">
               RS. {money(model.compareAt)}
             </span>
           )}
 
           {discount > 0 && (
-            <span className="text-[9px] font-black uppercase tracking-[0.08em] text-black/45">
+            <span className="text-[8px] font-black uppercase tracking-[0.05em] text-black/45 sm:text-[9px]">
               {discount}% OFF
             </span>
           )}
         </div>
 
         {model.sizes.length > 0 && (
-          <div className="mt-2 flex w-full flex-wrap gap-1.5">
+          <div className="mt-2 grid w-full grid-cols-5 gap-1">
             {model.sizes.map((size) => (
               <button
                 key={size}
@@ -328,11 +327,10 @@ export default function ProductCard({
                   setSelectedSize(size);
                   setSizeError(false);
                 }}
-                className={`h-7 min-w-[30px] px-2 text-[9px] font-black uppercase tracking-[0.08em] transition md:h-8 md:min-w-8 ${
-                  selectedSize === size
+                className={`h-7 min-w-0 px-1 text-[8.5px] font-black uppercase tracking-[0.04em] transition sm:text-[9px] md:h-8 md:text-[9.5px] ${selectedSize === size
                     ? "bg-black text-white"
                     : "bg-neutral-100 text-black active:bg-black active:text-white md:hover:bg-black md:hover:text-white"
-                }`}
+                  }`}
               >
                 {size}
               </button>
@@ -341,7 +339,7 @@ export default function ProductCard({
         )}
 
         {sizeError && (
-          <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-red-600">
+          <p className="mt-1 text-[8.5px] font-black uppercase tracking-[0.08em] text-red-600">
             Select size
           </p>
         )}
@@ -350,7 +348,7 @@ export default function ProductCard({
           type="button"
           onClick={handleAddToCart}
           disabled={adding}
-          className="mt-2.5 h-9 w-full bg-black text-[10px] font-black uppercase tracking-[0.14em] text-white transition active:scale-[0.98] md:hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-2 h-8 w-full bg-black px-2 text-[9px] font-black uppercase tracking-[0.11em] text-white transition active:scale-[0.98] sm:h-9 sm:text-[10px] md:hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {adding ? "Adding..." : "Add to Cart"}
         </button>

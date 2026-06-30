@@ -48,18 +48,41 @@ const normalizeCard = (product) => {
   const title = product?.title || product?.name || "Untitled";
 
   return {
+    _id: product?._id || product?.id || product?.productId || code,
     id: product?._id || product?.id || product?.productId || code,
     productId: product?._id || product?.productId || product?.id,
+
     productCode: code,
     name: title,
     title,
+
     price: Number(product?.price || 0),
-    compareAtPrice: product?.compareAtPrice ?? product?.compare_at_price ?? null,
+    compareAtPrice:
+      product?.compareAtPrice ??
+      product?.compare_at_price ??
+      product?.mrp ??
+      null,
+
     thumbnail: product?.thumbnail || image,
+    image: product?.thumbnail || image,
     images: images.length ? images : [image],
+
     slug: product?.slug || slugify(title || code),
     category: "new-arrivals",
+    categories: product?.categories || product?.raw?.categories || ["new-arrivals"],
+
     currency: product?.currency || "INR",
+
+    // ✅ MOST IMPORTANT FOR SIZE PICKER
+    productType: product?.productType || product?.raw?.productType,
+    attributes: product?.attributes || product?.raw?.attributes || [],
+    variants: product?.variants || product?.raw?.variants || [],
+
+    // ✅ helpful for cart/store
+    stock: product?.stock,
+    isInStock: product?.isInStock,
+    availableStock: product?.availableStock,
+
     raw: product?.raw || product,
   };
 };
@@ -154,11 +177,11 @@ export default function NewArrivalsFeatureRow({ limit = 12, showOnlyActive = tru
     >
       <div className="mb-6 flex flex-col gap-4 border-b border-neutral-200 pb-5 md:flex-row md:items-end md:justify-between">
         <div>
-          
+
           <h2 className="mt-2 text-2xl font-black uppercase leading-tight text-black md:text-3xl">
             NEW ARRIVALS
           </h2>
-    
+
         </div>
 
         <button

@@ -20,7 +20,7 @@ const money = (n) => {
 const itemKey = (item) =>
   String(
     item?.__key ||
-      `${String(item?.productId || item?.id || "")}__${String(item?.variantId || "")}`
+    `${String(item?.productId || item?.id || "")}__${String(item?.variantId || "")}`
   );
 
 const slugify = (value = "") =>
@@ -151,8 +151,8 @@ export default function CartPage() {
           contents,
           num_items: contents.reduce((sum, item) => sum + item.quantity, 0),
         })
-      ).catch(() => {});
-    } catch {}
+      ).catch(() => { });
+    } catch { }
   }, [items]);
 
   const updateQtySafe = (item, nextQty) => {
@@ -250,28 +250,38 @@ export default function CartPage() {
                   const color = item?.selectedColor;
 
                   return (
-                    <article key={itemKey(item)} className="grid gap-4 p-4 sm:grid-cols-[112px_minmax(0,1fr)] md:p-5">
+                    <article
+                      key={itemKey(item)}
+                      className="grid grid-cols-[86px_minmax(0,1fr)] gap-3 p-3 sm:grid-cols-[96px_minmax(0,1fr)] md:p-4"
+                    >
                       <button
                         type="button"
                         onClick={() => openProduct(item)}
-                        className="relative aspect-[4/5] w-28 overflow-hidden bg-neutral-100 text-left"
+                        className="relative aspect-[4/5] w-[86px] overflow-hidden bg-neutral-100 text-left sm:w-24"
                       >
                         {src ? (
-                          <Image src={src} alt={name} fill sizes="112px" className="object-contain p-1" />
+                          <Image
+                            src={src}
+                            alt={name}
+                            fill
+                            sizes="96px"
+                            className="object-contain p-1"
+                          />
                         ) : (
-                          <span className="grid h-full place-items-center text-[10px] font-bold text-black/35">
+                          <span className="grid h-full place-items-center text-[9px] font-bold text-black/35">
                             NO IMAGE
                           </span>
                         )}
                       </button>
 
                       <div className="min-w-0">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start justify-between gap-2">
                           <button type="button" onClick={() => openProduct(item)} className="min-w-0 text-left">
-                            <h3 className="line-clamp-2 text-sm font-black uppercase leading-5 tracking-[0.08em] text-black">
+                            <h3 className="line-clamp-2 text-[11px] font-black uppercase leading-4 tracking-[0.05em] text-black sm:text-xs">
                               {name}
                             </h3>
-                            <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-black/50">
+
+                            <div className="mt-1.5 flex flex-wrap gap-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-black/50">
                               {size ? <span>SIZE: {String(size).toUpperCase()}</span> : null}
                               {color ? <span>COLOR: {String(color).replace(/-/g, " ").toUpperCase()}</span> : null}
                             </div>
@@ -280,44 +290,45 @@ export default function CartPage() {
                           <button
                             type="button"
                             onClick={() => removeSafe(item)}
-                            className="grid h-9 w-9 shrink-0 place-items-center border border-black/10 transition hover:bg-black hover:text-white"
+                            className="grid h-8 w-8 shrink-0 place-items-center border border-black/10 transition active:scale-95 md:hover:bg-black md:hover:text-white"
                             aria-label="REMOVE ITEM"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
 
-                        <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                          <div>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-sm font-black uppercase tracking-[0.1em]">
-                                RS. {money(price)}
-                              </span>
-                              {mrp > price ? (
-                                <span className="text-xs font-bold uppercase tracking-[0.1em] text-black/35 line-through">
-                                  RS. {money(mrp)}
-                                </span>
-                              ) : null}
-                            </div>
-                            {mrp > price ? (
-                              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-black/45">
-                                SAVED RS. {money((mrp - price) * qty)}
-                              </p>
-                            ) : null}
-                          </div>
+                        <div className="mt-2 flex items-baseline gap-1.5">
+                          <span className="text-xs font-black uppercase tracking-[0.08em]">
+                            RS. {money(price)}
+                          </span>
 
-                          <div className="flex items-center justify-between gap-4">
-                            <QuantityControl
-                              qty={qty}
-                              onDec={() => decreaseQty?.(itemKey(item))}
-                              onInc={() => updateQtySafe(item, qty + 1)}
-                            />
-                            <div className="min-w-24 text-right">
-                              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/40">
-                                LINE TOTAL
-                              </p>
-                              <p className="mt-1 text-sm font-black">RS. {money(price * qty)}</p>
-                            </div>
+                          {mrp > price ? (
+                            <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-black/35 line-through">
+                              RS. {money(mrp)}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {mrp > price ? (
+                          <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-black/45">
+                            SAVED RS. {money((mrp - price) * qty)}
+                          </p>
+                        ) : null}
+
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <QuantityControl
+                            qty={qty}
+                            onDec={() => decreaseQty?.(itemKey(item))}
+                            onInc={() => updateQtySafe(item, qty + 1)}
+                          />
+
+                          <div className="text-right">
+                            <p className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-black/40">
+                              Total
+                            </p>
+                            <p className="mt-0.5 text-xs font-black">
+                              RS. {money(price * qty)}
+                            </p>
                           </div>
                         </div>
                       </div>
