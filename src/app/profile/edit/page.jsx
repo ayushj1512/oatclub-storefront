@@ -120,28 +120,31 @@ export default function ProfileEditPage() {
   );
 
   // ✅ constant dependency array size
-  useEffect(() => {
-    if (loading) return;
+useEffect(() => {
+  if (loading) return;
 
-    if (!isAuthenticated || !user) {
-      router.push("/auth/login");
-      return;
-    }
+  if (!isAuthenticated || !user) {
+    router.push("/auth/login");
+    return;
+  }
 
-    if (!didInitRef.current && (customer || user)) {
-      didInitRef.current = true;
+  // ✅ wait for actual Mongo customer before initializing profile form
+  if (!customer?._id) return;
 
-      setForm({
-        name: customer?.name || user?.displayName || user?.name || "",
-        phone: customer?.phone || "",
-        dateOfBirth: safeDateInputValue(customer?.dateOfBirth),
-        gender: customer?.gender || "unknown",
-        country: customer?.country || "India",
-        state: customer?.state || "",
-        city: customer?.city || "",
-      });
-    }
-  }, [loading, isAuthenticated, user, customer, router]);
+  if (!didInitRef.current) {
+    didInitRef.current = true;
+
+    setForm({
+      name: customer?.name || user?.displayName || user?.name || "",
+      phone: customer?.phone || "",
+      dateOfBirth: safeDateInputValue(customer?.dateOfBirth),
+      gender: customer?.gender || "unknown",
+      country: customer?.country || "India",
+      state: customer?.state || "",
+      city: customer?.city || "",
+    });
+  }
+}, [loading, isAuthenticated, user, customer?._id, router]);
 
   // ✅ small UX: compute completeness for this edit screen
   const progress = useMemo(() => {

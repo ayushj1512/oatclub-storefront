@@ -97,7 +97,7 @@ function isFilled(v) {
 
 function calcProfileCompleteness({ user, customer, addresses }) {
   const items = [
-    { key: "name", label: "NAME", weight: 20, ok: isFilled(user?.name || user?.displayName || customer?.name), action: { label: "EDIT PROFILE", href: "/profile/edit" } },
+    { key: "name", label: "NAME", weight: 20, ok: isFilled(customer?.name || user?.name || user?.displayName), action: { label: "EDIT PROFILE", href: "/profile/edit" } },
     { key: "email", label: "EMAIL", weight: 15, ok: isFilled(user?.email || customer?.email), action: { label: "EDIT PROFILE", href: "/profile/edit" } },
     { key: "phone", label: "PHONE", weight: 15, ok: isFilled(customer?.phone), action: { label: "ADD PHONE", href: "/profile/edit" } },
     { key: "dob", label: "DOB", weight: 10, ok: isFilled(customer?.dateOfBirth), action: { label: "ADD DOB", href: "/profile/edit" } },
@@ -193,14 +193,14 @@ export default function ProfilePage() {
   useEffect(() => {
     try {
       if (localStorage.getItem("oatclub_profile_progress_banner") === "hidden") setHideBanner(true);
-    } catch {}
+    } catch { }
   }, []);
 
   const closeBanner = useCallback(() => {
     setHideBanner(true);
     try {
       localStorage.setItem("oatclub_profile_progress_banner", "hidden");
-    } catch {}
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -212,14 +212,28 @@ export default function ProfilePage() {
     }
 
     setFormData({
-      name: user?.name || user?.displayName || customer?.name || "",
-      email: user?.email || customer?.email || "",
+      name: customer?.name || user?.name || user?.displayName || "",
+      email: customer?.email || user?.email || "",
       phone: customer?.phone || "",
     });
 
     setPhotoSrc(buildSafePhotoURL(customer, user));
     fetchAddresses(user.uid);
-  }, [loading, isAuthenticated, user?.uid, customer?._id, fetchAddresses, router, user, customer]);
+  }, [
+    loading,
+    isAuthenticated,
+    user?.uid,
+    user?.name,
+    user?.displayName,
+    user?.email,
+    customer?._id,
+    customer?.name,
+    customer?.email,
+    customer?.phone,
+    customer?.profileImage,
+    fetchAddresses,
+    router,
+  ]);
 
   useEffect(() => {
     if (isAuthenticated) setPhotoSrc(buildSafePhotoURL(customer, user));
