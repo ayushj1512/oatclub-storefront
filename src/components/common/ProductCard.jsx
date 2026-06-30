@@ -3,10 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAnalyticsStore } from "@/store/analyticsStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { useWishlistStore } from "@/store/wishlistStore";
+import { useCartStore } from "@/store/cartStore";
 
 const validImage = (src) =>
   typeof src === "string" &&
@@ -50,20 +51,25 @@ const categorySlug = (product) => {
     : Array.isArray(product?.raw?.categories)
       ? product.raw.categories
       : [];
+
   const banned = new Set(["all-clothing", "featured", "uncategorized"]);
+
   const picked =
     list.find((c) => !banned.has(String(c).toLowerCase())) ||
     list[0] ||
     product?.category ||
     "products";
+
   return slugify(picked);
 };
 
 const bestPrice = (product) => {
   const base = toNum(product?.sale_price ?? product?.price ?? product?.currentPrice);
+
   const variants = Array.isArray(product?.variants)
     ? product.variants.map((v) => toNum(v?.price)).filter(Boolean)
     : [];
+
   return base || (variants.length ? Math.min(...variants) : 0);
 };
 
@@ -76,12 +82,36 @@ const comparePrice = (product) => {
       product?.originalPrice ??
       product?.compare_price
   );
+
   const variants = Array.isArray(product?.variants)
     ? product.variants
         .map((v) => toNum(v?.compareAtPrice ?? v?.compare_at_price ?? v?.mrp))
         .filter(Boolean)
     : [];
+
   return base || (variants.length ? Math.max(...variants) : 0);
+};
+
+const getVariantSize = (variant) => {
+  const attrs = Array.isArray(variant?.attributes) ? variant.attributes : [];
+  const found = attrs.find(
+    (a) => String(a?.key || "").trim().toLowerCase() === "size"
+  );
+  return String(found?.value || "").trim();
+};
+
+const getSizes = (product) => {
+  const attrs = Array.isArray(product?.attributes) ? product.attributes : [];
+
+  const fromAttributes =
+    attrs.find((a) => String(a?.key || "").trim().toLowerCase() === "size")
+      ?.values || [];
+
+  const fromVariants = Array.isArray(product?.variants)
+    ? product.variants.map(getVariantSize).filter(Boolean)
+    : [];
+
+  return [...new Set([...fromAttributes, ...fromVariants].filter(Boolean))];
 };
 
 function ProductCardSkeleton() {
@@ -90,7 +120,7 @@ function ProductCardSkeleton() {
       <div className="relative aspect-[4/5] overflow-hidden bg-white">
         <div className="absolute inset-0 shimmer" />
       </div>
-        <div className="space-y-2 pt-3">
+      <div className="space-y-2 pt-3">
         <div className="relative h-3 w-4/5 overflow-hidden bg-neutral-100">
           <div className="absolute inset-0 shimmer" />
         </div>
@@ -108,8 +138,14 @@ export default function ProductCard({
   disableRecentlyViewed = false,
   hideWishlistIcon = false,
 }) {
+  const [selectedSize, setSelectedSize] = useState("");
+  const [sizeError, setSizeError] = useState(false);
+  const [adding, setAdding] = useState(false);
+
   const { addToWishlist, removeFromWishlist, isInWishlist, initialize } =
     useWishlistStore();
+
+  const addToCart = useCartStore((s) => s.addToCart);
   const addProduct = useRecentlyViewedStore((s) => s.addProduct);
   const trackProductView = useAnalyticsStore((s) => s.trackProductView);
 
@@ -128,15 +164,17 @@ export default function ProductCard({
     const productCode = String(
       product.productCode || product.raw?.productCode || ""
     ).trim();
+
     const id = product._id || product.id || product.productId;
     const image = firstImage(product);
+    const hover = hoverImage(product);
     const price = bestPrice(product);
     const compareAt = comparePrice(product);
+    const sizes = getSizes(product);
+
     const link = `/category/${categorySlug(product)}/${slugify(
       product.slug || productName
     )}/${encodeURIComponent(productCode)}`;
-
-    const hover = hoverImage(product);
 
     return {
       id,
@@ -146,6 +184,7 @@ export default function ProductCard({
       hover: hover && hover !== image ? hover : "",
       price,
       compareAt,
+      sizes,
       link,
     };
   }, [product]);
@@ -154,12 +193,19 @@ export default function ProductCard({
   if (!model.id || !model.productCode || !model.image || !model.price) return null;
 
   const wishlisted = isInWishlist?.(model.id);
+
   const showCompare = model.compareAt > model.price;
   const discount = showCompare
     ? Math.round(((model.compareAt - model.price) / model.compareAt) * 100)
     : 0;
+
   const isBestSeller = !!(product?.isBestSeller ?? product?.raw?.isBestSeller);
-  const isTrending = !isBestSeller && !!(product?.isTrending ?? product?.raw?.isTrending);
+  const isTrending =
+    !isBestSeller && !!(product?.isTrending ?? product?.raw?.isTrending);
+
+  const selectedVariant = Array.isArray(product?.variants)
+    ? product.variants.find((v) => getVariantSize(v) === selectedSize)
+    : null;
 
   const toggleWishlist = (event) => {
     event.preventDefault();
@@ -167,89 +213,149 @@ export default function ProductCard({
     wishlisted ? removeFromWishlist(model.id) : addToWishlist(product);
   };
 
+  const handleAddToCart = async () => {
+    if (model.sizes.length > 0 && !selectedSize) {
+      setSizeError(true);
+      return;
+    }
+
+    setAdding(true);
+
+    try {
+      await addToCart({
+        product,
+        qty: 1,
+        variantId: selectedVariant?._id || null,
+        selectedSize: selectedSize || null,
+      });
+    } finally {
+      setAdding(false);
+    }
+  };
+
   return (
-    <Link
-      href={model.link}
-      onClick={() => trackProductView?.(model.id)}
-      className="group block h-full bg-white"
-    >
-      <div className="relative isolate aspect-[4/5] overflow-hidden bg-white">
-        {(isBestSeller || isTrending) && (
-          <div className="absolute left-2 top-2 z-20">
-            {isBestSeller && <Badge label="Bestseller" />}
-            {isTrending && <Badge label="Trending" />}
-          </div>
-        )}
+    <div className="relative h-full bg-white">
+      <Link
+        href={model.link}
+        onClick={() => trackProductView?.(model.id)}
+        className="group block"
+      >
+        <div className="relative isolate aspect-[4/5] overflow-hidden bg-white">
+          {(isBestSeller || isTrending) && (
+            <div className="absolute left-2 top-2 z-20">
+              {isBestSeller && <Badge label="Bestseller" />}
+              {isTrending && <Badge label="Trending" />}
+            </div>
+          )}
 
-        <Image
-          src={model.image}
-          alt={model.productName}
-          fill
-          loading="lazy"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
-          className="z-0 object-contain p-1 transition duration-300 md:group-hover:scale-[1.01]"
-        />
+          <Image
+            src={model.image}
+            alt={model.productName}
+            fill
+            loading="lazy"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
+            className="z-0 object-contain p-1 transition duration-300 md:group-hover:scale-[1.01]"
+          />
 
-        {model.hover && (
-          <div className="pointer-events-none absolute inset-0 z-10 hidden bg-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 md:block">
-            <Image
-              src={model.hover}
-              alt={`${model.productName} alternate view`}
-              fill
-              loading="lazy"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
-              className="object-contain p-1"
-            />
-          </div>
-        )}
+          {model.hover && (
+            <div className="pointer-events-none absolute inset-0 z-10 hidden bg-white opacity-0 transition-opacity duration-200 md:block md:group-hover:opacity-100">
+              <Image
+                src={model.hover}
+                alt={`${model.productName} alternate view`}
+                fill
+                loading="lazy"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
+                className="object-contain p-1"
+              />
+            </div>
+          )}
+        </div>
+      </Link>
 
-        {!hideWishlistIcon && (
-          <button
-            type="button"
-            onClick={toggleWishlist}
-            aria-label={wishlisted ? "REMOVE FROM WISHLIST" : "ADD TO WISHLIST"}
-            title={wishlisted ? "WISHLISTED" : "ADD TO WISHLIST"}
-            className="group/wishlist absolute right-2 top-2 z-20 grid h-8 w-8 place-items-center text-black transition duration-200 active:scale-95 md:right-3 md:top-3"
-          >
-            <Heart
-              strokeWidth={2.15}
-              className={`h-[18px] w-[18px] drop-shadow-[0_1px_8px_rgba(255,255,255,0.9)] transition duration-200 ${
-                wishlisted
-                  ? "fill-black text-black"
-                  : "fill-white/70 text-black/75 group-hover/wishlist:fill-black group-hover/wishlist:text-black"
-              }`}
-            />
-          </button>
-        )}
-      </div>
+      {!hideWishlistIcon && (
+        <button
+          type="button"
+          onClick={toggleWishlist}
+          aria-label={wishlisted ? "REMOVE FROM WISHLIST" : "ADD TO WISHLIST"}
+          className="absolute right-2 top-2 z-30 grid h-8 w-8 place-items-center text-black active:scale-95 md:right-3 md:top-3"
+        >
+          <Heart
+            strokeWidth={2.15}
+            className={`h-[18px] w-[18px] drop-shadow-[0_1px_8px_rgba(255,255,255,0.9)] ${
+              wishlisted
+                ? "fill-black text-black"
+                : "fill-white/70 text-black/75"
+            }`}
+          />
+        </button>
+      )}
 
-      <div className="border-b border-neutral-200 pb-2.5 pt-2.5">
-        <div>
+      <div className="border-b border-neutral-200 pb-3 pt-2.5">
+        <Link href={model.link} onClick={() => trackProductView?.(model.id)}>
           <h3
             title={model.productName}
             className="line-clamp-2 min-h-[30px] text-[10.5px] font-black uppercase leading-[15px] tracking-[0.06em] text-black md:min-h-[32px] md:text-[11px] md:leading-4"
           >
             {model.productName}
           </h3>
-        </div>
+        </Link>
 
         <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
           <span className="text-[11.5px] font-black uppercase tracking-[0.06em] text-black md:text-xs">
             RS. {money(model.price)}
           </span>
+
           {showCompare && (
             <span className="text-[9.5px] font-bold uppercase tracking-[0.06em] text-black/35 line-through md:text-[10px]">
               RS. {money(model.compareAt)}
             </span>
           )}
+
           {discount > 0 && (
             <span className="text-[9px] font-black uppercase tracking-[0.08em] text-black/45">
               {discount}% OFF
             </span>
           )}
         </div>
+
+        {model.sizes.length > 0 && (
+          <div className="mt-2 flex w-full flex-wrap gap-1.5">
+            {model.sizes.map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => {
+                  setSelectedSize(size);
+                  setSizeError(false);
+                }}
+                className={`h-7 min-w-[30px] px-2 text-[9px] font-black uppercase tracking-[0.08em] transition md:h-8 md:min-w-8 ${
+                  selectedSize === size
+                    ? "bg-black text-white"
+                    : "bg-neutral-100 text-black active:bg-black active:text-white md:hover:bg-black md:hover:text-white"
+                }`}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {sizeError && (
+          <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-red-600">
+            Select size
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          disabled={adding}
+          className="mt-2.5 h-9 w-full bg-black text-[10px] font-black uppercase tracking-[0.14em] text-white transition active:scale-[0.98] md:hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {adding ? "Adding..." : "Add to Cart"}
+        </button>
       </div>
-    </Link>
+    </div>
   );
 }
 

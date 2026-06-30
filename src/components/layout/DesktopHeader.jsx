@@ -111,8 +111,8 @@ export default function DesktopHeader() {
   return (
     <header
       className={`hidden w-full border-b border-black/[0.06] bg-white/95 text-black backdrop-blur-xl md:block ${isSticky
-          ? "fixed left-0 top-0 z-50 shadow-[0_10px_40px_-30px_rgba(0,0,0,0.22)]"
-          : "relative z-50"
+        ? "fixed left-0 top-0 z-50 shadow-[0_10px_40px_-30px_rgba(0,0,0,0.22)]"
+        : "relative z-50"
         }`}
     >
       <TopbarHeadline />
@@ -181,8 +181,8 @@ export default function DesktopHeader() {
                           onClick={() => setOpen(false)}
                           title={x.label}
                           className={`flex h-10 items-center border-b px-0 text-left text-[11px] font-black uppercase tracking-[0.12em] transition ${index === 0
-                              ? "border-black text-black"
-                              : "border-black/10 text-black/65 hover:border-black hover:text-black"
+                            ? "border-black text-black"
+                            : "border-black/10 text-black/65 hover:border-black hover:text-black"
                             }`}
                         >
                           <span className="truncate">{x.label}</span>
@@ -251,14 +251,14 @@ export default function DesktopHeader() {
             aria-label="Go to homepage"
             className="pointer-events-auto flex items-center justify-center"
           >
-            <div className="relative h-10 w-28 lg:h-12 lg:w-40">
+            <div className="relative h-14 w-40 lg:h-16 lg:w-56">
               <Image
                 src={LOGO_URL}
                 alt="Oatclub"
                 fill
                 priority
                 className="object-contain"
-                sizes="(min-width:1024px) 160px, 112px"
+                sizes="(min-width:1024px) 224px, 160px"
               />
             </div>
           </Link>
@@ -277,7 +277,7 @@ export default function DesktopHeader() {
           </Link>
 
           {/* Desktop Search */}
-     <HeaderSearchBar className="hidden lg:block lg:w-[420px]" />
+          <HeaderSearchBar className="hidden lg:block lg:w-[420px]" />
 
           <div className="flex h-11 w-8 items-center justify-center text-black transition duration-200 hover:text-black/55">
             <WishlistButton />

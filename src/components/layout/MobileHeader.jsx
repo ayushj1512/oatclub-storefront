@@ -135,7 +135,7 @@ export default function MobileHeader() {
           value,
           items: cartItems.slice(0, 50).map(ga4CartItem),
         });
-      } catch {}
+      } catch { }
 
       await trackMeta("ViewCart", {
         currency: "INR",
@@ -145,7 +145,7 @@ export default function MobileHeader() {
         contents,
         num_items: contents.reduce((s, c) => s + (c.quantity || 0), 0),
       });
-    } catch {}
+    } catch { }
   }, []);
 
   const handleCartClick = useCallback(() => {
@@ -194,7 +194,7 @@ export default function MobileHeader() {
             aria-label="Go to homepage"
             className="flex items-center justify-center select-none justify-self-center"
           >
-            <div className="relative h-8 w-[150px]">
+            <div className="relative h-10 w-[180px]">
               <Image
                 src={LOGO_URL}
                 alt="OATCLUB"
