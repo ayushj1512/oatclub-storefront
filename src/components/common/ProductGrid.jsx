@@ -35,7 +35,7 @@ export default function ProductGrid({ products = [], title = "", loading = false
   }, [loading, safeProducts.length]);
 
   const gridClass =
-    "grid grid-cols-2 gap-2 px-3 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 md:px-4";
+  "grid grid-cols-2 gap-x-1 gap-y-2 px-1 sm:grid-cols-3 sm:gap-x-2 sm:gap-y-3 sm:px-2 md:grid-cols-4 md:gap-x-3 md:gap-y-4 md:px-3";
   const skeleton = Array.from({ length: 8 });
 
   return (

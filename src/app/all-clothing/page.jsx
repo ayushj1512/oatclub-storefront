@@ -11,7 +11,6 @@ import React, {
 
 import ProductGrid from "@/components/common/ProductGrid";
 import { useProductStore } from "@/store/productStore";
-
 import FiltersDrawer from "@/components/category/FiltersDrawer";
 import FilterSortBar from "@/components/category/FilterSortBar";
 
@@ -25,16 +24,14 @@ const SORT_OPTIONS = [
 ];
 
 const buildFacets = (products = []) => {
-  const prices = [];
-  for (const p of products || []) {
-    const pr = Number(p?.price);
-    if (Number.isFinite(pr) && pr > 0) prices.push(pr);
-  }
-  prices.sort((a, b) => a - b);
+  const prices = products
+    .map((p) => Number(p?.price))
+    .filter((p) => Number.isFinite(p) && p > 0)
+    .sort((a, b) => a - b);
 
   return {
-    priceMin: prices.length ? prices[0] : 0,
-    priceMax: prices.length ? prices[prices.length - 1] : 0,
+    priceMin: prices[0] || 0,
+    priceMax: prices[prices.length - 1] || 0,
   };
 };
 
@@ -58,34 +55,28 @@ export default function AllClothingPage() {
   const allProducts = useProductStore((s) => s.allProducts);
   const isLoading = useProductStore((s) => s.isLoading);
   const error = useProductStore((s) => s.error);
-
-  // ✅ MAIN fetch (no category)
   const fetchProducts = useProductStore((s) => s.fetchProducts);
-
   const hasMore = useProductStore((s) => s.hasMore);
   const clearError = useProductStore((s) => s.clearError);
-
-  // ✅ needed for load more
   const page = useProductStore((s) => s.page);
   const lastParams = useProductStore((s) => s.lastParams);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest");
 
-  // ✅ Applied filters (ONLY price now)
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
-
-  // ✅ Draft filters (ONLY price now)
   const [draftPriceMin, setDraftPriceMin] = useState(null);
   const [draftPriceMax, setDraftPriceMax] = useState(null);
 
-  // ✅ prevents flashing
   const [displayProducts, setDisplayProducts] = useState([]);
   const [isInitialFetching, setIsInitialFetching] = useState(false);
 
-  const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
   const lastFetchRef = useRef("");
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
+
+  const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
 
   const drawerTop = useMemo(
     () =>
@@ -99,7 +90,6 @@ export default function AllClothingPage() {
     []
   );
 
-  // ✅ Init price once facets update
   useEffect(() => {
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
@@ -107,9 +97,6 @@ export default function AllClothingPage() {
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  /**
-   * ✅ Clear UI BEFORE PAINT on sort change
-   */
   useLayoutEffect(() => {
     if (!ready) return;
 
@@ -118,14 +105,13 @@ export default function AllClothingPage() {
     setIsInitialFetching(true);
   }, [ready, sort, clearError]);
 
-  // ✅ Fetch products on mount + when sort changes
   useEffect(() => {
     if (!ready) return;
 
     const key = JSON.stringify({ route: "all-clothing", sort });
     if (lastFetchRef.current === key) return;
-    lastFetchRef.current = key;
 
+    lastFetchRef.current = key;
     clearError?.();
     setDrawerOpen(false);
 
@@ -137,7 +123,6 @@ export default function AllClothingPage() {
     });
   }, [ready, sort, fetchProducts, clearError]);
 
-  // ✅ Sync store -> displayProducts only after loading ends
   useEffect(() => {
     if (isLoading) return;
 
@@ -150,14 +135,12 @@ export default function AllClothingPage() {
     setIsInitialFetching(false);
   }, [isLoading, allProducts, error]);
 
-  // ✅ Apply filters
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     setPriceMin(draftPriceMin);
     setPriceMax(draftPriceMax);
     setDrawerOpen(false);
-  };
+  }, [draftPriceMin, draftPriceMax]);
 
-  // ✅ Reset filters
   const resetFilters = useCallback(() => {
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
@@ -165,7 +148,6 @@ export default function AllClothingPage() {
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  // ✅ Filter + sort list (client-side only) — NO STOCK FILTERING
   const list = useMemo(() => {
     let arr = Array.isArray(displayProducts) ? [...displayProducts] : [];
 
@@ -183,18 +165,12 @@ export default function AllClothingPage() {
       return pr >= minV && pr <= maxV;
     });
 
-    // ✅ your backend already sorts, but we keep client sort too
     if (sort === "priceLowHigh") arr.sort((a, b) => getPrice(a) - getPrice(b));
-    else if (sort === "priceHighLow")
-      arr.sort((a, b) => getPrice(b) - getPrice(a));
-    else if (sort === "newest")
-      arr.sort((a, b) => getTimeValue(b) - getTimeValue(a));
+    if (sort === "priceHighLow") arr.sort((a, b) => getPrice(b) - getPrice(a));
+    if (sort === "newest") arr.sort((a, b) => getTimeValue(b) - getTimeValue(a));
 
     return arr;
   }, [displayProducts, priceMin, priceMax, facets.priceMin, facets.priceMax, sort]);
-
-  // ✅ Load more (still uses fetchProducts)
-  const loadingMoreRef = useRef(false);
 
   const loadMoreAll = useCallback(() => {
     if (!ready) return;
@@ -210,11 +186,10 @@ export default function AllClothingPage() {
       isActive: true,
     });
 
-    setTimeout(() => (loadingMoreRef.current = false), 350);
+    setTimeout(() => {
+      loadingMoreRef.current = false;
+    }, 350);
   }, [ready, isLoading, hasMore, fetchProducts, lastParams, page, sort]);
-
-  // ✅ Infinite scroll
-  const sentinelRef = useRef(null);
 
   useEffect(() => {
     const node = sentinelRef.current;
@@ -222,8 +197,7 @@ export default function AllClothingPage() {
 
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting) return;
-        loadMoreAll();
+        if (entry.isIntersecting) loadMoreAll();
       },
       { rootMargin: "900px 0px" }
     );
@@ -233,14 +207,13 @@ export default function AllClothingPage() {
   }, [loadMoreAll]);
 
   const showInitialLoading =
-    (isLoading || isInitialFetching) && (displayProducts?.length || 0) === 0;
+    (isLoading || isInitialFetching) && displayProducts.length === 0;
 
   const retry = useCallback(() => {
     if (!ready) return;
 
     clearError?.();
     lastFetchRef.current = "";
-
     setDisplayProducts([]);
     setIsInitialFetching(true);
 
@@ -253,8 +226,7 @@ export default function AllClothingPage() {
   }, [ready, sort, clearError, fetchProducts]);
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      {/* ✅ Drawer (stock props removed) */}
+    <div className="min-h-screen bg-white">
       <FiltersDrawer
         open={drawerOpen}
         setOpen={setDrawerOpen}
@@ -269,39 +241,36 @@ export default function AllClothingPage() {
         resetFilters={resetFilters}
       />
 
-      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8">
-        {/* ✅ Heading */}
-        <div className="mb-2 sm:mb-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-zinc-900">
+      <div className="w-full px-1 py-3 sm:px-2 sm:py-4 md:px-3">
+        <div className="mb-1 px-1">
+          <h1 className="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl md:text-2xl">
             {pageTitle}
           </h1>
         </div>
 
-        {/* ✅ Sort Bar (inStockCount removed) */}
         <FilterSortBar
           category={pageTitle}
           showInitialLoading={showInitialLoading}
           sort={sort}
           setSort={setSort}
           sortOptions={SORT_OPTIONS}
-          hideFilterButton={true}
+          hideFilterButton
         />
 
         {!showInitialLoading && error && (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">
             <div className="font-semibold">Something went wrong</div>
-            <div className="text-sm mt-1">{error}</div>
+            <div className="mt-1 text-sm">{error}</div>
             <button
               onClick={retry}
-              className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
+              className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white"
             >
               Retry
             </button>
           </div>
         )}
 
-        {/* Products */}
-        <div className="mt-6">
+        <div className="mt-2">
           <ProductGrid
             key={`all-clothing-${sort}`}
             products={list}
@@ -309,21 +278,20 @@ export default function AllClothingPage() {
           />
         </div>
 
-        {/* Load More */}
-        {!error && (displayProducts?.length || 0) > 0 && (
-          <div className="mt-8 flex flex-col items-center gap-3">
+        {!error && displayProducts.length > 0 && (
+          <div className="mt-5 flex flex-col items-center gap-2">
             {hasMore() ? (
               <>
                 <button
                   onClick={loadMoreAll}
                   disabled={isLoading}
-                  className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                  className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:opacity-50"
                 >
                   {isLoading ? "Loading..." : "Load more"}
                 </button>
+
                 <div className="text-xs text-zinc-500">
-                  Showing {list.length} items —{" "}
-                  {hasMore() ? "more items will load as you scroll" : "end"}
+                  Showing {list.length} items
                 </div>
               </>
             ) : (
