@@ -169,83 +169,89 @@ export default function NewArrivalsFeatureRow({ limit = 12, showOnlyActive = tru
   if (!showShimmer && !products.length) return null;
 
   return (
-    <motion.section
-      className="bg-[#fafafa] px-3 py-10 md:px-8 md:py-14"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.25 }}
+   <motion.section
+  className="bg-[#fafafa] py-8 md:py-12"
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  transition={{ duration: 0.25 }}
+>
+  <div className="mb-5 flex flex-col gap-4 border-b border-neutral-200 px-3 pb-4 md:flex-row md:items-end md:justify-between md:px-6">
+    <div>
+      <h2 className="text-2xl font-black uppercase leading-tight text-black md:text-3xl">
+        NEW ARRIVALS
+      </h2>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => router.push("/new-arrivals")}
+      className="inline-flex w-fit items-center gap-2 border border-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition hover:bg-black hover:text-white"
     >
-      <div className="mb-6 flex flex-col gap-4 border-b border-neutral-200 pb-5 md:flex-row md:items-end md:justify-between">
-        <div>
+      VIEW ALL
+      <ArrowRight className="h-3.5 w-3.5" />
+    </button>
+  </div>
 
-          <h2 className="mt-2 text-2xl font-black uppercase leading-tight text-black md:text-3xl">
-            NEW ARRIVALS
-          </h2>
+  {error ? (
+    <p className="mb-4 px-3 text-center text-xs font-black uppercase tracking-[0.16em] text-black/50">
+      {error}
+    </p>
+  ) : null}
 
-        </div>
+  <div className="relative">
+    {showArrows ? (
+      <>
+        <button
+          type="button"
+          onClick={() => scrollRow("left")}
+          className="absolute left-3 top-[40%] z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:flex"
+          aria-label="SCROLL LEFT"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
 
         <button
           type="button"
-          onClick={() => router.push("/new-arrivals")}
-          className="inline-flex w-fit items-center gap-2 border border-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition hover:bg-black hover:text-white"
+          onClick={() => scrollRow("right")}
+          className="absolute right-3 top-[40%] z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:flex"
+          aria-label="SCROLL RIGHT"
         >
-          VIEW ALL
-          <ArrowRight className="h-3.5 w-3.5" />
+          <ArrowRight className="h-4 w-4" />
         </button>
-      </div>
+      </>
+    ) : null}
 
-      {error ? (
-        <p className="mb-4 text-center text-xs font-black uppercase tracking-[0.16em] text-black/50">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="relative">
-        {showArrows ? (
-          <>
-            <button
-              type="button"
-              onClick={() => scrollRow("left")}
-              className="absolute left-0 top-[40%] z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:flex"
-              aria-label="SCROLL LEFT"
+    <div
+      ref={scrollRef}
+      className="no-scrollbar flex items-start gap-px overflow-x-auto scroll-smooth pb-2"
+    >
+      {showShimmer ? (
+        Array.from({ length: 8 }).map((_, index) => (
+          <div
+            key={index}
+            className="w-[48vw] shrink-0 sm:w-[34vw] md:w-[25vw] lg:w-[20vw]"
+          >
+            <ProductCard loading />
+          </div>
+        ))
+      ) : (
+        <>
+          {products.map((product) => (
+            <div
+              key={product.id}
+              className="w-[48vw] shrink-0 sm:w-[34vw] md:w-[25vw] lg:w-[20vw]"
             >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollRow("right")}
-              className="absolute right-0 top-[40%] z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center border border-black bg-white text-black transition hover:bg-black hover:text-white md:flex"
-              aria-label="SCROLL RIGHT"
-            >
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </>
-        ) : null}
+              <ProductCard product={product} />
+            </div>
+          ))}
 
-        <div
-          ref={scrollRef}
-          className="no-scrollbar flex items-start gap-3 overflow-x-auto scroll-smooth pb-2 md:gap-5"
-        >
-          {showShimmer ? (
-            Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="w-[190px] shrink-0 sm:w-[230px] md:w-[280px]">
-                <ProductCard loading />
-              </div>
-            ))
-          ) : (
-            <>
-              {products.map((product) => (
-                <div key={product.id} className="w-[190px] shrink-0 sm:w-[230px] md:w-[280px]">
-                  <ProductCard product={product} />
-                </div>
-              ))}
-              <div className="w-[190px] shrink-0 sm:w-[230px] md:w-[280px]">
-                <ViewAllCard />
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </motion.section>
+          <div className="w-[48vw] shrink-0 sm:w-[34vw] md:w-[25vw] lg:w-[20vw]">
+            <ViewAllCard />
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+</motion.section>
   );
 }

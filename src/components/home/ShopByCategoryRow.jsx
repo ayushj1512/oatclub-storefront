@@ -163,8 +163,7 @@ export default function ShopByCategoryRow({
 
         <div
           ref={scrollRef}
-          className="no-scrollbar flex gap-2 overflow-x-auto scroll-smooth px-1 pb-2 md:gap-3"
-        >
+className="no-scrollbar flex gap-0.5 overflow-x-auto scroll-smooth px-1 pb-2 md:gap-1"        >
           {showShimmer ? (
             Array.from({ length: 8 }).map((_, i) => (
               <div

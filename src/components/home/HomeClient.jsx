@@ -75,7 +75,7 @@ export default function HomeClient() {
         <BestSellerSection />
         <StyleOfTheWeek />
         <NewArrivalsFeatureRow title="NEW ARRIVALS" limit={12} />
-        <StyleByOccasion />
+        {/* <StyleByOccasion /> */}
 
         {/* <LeopardFeatureCollection />
         <PolkadotFeatureCollection /> */}

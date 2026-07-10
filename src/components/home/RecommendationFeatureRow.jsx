@@ -130,35 +130,35 @@ export default function RecommendationFeatureRow({
         )}
 
         <div
-          ref={scrollRef}
-          className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth px-2 pb-2"
+  ref={scrollRef}
+  className="no-scrollbar flex snap-x snap-mandatory gap-px overflow-x-auto scroll-smooth pb-2"
+>
+  {showShimmer ? (
+    Array.from({ length: 8 }).map((_, i) => (
+      <div
+        key={i}
+        className="w-[48vw] shrink-0 snap-start sm:w-[34vw] md:w-[25vw] lg:w-[20vw]"
+      >
+        <ProductCard loading />
+      </div>
+    ))
+  ) : (
+    <>
+      {products.map((p) => (
+        <div
+          key={p.id || p.slug}
+          className="w-[48vw] shrink-0 snap-start sm:w-[34vw] md:w-[25vw] lg:w-[20vw]"
         >
-          {showShimmer ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="min-w-[190px] snap-start sm:min-w-[230px] md:min-w-[280px]"
-              >
-                <ProductCard loading />
-              </div>
-            ))
-          ) : (
-            <>
-              {products.map((p) => (
-                <div
-                  key={p.id || p.slug}
-                  className="min-w-[190px] snap-start sm:min-w-[230px] md:min-w-[280px]"
-                >
-                  <ProductCard product={p} />
-                </div>
-              ))}
-
-              <div className="min-w-[190px] snap-start sm:min-w-[230px] md:min-w-[280px]">
-                <ViewAllCard href={viewAllHref} />
-              </div>
-            </>
-          )}
+          <ProductCard product={p} />
         </div>
+      ))}
+
+      <div className="w-[48vw] shrink-0 snap-start sm:w-[34vw] md:w-[25vw] lg:w-[20vw]">
+        <ViewAllCard href={viewAllHref} />
+      </div>
+    </>
+  )}
+</div>
       </div>
     </motion.section>
   );
