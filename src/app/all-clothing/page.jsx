@@ -10,9 +10,10 @@ import React, {
 } from "react";
 
 import ProductGrid from "@/components/common/ProductGrid";
-import { useProductStore } from "@/store/productStore";
 import FiltersDrawer from "@/components/category/FiltersDrawer";
 import FilterSortBar from "@/components/category/FilterSortBar";
+
+import { useProductStore } from "@/store/productStore";
 
 const PAGE_SIZE = 20;
 
@@ -25,8 +26,10 @@ const SORT_OPTIONS = [
 
 const buildFacets = (products = []) => {
   const prices = products
-    .map((p) => Number(p?.price))
-    .filter((p) => Number.isFinite(p) && p > 0)
+    .map((product) => Number(product?.price))
+    .filter(
+      (price) => Number.isFinite(price) && price > 0
+    )
     .sort((a, b) => a - b);
 
   return {
@@ -35,58 +38,89 @@ const buildFacets = (products = []) => {
   };
 };
 
-const getTimeValue = (p) => {
-  const t =
-    p?.createdAt ||
-    p?.updatedAt ||
-    p?.created_at ||
-    p?.updated_at ||
-    p?.dateCreated ||
-    p?.date;
+const getTimeValue = (product) => {
+  const time =
+    product?.createdAt ||
+    product?.updatedAt ||
+    product?.created_at ||
+    product?.updated_at ||
+    product?.dateCreated ||
+    product?.date;
 
-  const ms = new Date(t).getTime();
-  return Number.isFinite(ms) ? ms : 0;
+  const milliseconds = new Date(time).getTime();
+
+  return Number.isFinite(milliseconds)
+    ? milliseconds
+    : 0;
+};
+
+const getProductPrice = (product) => {
+  const value = String(product?.price ?? "").replace(
+    /[^\d.]/g,
+    ""
+  );
+
+  return Number(value) || 0;
 };
 
 export default function AllClothingPage() {
   const ready = true;
   const pageTitle = "All Clothing";
 
-  const allProducts = useProductStore((s) => s.allProducts);
-  const isLoading = useProductStore((s) => s.isLoading);
-  const error = useProductStore((s) => s.error);
-  const fetchProducts = useProductStore((s) => s.fetchProducts);
-  const hasMore = useProductStore((s) => s.hasMore);
-  const clearError = useProductStore((s) => s.clearError);
-  const page = useProductStore((s) => s.page);
-  const lastParams = useProductStore((s) => s.lastParams);
+  const allProducts = useProductStore(
+    (state) => state.allProducts
+  );
+  const isLoading = useProductStore(
+    (state) => state.isLoading
+  );
+  const error = useProductStore((state) => state.error);
+  const fetchProducts = useProductStore(
+    (state) => state.fetchProducts
+  );
+  const hasMore = useProductStore(
+    (state) => state.hasMore
+  );
+  const clearError = useProductStore(
+    (state) => state.clearError
+  );
+  const page = useProductStore((state) => state.page);
+  const lastParams = useProductStore(
+    (state) => state.lastParams
+  );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sort, setSort] = useState("newest");
 
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
-  const [draftPriceMin, setDraftPriceMin] = useState(null);
-  const [draftPriceMax, setDraftPriceMax] = useState(null);
+  const [draftPriceMin, setDraftPriceMin] =
+    useState(null);
+  const [draftPriceMax, setDraftPriceMax] =
+    useState(null);
 
-  const [displayProducts, setDisplayProducts] = useState([]);
-  const [isInitialFetching, setIsInitialFetching] = useState(false);
+  const [displayProducts, setDisplayProducts] =
+    useState([]);
+  const [isInitialFetching, setIsInitialFetching] =
+    useState(false);
 
   const lastFetchRef = useRef("");
   const loadingMoreRef = useRef(false);
   const sentinelRef = useRef(null);
 
-  const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
+  const facets = useMemo(
+    () => buildFacets(allProducts || []),
+    [allProducts]
+  );
 
   const drawerTop = useMemo(
     () =>
-      `calc(var(--app-topbar-h,0px) + var(--app-header-h,0px) + env(safe-area-inset-top,0px))`,
+      "calc(var(--app-topbar-h, 0px) + var(--app-header-h, 0px) + env(safe-area-inset-top, 0px))",
     []
   );
 
   const drawerHeight = useMemo(
     () =>
-      `calc(100dvh - var(--app-topbar-h,0px) - var(--app-header-h,0px) - env(safe-area-inset-top,0px))`,
+      "calc(100dvh - var(--app-topbar-h, 0px) - var(--app-header-h, 0px) - env(safe-area-inset-top, 0px))",
     []
   );
 
@@ -108,10 +142,15 @@ export default function AllClothingPage() {
   useEffect(() => {
     if (!ready) return;
 
-    const key = JSON.stringify({ route: "all-clothing", sort });
-    if (lastFetchRef.current === key) return;
+    const fetchKey = JSON.stringify({
+      route: "all-clothing",
+      sort,
+    });
 
-    lastFetchRef.current = key;
+    if (lastFetchRef.current === fetchKey) return;
+
+    lastFetchRef.current = fetchKey;
+
     clearError?.();
     setDrawerOpen(false);
 
@@ -121,7 +160,12 @@ export default function AllClothingPage() {
       limit: PAGE_SIZE,
       sort,
     });
-  }, [ready, sort, fetchProducts, clearError]);
+  }, [
+    ready,
+    sort,
+    fetchProducts,
+    clearError,
+  ]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -131,7 +175,12 @@ export default function AllClothingPage() {
       return;
     }
 
-    setDisplayProducts(Array.isArray(allProducts) ? allProducts : []);
+    setDisplayProducts(
+      Array.isArray(allProducts)
+        ? allProducts
+        : []
+    );
+
     setIsInitialFetching(false);
   }, [isLoading, allProducts, error]);
 
@@ -149,32 +198,80 @@ export default function AllClothingPage() {
   }, [facets.priceMin, facets.priceMax]);
 
   const list = useMemo(() => {
-    let arr = Array.isArray(displayProducts) ? [...displayProducts] : [];
+    let products = Array.isArray(displayProducts)
+      ? [...displayProducts]
+      : [];
 
-    const getPrice = (p) =>
-      Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
+    const lowerPrice =
+      priceMin ?? facets.priceMin;
+    const upperPrice =
+      priceMax ?? facets.priceMax;
 
-    const lo = priceMin ?? facets.priceMin;
-    const hi = priceMax ?? facets.priceMax;
-    const minV = Math.min(lo, hi);
-    const maxV = Math.max(lo, hi);
+    const minimum = Math.min(
+      lowerPrice,
+      upperPrice
+    );
 
-    arr = arr.filter((p) => {
-      const pr = getPrice(p);
-      if (!Number.isFinite(pr) || pr === 0) return true;
-      return pr >= minV && pr <= maxV;
+    const maximum = Math.max(
+      lowerPrice,
+      upperPrice
+    );
+
+    products = products.filter((product) => {
+      const price = getProductPrice(product);
+
+      if (
+        !Number.isFinite(price) ||
+        price === 0
+      ) {
+        return true;
+      }
+
+      return (
+        price >= minimum &&
+        price <= maximum
+      );
     });
 
-    if (sort === "priceLowHigh") arr.sort((a, b) => getPrice(a) - getPrice(b));
-    if (sort === "priceHighLow") arr.sort((a, b) => getPrice(b) - getPrice(a));
-    if (sort === "newest") arr.sort((a, b) => getTimeValue(b) - getTimeValue(a));
+    if (sort === "priceLowHigh") {
+      products.sort(
+        (a, b) =>
+          getProductPrice(a) -
+          getProductPrice(b)
+      );
+    }
 
-    return arr;
-  }, [displayProducts, priceMin, priceMax, facets.priceMin, facets.priceMax, sort]);
+    if (sort === "priceHighLow") {
+      products.sort(
+        (a, b) =>
+          getProductPrice(b) -
+          getProductPrice(a)
+      );
+    }
+
+    if (sort === "newest") {
+      products.sort(
+        (a, b) =>
+          getTimeValue(b) -
+          getTimeValue(a)
+      );
+    }
+
+    return products;
+  }, [
+    displayProducts,
+    priceMin,
+    priceMax,
+    facets.priceMin,
+    facets.priceMax,
+    sort,
+  ]);
 
   const loadMoreAll = useCallback(() => {
     if (!ready) return;
-    if (isLoading || loadingMoreRef.current || !hasMore()) return;
+    if (isLoading) return;
+    if (loadingMoreRef.current) return;
+    if (!hasMore()) return;
 
     loadingMoreRef.current = true;
 
@@ -189,30 +286,47 @@ export default function AllClothingPage() {
     setTimeout(() => {
       loadingMoreRef.current = false;
     }, 350);
-  }, [ready, isLoading, hasMore, fetchProducts, lastParams, page, sort]);
+  }, [
+    ready,
+    isLoading,
+    hasMore,
+    fetchProducts,
+    lastParams,
+    page,
+    sort,
+  ]);
 
   useEffect(() => {
     const node = sentinelRef.current;
+
     if (!node) return;
 
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) loadMoreAll();
-      },
-      { rootMargin: "900px 0px" }
-    );
+    const observer =
+      new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            loadMoreAll();
+          }
+        },
+        {
+          rootMargin: "900px 0px",
+        }
+      );
 
-    io.observe(node);
-    return () => io.disconnect();
+    observer.observe(node);
+
+    return () => observer.disconnect();
   }, [loadMoreAll]);
 
   const showInitialLoading =
-    (isLoading || isInitialFetching) && displayProducts.length === 0;
+    (isLoading || isInitialFetching) &&
+    displayProducts.length === 0;
 
   const retry = useCallback(() => {
     if (!ready) return;
 
     clearError?.();
+
     lastFetchRef.current = "";
     setDisplayProducts([]);
     setIsInitialFetching(true);
@@ -223,10 +337,15 @@ export default function AllClothingPage() {
       limit: PAGE_SIZE,
       sort,
     });
-  }, [ready, sort, clearError, fetchProducts]);
+  }, [
+    ready,
+    sort,
+    clearError,
+    fetchProducts,
+  ]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <main className="min-h-screen w-full overflow-x-hidden bg-white">
       <FiltersDrawer
         open={drawerOpen}
         setOpen={setDrawerOpen}
@@ -241,36 +360,47 @@ export default function AllClothingPage() {
         resetFilters={resetFilters}
       />
 
-      <div className="w-full px-1 py-3 sm:px-2 sm:py-4 md:px-3">
-        <div className="mb-1 px-1">
+      <div className="w-full pb-4 pt-2 sm:pb-5 sm:pt-3">
+        <div className="px-2 sm:px-2.5 md:px-3">
           <h1 className="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl md:text-2xl">
             {pageTitle}
           </h1>
         </div>
 
-        <FilterSortBar
-          category={pageTitle}
-          showInitialLoading={showInitialLoading}
-          sort={sort}
-          setSort={setSort}
-          sortOptions={SORT_OPTIONS}
-          hideFilterButton
-        />
+        <div className="px-2 sm:px-2.5 md:px-3">
+          <FilterSortBar
+            category={pageTitle}
+            showInitialLoading={
+              showInitialLoading
+            }
+            sort={sort}
+            setSort={setSort}
+            sortOptions={SORT_OPTIONS}
+            hideFilterButton
+          />
+        </div>
 
-        {!showInitialLoading && error && (
-          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">
-            <div className="font-semibold">Something went wrong</div>
-            <div className="mt-1 text-sm">{error}</div>
+        {!showInitialLoading && error ? (
+          <div className="mx-2 mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 sm:mx-2.5 md:mx-3">
+            <div className="font-semibold">
+              Something went wrong
+            </div>
+
+            <div className="mt-1 text-sm">
+              {error}
+            </div>
+
             <button
+              type="button"
               onClick={retry}
               className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white"
             >
               Retry
             </button>
           </div>
-        )}
+        ) : null}
 
-        <div className="mt-2">
+        <div className="mt-2 w-full">
           <ProductGrid
             key={`all-clothing-${sort}`}
             products={list}
@@ -278,16 +408,20 @@ export default function AllClothingPage() {
           />
         </div>
 
-        {!error && displayProducts.length > 0 && (
-          <div className="mt-5 flex flex-col items-center gap-2">
+        {!error &&
+        displayProducts.length > 0 ? (
+          <div className="mt-5 flex flex-col items-center gap-2 px-2">
             {hasMore() ? (
               <>
                 <button
+                  type="button"
                   onClick={loadMoreAll}
                   disabled={isLoading}
                   className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:opacity-50"
                 >
-                  {isLoading ? "Loading..." : "Load more"}
+                  {isLoading
+                    ? "Loading..."
+                    : "Load more"}
                 </button>
 
                 <div className="text-xs text-zinc-500">
@@ -295,13 +429,18 @@ export default function AllClothingPage() {
                 </div>
               </>
             ) : (
-              <div className="text-sm text-zinc-600">You’ve reached the end.</div>
+              <div className="text-sm text-zinc-600">
+                You’ve reached the end.
+              </div>
             )}
           </div>
-        )}
+        ) : null}
 
-        <div ref={sentinelRef} className="h-1 w-full" />
+        <div
+          ref={sentinelRef}
+          className="h-1 w-full"
+        />
       </div>
-    </div>
+    </main>
   );
 }

@@ -10,10 +10,10 @@ import React, {
 } from "react";
 
 import ProductGrid from "@/components/common/ProductGrid";
-import { useProductStore } from "@/store/productStore";
-
 import FiltersDrawer from "@/components/category/FiltersDrawer";
 import FilterSortBar from "@/components/category/FilterSortBar";
+
+import { useProductStore } from "@/store/productStore";
 
 const PAGE_SIZE = 20;
 
@@ -23,108 +23,135 @@ const SORT_OPTIONS = [
   { label: "Price: High → Low", value: "priceHighLow" },
 ];
 
-const toNum = (v, fb = 0) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fb;
-};
-
 const buildFacets = (products = []) => {
-  const prices = [];
-  for (const p of products || []) {
-    const pr = Number(p?.price);
-    if (Number.isFinite(pr) && pr > 0) prices.push(pr);
-  }
-  prices.sort((a, b) => a - b);
+  const prices = products
+    .map((product) => Number(product?.price))
+    .filter(
+      (price) => Number.isFinite(price) && price > 0
+    )
+    .sort((a, b) => a - b);
 
   return {
-    priceMin: prices.length ? prices[0] : 0,
-    priceMax: prices.length ? prices[prices.length - 1] : 0,
+    priceMin: prices[0] || 0,
+    priceMax: prices[prices.length - 1] || 0,
   };
 };
 
-const getStockCount = (p) => {
-  const productStock = toNum(p?.stock_quantity ?? p?.stock, 0);
-  const variantStock = Array.isArray(p?.variants)
-    ? Math.max(...p.variants.map((v) => toNum(v?.stock, 0)))
-    : 0;
+const getProductPrice = (product) => {
+  const value = String(product?.price ?? "").replace(
+    /[^\d.]/g,
+    ""
+  );
 
-  return Math.max(productStock, variantStock);
+  return Number(value) || 0;
 };
 
-const getTimeValue = (p) => {
-  const t =
-    p?.createdAt ||
-    p?.updatedAt ||
-    p?.created_at ||
-    p?.updated_at ||
-    p?.dateCreated ||
-    p?.date;
+const getTimeValue = (product) => {
+  const time =
+    product?.createdAt ||
+    product?.updatedAt ||
+    product?.created_at ||
+    product?.updated_at ||
+    product?.dateCreated ||
+    product?.date;
 
-  const ms = new Date(t).getTime();
-  return Number.isFinite(ms) ? ms : 0;
+  const milliseconds = new Date(time).getTime();
+
+  return Number.isFinite(milliseconds)
+    ? milliseconds
+    : 0;
 };
 
 export default function NewArrivalsPage() {
   const ready = true;
   const pageTitle = "New Arrivals";
 
-  const allProducts = useProductStore((s) => s.allProducts);
-  const isLoading = useProductStore((s) => s.isLoading);
-  const error = useProductStore((s) => s.error);
+  const allProducts = useProductStore(
+    (state) => state.allProducts
+  );
 
-  // ✅ main fetch (no category)
-  const fetchProducts = useProductStore((s) => s.fetchProducts);
+  const isLoading = useProductStore(
+    (state) => state.isLoading
+  );
 
-  const hasMore = useProductStore((s) => s.hasMore);
-  const clearError = useProductStore((s) => s.clearError);
+  const error = useProductStore(
+    (state) => state.error
+  );
 
-  // ✅ needed for load more
-  const page = useProductStore((s) => s.page);
-  const lastParams = useProductStore((s) => s.lastParams);
+  const fetchProducts = useProductStore(
+    (state) => state.fetchProducts
+  );
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const hasMore = useProductStore(
+    (state) => state.hasMore
+  );
 
-  // ✅ default to newest always
+  const clearError = useProductStore(
+    (state) => state.clearError
+  );
+
+  const page = useProductStore(
+    (state) => state.page
+  );
+
+  const lastParams = useProductStore(
+    (state) => state.lastParams
+  );
+
+  const [drawerOpen, setDrawerOpen] =
+    useState(false);
+
   const [sort, setSort] = useState("newest");
 
-  // ✅ Applied filters
-  const [priceMin, setPriceMin] = useState(null);
-  const [priceMax, setPriceMax] = useState(null);
+  const [priceMin, setPriceMin] =
+    useState(null);
 
-  // ✅ Draft filters (drawer)
-  const [draftPriceMin, setDraftPriceMin] = useState(null);
-  const [draftPriceMax, setDraftPriceMax] = useState(null);
+  const [priceMax, setPriceMax] =
+    useState(null);
 
-  // ✅ prevents flashing
-  const [displayProducts, setDisplayProducts] = useState([]);
-  const [isInitialFetching, setIsInitialFetching] = useState(false);
+  const [draftPriceMin, setDraftPriceMin] =
+    useState(null);
 
-  const facets = useMemo(() => buildFacets(allProducts || []), [allProducts]);
+  const [draftPriceMax, setDraftPriceMax] =
+    useState(null);
+
+  const [displayProducts, setDisplayProducts] =
+    useState([]);
+
+  const [
+    isInitialFetching,
+    setIsInitialFetching,
+  ] = useState(false);
+
   const lastFetchRef = useRef("");
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
+
+  const facets = useMemo(
+    () => buildFacets(allProducts || []),
+    [allProducts]
+  );
 
   const drawerTop = useMemo(
     () =>
-      `calc(var(--app-topbar-h,0px) + var(--app-header-h,0px) + env(safe-area-inset-top,0px))`,
+      "calc(var(--app-topbar-h, 0px) + var(--app-header-h, 0px) + env(safe-area-inset-top, 0px))",
     []
   );
 
   const drawerHeight = useMemo(
     () =>
-      `calc(100dvh - var(--app-topbar-h,0px) - var(--app-header-h,0px) - env(safe-area-inset-top,0px))`,
+      "calc(100dvh - var(--app-topbar-h, 0px) - var(--app-header-h, 0px) - env(safe-area-inset-top, 0px))",
     []
   );
 
-  // ✅ Init price once facets update
-  useEffect(() => {P
+  useEffect(() => {
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
+
     setDraftPriceMin(facets.priceMin);
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  /**
-   * ✅ Clear UI BEFORE PAINT on sort change
-   */
   useLayoutEffect(() => {
     if (!ready) return;
 
@@ -133,28 +160,36 @@ export default function NewArrivalsPage() {
     setIsInitialFetching(true);
   }, [ready, sort, clearError]);
 
-  // ✅ Fetch products on mount + when sort changes
   useEffect(() => {
     if (!ready) return;
 
-    const key = JSON.stringify({ route: "new-arrivals", sort });
-    if (lastFetchRef.current === key) return;
-    lastFetchRef.current = key;
+    const fetchKey = JSON.stringify({
+      route: "new-arrivals",
+      sort,
+    });
+
+    if (lastFetchRef.current === fetchKey) {
+      return;
+    }
+
+    lastFetchRef.current = fetchKey;
 
     clearError?.();
     setDrawerOpen(false);
 
-
-    // ✅ route: /api/products?page=1&limit=20&sort=newest&isActive=true
     fetchProducts({
       isActive: true,
       page: 1,
       limit: PAGE_SIZE,
-      sort, // default newest
+      sort,
     });
-  }, [ready, sort, fetchProducts, clearError]);
+  }, [
+    ready,
+    sort,
+    fetchProducts,
+    clearError,
+  ]);
 
-  // ✅ Sync store -> displayProducts only after loading ends
   useEffect(() => {
     if (isLoading) return;
 
@@ -163,51 +198,87 @@ export default function NewArrivalsPage() {
       return;
     }
 
-    setDisplayProducts(Array.isArray(allProducts) ? allProducts : []);
+    setDisplayProducts(
+      Array.isArray(allProducts)
+        ? allProducts
+        : []
+    );
+
     setIsInitialFetching(false);
   }, [isLoading, allProducts, error]);
 
-  // ✅ Apply filters
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     setPriceMin(draftPriceMin);
     setPriceMax(draftPriceMax);
     setDrawerOpen(false);
-  };
+  }, [draftPriceMin, draftPriceMax]);
 
-  // ✅ Reset filters
   const resetFilters = useCallback(() => {
     setPriceMin(facets.priceMin);
     setPriceMax(facets.priceMax);
+
     setDraftPriceMin(facets.priceMin);
     setDraftPriceMax(facets.priceMax);
   }, [facets.priceMin, facets.priceMax]);
 
-  // ✅ Filter + sort list (client-side)
   const list = useMemo(() => {
-    let arr = Array.isArray(displayProducts) ? [...displayProducts] : [];
+    let products = Array.isArray(displayProducts)
+      ? [...displayProducts]
+      : [];
 
-    const getPrice = (p) =>
-      Number(String(p?.price ?? "").replace(/[^\d.]/g, "")) || 0;
+    const lowerPrice =
+      priceMin ?? facets.priceMin;
 
+    const upperPrice =
+      priceMax ?? facets.priceMax;
 
-    const lo = priceMin ?? facets.priceMin;
-    const hi = priceMax ?? facets.priceMax;
-    const minV = Math.min(lo, hi);
-    const maxV = Math.max(lo, hi);
+    const minimum = Math.min(
+      lowerPrice,
+      upperPrice
+    );
 
-    arr = arr.filter((p) => {
-      const pr = getPrice(p);
-      if (!Number.isFinite(pr) || pr === 0) return true;
-      return pr >= minV && pr <= maxV;
+    const maximum = Math.max(
+      lowerPrice,
+      upperPrice
+    );
+
+    products = products.filter((product) => {
+      const price = getProductPrice(product);
+
+      if (
+        !Number.isFinite(price) ||
+        price === 0
+      ) {
+        return true;
+      }
+
+      return (
+        price >= minimum &&
+        price <= maximum
+      );
     });
 
-    // ✅ New arrivals = newest first by default (client-side backup)
-    if (sort === "priceLowHigh") arr.sort((a, b) => getPrice(a) - getPrice(b));
-    else if (sort === "priceHighLow")
-      arr.sort((a, b) => getPrice(b) - getPrice(a));
-    else arr.sort((a, b) => getTimeValue(b) - getTimeValue(a));
+    if (sort === "priceLowHigh") {
+      products.sort(
+        (first, second) =>
+          getProductPrice(first) -
+          getProductPrice(second)
+      );
+    } else if (sort === "priceHighLow") {
+      products.sort(
+        (first, second) =>
+          getProductPrice(second) -
+          getProductPrice(first)
+      );
+    } else {
+      products.sort(
+        (first, second) =>
+          getTimeValue(second) -
+          getTimeValue(first)
+      );
+    }
 
-    return arr;
+    return products;
   }, [
     displayProducts,
     priceMin,
@@ -217,13 +288,11 @@ export default function NewArrivalsPage() {
     sort,
   ]);
 
-
-  // ✅ Load more
-  const loadingMoreRef = useRef(false);
-
   const loadMore = useCallback(() => {
     if (!ready) return;
-    if (isLoading || loadingMoreRef.current || !hasMore()) return;
+    if (isLoading) return;
+    if (loadingMoreRef.current) return;
+    if (!hasMore()) return;
 
     loadingMoreRef.current = true;
 
@@ -235,35 +304,50 @@ export default function NewArrivalsPage() {
       isActive: true,
     });
 
-    setTimeout(() => (loadingMoreRef.current = false), 350);
-  }, [ready, isLoading, hasMore, fetchProducts, lastParams, page, sort]);
-
-  // ✅ Infinite scroll
-  const sentinelRef = useRef(null);
+    setTimeout(() => {
+      loadingMoreRef.current = false;
+    }, 350);
+  }, [
+    ready,
+    isLoading,
+    hasMore,
+    fetchProducts,
+    lastParams,
+    page,
+    sort,
+  ]);
 
   useEffect(() => {
     const node = sentinelRef.current;
+
     if (!node) return;
 
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        loadMore();
-      },
-      { rootMargin: "900px 0px" }
-    );
+    const observer =
+      new IntersectionObserver(
+        ([entry]) => {
+          if (!entry.isIntersecting) return;
 
-    io.observe(node);
-    return () => io.disconnect();
+          loadMore();
+        },
+        {
+          rootMargin: "900px 0px",
+        }
+      );
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
   }, [loadMore]);
 
   const showInitialLoading =
-    (isLoading || isInitialFetching) && (displayProducts?.length || 0) === 0;
+    (isLoading || isInitialFetching) &&
+    displayProducts.length === 0;
 
   const retry = useCallback(() => {
     if (!ready) return;
 
     clearError?.();
+
     lastFetchRef.current = "";
 
     setDisplayProducts([]);
@@ -275,18 +359,21 @@ export default function NewArrivalsPage() {
       limit: PAGE_SIZE,
       sort,
     });
-  }, [ready, sort, clearError, fetchProducts]);
+  }, [
+    ready,
+    sort,
+    clearError,
+    fetchProducts,
+  ]);
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      {/* ✅ Drawer */}
+    <main className="min-h-screen w-full overflow-x-hidden bg-white">
       <FiltersDrawer
         open={drawerOpen}
         setOpen={setDrawerOpen}
         drawerTop={drawerTop}
         drawerHeight={drawerHeight}
         facets={facets}
-  
         draftPriceMin={draftPriceMin}
         setDraftPriceMin={setDraftPriceMin}
         draftPriceMax={draftPriceMax}
@@ -295,39 +382,51 @@ export default function NewArrivalsPage() {
         resetFilters={resetFilters}
       />
 
-      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8">
-        {/* ✅ Heading */}
-        <div className="mb-2 sm:mb-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-zinc-900">
+      <div className="w-full pb-4 pt-2 sm:pb-5 sm:pt-3">
+        {/* Heading */}
+        <div className="px-2 sm:px-2.5 md:px-3">
+          <h1 className="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl md:text-2xl">
             {pageTitle}
           </h1>
         </div>
 
-        {/* ✅ Sort Bar */}
-        <FilterSortBar
-          category={pageTitle}
-          showInitialLoading={showInitialLoading}
-          sort={sort}
-          setSort={setSort}
-          sortOptions={SORT_OPTIONS}
-          hideFilterButton={true}
-        />
+        {/* Sort bar */}
+        <div className="px-2 sm:px-2.5 md:px-3">
+          <FilterSortBar
+            category={pageTitle}
+            showInitialLoading={
+              showInitialLoading
+            }
+            sort={sort}
+            setSort={setSort}
+            sortOptions={SORT_OPTIONS}
+            hideFilterButton
+          />
+        </div>
 
-        {!showInitialLoading && error && (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
-            <div className="font-semibold">Something went wrong</div>
-            <div className="text-sm mt-1">{error}</div>
+        {/* Error */}
+        {!showInitialLoading && error ? (
+          <div className="mx-2 mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 sm:mx-2.5 md:mx-3">
+            <div className="font-semibold">
+              Something went wrong
+            </div>
+
+            <div className="mt-1 text-sm">
+              {error}
+            </div>
+
             <button
+              type="button"
               onClick={retry}
-              className="mt-3 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
+              className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white"
             >
               Retry
             </button>
           </div>
-        )}
+        ) : null}
 
-        {/* Products */}
-        <div className="mt-6">
+        {/* Product grid */}
+        <div className="mt-2 w-full">
           <ProductGrid
             key={`new-arrivals-${sort}`}
             products={list}
@@ -335,31 +434,40 @@ export default function NewArrivalsPage() {
           />
         </div>
 
-        {/* Load More */}
-        {!error && (displayProducts?.length || 0) > 0 && (
-          <div className="mt-8 flex flex-col items-center gap-3">
+        {/* Load more */}
+        {!error &&
+        displayProducts.length > 0 ? (
+          <div className="mt-5 flex flex-col items-center gap-2 px-2">
             {hasMore() ? (
               <>
                 <button
+                  type="button"
                   onClick={loadMore}
                   disabled={isLoading}
-                  className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                  className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isLoading ? "Loading..." : "Load more"}
+                  {isLoading
+                    ? "Loading..."
+                    : "Load more"}
                 </button>
-                <div className="text-xs text-zinc-500">
-                  Showing {list.length} items —{" "}
-                  {hasMore() ? "more items will load as you scroll" : "end"}
+
+                <div className="text-center text-xs text-zinc-500">
+                  Showing {list.length} items
                 </div>
               </>
             ) : (
-              <div className="text-sm text-zinc-600">You’ve reached the end.</div>
+              <div className="text-sm text-zinc-600">
+                You’ve reached the end.
+              </div>
             )}
           </div>
-        )}
+        ) : null}
 
-        <div ref={sentinelRef} className="h-1 w-full" />
+        <div
+          ref={sentinelRef}
+          className="h-1 w-full"
+        />
       </div>
-    </div>
+    </main>
   );
 }

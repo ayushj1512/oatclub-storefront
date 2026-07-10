@@ -25,6 +25,7 @@ import ReviewSection from "@/components/productDetail/ReviewSection";
 import useGtmStore from "@/store/gtmStore";
 import ProductNotFound from "@/components/productDetail/ProductNotFound";
 import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
+import CouponPriceSlideshow from "@/components/productDetail/CouponPriceSlideshow";
 
 const money = (n) => {
   const num = Number(n);
@@ -886,6 +887,8 @@ router.push("/checkout?mode=buy-now");
                 </p>
               </div>
             </div>
+
+            <CouponPriceSlideshow product={product} />
 
             {/* Size Selector */}
             {(product.sizes || []).length > 0 && (

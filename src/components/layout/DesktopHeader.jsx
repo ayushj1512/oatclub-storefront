@@ -3,11 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, Search, UserRound } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import ProfileMenu from "@/components/header/ProfileMenu";
@@ -37,6 +33,7 @@ export default function DesktopHeader() {
 
   useEffect(() => {
     const topbarHeight = 36;
+
     let animationFrame = 0;
     let previousValue = null;
 
@@ -87,13 +84,13 @@ export default function DesktopHeader() {
         className={[
           "hidden w-full border-b border-black/[0.06] bg-white/95 text-black backdrop-blur-xl md:block",
           isSticky
-            ? "fixed left-0 right-0 top-0 z-[9997] shadow-[0_10px_40px_-30px_rgba(0,0,0,0.22)]"
+            ? "fixed inset-x-0 top-0 z-[9997] shadow-[0_10px_40px_-30px_rgba(0,0,0,0.22)]"
             : "relative z-50",
         ].join(" ")}
       >
         <TopbarHeadline />
 
-        <div className="relative flex w-full items-center px-4 py-3 md:px-5 lg:px-10 lg:py-4">
+        <div className="relative flex min-h-[76px] w-full items-center px-4 py-3 md:px-5 lg:min-h-[88px] lg:px-8 lg:py-4 xl:px-10">
           {/* Left menu */}
           <div className="flex min-w-0 flex-1 items-center">
             <button
@@ -101,11 +98,11 @@ export default function DesktopHeader() {
               aria-label="Open navigation menu"
               aria-expanded={menuOpen}
               onClick={handleOpenMenu}
-              className="group flex h-10 items-center gap-2 text-black transition duration-200 hover:text-black/55 active:scale-[0.98] lg:h-11"
+              className="group flex h-10 shrink-0 items-center gap-2 text-black transition duration-200 hover:text-black/55 active:scale-[0.98] lg:h-11"
             >
               <Menu className="h-[19px] w-[19px] transition duration-200 group-hover:rotate-90" />
 
-              <span className="hidden text-[10px] font-black uppercase tracking-[0.18em] lg:inline">
+              <span className="hidden text-[10px] font-black uppercase tracking-[0.18em] xl:inline">
                 Menu
               </span>
             </button>
@@ -118,44 +115,46 @@ export default function DesktopHeader() {
               aria-label="Go to homepage"
               className="pointer-events-auto flex items-center justify-center"
             >
-              <div className="relative h-14 w-40 lg:h-16 lg:w-56">
+              <div className="relative h-12 w-36 md:h-14 md:w-40 lg:h-14 lg:w-44 xl:h-16 xl:w-56">
                 <Image
                   src={LOGO_URL}
                   alt="OATCLUB"
                   fill
                   priority
                   className="object-contain"
-                  sizes="(min-width: 1024px) 224px, 160px"
+                  sizes="(min-width: 1280px) 224px, (min-width: 1024px) 176px, 160px"
                 />
               </div>
             </Link>
           </div>
 
-          {/* Right search and icons */}
-          <div className="ml-auto flex flex-1 items-center justify-end gap-2 lg:gap-3">
+          {/* Right controls */}
+          <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1.5 lg:gap-2 xl:gap-3">
+            {/* Search icon for tablet and smaller desktop widths */}
             <Link
               href="/search"
               aria-label="Search products"
-              className="flex h-11 w-8 items-center justify-center text-black transition duration-200 hover:text-black/55 lg:hidden"
+              className="flex h-11 w-8 shrink-0 items-center justify-center text-black transition duration-200 hover:text-black/55 xl:hidden"
             >
               <Search className="h-5 w-5" />
             </Link>
 
-            <HeaderSearchBar className="hidden lg:block lg:w-[420px]" />
+            {/* Flexible search bar for wide desktop only */}
+            <div className="hidden min-w-0 flex-1 justify-end xl:flex">
+              <HeaderSearchBar className="w-full min-w-[220px] max-w-[420px] 2xl:max-w-[500px]" />
+            </div>
 
-            <div className="flex h-11 w-8 items-center justify-center text-black transition duration-200 hover:text-black/55">
+            <div className="flex h-11 w-8 shrink-0 items-center justify-center text-black transition duration-200 hover:text-black/55">
               <WishlistButton />
             </div>
 
-            <div className="flex h-11 w-8 items-center justify-center text-black transition duration-200 hover:text-black/55">
+            <div className="flex h-11 w-8 shrink-0 items-center justify-center text-black transition duration-200 hover:text-black/55">
               <CartButton />
             </div>
 
-            <div className="flex h-11 items-center justify-center px-1 text-black transition duration-200 hover:text-black/55 active:scale-[0.98]">
+            <div className="flex h-11 shrink-0 items-center justify-center px-1 text-black transition duration-200 hover:text-black/55 active:scale-[0.98]">
               <ProfileMenu
-                fallbackIcon={
-                  <UserRound className="h-5 w-5" />
-                }
+                fallbackIcon={<UserRound className="h-5 w-5" />}
               />
             </div>
           </div>
