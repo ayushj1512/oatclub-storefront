@@ -69,7 +69,7 @@ export default function HomeClient() {
 
         <HeroSection />
         <CategoryMosaic />
-        <VideoRow />
+        {/* <VideoRow /> */}
         <ShopByCategoryRow />
 
         <BestSellerSection />
