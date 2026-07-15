@@ -15,6 +15,7 @@ import { useCartStore } from "@/store/cartStore";
 import { useAddressStore } from "@/store/addressStore";
 import { useAuthStore } from "@/store/authStore";
 import { useOrderStore } from "@/store/orderStore";
+import { useRazorpayStore } from "@/store/razorpayStore";
 import { useCouponStore } from "@/store/couponStore";
 import useGtmStore from "@/store/gtmStore";
 import { trackSnap } from "@/lib/snap/track.js";
@@ -74,15 +75,19 @@ export default function CheckoutPage() {
   const createOrder = useOrderStore((s) => s.createOrder);
   const placing = useOrderStore((s) => s.placing);
 
+  const payWithRazorpay = useRazorpayStore((s) => s.payWithRazorpay);
+  const razorpayLoading = useRazorpayStore((s) => s.loading);
+  const resetRazorpay = useRazorpayStore((s) => s.reset);
+
   const coupon = useCouponStore((s) => s.coupon);
   const discount = useCouponStore((s) => s.discount);
   const removeCoupon = useCouponStore((s) => s.removeCoupon);
 
   const fetchCustomerCreditSummary = useCustomerStore(
-  (s) => s.fetchCustomerCreditSummary
-);
+    (s) => s.fetchCustomerCreditSummary
+  );
 
-const creditSummary = useCustomerStore((s) => s.creditSummary);
+  const creditSummary = useCustomerStore((s) => s.creditSummary);
 
   /* ---------------- LOCAL UI ---------------- */
   const items = buyNowItem ? [buyNowItem] : cartItems;
@@ -99,11 +104,11 @@ const creditSummary = useCustomerStore((s) => s.creditSummary);
   /* ✅ IMPORTANT: local customer for existing-email users (no login) */
   const [guestCustomer, setGuestCustomer] = useState(null);
   const activeCustomer = customer || guestCustomer;
-const walletBalance = Number(
-  creditSummary?.balance ||
+  const walletBalance = Number(
+    creditSummary?.balance ||
     activeCustomer?.credits?.balance ||
     0
-);
+  );
   const [useWallet, setUseWallet] = useState(false);
   const [walletAmount, setWalletAmount] = useState(0);
 
@@ -133,6 +138,8 @@ const walletBalance = Number(
 
   /* ---------------- INIT ---------------- */
   useEffect(() => {
+    resetRazorpay?.();
+
     const st = useCartStore.getState();
     if (!st.items?.length && !st.buyNowItem) initCart?.();
     initializeAuth?.();
@@ -153,14 +160,14 @@ const walletBalance = Number(
   }, [customer?._id, guestCustomer?._id]);
 
   useEffect(() => {
-  const customerId = activeCustomer?._id;
+    const customerId = activeCustomer?._id;
 
-  if (!customerId) return;
+    if (!customerId) return;
 
-  fetchCustomerCreditSummary(customerId).catch((err) => {
-    console.warn("Credit summary fetch failed", err);
-  });
-}, [activeCustomer?._id]);
+    fetchCustomerCreditSummary(customerId).catch((err) => {
+      console.warn("Credit summary fetch failed", err);
+    });
+  }, [activeCustomer?._id]);
 
 
 
@@ -217,34 +224,34 @@ const walletBalance = Number(
   }, [subtotal, couponDiscount]);
 
   // ✅ Razorpay extra discount on payableAfterCoupon, not subtotal
-const appliedWalletAmount = useMemo(() => {
-  if (!useWallet && selectedPayment !== "wallet") return 0;
+  const appliedWalletAmount = useMemo(() => {
+    if (!useWallet && selectedPayment !== "wallet") return 0;
 
-  return Math.min(
-    Math.max(0, Number(walletAmount || 0)),
-    Math.max(0, Number(walletBalance || 0)),
-    Math.max(0, Number(payableAfterCoupon || 0))
-  );
-}, [useWallet, selectedPayment, walletAmount, walletBalance, payableAfterCoupon]);
+    return Math.min(
+      Math.max(0, Number(walletAmount || 0)),
+      Math.max(0, Number(walletBalance || 0)),
+      Math.max(0, Number(payableAfterCoupon || 0))
+    );
+  }, [useWallet, selectedPayment, walletAmount, walletBalance, payableAfterCoupon]);
 
-const payableAfterWallet = useMemo(() => {
-  return Math.max(0, payableAfterCoupon - appliedWalletAmount);
-}, [payableAfterCoupon, appliedWalletAmount]);
+  const payableAfterWallet = useMemo(() => {
+    return Math.max(0, payableAfterCoupon - appliedWalletAmount);
+  }, [payableAfterCoupon, appliedWalletAmount]);
 
-const razorpayExtraDiscount = useMemo(() => {
-  if (String(selectedPayment).toLowerCase() !== "razorpay") return 0;
+  const razorpayExtraDiscount = useMemo(() => {
+    if (String(selectedPayment).toLowerCase() !== "razorpay") return 0;
 
-  const base = payableAfterWallet;
-  const extra = Math.round(base * 0.10);
+    const base = payableAfterWallet;
+    const extra = Math.round(base * 0.10);
 
-  return Math.min(extra, base);
-}, [selectedPayment, payableAfterWallet]);
+    return Math.min(extra, base);
+  }, [selectedPayment, payableAfterWallet]);
 
-const payable = useMemo(() => {
-  return Math.max(0, payableAfterWallet - razorpayExtraDiscount);
-}, [payableAfterWallet, razorpayExtraDiscount]);
+  const payable = useMemo(() => {
+    return Math.max(0, payableAfterWallet - razorpayExtraDiscount);
+  }, [payableAfterWallet, razorpayExtraDiscount]);
 
-const paymentOptionsPayable = payableAfterWallet;
+  const paymentOptionsPayable = payableAfterWallet;
 
   const selectedAddressObj = useMemo(() => {
     if (!selectedAddressId) return null;
@@ -632,48 +639,48 @@ const paymentOptionsPayable = payableAfterWallet;
       setSavingAddress(false);
     }
   };
- const refreshCustomerByEmail = async () => {
-  const email =
-    addressForm.email ||
-    customer?.email ||
-    guestCustomer?.email ||
-    user?.email ||
-    "";
+  const refreshCustomerByEmail = async () => {
+    const email =
+      addressForm.email ||
+      customer?.email ||
+      guestCustomer?.email ||
+      user?.email ||
+      "";
 
-  if (!email) return null;
+    if (!email) return null;
 
-  try {
-    const baseURL =
-      process.env.NEXT_PUBLIC_API_URL ||
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      "http://localhost:5000";
+    try {
+      const baseURL =
+        process.env.NEXT_PUBLIC_API_URL ||
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        "http://localhost:5000";
 
-    const res = await fetch(
-      `${baseURL}/api/customers/search?email=${encodeURIComponent(email)}`
-    );
+      const res = await fetch(
+        `${baseURL}/api/customers/search?email=${encodeURIComponent(email)}`
+      );
 
-    const data = await res.json();
+      const data = await res.json();
 
-    const found =
-      data?.customer ||
-      data?.items?.[0] ||
-      data?.data?.customer ||
-      data?.customers?.[0] ||
-      data?.data?.[0] ||
-      null;
+      const found =
+        data?.customer ||
+        data?.items?.[0] ||
+        data?.data?.customer ||
+        data?.customers?.[0] ||
+        data?.data?.[0] ||
+        null;
 
-    if (found?._id) {
-      setGuestCustomer(found);
-      fetchCustomerCreditSummary(found._id).catch(() => {});
-      return found;
+      if (found?._id) {
+        setGuestCustomer(found);
+        fetchCustomerCreditSummary(found._id).catch(() => { });
+        return found;
+      }
+
+      return null;
+    } catch (e) {
+      console.warn("Customer refresh by email failed", e);
+      return null;
     }
-
-    return null;
-  } catch (e) {
-    console.warn("Customer refresh by email failed", e);
-    return null;
-  }
-};
+  };
 
   useEffect(() => {
     const email = addressForm.email || user?.email || "";
@@ -707,16 +714,96 @@ const paymentOptionsPayable = payableAfterWallet;
     return null;
   };
 
+  /* ---------------- ORDER SUCCESS ---------------- */
+  const finishSuccessfulOrder = async ({
+    order,
+    revenue,
+    toastId,
+    paymentMethod,
+  }) => {
+    try {
+      await markConversion({
+        orderId: order?._id || order?.id || order?.orderId,
+        orderNumber: order?.orderNumber,
+        revenue: Number(
+          revenue ||
+          order?.finalPayable ||
+          order?.totalAmount ||
+          0
+        ),
+      });
+
+      console.log("📣 Marketing campaign conversion tracked", {
+        orderId: order?._id || order?.id || order?.orderId,
+        orderNumber: order?.orderNumber,
+        revenue: Number(
+          revenue ||
+          order?.finalPayable ||
+          order?.totalAmount ||
+          0
+        ),
+        paymentMethod,
+      });
+    } catch (error) {
+      console.warn("📣 Marketing campaign conversion failed", error);
+    }
+
+    if (buyNowItem) {
+      completeCheckout?.();
+    } else {
+      clearCart?.();
+    }
+
+    removeCoupon?.();
+
+    toast.success(
+      paymentMethod === "razorpay"
+        ? "Payment successful! Order confirmed."
+        : "Order placed successfully!",
+      toastId ? { id: toastId } : undefined
+    );
+
+    router.push(
+      order?.orderNumber
+        ? `/order-success?order=${encodeURIComponent(order.orderNumber)}`
+        : "/order-success"
+    );
+  };
+
   /* ---------------- PLACE ORDER ---------------- */
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = async (paymentSelection = {}) => {
+    const requestedPaymentMethod =
+      paymentSelection?.paymentMethod || selectedPayment;
+
+    const resolvedPaymentMethod =
+      payable <= 0 ? "wallet" : requestedPaymentMethod;
+
+    if (
+      !["cod", "razorpay", "wallet"].includes(
+        String(resolvedPaymentMethod || "").toLowerCase()
+      )
+    ) {
+      toast.error("Please select a valid payment method.");
+      setShowPayment(true);
+      return;
+    }
+
     const finalCustomer = await ensureCustomer();
     if (!finalCustomer?._id) return;
+
     await refreshCustomerByEmail();
 
-    const err = validateCheckout();
-    if (err) return toast.error(err);
+    const validationMessage = validateCheckout();
+    if (validationMessage) {
+      toast.error(validationMessage);
+      return;
+    }
 
-    const toastId = toast.loading("Placing your order...");
+    const toastId = toast.loading(
+      resolvedPaymentMethod === "razorpay"
+        ? "Creating secure payment..."
+        : "Placing your order..."
+    );
 
     try {
       const baseOrderItems = getCheckoutPayload();
@@ -724,13 +811,13 @@ const paymentOptionsPayable = payableAfterWallet;
       const orderItems = baseOrderItems.map((item) => {
         const richItem =
           items.find(
-            (x) =>
-              String(x?.productId || x?.id) ===
+            (currentItem) =>
+              String(currentItem?.productId || currentItem?.id) ===
               String(item?.productId || item?.id)
           ) ||
           couponCartItems.find(
-            (x) =>
-              String(x?.productId || x?.id) ===
+            (currentItem) =>
+              String(currentItem?.productId || currentItem?.id) ===
               String(item?.productId || item?.id)
           ) ||
           {};
@@ -759,9 +846,18 @@ const paymentOptionsPayable = payableAfterWallet;
         return {
           ...item,
           ...richItem,
-          productId: item.productId || richItem.productId || richItem.id,
-          quantity: item.quantity || richItem.quantity || 1,
-          variantId: item.variantId || richItem.variantId || richItem?.variant?._id,
+          productId:
+            item.productId ||
+            richItem.productId ||
+            richItem.id,
+          quantity:
+            item.quantity ||
+            richItem.quantity ||
+            1,
+          variantId:
+            item.variantId ||
+            richItem.variantId ||
+            richItem?.variant?._id,
 
           price,
           itemPrice: price,
@@ -780,16 +876,17 @@ const paymentOptionsPayable = payableAfterWallet;
         };
       });
 
-      // ✅ Debug attribution before order create
       const attribution =
-        useMarketingCampaignStore.getState().getAttributionPayload?.() || null;
+        useMarketingCampaignStore
+          .getState()
+          .getAttributionPayload?.() || null;
 
       console.log("🧾 CHECKOUT ORDER DEBUG:", {
         subtotal,
         discount,
         razorpayExtraDiscount,
         payable,
-        selectedPayment,
+        selectedPayment: resolvedPaymentMethod,
         coupon,
         cartItems: items,
         orderItems,
@@ -798,8 +895,10 @@ const paymentOptionsPayable = payableAfterWallet;
 
       const order = await createOrder({
         customerId: finalCustomer._id,
+
         customer: {
           ...finalCustomer,
+
           shippingAddressSnapshot: {
             fullName:
               selectedAddressObj?.fullName ||
@@ -822,9 +921,29 @@ const paymentOptionsPayable = payableAfterWallet;
               user?.email ||
               "",
 
-            city: selectedAddressObj?.city || addressForm?.city || "",
-            state: selectedAddressObj?.state || addressForm?.state || "",
-            country: selectedAddressObj?.country || "in",
+            addressLine1:
+              selectedAddressObj?.addressLine1 ||
+              addressForm?.addressLine1 ||
+              "",
+
+            addressLine2:
+              selectedAddressObj?.addressLine2 ||
+              addressForm?.addressLine2 ||
+              "",
+
+            city:
+              selectedAddressObj?.city ||
+              addressForm?.city ||
+              "",
+
+            state:
+              selectedAddressObj?.state ||
+              addressForm?.state ||
+              "",
+
+            country:
+              selectedAddressObj?.country ||
+              "IN",
 
             pincode:
               selectedAddressObj?.pincode ||
@@ -836,53 +955,102 @@ const paymentOptionsPayable = payableAfterWallet;
 
         shippingAddressId: selectedAddressObj._id,
         billingAddressId: selectedAddressObj._id,
-        paymentMethod: selectedPayment,
-        useWallet,
-walletAmount: appliedWalletAmount,        items: orderItems,
+
+        paymentMethod: resolvedPaymentMethod,
+
+        useWallet: appliedWalletAmount > 0,
+        walletAmount: appliedWalletAmount,
+
+        items: orderItems,
         source: "website",
+
         subtotal: Number(subtotal || 0),
         discount: Number(discount || 0),
-        razorpayExtraDiscount: Number(razorpayExtraDiscount || 0),
+        razorpayExtraDiscount: Number(
+          resolvedPaymentMethod === "razorpay"
+            ? razorpayExtraDiscount || 0
+            : 0
+        ),
         payable: Number(payable || 0),
+
         coupon: coupon
           ? {
             code: coupon.code,
             discount: Number(discount || 0),
           }
           : null,
+
+        attribution,
       });
 
-      try {
-        await markConversion({
-          orderId: order?._id || order?.id || order?.orderId,
-          orderNumber: order?.orderNumber,
-          revenue: Number(payable || order?.finalPayable || order?.totalAmount || 0),
-        });
+      const mongoOrderId =
+        order?._id ||
+        order?.id ||
+        order?.orderId ||
+        order?.data?._id ||
+        order?.order?._id;
 
-        console.log("📣 Marketing campaign conversion tracked", {
-          orderId: order?._id || order?.id || order?.orderId,
-          orderNumber: order?.orderNumber,
-          revenue: Number(payable || order?.finalPayable || order?.totalAmount || 0),
-        });
-      } catch (e) {
-        console.warn("📣 Marketing campaign conversion failed", e);
+      if (!mongoOrderId) {
+        throw new Error(
+          "Order created but Mongo order ID was not returned."
+        );
       }
 
-      if (buyNowItem) completeCheckout?.();
-      else clearCart?.();
+      /*
+       * Razorpay:
+       * 1. Mongo order has already been created with paymentMethod=razorpay.
+       * 2. Store creates Razorpay order using mongoOrderId.
+       * 3. Cart is cleared only after payment verification succeeds.
+       */
+      if (resolvedPaymentMethod === "razorpay") {
+        toast.loading("Opening Razorpay checkout...", {
+          id: toastId,
+        });
 
-      removeCoupon?.();
+        await payWithRazorpay({
+          mongoOrderId: String(mongoOrderId),
 
-      toast.success("Order placed!", { id: toastId });
+          onSuccess: async () => {
+            await finishSuccessfulOrder({
+              order,
+              revenue: payable,
+              toastId,
+              paymentMethod: "razorpay",
+            });
+          },
 
-      router.push(
-        order?.orderNumber
-          ? `/order-success?order=${order.orderNumber}`
-          : "/order-success"
+          onFailure: (paymentError) => {
+            console.error(
+              "❌ Razorpay payment failed:",
+              paymentError
+            );
+
+            toast.error(
+              paymentError?.message ||
+              "Payment was not completed. Your cart is still safe.",
+              { id: toastId }
+            );
+          },
+        });
+
+        return;
+      }
+
+      await finishSuccessfulOrder({
+        order,
+        revenue: payable,
+        toastId,
+        paymentMethod: resolvedPaymentMethod,
+      });
+    } catch (error) {
+      console.error("❌ PLACE ORDER FAILED:", error);
+
+      toast.error(
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to place order.",
+        { id: toastId }
       );
-    } catch (e) {
-      console.error("❌ PLACE ORDER FAILED:", e);
-      toast.error(e?.message || "Failed to place order.", { id: toastId });
     }
   };
 
@@ -963,7 +1131,7 @@ walletAmount: appliedWalletAmount,        items: orderItems,
             walletAmount={walletAmount}
             setWalletAmount={setWalletAmount}
             walletBalance={walletBalance}
-payable={paymentOptionsPayable}            showSummary={showSummary}
+            payable={paymentOptionsPayable} showSummary={showSummary}
             setShowSummary={setShowSummary}
             email={addressForm.email}
             phone={addressForm.phone}
@@ -974,31 +1142,32 @@ payable={paymentOptionsPayable}            showSummary={showSummary}
 
 
           {/* Step 3: Payment */}
-        <PaymentOptions
-  showPayment={showPayment}
-  setShowPayment={setShowPayment}
-  selectedPayment={selectedPayment}
-  setSelectedPayment={setSelectedPayment}
-  payable={payable}
-  subtotal={subtotal}
-  razorpayExtraDiscount={razorpayExtraDiscount}
-  coupon={coupon}
-  discount={discount}
-  useWallet={useWallet}
-  setUseWallet={setUseWallet}
-  walletAmount={walletAmount}
-  setWalletAmount={setWalletAmount}
-  walletBalance={walletBalance}
-  placing={placing}
-  validate={validateCheckout}
-  onPlaceOrder={handlePlaceOrder}
-  selectedAddressObj={selectedAddressObj}
-  user={user}
-  customer={activeCustomer}
-  ensureGuestCustomer={ensureGuestCustomer}
-  getCheckoutPayload={getCheckoutPayload}
-  createOrder={createOrder}
-/>
+          <PaymentOptions
+            showPayment={showPayment}
+            setShowPayment={setShowPayment}
+            selectedPayment={selectedPayment}
+            setSelectedPayment={setSelectedPayment}
+            payable={payable}
+            subtotal={subtotal}
+            razorpayExtraDiscount={razorpayExtraDiscount}
+            coupon={coupon}
+            discount={discount}
+            useWallet={useWallet}
+            setUseWallet={setUseWallet}
+            walletAmount={walletAmount}
+            setWalletAmount={setWalletAmount}
+            walletBalance={walletBalance}
+            placing={placing}
+            razorpayLoading={razorpayLoading}
+            validate={validateCheckout}
+            onPlaceOrder={handlePlaceOrder}
+            selectedAddressObj={selectedAddressObj}
+            user={user}
+            customer={activeCustomer}
+            ensureGuestCustomer={ensureGuestCustomer}
+            getCheckoutPayload={getCheckoutPayload}
+            createOrder={createOrder}
+          />
 
         </div>
       </div>
