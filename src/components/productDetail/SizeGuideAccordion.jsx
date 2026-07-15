@@ -1,23 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Minus } from "lucide-react";
-import { useSizeChartStore } from "@/store/sizeChartStore";
+import { useState } from "react";
+import { Minus, Plus } from "lucide-react";
 
-function Accordion({ title, children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
+const SIZE_CHART = [
+  { label: "To Fit Bust", XS: 32, S: 34, M: 36, L: 38, XL: 40 },
+  { label: "To Fit Waist", XS: 25, S: 27, M: 29, L: 31, XL: 33 },
+  { label: "To Fit Hip", XS: 33, S: 35, M: 37, L: 39, XL: 41 },
+];
+
+const SIZES = ["XS", "S", "M", "L", "XL"];
+
+const formatMeasurement = (value, unit) => {
+  if (unit === "cm") {
+    return (value * 2.54).toFixed(1);
+  }
+
+  return value;
+};
+
+export default function SizeGuideAccordion() {
+  const [open, setOpen] = useState(false);
+  const [unit, setUnit] = useState("inch");
 
   return (
-    <div className="py-3 border-t border-gray-200">
+    <div className="border-t border-black/10 py-3">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex justify-between items-center w-full text-left"
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between text-left"
         aria-expanded={open}
       >
-        <span className="text-base md:text-lg font-semibold text-black">
-          {title}
+        <span className="text-base font-semibold text-black md:text-lg">
+          Size Guide
         </span>
+
         {open ? (
           <Minus className="h-5 w-5 text-black" />
         ) : (
@@ -26,157 +43,116 @@ function Accordion({ title, children, defaultOpen = false }) {
       </button>
 
       <div
-        className={`transition-all overflow-hidden duration-300 ${
-          open ? "max-h-[900px] mt-3" : "max-h-0"
+        className={`overflow-hidden transition-all duration-300 ${
+          open ? "mt-4 max-h-[900px]" : "max-h-0"
         }`}
       >
-        {open ? children : null}
-      </div>
-    </div>
-  );
-}
+        <div className="space-y-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-black">
+                Body Measurements
+              </p>
+              <p className="mt-0.5 text-xs text-black/45">
+                Select your preferred unit
+              </p>
+            </div>
 
-export default function SizeGuideAccordion({
-  categoryId,       // category _id
-  categorySlug,     // optional: category slug if you have it
-}) {
-  const { items, fetchAll, loading } = useSizeChartStore();
+            <div className="flex rounded-full bg-black/[0.05] p-1">
+              <button
+                type="button"
+                onClick={() => setUnit("inch")}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
+                  unit === "inch"
+                    ? "bg-black text-white"
+                    : "text-black/50 hover:text-black"
+                }`}
+              >
+                Inches
+              </button>
 
-  useEffect(() => {
-    // ✅ Make sure store has charts
-    if (!items || items.length === 0) fetchAll();
-  }, [items?.length, fetchAll]);
-
-  /* =========================================================
-     Pick the correct chart from array
-  ========================================================= */
-  const activeChart = useMemo(() => {
-    const list = Array.isArray(items) ? items : [];
-
-    if (list.length === 0) return null;
-
-    // ✅ 1) Exact match by categoryId
-    if (categoryId) {
-      const exact = list.find((chart) =>
-        (chart?.categories || []).some(
-          (c) => String(c?._id || c) === String(categoryId)
-        )
-      );
-      if (exact) return exact;
-    }
-
-    // ✅ 2) Match by slug (optional)
-    if (categorySlug) {
-      const bySlug = list.find((chart) =>
-        (chart?.categories || []).some(
-          (c) => String(c?.slug || "").toLowerCase() === String(categorySlug).toLowerCase()
-        )
-      );
-      if (bySlug) return bySlug;
-    }
-
-    // ✅ 3) Fallback: General chart (All Clothing)
-    const general = list.find((chart) =>
-      (chart?.title || "").toLowerCase().includes("general")
-    );
-    return general || null;
-  }, [items, categoryId, categorySlug]);
-
-  return (
-    <Accordion title="Size Guide">
-      <div className="text-gray-700 text-sm leading-relaxed space-y-4">
-        {/* ✅ How to Measure */}
-        <div className="space-y-2">
-          <p className="font-medium text-black">How to Measure</p>
-          <ul className="space-y-1">
-            <li>
-              • <strong>Bust:</strong> Measure around the fullest part of your
-              chest.
-            </li>
-            <li>
-              • <strong>Waist:</strong> Measure around the narrowest part of
-              your waist.
-            </li>
-            <li>
-              • <strong>Hips:</strong> Measure around the widest part of your
-              hips.
-            </li>
-            <li>
-              • <strong>Length:</strong> Measure from shoulder to hem.
-            </li>
-          </ul>
-        </div>
-
-        {/* ✅ Size Chart Table */}
-        <div className="pt-2">
-          <div className="flex items-center justify-between mb-2">
-           
-
-            {activeChart?.unit && (
-              <span className="text-xs text-gray-500 uppercase">
-                {activeChart.unit}
-              </span>
-            )}
+              <button
+                type="button"
+                onClick={() => setUnit("cm")}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
+                  unit === "cm"
+                    ? "bg-black text-white"
+                    : "text-black/50 hover:text-black"
+                }`}
+              >
+                CM
+              </button>
+            </div>
           </div>
 
-          {/* Loading */}
-          {loading && (
-            <p className="text-xs text-gray-400">Loading size chart...</p>
-          )}
+          <div className="overflow-x-auto rounded-2xl border border-black/[0.08]">
+            <table className="w-full min-w-[540px] border-collapse text-sm">
+              <thead>
+                <tr className="bg-black/[0.03]">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-black/55">
+                    Size
+                  </th>
 
-          {/* No Chart */}
-          {!loading && !activeChart && (
-            <p className="text-xs text-gray-500">
-              Size chart not available for this category.
-            </p>
-          )}
+                  {SIZES.map((size) => (
+                    <th
+                      key={size}
+                      className="px-4 py-3 text-center text-sm font-bold text-black"
+                    >
+                      {size}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
 
-          {/* Table */}
-          {!loading &&
-            activeChart?.headers?.length > 0 &&
-            activeChart?.rows?.length > 0 && (
-              <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-gray-50 text-gray-700">
-                    <tr>
-                      {activeChart.headers.map((h, i) => (
-                        <th
-                          key={i}
-                          className="px-4 py-3 font-semibold whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
+              <tbody>
+                {SIZE_CHART.map((row) => (
+                  <tr
+                    key={row.label}
+                    className="border-t border-black/[0.07]"
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-black">
+                      {row.label}
+                    </td>
 
-                  <tbody>
-                    {activeChart.rows.map((row, rIndex) => (
-                      <tr
-                        key={rIndex}
-                        className="border-t border-gray-100 hover:bg-gray-50 transition"
+                    {SIZES.map((size) => (
+                      <td
+                        key={size}
+                        className="px-4 py-3 text-center font-medium text-black/65"
                       >
-                        {row.map((cell, cIndex) => (
-                          <td
-                            key={cIndex}
-                            className="px-4 py-3 whitespace-nowrap"
-                          >
-                            {cell}
-                          </td>
-                        ))}
-                      </tr>
+                        {formatMeasurement(row[size], unit)}
+                      </td>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          {/* ✅ Optional Note */}
-          {activeChart?.note && (
-            <p className="text-xs text-gray-500 pt-2">{activeChart.note}</p>
-          )}
+          <div className="space-y-2 text-sm leading-6 text-black/60">
+            <p className="font-semibold text-black">How to measure</p>
+
+            <p>
+              <strong className="text-black">Bust:</strong> Measure around the
+              fullest part of your chest.
+            </p>
+
+            <p>
+              <strong className="text-black">Waist:</strong> Measure around the
+              narrowest part of your waist.
+            </p>
+
+            <p>
+              <strong className="text-black">Hip:</strong> Measure around the
+              widest part of your hips.
+            </p>
+          </div>
+
+          <p className="rounded-xl bg-black/[0.03] px-4 py-3 text-xs leading-5 text-black/50">
+            Measurements are approximate. Select the size closest to your body
+            measurements.
+          </p>
         </div>
       </div>
-    </Accordion>
+    </div>
   );
 }

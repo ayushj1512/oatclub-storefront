@@ -1,252 +1,226 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { useSizeChartStore } from "@/store/sizeChartStore";
 
-/* ---------- helpers ---------- */
-const norm = (s) => String(s || "").toLowerCase();
-const num = (v) => {
-  const n = Number(String(v ?? "").replace(/[^\d.]+/g, ""));
-  return Number.isFinite(n) ? n : null;
-};
-const range = (s) => {
-  const m = String(s ?? "").match(/([\d.]+)\s*(?:–|—|-)\s*([\d.]+)/);
-  return m ? [Number(m[1]), Number(m[2])] : null;
-};
-const fmt = (x, d) => (d ? x.toFixed(d) : String(Math.round(x)));
+const SIZES = ["XS", "S", "M", "L", "XL"];
 
-const convert = (v, from, to) => {
-  if (from === to) return v;
-  const fx = (x) => (from === "cm" ? x / 2.54 : x * 2.54);
-  const d = to === "inch" ? 1 : 0;
+const SIZE_CHART = [
+  { label: "Bust", XS: 32, S: 34, M: 36, L: 38, XL: 40 },
+  { label: "Waist", XS: 25, S: 27, M: 29, L: 31, XL: 33 },
+  { label: "Hip", XS: 33, S: 35, M: 37, L: 39, XL: 41 },
+];
 
-  const r = range(v);
-  const n = num(v);
-  if (r) return `${fmt(fx(r[0]), d)}–${fmt(fx(r[1]), d)}`;
-  if (n != null) return fmt(fx(n), d);
-  return v;
-};
+const formatMeasurement = (value, unit) =>
+  unit === "cm" ? Math.round(value * 2.54) : value;
 
-export default function SizeGuideModal({ open, onClose, categoryId, categorySlug }) {
-  const { items, fetchAll, loading } = useSizeChartStore();
-  const [unit, setUnit] = useState("inch"); // ✅ inches first
+export default function SizeGuideModal({ open, onClose }) {
+  const [unit, setUnit] = useState("inch");
 
-  // fetch once
-  useEffect(() => {
-    if (open && (!items || !items.length)) fetchAll?.();
-  }, [open, items?.length, fetchAll]);
-
-  // lock scroll + escape close
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
+
+    setUnit("inch");
+
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e) => e.key === "Escape" && onClose?.();
-    window.addEventListener("keydown", onKey);
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [open, onClose]);
 
-  const chart = useMemo(() => {
-    const list = Array.isArray(items) ? items : [];
-    if (!list.length) return null;
-
-    if (categoryId) {
-      const hit = list.find((x) =>
-        (x.categories || []).some((c) => String(c?._id || c) === String(categoryId))
-      );
-      if (hit) return hit;
-    }
-
-    if (categorySlug) {
-      const hit = list.find((x) =>
-        (x.categories || []).some((c) => typeof c !== "string" && norm(c.slug) === norm(categorySlug))
-      );
-      if (hit) return hit;
-    }
-
-    return list.find((x) => Array.isArray(x.categories) && x.categories.length === 0) || null;
-  }, [items, categoryId, categorySlug]);
-
-  // always start with inches when chart changes
-  useEffect(() => {
-    if (chart) setUnit("inch");
-  }, [chart]);
-
-  const display = useMemo(() => {
-    if (!chart) return null;
-    const from = chart.unit === "inch" ? "inch" : "cm";
-    const headers = (chart.headers || []).map((h, i) =>
-      i === 0 ? h : `${h} (${unit === "inch" ? "in" : "cm"})`
-    );
-    const rows = (chart.rows || []).map((r) =>
-      r.slice(0, headers.length).map((c, i) => (i === 0 ? c : convert(c, from, unit)))
-    );
-    return { title: chart.title || "Size Chart", headers, rows };
-  }, [chart, unit]);
-
   if (!open) return null;
 
- return (
-  <div className="fixed inset-0 z-[100]">
-    <button
-      onClick={onClose}
-      className="absolute inset-0 bg-black/45 backdrop-blur-sm"
-      aria-label="Close"
-    />
+  return (
+    <div className="fixed inset-0 z-[100]">
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+        aria-label="Close size guide"
+      />
 
-    <div className="absolute inset-0 flex items-end justify-center p-0 sm:items-center sm:p-4">
-      <div className="max-h-[92vh] w-full overflow-hidden rounded-t-[28px] bg-white shadow-[0_-20px_80px_rgba(0,0,0,0.22)] sm:max-w-3xl sm:rounded-[32px]">
-        {/* Header */}
-        <div className="border-b border-black/[0.06] px-5 py-5 sm:px-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/35">
-                Oatclub Fit Guide
-              </p>
+      <div className="absolute inset-0 flex items-end justify-center sm:items-center sm:p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="size-guide-title"
+          className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[22px] bg-white shadow-2xl sm:max-w-xl sm:rounded-[22px]"
+        >
+          {/* Header */}
+          <div className="border-b border-black/[0.07] px-4 py-3.5 sm:px-5 sm:py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-black/35">
+                  OATCLUB Fit Guide
+                </p>
 
-              <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-black">
-                Size Guide
-              </h2>
+                <h2
+                  id="size-guide-title"
+                  className="mt-0.5 text-xl font-semibold tracking-[-0.03em] text-black sm:text-2xl"
+                >
+                  Size Guide
+                </h2>
 
-              <p className="mt-1 text-xs leading-5 text-black/45">
-                Measurements are approximate. Pick the size closest to your body measurement.
-              </p>
+                <p className="mt-0.5 text-[11px] leading-4 text-black/45 sm:text-xs">
+                  Match your body measurement with the closest size.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/[0.05] text-black transition hover:bg-black hover:text-white"
+                aria-label="Close size guide"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-            <button
-              onClick={onClose}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/[0.04] text-black transition hover:bg-black hover:text-white active:scale-95"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="mt-3 flex w-fit rounded-full bg-black/[0.05] p-0.5">
+              <button
+                type="button"
+                onClick={() => setUnit("inch")}
+                className={`rounded-full px-4 py-1.5 text-[11px] font-semibold transition ${
+                  unit === "inch"
+                    ? "bg-black text-white shadow-sm"
+                    : "text-black/50"
+                }`}
+              >
+                Inches
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setUnit("cm")}
+                className={`rounded-full px-4 py-1.5 text-[11px] font-semibold transition ${
+                  unit === "cm"
+                    ? "bg-black text-white shadow-sm"
+                    : "text-black/50"
+                }`}
+              >
+                CM
+              </button>
+            </div>
           </div>
 
-          {/* Unit Toggle */}
-          <div className="mt-5 inline-flex rounded-full bg-[#f5f5f5] p-1">
-            <button
-              onClick={() => setUnit("inch")}
-              className={`rounded-full px-5 py-2 text-xs font-semibold transition ${
-                unit === "inch"
-                  ? "bg-black text-white shadow-sm"
-                  : "text-black/50 hover:text-black"
-              }`}
-            >
-              Inches
-            </button>
-
-            <button
-              onClick={() => setUnit("cm")}
-              className={`rounded-full px-5 py-2 text-xs font-semibold transition ${
-                unit === "cm"
-                  ? "bg-black text-white shadow-sm"
-                  : "text-black/50 hover:text-black"
-              }`}
-            >
-              CM
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="max-h-[62vh] overflow-y-auto px-5 py-5 sm:px-6">
-          {loading && (
-            <div className="rounded-3xl bg-[#fafafa] p-5 text-sm font-medium text-black/45">
-              Loading size chart…
-            </div>
-          )}
-
-          {!loading && !display && (
-            <div className="rounded-3xl bg-[#fafafa] p-5 text-sm font-medium text-black/50">
-              Size chart not available for this product.
-            </div>
-          )}
-
-          {!loading && display && (
-            <div className="overflow-hidden rounded-3xl bg-white shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06]">
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-[#fafafa] px-5 py-4">
+          {/* Content */}
+          <div className="overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
+            <div className="overflow-hidden rounded-xl border border-black/[0.08]">
+              <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2.5">
                 <div>
-                  <p className="text-sm font-semibold text-black">
-                    {display.title}
+                  <p className="text-xs font-semibold text-black sm:text-sm">
+                    Universal Size Chart
                   </p>
-                  <p className="mt-0.5 text-xs text-black/40">
-                    Unit: {unit === "inch" ? "inches" : "centimeters"}
+
+                  <p className="mt-0.5 text-[10px] text-black/40">
+                    {unit === "inch" ? "Measurements in inches" : "Measurements in centimeters"}
                   </p>
                 </div>
 
-                <span className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45 ring-1 ring-black/[0.06]">
-                  Body Measurements
+                <span className="rounded-full bg-white px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.1em] text-black/45 ring-1 ring-black/[0.06]">
+                  Body Fit
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[560px] border-collapse">
-                  <thead>
-                    <tr className="border-b border-black/[0.06]">
-                      {display.headers.map((h, i) => (
-                        <th
-                          key={i}
-                          className={`px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-black/45 ${
-                            i === 0 ? "text-left" : "text-center"
-                          }`}
+              <table className="w-full table-fixed border-collapse">
+                <thead>
+                  <tr className="border-t border-black/[0.07]">
+                    <th className="w-[24%] px-1.5 py-2.5 text-left text-[9px] font-semibold uppercase tracking-[0.08em] text-black/45 sm:px-3 sm:text-[10px]">
+                      Size
+                    </th>
+
+                    {SIZES.map((size) => (
+                      <th
+                        key={size}
+                        className="px-0.5 py-2.5 text-center text-[11px] font-bold text-black sm:px-2 sm:text-xs"
+                      >
+                        {size}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {SIZE_CHART.map((row) => (
+                    <tr
+                      key={row.label}
+                      className="border-t border-black/[0.07]"
+                    >
+                      <td className="px-1.5 py-2.5 text-left text-[10px] font-semibold text-black sm:px-3 sm:text-xs">
+                        {row.label}
+                      </td>
+
+                      {SIZES.map((size) => (
+                        <td
+                          key={size}
+                          className="px-0.5 py-2.5 text-center text-[10px] font-medium text-black/65 sm:px-2 sm:text-xs"
                         >
-                          {h}
-                        </th>
+                          {formatMeasurement(row[size], unit)}
+                        </td>
                       ))}
                     </tr>
-                  </thead>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                  <tbody>
-                    {display.rows.map((r, i) => (
-                      <tr
-                        key={i}
-                        className="border-b border-black/[0.05] transition last:border-0 hover:bg-[#fafafa]"
-                      >
-                        {r.map((c, j) => (
-                          <td
-                            key={j}
-                            className={`px-5 py-4 text-sm ${
-                              j === 0
-                                ? "text-left font-semibold text-black"
-                                : "text-center font-medium text-black/60"
-                            }`}
-                          >
-                            {c}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Measurement guide */}
+            <div className="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
+              <div className="rounded-xl bg-black/[0.03] p-2.5">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-black/40">
+                  Bust
+                </p>
+                <p className="mt-1 text-[10px] leading-4 text-black/55 sm:text-[11px]">
+                  Around the fullest chest area.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-black/[0.03] p-2.5">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-black/40">
+                  Waist
+                </p>
+                <p className="mt-1 text-[10px] leading-4 text-black/55 sm:text-[11px]">
+                  Around the narrowest waist area.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-black/[0.03] p-2.5">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-black/40">
+                  Hip
+                </p>
+                <p className="mt-1 text-[10px] leading-4 text-black/55 sm:text-[11px]">
+                  Around the widest hip area.
+                </p>
               </div>
             </div>
-          )}
 
-          <div className="mt-4 rounded-3xl bg-[#fafafa] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/35">
-              Fit Note
-            </p>
-            <p className="mt-1 text-sm leading-6 text-black/55">
-              Between two sizes? Choose the larger size for a relaxed fit, or the smaller size for a closer fit.
+            <p className="mt-3 rounded-xl bg-black/[0.03] px-3 py-2.5 text-[10px] leading-4 text-black/50 sm:text-[11px]">
+              Between two sizes? Choose the larger size for a relaxed fit or
+              the smaller size for a closer fit.
             </p>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="border-t border-black/[0.06] bg-white px-5 py-4 sm:px-6">
-          <button
-            onClick={onClose}
-            className="h-12 w-full rounded-2xl bg-black text-sm font-semibold text-white transition hover:bg-black/85 active:scale-[0.99] sm:w-auto sm:px-8"
-          >
-            Got it
-          </button>
+          {/* Footer */}
+          <div className="border-t border-black/[0.07] px-3 py-3 sm:px-5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 w-full rounded-xl bg-black text-xs font-semibold text-white transition hover:bg-black/85 active:scale-[0.99]"
+            >
+              Got it
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }

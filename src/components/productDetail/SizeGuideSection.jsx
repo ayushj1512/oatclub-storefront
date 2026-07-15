@@ -1,20 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Minus } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
+
+const SIZE_CHART = [
+  { label: "To Fit Bust", XS: 32, S: 34, M: 36, L: 38, XL: 40 },
+  { label: "To Fit Waist", XS: 25, S: 27, M: 29, L: 31, XL: 33 },
+  { label: "To Fit Hip", XS: 33, S: 35, M: 37, L: 39, XL: 41 },
+];
+
+const SIZES = ["XS", "S", "M", "L", "XL"];
+
+const formatMeasurement = (value, unit) => {
+  if (unit === "cm") {
+    return (value * 2.54).toFixed(1);
+  }
+
+  return value;
+};
 
 export default function SizeGuideSection() {
   const [open, setOpen] = useState(false);
+  const [unit, setUnit] = useState("inch");
 
   return (
-    <div className="border-t border-gray-200 py-3">
-
-      {/* HEADER */}
+    <div className="border-t border-black/10 py-3">
       <button
-        onClick={() => setOpen(!open)}
-        className="flex justify-between items-center w-full text-left"
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between text-left"
+        aria-expanded={open}
       >
-        <span className="text-base md:text-lg font-semibold text-black">
+        <span className="text-base font-semibold text-black md:text-lg">
           Size Guide
         </span>
 
@@ -25,75 +42,111 @@ export default function SizeGuideSection() {
         )}
       </button>
 
-      {/* BODY */}
       <div
-        className={`transition-all overflow-hidden duration-300 ${
-          open ? "max-h-[700px] mt-3" : "max-h-0"
+        className={`overflow-hidden transition-all duration-300 ${
+          open ? "mt-4 max-h-[900px]" : "max-h-0"
         }`}
       >
-        <div className="text-gray-700 text-sm leading-relaxed space-y-4">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-black">
+                Universal Size Chart
+              </p>
+              <p className="text-xs text-black/45">Body measurements</p>
+            </div>
 
-          <p className="font-medium text-black">How to Measure</p>
+            <div className="flex rounded-full bg-black/[0.05] p-1">
+              <button
+                type="button"
+                onClick={() => setUnit("inch")}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
+                  unit === "inch"
+                    ? "bg-black text-white"
+                    : "text-black/50 hover:text-black"
+                }`}
+              >
+                Inches
+              </button>
 
-          <ul className="space-y-1">
-            <li>• <strong>Bust:</strong> Measure around the fullest part of your chest.</li>
-            <li>• <strong>Waist:</strong> Measure around the narrowest part of your waist.</li>
-            <li>• <strong>Hips:</strong> Measure around the widest part of your hips.</li>
-            <li>• <strong>Length:</strong> Measure from shoulder to hem.</li>
-          </ul>
+              <button
+                type="button"
+                onClick={() => setUnit("cm")}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
+                  unit === "cm"
+                    ? "bg-black text-white"
+                    : "text-black/50 hover:text-black"
+                }`}
+              >
+                CM
+              </button>
+            </div>
+          </div>
 
-          <div className="pt-3">
-            <p className="font-medium text-black mb-2">Size Chart (General)</p>
-
-            <table className="w-full text-left text-sm border-collapse">
+          <div className="overflow-x-auto rounded-2xl border border-black/[0.08]">
+            <table className="w-full min-w-[540px] border-collapse text-sm">
               <thead>
-                <tr className="border-b">
-                  <th className="py-2">Size</th>
-                  <th className="py-2">Bust</th>
-                  <th className="py-2">Waist</th>
-                  <th className="py-2">Hips</th>
+                <tr className="bg-black/[0.03]">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                    Size
+                  </th>
+
+                  {SIZES.map((size) => (
+                    <th
+                      key={size}
+                      className="px-4 py-3 text-center font-bold text-black"
+                    >
+                      {size}
+                    </th>
+                  ))}
                 </tr>
               </thead>
 
               <tbody>
-                <tr className="border-b">
-                  <td className="py-2">XS</td>
-                  <td>30-32"</td>
-                  <td>24-26"</td>
-                  <td>32-34"</td>
-                </tr>
+                {SIZE_CHART.map((row) => (
+                  <tr
+                    key={row.label}
+                    className="border-t border-black/[0.07]"
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-black">
+                      {row.label}
+                    </td>
 
-                <tr className="border-b">
-                  <td className="py-2">S</td>
-                  <td>32-34"</td>
-                  <td>26-28"</td>
-                  <td>34-36"</td>
-                </tr>
-
-                <tr className="border-b">
-                  <td className="py-2">M</td>
-                  <td>34-36"</td>
-                  <td>28-30"</td>
-                  <td>36-38"</td>
-                </tr>
-
-                <tr className="border-b">
-                  <td className="py-2">L</td>
-                  <td>36-38"</td>
-                  <td>30-32"</td>
-                  <td>38-40"</td>
-                </tr>
-
-                <tr>
-                  <td className="py-2">XL</td>
-                  <td>38-40"</td>
-                  <td>32-34"</td>
-                  <td>40-42"</td>
-                </tr>
+                    {SIZES.map((size) => (
+                      <td
+                        key={size}
+                        className="px-4 py-3 text-center font-medium text-black/65"
+                      >
+                        {formatMeasurement(row[size], unit)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
               </tbody>
             </table>
-
           </div>
+
+          <div className="space-y-1.5 text-sm leading-6 text-black/60">
+            <p>
+              <strong className="text-black">Bust:</strong> Measure around the
+              fullest part of your chest.
+            </p>
+
+            <p>
+              <strong className="text-black">Waist:</strong> Measure around the
+              narrowest part of your waist.
+            </p>
+
+            <p>
+              <strong className="text-black">Hip:</strong> Measure around the
+              widest part of your hips.
+            </p>
+          </div>
+
+          <p className="rounded-xl bg-black/[0.03] px-4 py-3 text-xs leading-5 text-black/50">
+            Measurements are approximate. Choose the closest size based on your
+            body measurements.
+          </p>
         </div>
       </div>
     </div>
