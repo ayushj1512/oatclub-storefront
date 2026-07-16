@@ -59,6 +59,8 @@
 };
 
 
+
+
   const ga4Item = (p, qty = 1) =>
     mapItem(
       {
@@ -323,6 +325,29 @@ const buildCollectionUrl = (collection, p = {}) => {
 };
 
 
+const buildCollabUrl = (p = {}) => {
+  const qs = new URLSearchParams();
+
+  const setIf = (key, value) => {
+    if (value === undefined || value === null) return;
+
+    const clean = String(value).trim();
+    if (clean) qs.set(key, clean);
+  };
+
+  setIf("page", p.page);
+  setIf("limit", p.limit);
+  setIf("search", p.search);
+  setIf("category", p.category);
+  setIf("sort", p.sort);
+
+  const query = qs.toString();
+
+  return `${BACKEND}/api/products/available-for-collab${
+    query ? `?${query}` : ""
+  }`;
+};
+
 
   const isCastCategoryErr = (m = "") =>
     String(m).includes("Cast to ObjectId failed") &&
@@ -341,6 +366,13 @@ collectionHasMoreBySlug: {},
 collectionLoadingBySlug: {},
 collectionParamsBySlug: {},
         allProducts: [],
+
+        collabProducts: [],
+collabPage: 1,
+collabHasMore: true,
+collabLoading: false,
+collabError: null,
+collabLastParams: {},
         page: 1,
         limit: 20,
         activeCollection: null,
@@ -670,6 +702,94 @@ getProductsForCollection: (collectionSlugOrId) => {
     }
   },
 
+
+/* =====================================================
+   AVAILABLE FOR COLLAB PRODUCTS
+   GET /api/products/available-for-collab
+===================================================== */
+fetchAvailableForCollabProducts: async (params = {}) => {
+  if (!BACKEND) {
+    set({
+      collabError: "NEXT_PUBLIC_BACKEND_URL missing",
+      collabLoading: false,
+    });
+
+    return null;
+  }
+
+  const page = Math.max(1, Number(params.page) || 1);
+  const limit = Math.max(1, Number(params.limit) || 24);
+
+  const cleaned = {
+    ...params,
+    page,
+    limit,
+  };
+
+  const url = buildCollabUrl(cleaned);
+
+  set((state) => ({
+    collabLoading: true,
+    collabError: null,
+    collabLastParams: cleaned,
+
+    ...(page === 1
+      ? {
+          collabProducts: [],
+          collabPage: 1,
+          collabHasMore: true,
+        }
+      : {}),
+  }));
+
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+    });
+
+    const data = await safeJson(res);
+
+    if (!res.ok) {
+      throw new Error(
+        data?.message || "Failed to load collaboration products"
+      );
+    }
+
+    const incoming = uniqBySlug(
+      (Array.isArray(data?.products) ? data.products : []).map(normalize)
+    );
+
+    set((state) => ({
+      collabProducts:
+        page === 1
+          ? incoming
+          : uniqBySlug([
+              ...(state.collabProducts || []),
+              ...incoming,
+            ]),
+
+      collabPage: page,
+
+      collabHasMore:
+        typeof data?.hasNextPage === "boolean"
+          ? data.hasNextPage
+          : incoming.length >= limit,
+
+      collabLoading: false,
+      collabError: null,
+    }));
+
+    return data;
+  } catch (error) {
+    set({
+      collabLoading: false,
+      collabError:
+        error?.message || "Failed to load collaboration products",
+    });
+
+    return null;
+  }
+},
 
 
       fetchProductDetails: async (idOrSlug) => {
@@ -1305,6 +1425,22 @@ fetchProductsByCodes: async (codes = [], opts = {}) => {
       page: page + 1,
     });
   },
+
+  loadMoreCollabProducts: () => {
+  const {
+    collabPage,
+    collabHasMore,
+    collabLoading,
+    collabLastParams,
+  } = get();
+
+  if (!collabHasMore || collabLoading) return;
+
+  get().fetchAvailableForCollabProducts({
+    ...collabLastParams,
+    page: collabPage + 1,
+  });
+},
 
 
         clearError: () => set({ error: null }),
