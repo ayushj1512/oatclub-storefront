@@ -26,9 +26,7 @@ function generateEventId() {
     return crypto.randomUUID();
   }
 
-  return `${Date.now()}-${Math.random()
-    .toString(16)
-    .slice(2)}`;
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function getCookie(name) {
@@ -42,19 +40,14 @@ function getCookie(name) {
 
   if (!cookie) return undefined;
 
-  return decodeURIComponent(
-    cookie.split("=").slice(1).join("=")
-  );
+  return decodeURIComponent(cookie.split("=").slice(1).join("="));
 }
 
 function compactObject(object = {}) {
   return Object.fromEntries(
     Object.entries(object).filter(
-      ([, value]) =>
-        value !== undefined &&
-        value !== null &&
-        value !== ""
-    )
+      ([, value]) => value !== undefined && value !== null && value !== "",
+    ),
   );
 }
 
@@ -68,22 +61,12 @@ async function getParameterBuilder() {
   }
 
   if (!builderPromise) {
-    builderPromise = import(
-      "meta-capi-param-builder-clientjs"
-    )
-      .then(
-        (module) =>
-          module?.default ||
-          module?.clientParamBuilder ||
-          module
-      )
+    builderPromise = import("meta-capi-param-builder-clientjs")
+      .then((module) => module?.default || module?.clientParamBuilder || module)
       .catch((error) => {
         builderPromise = null;
 
-        console.warn(
-          "Meta Parameter Builder failed to load:",
-          error
-        );
+        console.warn("Meta Parameter Builder failed to load:", error);
 
         return null;
       });
@@ -105,30 +88,18 @@ export async function initializeMetaParameters() {
       const builder = await getParameterBuilder();
 
       try {
-        if (
-          typeof builder?.processAndCollectAllParams ===
-          "function"
-        ) {
-          await builder.processAndCollectAllParams(
-            window.location.href
-          );
+        if (typeof builder?.processAndCollectAllParams === "function") {
+          await builder.processAndCollectAllParams(window.location.href);
         }
       } catch (error) {
-        console.warn(
-          "Meta parameter capture failed:",
-          error
-        );
+        console.warn("Meta parameter capture failed:", error);
       }
 
       const fbc =
-        typeof builder?.getFbc === "function"
-          ? builder.getFbc()
-          : undefined;
+        typeof builder?.getFbc === "function" ? builder.getFbc() : undefined;
 
       const fbp =
-        typeof builder?.getFbp === "function"
-          ? builder.getFbp()
-          : undefined;
+        typeof builder?.getFbp === "function" ? builder.getFbp() : undefined;
 
       return compactObject({
         fbc: fbc || getCookie("_fbc"),
@@ -137,10 +108,7 @@ export async function initializeMetaParameters() {
     })().catch((error) => {
       parameterCapturePromise = null;
 
-      console.warn(
-        "Meta parameter initialization failed:",
-        error
-      );
+      console.warn("Meta parameter initialization failed:", error);
 
       return compactObject({
         fbc: getCookie("_fbc"),
@@ -169,14 +137,11 @@ export async function trackMeta(
   eventName,
   customData = {},
   userData = {},
-  options = {}
+  options = {},
 ) {
   if (!eventName) return null;
 
-  const event_id =
-    options.event_id ||
-    options.eventId ||
-    generateEventId();
+  const event_id = options.event_id || options.eventId || generateEventId();
 
   const safeCustomData = compactObject(customData);
 
@@ -184,22 +149,14 @@ export async function trackMeta(
      1. META PIXEL
   ======================================================= */
 
-  if (
-    typeof window !== "undefined" &&
-    typeof window.fbq === "function"
-  ) {
+  if (typeof window !== "undefined" && typeof window.fbq === "function") {
     const method = META_STANDARD_EVENTS.has(eventName)
       ? "track"
       : "trackCustom";
 
-    window.fbq(
-      method,
-      eventName,
-      safeCustomData,
-      {
-        eventID: event_id,
-      }
-    );
+    window.fbq(method, eventName, safeCustomData, {
+      eventID: event_id,
+    });
   }
 
   /* =======================================================
@@ -219,10 +176,9 @@ export async function trackMeta(
     event_id,
 
     event_source_url:
-      typeof window !== "undefined"
-        ? window.location.href
-        : undefined,
-
+      options.event_source_url ||
+      options.eventSourceUrl ||
+      (typeof window !== "undefined" ? window.location.href : undefined),
     custom_data: safeCustomData,
     user_data: safeUserData,
   });
@@ -232,57 +188,40 @@ export async function trackMeta(
   ======================================================= */
 
   try {
-    const response = await fetch(
-      "/api/meta/capi",
-      {
-        method: "POST",
+    const response = await fetch("/api/meta/capi", {
+      method: "POST",
 
-        headers: {
-          "Content-Type": "application/json",
-        },
+      headers: {
+        "Content-Type": "application/json",
+      },
 
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }
-    );
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
 
-    const result = await response
-      .json()
-      .catch(() => null);
+    const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      console.warn(
-        "Meta CAPI event failed:",
-        {
-          eventName,
-          eventId: event_id,
-          status: response.status,
-          result,
-        }
-      );
-    } else if (
-      process.env.NODE_ENV ===
-      "development"
-    ) {
-      console.log(
-        "✅ Meta CAPI event sent:",
-        {
-          eventName,
-          eventId: event_id,
-          fbc: Boolean(safeUserData.fbc),
-          fbp: Boolean(safeUserData.fbp),
-        }
-      );
-    }
-  } catch (error) {
-    console.warn(
-      "Meta CAPI request failed:",
-      {
+      console.warn("Meta CAPI event failed:", {
         eventName,
         eventId: event_id,
-        error,
-      }
-    );
+        status: response.status,
+        result,
+      });
+    } else if (process.env.NODE_ENV === "development") {
+      console.log("✅ Meta CAPI event sent:", {
+        eventName,
+        eventId: event_id,
+        fbc: Boolean(safeUserData.fbc),
+        fbp: Boolean(safeUserData.fbp),
+      });
+    }
+  } catch (error) {
+    console.warn("Meta CAPI request failed:", {
+      eventName,
+      eventId: event_id,
+      error,
+    });
   }
 
   return event_id;

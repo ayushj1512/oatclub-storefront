@@ -399,7 +399,7 @@ export const useOrderStore = create((set, get) => ({
 
       if (pm === "cod" || pm === "wallet") {
         await get().trackPurchaseSuccess({
-          orderId: order?._id || order?.orderNumber || customerId,
+orderId: order?.orderNumber || order?._id || customerId,
           currency,
           value: backendValue || orderValue,
           contents,
@@ -441,10 +441,13 @@ export const useOrderStore = create((set, get) => ({
       const safeValue = Number(value);
       const finalValue =
         Number.isFinite(safeValue) && safeValue > 0 ? safeValue : 0;
+const safeOrderId = String(orderId || "").trim();
 
+if (!safeOrderId) return;
+
+const purchaseEventId = `purchase_${safeOrderId}`;
       const now = Date.now();
-      const key = `purchase_${paymentMethod}_${String(orderId)}`;
-
+const key = `${purchaseEventId}_${paymentMethod}`;
       const { _lastPurchaseKey, _lastPurchaseAt } = get();
       const sameKey = _lastPurchaseKey === key;
       const tooSoon = _lastPurchaseAt && now - _lastPurchaseAt < 8000;
@@ -519,57 +522,62 @@ export const useOrderStore = create((set, get) => ({
         };
 
         const metaPurchaseEventId = await trackMeta(
-          "Purchase",
-          payload,
-          {
-            external_id: customer?._id || orderId,
+  "Purchase",
+  payload,
+  {
+    external_id: customer?._id || safeOrderId,
 
-            email:
-              customer?.email ||
-              customer?.shippingAddressSnapshot?.email,
+    email:
+      customer?.email ||
+      customer?.shippingAddressSnapshot?.email,
 
-            phone:
-              customer?.phone ||
-              customer?.mobile ||
-              customer?.shippingAddressSnapshot?.phone,
+    phone:
+      customer?.phone ||
+      customer?.mobile ||
+      customer?.shippingAddressSnapshot?.phone,
 
-            firstName:
-              customer?.firstName ||
-              customer?.shippingAddress?.firstName ||
-              customer?.shippingAddressSnapshot?.fullName?.split?.(" ")?.[0],
+    firstName:
+      customer?.firstName ||
+      customer?.shippingAddress?.firstName ||
+      customer?.shippingAddressSnapshot?.fullName?.split?.(" ")?.[0],
 
-            lastName:
-              customer?.lastName ||
-              customer?.shippingAddress?.lastName ||
-              customer?.shippingAddressSnapshot?.fullName
-                ?.split?.(" ")
-                ?.slice?.(1)
-                ?.join?.(" "),
+    lastName:
+      customer?.lastName ||
+      customer?.shippingAddress?.lastName ||
+      customer?.shippingAddressSnapshot?.fullName
+        ?.split?.(" ")
+        ?.slice?.(1)
+        ?.join?.(" "),
 
-            city:
-              customer?.city ||
-              customer?.shippingAddress?.city ||
-              customer?.shippingAddressSnapshot?.city,
+    city:
+      customer?.city ||
+      customer?.shippingAddress?.city ||
+      customer?.shippingAddressSnapshot?.city,
 
-            state:
-              customer?.state ||
-              customer?.shippingAddress?.state ||
-              customer?.shippingAddressSnapshot?.state,
+    state:
+      customer?.state ||
+      customer?.shippingAddress?.state ||
+      customer?.shippingAddressSnapshot?.state,
 
-            country:
-              customer?.country ||
-              customer?.shippingAddress?.country ||
-              customer?.shippingAddressSnapshot?.country ||
-              "in",
+    country:
+      customer?.country ||
+      customer?.shippingAddress?.country ||
+      customer?.shippingAddressSnapshot?.country ||
+      "in",
 
-            zip:
-              customer?.pincode ||
-              customer?.zip ||
-              customer?.shippingAddress?.pincode ||
-              customer?.shippingAddressSnapshot?.pincode,
-          },
-          event_source_url ? { event_source_url } : {}
-        );
+    zip:
+      customer?.pincode ||
+      customer?.zip ||
+      customer?.shippingAddress?.pincode ||
+      customer?.shippingAddressSnapshot?.pincode,
+  },
+  {
+    event_id: purchaseEventId,
+    ...(event_source_url
+      ? { event_source_url }
+      : {}),
+  }
+);
 
         try {
           await trackSnap(

@@ -64,7 +64,7 @@ export const useTrackingStore = create(() => ({
         window,
         document,
         "script",
-        "https://connect.facebook.net/en_US/fbevents.js"
+        "https://connect.facebook.net/en_US/fbevents.js",
       );
 
       window.fbq("init", META_PIXEL_ID);
@@ -134,7 +134,7 @@ export const useTrackingStore = create(() => ({
         value,
         currency: "INR",
       },
-      userData
+      userData,
     );
 
     ensureDataLayer();
@@ -187,7 +187,7 @@ export const useTrackingStore = create(() => ({
         value,
         currency: "INR",
       },
-      userData
+      userData,
     );
 
     ensureDataLayer();
@@ -231,7 +231,7 @@ export const useTrackingStore = create(() => ({
         })),
         num_items: safeItems.reduce((sum, it) => sum + it.quantity, 0),
       },
-      userData
+      userData,
     );
 
     ensureDataLayer();
@@ -261,12 +261,14 @@ export const useTrackingStore = create(() => ({
 
     console.log("💰 Purchase:", orderId, safeValue);
 
+    const safeOrderId = String(orderId || "").trim();
+
     await trackMeta(
       "Purchase",
       {
         value: safeValue,
         currency: "INR",
-        order_id: orderId,
+        order_id: safeOrderId,
         content_type: "product",
         content_ids: safeItems.map((it) => it.id),
         contents: safeItems.map((it) => ({
@@ -277,19 +279,22 @@ export const useTrackingStore = create(() => ({
         num_items: safeItems.reduce((sum, it) => sum + it.quantity, 0),
       },
       {
-        external_id: userData.external_id || userData.externalId || orderId,
         ...userData,
-      }
+        external_id: userData.external_id || userData.externalId || safeOrderId,
+      },
+      {
+        event_id: `purchase_${safeOrderId}`,
+      },
     );
 
     ensureDataLayer();
     window.dataLayer.push({
       event: "purchase",
-      transaction_id: orderId,
+      transaction_id: safeOrderId,
       value: safeValue,
       currency: "INR",
       ecommerce: {
-        transaction_id: orderId,
+        transaction_id: safeOrderId,
         value: safeValue,
         currency: "INR",
         items: safeItems.map((it) => ({
