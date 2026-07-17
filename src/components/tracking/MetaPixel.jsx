@@ -14,7 +14,6 @@ export default function MetaPixel({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const initializedRef = useRef(false);
   const lastTrackedUrlRef = useRef("");
 
   const cleanedPixelId = useMemo(
@@ -24,57 +23,66 @@ export default function MetaPixel({
 
   const url = useMemo(() => {
     const query = searchParams?.toString();
-
     return query ? `${pathname}?${query}` : pathname;
   }, [pathname, searchParams]);
 
   useEffect(() => {
-    if (!trackPageView || !initializedRef.current) return;
-    if (!url || lastTrackedUrlRef.current === url) return;
+    if (!trackPageView || !cleanedPixelId || !url) return;
+    if (lastTrackedUrlRef.current === url) return;
 
-    lastTrackedUrlRef.current = url;
+    let attempts = 0;
+    let timer;
 
-    trackMeta("PageView", {
-      page_path: url,
-    }).catch((error) => {
-      console.warn("Meta PageView failed:", error);
-    });
+    const sendPageView = async () => {
+      attempts += 1;
 
-    if (debug) {
-      console.log("✅ Meta PageView tracked:", url);
-    }
-  }, [url, trackPageView, debug]);
+      if (
+        typeof window === "undefined" ||
+        typeof window.fbq !== "function"
+      ) {
+        if (attempts < 20) {
+          timer = window.setTimeout(sendPageView, 150);
+        }
 
-  if (!cleanedPixelId) {
-    return null;
-  }
+        return;
+      }
+
+      if (lastTrackedUrlRef.current === url) return;
+
+      lastTrackedUrlRef.current = url;
+
+      try {
+        await trackMeta("PageView", {
+          page_path: url,
+          page_location: window.location.href,
+          page_title: document.title,
+        });
+
+        if (debug) {
+          console.log("✅ Meta PageView tracked:", url);
+        }
+      } catch (error) {
+        console.warn("Meta PageView failed:", error);
+        lastTrackedUrlRef.current = "";
+      }
+    };
+
+    sendPageView();
+
+    return () => {
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [url, trackPageView, cleanedPixelId, debug]);
+
+  if (!cleanedPixelId) return null;
 
   return (
     <>
       <Script
         id="meta-pixel"
         strategy="afterInteractive"
-        onLoad={() => {
-          initializedRef.current = true;
-
-          if (
-            trackPageView &&
-            url &&
-            lastTrackedUrlRef.current !== url
-          ) {
-            lastTrackedUrlRef.current = url;
-
-            trackMeta("PageView", {
-              page_path: url,
-            }).catch((error) => {
-              console.warn("Meta PageView failed:", error);
-            });
-
-            if (debug) {
-              console.log("✅ Meta initial PageView tracked:", url);
-            }
-          }
-        }}
         dangerouslySetInnerHTML={{
           __html: `
             (function(f,b,e,v,n,t,s){
@@ -106,11 +114,9 @@ export default function MetaPixel({
               'https://connect.facebook.net/en_US/fbevents.js'
             );
 
-            window.__META_PIXEL_ID__ =
-              window.__META_PIXEL_ID__ || '${cleanedPixelId}';
-
             if (!window.__META_PIXEL_LOADED__) {
               window.__META_PIXEL_LOADED__ = true;
+              window.__META_PIXEL_ID__ = '${cleanedPixelId}';
               fbq('init', '${cleanedPixelId}');
             }
           `,
