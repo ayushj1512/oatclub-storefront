@@ -3,11 +3,21 @@
 let builderPromise = null;
 let parameterCapturePromise = null;
 
+const META_STANDARD_EVENTS = new Set([
+  "PageView",
+  "ViewContent",
+  "Search",
+  "AddToCart",
+  "AddToWishlist",
+  "InitiateCheckout",
+  "AddPaymentInfo",
+  "Purchase",
+]);
+
 /* =========================================================
    HELPERS
 ========================================================= */
 
-/** Generate event_id for Pixel + CAPI deduplication */
 function generateEventId() {
   if (
     typeof crypto !== "undefined" &&
@@ -21,7 +31,6 @@ function generateEventId() {
     .slice(2)}`;
 }
 
-/** Read a browser cookie safely */
 function getCookie(name) {
   if (typeof document === "undefined") {
     return undefined;
@@ -31,16 +40,13 @@ function getCookie(name) {
     .split("; ")
     .find((item) => item.startsWith(`${name}=`));
 
-  if (!cookie) {
-    return undefined;
-  }
+  if (!cookie) return undefined;
 
   return decodeURIComponent(
     cookie.split("=").slice(1).join("=")
   );
 }
 
-/** Remove undefined, null and empty-string values */
 function compactObject(object = {}) {
   return Object.fromEntries(
     Object.entries(object).filter(
@@ -52,12 +58,10 @@ function compactObject(object = {}) {
   );
 }
 
-/**
- * Load Meta Parameter Builder only inside the browser.
- *
- * Dynamic import prevents the browser-only SDK from being
- * evaluated during Next.js server rendering.
- */
+/* =========================================================
+   PARAMETER BUILDER
+========================================================= */
+
 async function getParameterBuilder() {
   if (typeof window === "undefined") {
     return null;
@@ -67,19 +71,12 @@ async function getParameterBuilder() {
     builderPromise = import(
       "meta-capi-param-builder-clientjs"
     )
-      .then((module) => {
-        /*
-         * Supports the common package export shapes:
-         * - default export
-         * - clientParamBuilder named export
-         * - module namespace export
-         */
-        return (
+      .then(
+        (module) =>
           module?.default ||
           module?.clientParamBuilder ||
           module
-        );
-      })
+      )
       .catch((error) => {
         builderPromise = null;
 
@@ -95,15 +92,6 @@ async function getParameterBuilder() {
   return builderPromise;
 }
 
-/**
- * Capture Meta parameters as early as possible.
- *
- * This:
- * - reads fbclid from the current landing-page URL
- * - creates/preserves _fbc
- * - creates/preserves _fbp
- * - stores the values in first-party cookies
- */
 export async function initializeMetaParameters() {
   if (typeof window === "undefined") {
     return {
@@ -116,32 +104,31 @@ export async function initializeMetaParameters() {
     parameterCapturePromise = (async () => {
       const builder = await getParameterBuilder();
 
-      if (
-        builder &&
-        typeof builder.processAndCollectAllParams ===
+      try {
+        if (
+          typeof builder?.processAndCollectAllParams ===
           "function"
-      ) {
-        try {
+        ) {
           await builder.processAndCollectAllParams(
             window.location.href
           );
-        } catch (error) {
-          console.warn(
-            "Meta parameter capture failed:",
-            error
-          );
         }
+      } catch (error) {
+        console.warn(
+          "Meta parameter capture failed:",
+          error
+        );
       }
 
       const fbc =
         typeof builder?.getFbc === "function"
           ? builder.getFbc()
-          : getCookie("_fbc");
+          : undefined;
 
       const fbp =
         typeof builder?.getFbp === "function"
           ? builder.getFbp()
-          : getCookie("_fbp");
+          : undefined;
 
       return compactObject({
         fbc: fbc || getCookie("_fbc"),
@@ -165,12 +152,6 @@ export async function initializeMetaParameters() {
   return parameterCapturePromise;
 }
 
-/**
- * Read the latest Meta browser identifiers.
- *
- * Parameter Builder is initialized first so an incoming
- * fbclid can be converted into a valid _fbc cookie.
- */
 async function getMetaBrowserData() {
   const captured = await initializeMetaParameters();
 
@@ -184,34 +165,13 @@ async function getMetaBrowserData() {
    META TRACKER
 ========================================================= */
 
-/**
- * Track an event through:
- * 1. Meta Pixel in the browser
- * 2. Meta Conversions API through the Next.js API route
- *
- * The same event_id is used for both channels so Meta can
- * deduplicate the browser and server events.
- *
- * Usage:
- *
- * await trackMeta("ViewContent", customData);
- *
- * await trackMeta(
- *   "Purchase",
- *   customData,
- *   userData,
- *   { event_id: `purchase_${orderId}` }
- * );
- */
 export async function trackMeta(
   eventName,
   customData = {},
   userData = {},
   options = {}
 ) {
-  if (!eventName) {
-    return null;
-  }
+  if (!eventName) return null;
 
   const event_id =
     options.event_id ||
@@ -228,8 +188,12 @@ export async function trackMeta(
     typeof window !== "undefined" &&
     typeof window.fbq === "function"
   ) {
+    const method = META_STANDARD_EVENTS.has(eventName)
+      ? "track"
+      : "trackCustom";
+
     window.fbq(
-      "track",
+      method,
       eventName,
       safeCustomData,
       {
@@ -244,20 +208,8 @@ export async function trackMeta(
 
   const browserData = await getMetaBrowserData();
 
-  /*
-   * Do not normalize, lowercase or hash fbc/fbp.
-   * Preserve the exact values returned by Meta's SDK.
-   *
-   * Personal information remains raw here and will be
-   * normalized and hashed once inside /api/meta/capi.
-   */
   const safeUserData = compactObject({
     ...userData,
-
-    /*
-     * Explicit values can be passed when available,
-     * otherwise use Parameter Builder values.
-     */
     fbc: userData?.fbc || browserData?.fbc,
     fbp: userData?.fbp || browserData?.fbp,
   });
@@ -280,51 +232,58 @@ export async function trackMeta(
   ======================================================= */
 
   try {
-    const response = await fetch("/api/meta/capi", {
-      method: "POST",
+    const response = await fetch(
+      "/api/meta/capi",
+      {
+        method: "POST",
 
-      headers: {
-        "Content-Type": "application/json",
-      },
+        headers: {
+          "Content-Type": "application/json",
+        },
 
-      body: JSON.stringify(payload),
-
-      /*
-       * Allows tracking requests to continue while the user
-       * navigates away or closes the page.
-       */
-      keepalive: true,
-    });
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }
+    );
 
     const result = await response
       .json()
       .catch(() => null);
 
     if (!response.ok) {
-      console.warn("Meta CAPI event failed:", {
-        eventName,
-        eventId: event_id,
-        status: response.status,
-        result,
-      });
+      console.warn(
+        "Meta CAPI event failed:",
+        {
+          eventName,
+          eventId: event_id,
+          status: response.status,
+          result,
+        }
+      );
     } else if (
-      process.env.NODE_ENV === "development"
+      process.env.NODE_ENV ===
+      "development"
     ) {
-      console.log("✅ Meta CAPI event sent:", {
-        eventName,
-        eventId: event_id,
-        fbc: Boolean(safeUserData.fbc),
-        fbp: Boolean(safeUserData.fbp),
-      });
+      console.log(
+        "✅ Meta CAPI event sent:",
+        {
+          eventName,
+          eventId: event_id,
+          fbc: Boolean(safeUserData.fbc),
+          fbp: Boolean(safeUserData.fbp),
+        }
+      );
     }
   } catch (error) {
-    console.warn("Meta CAPI request failed:", {
-      eventName,
-      eventId: event_id,
-      error,
-    });
+    console.warn(
+      "Meta CAPI request failed:",
+      {
+        eventName,
+        eventId: event_id,
+        error,
+      }
+    );
   }
 
   return event_id;
 }
-

@@ -24,6 +24,7 @@ const SITE_URL =
 const ALLOWED_EVENTS = new Set([
   "PageView",
   "ViewContent",
+  "ViewCart",
   "Search",
   "AddToCart",
   "AddToWishlist",
