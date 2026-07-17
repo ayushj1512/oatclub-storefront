@@ -1,32 +1,120 @@
-import crypto from "crypto";
+import { NextResponse } from "next/server";
+import { ParamBuilder } from "capi-param-builder-nodejs";
 
-const API_VERSION = process.env.META_CAPI_API_VERSION || "v21.0";
-const ACCESS_TOKEN = process.env.META_CAPI_ACCESS_TOKEN;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const API_VERSION =
+  process.env.META_CAPI_API_VERSION || "v21.0";
+
+const ACCESS_TOKEN =
+  process.env.META_CAPI_ACCESS_TOKEN;
 
 const PIXEL_ID =
-  process.env.META_CAPI_PIXEL_ID || process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  process.env.META_CAPI_PIXEL_ID ||
+  process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
-const TEST_EVENT_CODE = process.env.META_CAPI_TEST_EVENT_CODE;
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
+const TEST_EVENT_CODE =
+  process.env.META_CAPI_TEST_EVENT_CODE;
 
-function sha256(value) {
-  return crypto
-    .createHash("sha256")
-    .update(String(value || ""))
-    .digest("hex");
-}
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://oatclub.in";
 
-function cleanString(value) {
-  if (value === undefined || value === null) return undefined;
-  const v = String(value).trim().toLowerCase();
-  return v || undefined;
-}
+const ALLOWED_EVENTS = new Set([
+  "PageView",
+  "ViewContent",
+  "Search",
+  "AddToCart",
+  "AddToWishlist",
+  "InitiateCheckout",
+  "AddPaymentInfo",
+  "Purchase",
+]);
 
-function normEmail(value) {
-  return cleanString(value);
-}
+/* =========================================================
+   HELPERS
+========================================================= */
 
-function normPhone(value) {
+const clean = (object = {}) =>
+  Object.fromEntries(
+    Object.entries(object).filter(
+      ([, value]) =>
+        value !== undefined &&
+        value !== null &&
+        value !== "" &&
+        (!Array.isArray(value) || value.length > 0)
+    )
+  );
+
+const parseCookies = (cookieHeader = "") =>
+  Object.fromEntries(
+    cookieHeader
+      .split(";")
+      .map((cookie) => cookie.trim())
+      .filter(Boolean)
+      .map((cookie) => {
+        const index = cookie.indexOf("=");
+
+        if (index === -1) return [cookie, ""];
+
+        return [
+          cookie.slice(0, index),
+          decodeURIComponent(cookie.slice(index + 1)),
+        ];
+      })
+  );
+
+const getRequestData = (request) => {
+  const url = new URL(request.url);
+  const headers = request.headers;
+
+  return {
+    host:
+      headers.get("x-forwarded-host") ||
+      headers.get("host") ||
+      url.host,
+
+    query: Object.fromEntries(url.searchParams.entries()),
+
+    cookies: parseCookies(headers.get("cookie") || ""),
+
+    referrer: headers.get("referer") || undefined,
+
+    forwardedIp:
+      headers.get("x-forwarded-for") ||
+      headers.get("x-real-ip") ||
+      undefined,
+
+    userAgent:
+      headers.get("user-agent") || undefined,
+  };
+};
+
+const getNameParts = (userData = {}) => {
+  const parts = String(userData.name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return {
+    firstName:
+      userData.fn ||
+      userData.firstName ||
+      userData.first_name ||
+      parts[0],
+
+    lastName:
+      userData.ln ||
+      userData.lastName ||
+      userData.last_name ||
+      (parts.length > 1
+        ? parts.slice(1).join(" ")
+        : undefined),
+  };
+};
+
+const normalizePhoneInput = (value) => {
   if (!value) return undefined;
 
   let phone = String(value).replace(/\D/g, "");
@@ -36,246 +124,346 @@ function normPhone(value) {
   }
 
   return phone || undefined;
-}
+};
 
-function normText(value) {
-  return cleanString(value);
-}
-
-function normCountry(value) {
-  return cleanString(value || "in");
-}
-
-function normZip(value) {
-  return String(value || "").replace(/\D/g, "") || undefined;
-}
-
-function normDob(value) {
-  if (!value) return undefined;
-
-  const raw = String(value).trim();
-
-  if (/^\d{8}$/.test(raw)) return raw;
-
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return undefined;
-
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-
-  return `${yyyy}${mm}${dd}`;
-}
-
-function normGender(value) {
-  const v = cleanString(value);
-  if (!v) return undefined;
-
-  if (["m", "male"].includes(v)) return "m";
-  if (["f", "female"].includes(v)) return "f";
-
-  return undefined;
-}
-
-function clean(obj) {
-  if (!obj || typeof obj !== "object") return obj;
-
-  Object.keys(obj).forEach((k) => {
-    const v = obj[k];
-
-    if (v && typeof v === "object" && !Array.isArray(v)) {
-      clean(v);
-    }
-
-    if (
-      obj[k] === undefined ||
-      obj[k] === null ||
-      obj[k] === "" ||
-      (Array.isArray(obj[k]) && obj[k].length === 0) ||
-      (typeof obj[k] === "object" &&
-        !Array.isArray(obj[k]) &&
-        Object.keys(obj[k]).length === 0)
-    ) {
-      delete obj[k];
-    }
-  });
-
-  return obj;
-}
-
-function hashField(value, normalizer = normText) {
-  if (!value) return undefined;
-
-  if (Array.isArray(value)) {
-    const hashed = value
-      .map((v) => normalizer(v))
-      .filter(Boolean)
-      .map((v) => sha256(v));
-
-    return hashed.length ? hashed : undefined;
+const hashPII = (builder, value, type) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
   }
 
-  const normalized = normalizer(value);
-  return normalized ? sha256(normalized) : undefined;
-}
+  const values = Array.isArray(value) ? value : [value];
 
-function buildMetaUserData(userData = {}, ip, ua) {
-  const rawName = userData.name || "";
-  const nameParts = String(rawName).trim().split(/\s+/).filter(Boolean);
+  const result = values
+    .map((item) =>
+      builder.getNormalizedAndHashedPII(
+        String(item),
+        type
+      )
+    )
+    .filter(Boolean);
 
-  const normalized = {
-    external_id:
-      userData.external_id || userData.externalId || userData.customerId,
+  if (!result.length) return undefined;
 
-    em: userData.em || userData.email,
-    ph: userData.ph || userData.phone || userData.mobile,
+  return Array.isArray(value) ? result : result[0];
+};
 
-    fn: userData.fn || userData.firstName || nameParts[0],
-    ln:
-      userData.ln ||
-      userData.lastName ||
-      (nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined),
+const buildUserData = ({
+  builder,
+  userData,
+  userAgent,
+  forwardedIp,
+}) => {
+  const { firstName, lastName } =
+    getNameParts(userData);
 
-    ct: userData.ct || userData.city,
-    st: userData.st || userData.state,
-    country: userData.country || "in",
+  const email =
+    userData.em || userData.email;
 
-    zp: userData.zp || userData.zip || userData.pincode,
-    db: userData.db || userData.dob,
-    ge: userData.ge || userData.gender || userData.gen,
+  const phone = normalizePhoneInput(
+    userData.ph ||
+      userData.phone ||
+      userData.mobile
+  );
 
-    fbp: userData.fbp,
-    fbc: userData.fbc,
-
-    client_ip_address: ip,
-    client_user_agent: ua,
-  };
+  const externalId =
+    userData.external_id ||
+    userData.externalId ||
+    userData.customerId;
 
   return clean({
-    external_id: hashField(normalized.external_id, normText),
+    em: hashPII(builder, email, "email"),
+    ph: hashPII(builder, phone, "phone"),
 
-    em: hashField(normalized.em, normEmail),
-    ph: hashField(normalized.ph, normPhone),
+    fn: hashPII(
+      builder,
+      firstName,
+      "first_name"
+    ),
 
-    fn: hashField(normalized.fn, normText),
-    ln: hashField(normalized.ln, normText),
+    ln: hashPII(
+      builder,
+      lastName,
+      "last_name"
+    ),
 
-    ct: hashField(normalized.ct, normText),
-    st: hashField(normalized.st, normText),
-    country: hashField(normalized.country, normCountry),
+    ct: hashPII(
+      builder,
+      userData.ct || userData.city,
+      "city"
+    ),
 
-    zp: hashField(normalized.zp, normZip),
-    db: hashField(normalized.db, normDob),
-    ge: hashField(normalized.ge, normGender),
+    st: hashPII(
+      builder,
+      userData.st || userData.state,
+      "state"
+    ),
 
-    fbp: normalized.fbp,
-    fbc: normalized.fbc,
+    zp: hashPII(
+      builder,
+      userData.zp ||
+        userData.zip ||
+        userData.postalCode ||
+        userData.pincode,
+      "zip_code"
+    ),
 
-    client_ip_address: normalized.client_ip_address,
-    client_user_agent: normalized.client_user_agent,
+    country: hashPII(
+      builder,
+      userData.country || "in",
+      "country"
+    ),
+
+    db: hashPII(
+      builder,
+      userData.db ||
+        userData.dob ||
+        userData.dateOfBirth,
+      "date_of_birth"
+    ),
+
+    ge: hashPII(
+      builder,
+      userData.ge ||
+        userData.gender ||
+        userData.gen,
+      "gender"
+    ),
+
+    external_id: hashPII(
+      builder,
+      externalId,
+      "external_id"
+    ),
+
+    /*
+     * Never hash or lowercase these values.
+     * Prefer values captured by the client SDK.
+     */
+    fbc:
+      userData.fbc ||
+      builder.getFbc() ||
+      undefined,
+
+    fbp:
+      userData.fbp ||
+      builder.getFbp() ||
+      undefined,
+
+    client_ip_address:
+      builder.getClientIpAddress() ||
+      forwardedIp?.split(",")[0]?.trim() ||
+      undefined,
+
+    client_user_agent: userAgent,
   });
-}
+};
 
-export async function POST(req) {
+const applyBuilderCookies = (
+  response,
+  cookies = []
+) => {
+  for (const cookie of cookies) {
+    if (!cookie?.name || !cookie?.value) continue;
+
+    const isLocalhost =
+      !cookie.domain ||
+      cookie.domain === "localhost";
+
+    response.cookies.set({
+      name: cookie.name,
+      value: cookie.value,
+      maxAge: Number(cookie.maxAge) || undefined,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: false,
+      ...(isLocalhost
+        ? {}
+        : { domain: cookie.domain }),
+    });
+  }
+
+  return response;
+};
+
+/* =========================================================
+   POST /api/meta/capi
+========================================================= */
+
+export async function POST(request) {
   try {
     if (!ACCESS_TOKEN || !PIXEL_ID) {
-      return Response.json(
-        { ok: false, error: "Missing META_CAPI_ACCESS_TOKEN / PIXEL_ID" },
-        { status: 500 }
-      );
-    }
-
-    const body = await req.json();
-    const h = req.headers;
-
-    const now = Math.floor(Date.now() / 1000);
-
-    const ip =
-      h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      h.get("x-real-ip") ||
-      undefined;
-
-    const ua = h.get("user-agent") || undefined;
-
-    const proto = h.get("x-forwarded-proto") || "https";
-    const host = h.get("x-forwarded-host") || h.get("host");
-    const detectedOrigin = host ? `${proto}://${host}` : undefined;
-
-    const {
-      event_name,
-      event_id,
-      custom_data = {},
-      user_data = {},
-      event_source_url,
-    } = body || {};
-
-    if (!event_name || !event_id) {
-      return Response.json(
-        { ok: false, error: "event_name and event_id required" },
-        { status: 400 }
-      );
-    }
-
-    const finalEventSourceUrl =
-      event_source_url ||
-      h.get("referer") ||
-      SITE_URL ||
-      detectedOrigin ||
-      undefined;
-
-    const enrichedUserData = buildMetaUserData(user_data, ip, ua);
-
-    const payload = {
-      data: [
-        clean({
-          event_name,
-          event_time: now,
-          event_id,
-          action_source: "website",
-          event_source_url: finalEventSourceUrl,
-          user_data: enrichedUserData,
-          custom_data: clean(custom_data),
-        }),
-      ],
-      ...(TEST_EVENT_CODE ? { test_event_code: TEST_EVENT_CODE } : {}),
-    };
-
-    const url = `https://graph.facebook.com/${API_VERSION}/${PIXEL_ID}/events?access_token=${ACCESS_TOKEN}`;
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const json = await res.json();
-
-    if (!res.ok) {
-      return Response.json(
+      return NextResponse.json(
         {
           ok: false,
-          error: "Meta API rejected request",
-          meta: json,
-          sent_payload: payload,
-          used_event_source_url: finalEventSourceUrl,
+          error:
+            "Missing META_CAPI_ACCESS_TOKEN or META_CAPI_PIXEL_ID",
         },
         { status: 500 }
       );
     }
 
-    return Response.json(
-      {
-        ok: true,
-        meta: json,
-        used_event_source_url: finalEventSourceUrl,
-      },
-      { status: 200 }
-    );
-  } catch (err) {
-    console.error("Meta CAPI Route Error:", err);
+    const body = await request.json();
 
-    return Response.json(
-      { ok: false, error: err?.message || "Unknown error" },
+    const {
+      event_name,
+      event_id,
+      event_time,
+      event_source_url,
+      custom_data = {},
+      user_data = {},
+    } = body || {};
+
+    if (
+      !event_name ||
+      !event_id ||
+      !ALLOWED_EVENTS.has(event_name)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Valid event_name and event_id are required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const requestData = getRequestData(request);
+
+    const builder = new ParamBuilder([
+      "oatclub.in",
+      "localhost",
+    ]);
+
+    /*
+     * NextRequest is not a native IncomingMessage,
+     * therefore processRequest is used with extracted data.
+     */
+    const cookiesToSet = builder.processRequest(
+      requestData.host,
+      requestData.query,
+      requestData.cookies,
+      requestData.referrer,
+      requestData.forwardedIp,
+      null
+    );
+
+    const finalEventSourceUrl =
+      event_source_url ||
+      builder.getEventSourceUrl() ||
+      requestData.referrer ||
+      SITE_URL;
+
+    const metaEvent = clean({
+      event_name,
+      event_id,
+
+      event_time:
+        Number(event_time) ||
+        Math.floor(Date.now() / 1000),
+
+      action_source: "website",
+
+      event_source_url: finalEventSourceUrl,
+
+      referrer_url:
+        builder.getReferrerUrl() ||
+        requestData.referrer ||
+        undefined,
+
+      user_data: buildUserData({
+        builder,
+        userData: user_data,
+        userAgent: requestData.userAgent,
+        forwardedIp: requestData.forwardedIp,
+      }),
+
+      custom_data: clean(custom_data),
+    });
+
+    const payload = {
+      data: [metaEvent],
+
+      ...(TEST_EVENT_CODE
+        ? {
+            test_event_code: TEST_EVENT_CODE,
+          }
+        : {}),
+    };
+
+    const metaUrl =
+      `https://graph.facebook.com/${API_VERSION}/` +
+      `${PIXEL_ID}/events?access_token=` +
+      encodeURIComponent(ACCESS_TOKEN);
+
+    const metaResponse = await fetch(metaUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+
+    const metaResult = await metaResponse
+      .json()
+      .catch(() => null);
+
+    if (!metaResponse.ok) {
+      console.error("Meta CAPI rejected event:", {
+        event_name,
+        event_id,
+        metaResult,
+      });
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Meta API rejected the event",
+          meta: metaResult,
+        },
+        { status: metaResponse.status }
+      );
+    }
+
+    const response = NextResponse.json({
+      ok: true,
+      event_name,
+      event_id,
+      events_received:
+        metaResult?.events_received,
+      messages: metaResult?.messages,
+      fbtrace_id: metaResult?.fbtrace_id,
+
+      match_data: {
+        fbc: Boolean(metaEvent.user_data?.fbc),
+        fbp: Boolean(metaEvent.user_data?.fbp),
+        client_ip_address: Boolean(
+          metaEvent.user_data?.client_ip_address
+        ),
+        client_user_agent: Boolean(
+          metaEvent.user_data?.client_user_agent
+        ),
+      },
+    });
+
+    return applyBuilderCookies(
+      response,
+      cookiesToSet ||
+        builder.getCookiesToSet?.() ||
+        []
+    );
+  } catch (error) {
+    console.error("Meta CAPI route error:", error);
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error?.message ||
+          "Unable to send Meta CAPI event",
+      },
       { status: 500 }
     );
   }
