@@ -3,11 +3,7 @@
 import { create } from "zustand";
 import { trackMeta } from "@/lib/meta/track";
 
-const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
-const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
 
-let metaInitialized = false;
-let gtmInitialized = false;
 const viewedProducts = new Set();
 
 const isBrowser = typeof window !== "undefined";
@@ -40,71 +36,20 @@ const normalizeItems = (items = []) =>
 
 export const useTrackingStore = create(() => ({
   init: () => {
-    if (!isBrowser) return;
-
-    if (META_PIXEL_ID && !metaInitialized) {
-      !(function (f, b, e, v, n, t, s) {
-        if (f.fbq) return;
-        n = f.fbq = function () {
-          n.callMethod
-            ? n.callMethod.apply(n, arguments)
-            : n.queue.push(arguments);
-        };
-        if (!f._fbq) f._fbq = n;
-        n.push = n;
-        n.loaded = true;
-        n.version = "2.0";
-        n.queue = [];
-        t = b.createElement(e);
-        t.async = true;
-        t.src = v;
-        s = b.getElementsByTagName(e)[0];
-        s.parentNode.insertBefore(t, s);
-      })(
-        window,
-        document,
-        "script",
-        "https://connect.facebook.net/en_US/fbevents.js",
-      );
-
-      window.fbq("init", META_PIXEL_ID);
-      console.log("🟦 Meta Pixel initialized:", META_PIXEL_ID);
-      metaInitialized = true;
-    }
-
-    if (GTM_ID && !gtmInitialized) {
-      ensureDataLayer();
-
-      window.dataLayer.push({
-        "gtm.start": Date.now(),
-        event: "gtm.js",
-      });
-
-      const gtmScript = document.createElement("script");
-      gtmScript.async = true;
-      gtmScript.src = `https://www.googletagmanager.com/gtm.js?id=${GTM_ID}`;
-      document.head.appendChild(gtmScript);
-
-      console.log("🟩 GTM initialized:", GTM_ID);
-      gtmInitialized = true;
-    }
   },
 
-  pageView: async (url) => {
-    if (!isBrowser) return;
+  pageView: (url) => {
+  if (!isBrowser) return;
 
-    console.log("📄 PageView:", url);
+  const pagePath = url || window.location.pathname;
 
-    await trackMeta("PageView", {
-      page_path: url || window.location.pathname,
-    });
+  ensureDataLayer();
 
-    ensureDataLayer();
-    window.dataLayer.push({
-      event: "page_view",
-      page_path: url,
-    });
-  },
+  window.dataLayer.push({
+    event: "page_view",
+    page_path: pagePath,
+  });
+},
 
   viewProduct: async ({ productId, name, price, category, userData = {} }) => {
     if (!isBrowser || !productId) return;
