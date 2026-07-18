@@ -5,6 +5,16 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 
 import { trackMeta } from "@/lib/meta/track";
+import { useAuthStore } from "@/store/authStore";
+
+const splitName = (name = "") => {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+
+  return {
+    fn: parts[0] || undefined,
+    ln: parts.slice(1).join(" ") || undefined,
+  };
+};
 
 export default function MetaPixel({
   pixelId,
@@ -14,17 +24,68 @@ export default function MetaPixel({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const user = useAuthStore((state) => state.user);
+  const customer = useAuthStore((state) => state.customer);
+
   const lastTrackedUrlRef = useRef("");
 
   const cleanedPixelId = useMemo(
     () => (typeof pixelId === "string" ? pixelId.trim() : ""),
-    [pixelId]
+    [pixelId],
   );
 
   const url = useMemo(() => {
     const query = searchParams?.toString();
     return query ? `${pathname}?${query}` : pathname;
   }, [pathname, searchParams]);
+
+  const metaUserData = useMemo(() => {
+    const fullName =
+      customer?.name ||
+      user?.name ||
+      "";
+
+    const { fn, ln } = splitName(fullName);
+
+    return {
+      em:
+        customer?.email ||
+        user?.email ||
+        undefined,
+
+      ph:
+        customer?.phone ||
+        undefined,
+
+      fn,
+      ln,
+
+      ct:
+        customer?.city ||
+        undefined,
+
+      st:
+        customer?.state ||
+        undefined,
+
+      zp:
+        customer?.postcode ||
+        customer?.pincode ||
+        customer?.zip ||
+        undefined,
+
+      country:
+        customer?.countryCode ||
+        customer?.country ||
+        "IN",
+
+      external_id:
+        customer?._id ||
+        customer?.customerId ||
+        user?.uid ||
+        undefined,
+    };
+  }, [customer, user]);
 
   useEffect(() => {
     if (!trackPageView || !cleanedPixelId || !url) return;
@@ -52,14 +113,21 @@ export default function MetaPixel({
       lastTrackedUrlRef.current = url;
 
       try {
-        await trackMeta("PageView", {
-          page_path: url,
-          page_location: window.location.href,
-          page_title: document.title,
-        });
+        await trackMeta(
+          "PageView",
+          {
+            page_path: url,
+            page_location: window.location.href,
+            page_title: document.title,
+          },
+          metaUserData,
+        );
 
         if (debug) {
-          console.log("✅ Meta PageView tracked:", url);
+          console.log("✅ Meta PageView tracked:", {
+            url,
+            externalId: metaUserData.external_id,
+          });
         }
       } catch (error) {
         console.warn("Meta PageView failed:", error);
@@ -74,7 +142,13 @@ export default function MetaPixel({
         window.clearTimeout(timer);
       }
     };
-  }, [url, trackPageView, cleanedPixelId, debug]);
+  }, [
+    url,
+    trackPageView,
+    cleanedPixelId,
+    debug,
+    metaUserData,
+  ]);
 
   if (!cleanedPixelId) return null;
 

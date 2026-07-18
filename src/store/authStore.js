@@ -20,6 +20,81 @@ const buildCustomerId = (firebaseUser) => {
   const uid = String(firebaseUser?.uid || "").trim();
   return uid ? `firebase_${uid}` : "";
 };
+const cleanMetaValue = (value) => {
+  const result = String(value ?? "").trim();
+  return result || undefined;
+};
+
+const splitName = (name = "") => {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+
+  return {
+    fn: parts[0] || undefined,
+    ln: parts.slice(1).join(" ") || undefined,
+  };
+};
+
+const normalizeGender = (gender) => {
+  const value = String(gender || "")
+    .trim()
+    .toLowerCase();
+
+  if (["male", "m"].includes(value)) return "m";
+  if (["female", "f"].includes(value)) return "f";
+
+  return undefined;
+};
+
+const normalizeDob = (value) => {
+  if (!value) return undefined;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+
+  return `${year}${month}${day}`;
+};
+
+const buildMetaCustomerData = ({
+  customer,
+  firebaseUser,
+  fallbackEmail,
+  fallbackName,
+} = {}) => {
+  const name =
+    customer?.name || firebaseUser?.displayName || fallbackName || "";
+
+  const { fn, ln } = splitName(name);
+
+  return {
+    em: cleanMetaValue(customer?.email || firebaseUser?.email || fallbackEmail),
+
+    ph: cleanMetaValue(customer?.phone || firebaseUser?.phoneNumber),
+
+    fn,
+    ln,
+
+    ge: normalizeGender(customer?.gender),
+    db: normalizeDob(customer?.dateOfBirth),
+
+    ct: cleanMetaValue(customer?.city),
+    st: cleanMetaValue(customer?.state),
+
+    zp: cleanMetaValue(
+      customer?.postcode || customer?.pincode || customer?.zip,
+    ),
+
+    country: cleanMetaValue(customer?.countryCode || customer?.country || "IN"),
+
+    external_id: cleanMetaValue(
+      customer?._id || customer?.customerId || firebaseUser?.uid,
+    ),
+  };
+};
+
 // ✅ Returns true = skip event, false = fire event
 const shouldSkipAuthMetaEvent = (get, set, key, windowMs = 4000) => {
   const now = Date.now();
@@ -599,9 +674,52 @@ export const useAuthStore = create((set, get) => ({
               status: "success",
             },
             {
-              em: firebaseUser.email || undefined,
+              em: customer?.email || firebaseUser.email || undefined,
               ph: customer?.phone || firebaseUser.phoneNumber || undefined,
-              external_id: firebaseUser.uid || undefined,
+
+              fn:
+                customer?.firstName ||
+                customer?.name?.trim()?.split(/\s+/)?.[0] ||
+                firebaseUser.displayName?.trim()?.split(/\s+/)?.[0] ||
+                undefined,
+
+              ln:
+                customer?.lastName ||
+                customer?.name?.trim()?.split(/\s+/)?.slice(1).join(" ") ||
+                firebaseUser.displayName
+                  ?.trim()
+                  ?.split(/\s+/)
+                  ?.slice(1)
+                  .join(" ") ||
+                undefined,
+
+              ct: customer?.city || undefined,
+              st: customer?.state || undefined,
+
+              zp:
+                customer?.postcode ||
+                customer?.pincode ||
+                customer?.zip ||
+                undefined,
+
+              country: customer?.countryCode || customer?.country || "IN",
+
+              ge:
+                customer?.gender === "female"
+                  ? "f"
+                  : customer?.gender === "male"
+                    ? "m"
+                    : undefined,
+
+              db: customer?.dateOfBirth
+                ? String(customer.dateOfBirth).slice(0, 10).replaceAll("-", "")
+                : undefined,
+
+              external_id:
+                customer?._id ||
+                customer?.customerId ||
+                firebaseUser.uid ||
+                undefined,
             },
           );
         }
@@ -687,9 +805,52 @@ export const useAuthStore = create((set, get) => ({
               status: "success",
             },
             {
-              em: firebaseUser.email || email || undefined,
+              em: customer?.email || firebaseUser.email || undefined,
               ph: customer?.phone || firebaseUser.phoneNumber || undefined,
-              external_id: firebaseUser.uid || undefined,
+
+              fn:
+                customer?.firstName ||
+                customer?.name?.trim()?.split(/\s+/)?.[0] ||
+                firebaseUser.displayName?.trim()?.split(/\s+/)?.[0] ||
+                undefined,
+
+              ln:
+                customer?.lastName ||
+                customer?.name?.trim()?.split(/\s+/)?.slice(1).join(" ") ||
+                firebaseUser.displayName
+                  ?.trim()
+                  ?.split(/\s+/)
+                  ?.slice(1)
+                  .join(" ") ||
+                undefined,
+
+              ct: customer?.city || undefined,
+              st: customer?.state || undefined,
+
+              zp:
+                customer?.postcode ||
+                customer?.pincode ||
+                customer?.zip ||
+                undefined,
+
+              country: customer?.countryCode || customer?.country || "IN",
+
+              ge:
+                customer?.gender === "female"
+                  ? "f"
+                  : customer?.gender === "male"
+                    ? "m"
+                    : undefined,
+
+              db: customer?.dateOfBirth
+                ? String(customer.dateOfBirth).slice(0, 10).replaceAll("-", "")
+                : undefined,
+
+              external_id:
+                customer?._id ||
+                customer?.customerId ||
+                firebaseUser.uid ||
+                undefined,
             },
           );
         }
@@ -782,9 +943,52 @@ export const useAuthStore = create((set, get) => ({
               status: "success",
             },
             {
-              em: firebaseUser.email || email || undefined,
+              em: customer?.email || firebaseUser.email || undefined,
               ph: customer?.phone || firebaseUser.phoneNumber || undefined,
-              external_id: firebaseUser.uid || undefined,
+
+              fn:
+                customer?.firstName ||
+                customer?.name?.trim()?.split(/\s+/)?.[0] ||
+                firebaseUser.displayName?.trim()?.split(/\s+/)?.[0] ||
+                undefined,
+
+              ln:
+                customer?.lastName ||
+                customer?.name?.trim()?.split(/\s+/)?.slice(1).join(" ") ||
+                firebaseUser.displayName
+                  ?.trim()
+                  ?.split(/\s+/)
+                  ?.slice(1)
+                  .join(" ") ||
+                undefined,
+
+              ct: customer?.city || undefined,
+              st: customer?.state || undefined,
+
+              zp:
+                customer?.postcode ||
+                customer?.pincode ||
+                customer?.zip ||
+                undefined,
+
+              country: customer?.countryCode || customer?.country || "IN",
+
+              ge:
+                customer?.gender === "female"
+                  ? "f"
+                  : customer?.gender === "male"
+                    ? "m"
+                    : undefined,
+
+              db: customer?.dateOfBirth
+                ? String(customer.dateOfBirth).slice(0, 10).replaceAll("-", "")
+                : undefined,
+
+              external_id:
+                customer?._id ||
+                customer?.customerId ||
+                firebaseUser.uid ||
+                undefined,
             },
           );
         }
