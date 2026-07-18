@@ -36,37 +36,26 @@ export default function MetaPixel({
 
   const url = useMemo(() => {
     const query = searchParams?.toString();
+
     return query ? `${pathname}?${query}` : pathname;
   }, [pathname, searchParams]);
 
   const metaUserData = useMemo(() => {
-    const fullName =
-      customer?.name ||
-      user?.name ||
-      "";
+    const fullName = customer?.name || user?.name || "";
 
     const { fn, ln } = splitName(fullName);
 
     return {
-      em:
-        customer?.email ||
-        user?.email ||
-        undefined,
+      em: customer?.email || user?.email || undefined,
 
-      ph:
-        customer?.phone ||
-        undefined,
+      ph: customer?.phone || undefined,
 
       fn,
       ln,
 
-      ct:
-        customer?.city ||
-        undefined,
+      ct: customer?.city || undefined,
 
-      st:
-        customer?.state ||
-        undefined,
+      st: customer?.state || undefined,
 
       zp:
         customer?.postcode ||

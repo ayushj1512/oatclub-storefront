@@ -51,6 +51,51 @@ function compactObject(object = {}) {
   );
 }
 
+export function normalizeMetaValue(value) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+export function getMetaProductGroupId(product = {}) {
+  return String(
+    product?.productGroupId ||
+      product?.groupId ||
+      product?.productId ||
+      product?._id ||
+      product?.id ||
+      "",
+  ).trim();
+}
+
+export function getMetaCatalogId({
+  catalogId,
+  metaCatalogId,
+  sku,
+  variantSku,
+  productCode,
+  code,
+  size,
+  selectedSize,
+  productId,
+  id,
+} = {}) {
+  const directId = normalizeMetaValue(
+    catalogId || metaCatalogId || variantSku || sku,
+  );
+
+  if (directId) {
+    return directId;
+  }
+
+  const normalizedCode = normalizeMetaValue(productCode || code);
+  const normalizedSize = normalizeMetaValue(selectedSize || size);
+
+  if (normalizedCode && normalizedSize) {
+    return `${normalizedCode}-${normalizedSize}`;
+  }
+
+  return String(productId || id || "").trim();
+}
+
 /* =========================================================
    PARAMETER BUILDER
 ========================================================= */
@@ -179,6 +224,7 @@ export async function trackMeta(
       options.event_source_url ||
       options.eventSourceUrl ||
       (typeof window !== "undefined" ? window.location.href : undefined),
+
     custom_data: safeCustomData,
     user_data: safeUserData,
   });
