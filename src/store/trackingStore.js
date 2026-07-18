@@ -3,8 +3,11 @@
 import { create } from "zustand";
 
 import {
+  clearMetaUserData,
   getMetaCatalogId,
   getMetaProductGroupId,
+  getMetaUserData,
+  setMetaUserData,
   trackMeta,
 } from "@/lib/meta/track";
 
@@ -23,6 +26,9 @@ const toNum = (value) => {
 
   return Number.isFinite(number) ? number : 0;
 };
+
+const resolveUserData = (userData = {}) =>
+  getMetaUserData(userData);
 
 const getItemProductGroupId = (item = {}) =>
   getMetaProductGroupId({
@@ -67,7 +73,9 @@ const getItemCatalogId = (item = {}) =>
       item?.variant?.size ||
       item?.variant?.attributes?.find?.(
         (attribute) =>
-          String(attribute?.key || "").trim().toLowerCase() === "size",
+          String(attribute?.key || "")
+            .trim()
+            .toLowerCase() === "size"
       )?.value,
 
     productId:
@@ -75,7 +83,9 @@ const getItemCatalogId = (item = {}) =>
       item?.product?._id ||
       item?._id,
 
-    id: item?.id || item?.item_id,
+    id:
+      item?.id ||
+      item?.item_id,
   });
 
 const normalizeItems = (items = []) =>
@@ -85,14 +95,14 @@ const normalizeItems = (items = []) =>
 
       if (!catalogId) return null;
 
-      const productGroupId = getItemProductGroupId(item);
-
       return {
         ...item,
 
         id: catalogId,
         catalogId,
-        productGroupId,
+
+        productGroupId:
+          getItemProductGroupId(item),
 
         productCode:
           item?.productCode ||
@@ -121,345 +131,611 @@ const normalizeItems = (items = []) =>
 
         quantity: Math.max(
           1,
-          toNum(item?.quantity || item?.qty || 1),
+          toNum(
+            item?.quantity ||
+              item?.qty ||
+              1
+          )
         ),
 
         price: toNum(
           item?.price ||
-          item?.item_price ||
-          item?.salePrice ||
-          0,
+            item?.item_price ||
+            item?.salePrice ||
+            0
         ),
       };
     })
     .filter(Boolean);
 
-export const useTrackingStore = create(() => ({
-  init: () => {},
+export const useTrackingStore = create(
+  (set, get) => ({
+    userData: {},
 
-  pageView: (url) => {
-    if (!isBrowser) return;
+    init: (customer = {}) => {
+      if (!isBrowser) return;
 
-    const pagePath = url || window.location.pathname;
+      const userData = setMetaUserData(customer);
 
-    ensureDataLayer();
+      set({ userData });
+    },
 
-    window.dataLayer.push({
-      event: "page_view",
-      page_path: pagePath,
-    });
-  },
+    setCustomer: (customer = {}) => {
+      const userData = setMetaUserData({
+        email:
+          customer?.email ||
+          customer?.customerEmail,
 
-  viewProduct: async ({
-    productId,
-    productGroupId,
-    id,
-    name,
-    price,
-    category,
-    userData = {},
-  }) => {
-    if (!isBrowser) return;
+        phone:
+          customer?.phone ||
+          customer?.phoneNumber ||
+          customer?.customerPhone,
 
-    const groupId = getMetaProductGroupId({
-      productGroupId,
+        external_id:
+          customer?._id ||
+          customer?.id ||
+          customer?.uid ||
+          customer?.customerId,
+
+        first_name:
+          customer?.firstName ||
+          customer?.first_name ||
+          customer?.name?.split?.(" ")?.[0],
+
+        last_name:
+          customer?.lastName ||
+          customer?.last_name ||
+          customer?.name
+            ?.split?.(" ")
+            ?.slice?.(1)
+            ?.join?.(" "),
+
+        city:
+          customer?.city ||
+          customer?.address?.city ||
+          customer?.defaultAddress?.city,
+
+        state:
+          customer?.state ||
+          customer?.address?.state ||
+          customer?.defaultAddress?.state,
+
+        zip_code:
+          customer?.pincode ||
+          customer?.zipCode ||
+          customer?.postalCode ||
+          customer?.address?.pincode ||
+          customer?.defaultAddress?.pincode,
+
+        country:
+          customer?.country ||
+          customer?.countryCode ||
+          "in",
+      });
+
+      set({ userData });
+
+      return userData;
+    },
+
+    clearCustomer: () => {
+      clearMetaUserData();
+
+      set({ userData: {} });
+    },
+
+    pageView: (url) => {
+      if (!isBrowser) return;
+
+      const pagePath =
+        url || window.location.pathname;
+
+      ensureDataLayer();
+
+      window.dataLayer.push({
+        event: "page_view",
+        page_path: pagePath,
+      });
+    },
+
+    viewProduct: async ({
       productId,
+      productGroupId,
       id,
-    });
+      name,
+      price,
+      category,
+      userData = {},
+    }) => {
+      if (!isBrowser) return;
 
-    if (!groupId) return;
-    if (viewedProducts.has(groupId)) return;
+      const groupId = getMetaProductGroupId({
+        productGroupId,
+        productId,
+        id,
+      });
 
-    viewedProducts.add(groupId);
+      if (!groupId) return;
+      if (viewedProducts.has(groupId)) return;
 
-    const value = toNum(price);
+      viewedProducts.add(groupId);
 
-    console.log("👁️ ViewContent product group:", groupId);
+      const value = toNum(price);
 
-    await trackMeta(
-      "ViewContent",
-      {
-        content_ids: [groupId],
-        content_name: name || "",
-        content_type: "product_group",
-        content_category: category || "",
+      await trackMeta(
+        "ViewContent",
+        {
+          content_ids: [groupId],
+          content_name: name || "",
+          content_type: "product_group",
+          content_category: category || "",
 
-        contents: [
-          {
-            id: groupId,
-            quantity: 1,
-            item_price: value,
-          },
-        ],
+          contents: [
+            {
+              id: groupId,
+              quantity: 1,
+              item_price: value,
+            },
+          ],
 
-        value,
-        currency: "INR",
-      },
-      userData,
-    );
+          value,
+          currency: "INR",
+        },
+        resolveUserData({
+          ...get().userData,
+          ...userData,
+        })
+      );
 
-    ensureDataLayer();
+      ensureDataLayer();
 
-    window.dataLayer.push({
-      event: "view_item",
+      window.dataLayer.push({
+        event: "view_item",
 
-      ecommerce: {
-        items: [
-          {
-            item_id: groupId,
-            item_name: name,
-            item_category: category,
-            price: value,
-          },
-        ],
-      },
-    });
-  },
+        ecommerce: {
+          currency: "INR",
+          value,
 
-  addToCart: async ({
-    productId,
-    productCode,
-    code,
-    size,
-    selectedSize,
-    sku,
-    variantSku,
-    catalogId,
-    metaCatalogId,
-    name,
-    price,
-    quantity = 1,
-    category = "",
-    userData = {},
-  }) => {
-    if (!isBrowser) return;
+          items: [
+            {
+              item_id: groupId,
+              item_name: name || "",
+              item_category: category || "",
+              price: value,
+              quantity: 1,
+            },
+          ],
+        },
+      });
+    },
 
-    const itemCatalogId = getMetaCatalogId({
-      catalogId,
-      metaCatalogId,
-      sku,
-      variantSku,
+    addToCart: async ({
+      productId,
       productCode,
       code,
       size,
       selectedSize,
-      productId,
-    });
+      sku,
+      variantSku,
+      catalogId,
+      metaCatalogId,
+      name,
+      price,
+      quantity = 1,
+      category = "",
+      userData = {},
+    }) => {
+      if (!isBrowser) return;
 
-    if (!itemCatalogId) return;
+      const itemCatalogId =
+        getMetaCatalogId({
+          catalogId,
+          metaCatalogId,
+          sku,
+          variantSku,
+          productCode,
+          code,
+          size,
+          selectedSize,
+          productId,
+        });
 
-    const qty = Math.max(1, toNum(quantity || 1));
-    const unitPrice = toNum(price);
-    const value = unitPrice * qty;
+      if (!itemCatalogId) return;
 
-    console.log("🛒 AddToCart catalog ID:", itemCatalogId);
-
-    await trackMeta(
-      "AddToCart",
-      {
-        content_ids: [itemCatalogId],
-        content_type: "product",
-        content_name: name || "",
-        content_category: category || "",
-
-        contents: [
-          {
-            id: itemCatalogId,
-            quantity: qty,
-            item_price: unitPrice,
-          },
-        ],
-
-        value,
-        currency: "INR",
-      },
-      userData,
-    );
-
-    ensureDataLayer();
-
-    window.dataLayer.push({
-      event: "add_to_cart",
-
-      ecommerce: {
-        items: [
-          {
-            item_id: itemCatalogId,
-            item_name: name,
-            item_category: category,
-            price: unitPrice,
-            quantity: qty,
-          },
-        ],
-      },
-    });
-  },
-
-  beginCheckout: async ({
-    value,
-    items = [],
-    userData = {},
-  }) => {
-    if (!isBrowser) return;
-
-    const safeItems = normalizeItems(items);
-
-    if (!safeItems.length) {
-      console.warn(
-        "Meta InitiateCheckout skipped: no valid catalog item IDs",
+      const qty = Math.max(
+        1,
+        toNum(quantity || 1)
       );
 
-      return;
-    }
+      const unitPrice = toNum(price);
+      const value = unitPrice * qty;
 
-    const safeValue =
-      toNum(value) ||
-      safeItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0,
+      await trackMeta(
+        "AddToCart",
+        {
+          content_ids: [itemCatalogId],
+          content_type: "product",
+          content_name: name || "",
+          content_category: category || "",
+
+          contents: [
+            {
+              id: itemCatalogId,
+              quantity: qty,
+              item_price: unitPrice,
+            },
+          ],
+
+          value,
+          currency: "INR",
+        },
+        resolveUserData({
+          ...get().userData,
+          ...userData,
+        })
       );
 
-    console.log(
-      "🚚 InitiateCheckout catalog IDs:",
-      safeItems.map((item) => item.id),
-    );
+      ensureDataLayer();
 
-    await trackMeta(
-      "InitiateCheckout",
-      {
-        value: safeValue,
-        currency: "INR",
-        content_type: "product",
+      window.dataLayer.push({
+        event: "add_to_cart",
 
-        content_ids: safeItems.map((item) => item.id),
+        ecommerce: {
+          currency: "INR",
+          value,
 
-        contents: safeItems.map((item) => ({
-          id: item.id,
-          quantity: item.quantity,
-          item_price: item.price,
-        })),
+          items: [
+            {
+              item_id: itemCatalogId,
+              item_name: name || "",
+              item_category: category || "",
+              price: unitPrice,
+              quantity: qty,
+            },
+          ],
+        },
+      });
+    },
 
-        num_items: safeItems.reduce(
-          (sum, item) => sum + item.quantity,
-          0,
-        ),
-      },
-      userData,
-    );
+    beginCheckout: async ({
+      value,
+      items = [],
+      email,
+      phone,
+      customerId,
+      firstName,
+      lastName,
+      address = {},
+      userData = {},
+    }) => {
+      if (!isBrowser) return;
 
-    ensureDataLayer();
+      const safeItems = normalizeItems(items);
 
-    window.dataLayer.push({
-      event: "begin_checkout",
-      value: safeValue,
-      currency: "INR",
+      if (!safeItems.length) {
+        console.warn(
+          "Meta InitiateCheckout skipped: no valid catalog item IDs"
+        );
 
-      ecommerce: {
-        items: safeItems.map((item) => ({
-          item_id: item.id,
-          item_name: item.name,
-          item_category: item.category,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-      },
-    });
-  },
+        return;
+      }
 
-  purchase: async ({
-    orderId,
-    value,
-    items = [],
-    userData = {},
-  }) => {
-    if (!isBrowser) return;
+      const checkoutUserData =
+        setMetaUserData({
+          ...get().userData,
+          ...userData,
 
-    const safeItems = normalizeItems(items);
+          email:
+            email ||
+            userData?.email,
 
-    if (!safeItems.length) {
-      console.warn(
-        "Meta Purchase skipped: no valid catalog item IDs",
+          phone:
+            phone ||
+            userData?.phone,
+
+          external_id:
+            customerId ||
+            userData?.external_id ||
+            userData?.externalId,
+
+          first_name:
+            firstName ||
+            userData?.first_name ||
+            userData?.firstName,
+
+          last_name:
+            lastName ||
+            userData?.last_name ||
+            userData?.lastName,
+
+          city:
+            address?.city ||
+            userData?.city,
+
+          state:
+            address?.state ||
+            userData?.state,
+
+          zip_code:
+            address?.pincode ||
+            address?.zipCode ||
+            address?.postalCode ||
+            userData?.zip_code,
+
+          country:
+            address?.country ||
+            address?.countryCode ||
+            userData?.country ||
+            "in",
+        });
+
+      set({
+        userData: checkoutUserData,
+      });
+
+      const safeValue =
+        toNum(value) ||
+        safeItems.reduce(
+          (sum, item) =>
+            sum +
+            item.price * item.quantity,
+          0
+        );
+
+      await trackMeta(
+        "InitiateCheckout",
+        {
+          value: safeValue,
+          currency: "INR",
+          content_type: "product",
+
+          content_ids: safeItems.map(
+            (item) => item.id
+          ),
+
+          contents: safeItems.map(
+            (item) => ({
+              id: item.id,
+              quantity: item.quantity,
+              item_price: item.price,
+            })
+          ),
+
+          num_items: safeItems.reduce(
+            (sum, item) =>
+              sum + item.quantity,
+            0
+          ),
+        },
+        checkoutUserData
       );
 
-      return;
-    }
+      ensureDataLayer();
 
-    const safeValue =
-      toNum(value) ||
-      safeItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0,
+      window.dataLayer.push({
+        event: "begin_checkout",
+
+        ecommerce: {
+          value: safeValue,
+          currency: "INR",
+
+          items: safeItems.map(
+            (item) => ({
+              item_id: item.id,
+              item_name: item.name,
+              item_category: item.category,
+              price: item.price,
+              quantity: item.quantity,
+            })
+          ),
+        },
+      });
+    },
+
+    addPaymentInfo: async ({
+      value,
+      items = [],
+      paymentType = "",
+      userData = {},
+    }) => {
+      if (!isBrowser) return;
+
+      const safeItems = normalizeItems(items);
+
+      if (!safeItems.length) return;
+
+      const safeValue =
+        toNum(value) ||
+        safeItems.reduce(
+          (sum, item) =>
+            sum +
+            item.price * item.quantity,
+          0
+        );
+
+      await trackMeta(
+        "AddPaymentInfo",
+        {
+          value: safeValue,
+          currency: "INR",
+          payment_type: paymentType,
+          content_type: "product",
+
+          content_ids: safeItems.map(
+            (item) => item.id
+          ),
+
+          contents: safeItems.map(
+            (item) => ({
+              id: item.id,
+              quantity: item.quantity,
+              item_price: item.price,
+            })
+          ),
+        },
+        resolveUserData({
+          ...get().userData,
+          ...userData,
+        })
+      );
+    },
+
+    purchase: async ({
+      orderId,
+      value,
+      items = [],
+      email,
+      phone,
+      customerId,
+      firstName,
+      lastName,
+      address = {},
+      userData = {},
+    }) => {
+      if (!isBrowser) return;
+
+      const safeItems = normalizeItems(items);
+
+      if (!safeItems.length) {
+        console.warn(
+          "Meta Purchase skipped: no valid catalog item IDs"
+        );
+
+        return;
+      }
+
+      const safeOrderId = String(
+        orderId || ""
+      ).trim();
+
+      if (!safeOrderId) {
+        console.warn(
+          "Meta Purchase skipped: missing order ID"
+        );
+
+        return;
+      }
+
+      const purchaseUserData =
+        setMetaUserData({
+          ...get().userData,
+          ...userData,
+
+          email:
+            email ||
+            userData?.email,
+
+          phone:
+            phone ||
+            userData?.phone,
+
+          external_id:
+            customerId ||
+            userData?.external_id ||
+            userData?.externalId ||
+            safeOrderId,
+
+          first_name:
+            firstName ||
+            userData?.first_name ||
+            userData?.firstName,
+
+          last_name:
+            lastName ||
+            userData?.last_name ||
+            userData?.lastName,
+
+          city:
+            address?.city ||
+            userData?.city,
+
+          state:
+            address?.state ||
+            userData?.state,
+
+          zip_code:
+            address?.pincode ||
+            address?.zipCode ||
+            address?.postalCode ||
+            userData?.zip_code,
+
+          country:
+            address?.country ||
+            address?.countryCode ||
+            userData?.country ||
+            "in",
+        });
+
+      set({
+        userData: purchaseUserData,
+      });
+
+      const safeValue =
+        toNum(value) ||
+        safeItems.reduce(
+          (sum, item) =>
+            sum +
+            item.price * item.quantity,
+          0
+        );
+
+      await trackMeta(
+        "Purchase",
+        {
+          value: safeValue,
+          currency: "INR",
+          order_id: safeOrderId,
+          content_type: "product",
+
+          content_ids: safeItems.map(
+            (item) => item.id
+          ),
+
+          contents: safeItems.map(
+            (item) => ({
+              id: item.id,
+              quantity: item.quantity,
+              item_price: item.price,
+            })
+          ),
+
+          num_items: safeItems.reduce(
+            (sum, item) =>
+              sum + item.quantity,
+            0
+          ),
+        },
+        purchaseUserData,
+        {
+          event_id: `purchase_${safeOrderId}`,
+        }
       );
 
-    const safeOrderId = String(orderId || "").trim();
+      ensureDataLayer();
 
-    console.log("💰 Purchase:", {
-      orderId: safeOrderId,
-      value: safeValue,
-      catalogIds: safeItems.map((item) => item.id),
-    });
+      window.dataLayer.push({
+        event: "purchase",
 
-    await trackMeta(
-      "Purchase",
-      {
-        value: safeValue,
-        currency: "INR",
-        order_id: safeOrderId,
-        content_type: "product",
+        ecommerce: {
+          transaction_id: safeOrderId,
+          value: safeValue,
+          currency: "INR",
 
-        content_ids: safeItems.map((item) => item.id),
+          items: safeItems.map(
+            (item) => ({
+              item_id: item.id,
+              item_name: item.name,
+              item_category: item.category,
+              price: item.price,
+              quantity: item.quantity,
+            })
+          ),
+        },
+      });
+    },
 
-        contents: safeItems.map((item) => ({
-          id: item.id,
-          quantity: item.quantity,
-          item_price: item.price,
-        })),
-
-        num_items: safeItems.reduce(
-          (sum, item) => sum + item.quantity,
-          0,
-        ),
-      },
-      {
-        ...userData,
-
-        external_id:
-          userData.external_id ||
-          userData.externalId ||
-          safeOrderId,
-      },
-      {
-        event_id: `purchase_${safeOrderId}`,
-      },
-    );
-
-    ensureDataLayer();
-
-    window.dataLayer.push({
-      event: "purchase",
-      transaction_id: safeOrderId,
-      value: safeValue,
-      currency: "INR",
-
-      ecommerce: {
-        transaction_id: safeOrderId,
-        value: safeValue,
-        currency: "INR",
-
-        items: safeItems.map((item) => ({
-          item_id: item.id,
-          item_name: item.name,
-          item_category: item.category,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-      },
-    });
-  },
-
-  resetSession: () => {
-    viewedProducts.clear();
-
-    console.log("♻️ Tracking session reset");
-  },
-}));
+    resetSession: () => {
+      viewedProducts.clear();
+    },
+  })
+);
