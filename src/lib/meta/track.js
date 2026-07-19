@@ -34,11 +34,8 @@ function generateEventId() {
 function compactObject(object = {}) {
   return Object.fromEntries(
     Object.entries(object).filter(
-      ([, value]) =>
-        value !== undefined &&
-        value !== null &&
-        value !== ""
-    )
+      ([, value]) => value !== undefined && value !== null && value !== "",
+    ),
   );
 }
 
@@ -51,9 +48,7 @@ function getCookie(name) {
 
   if (!cookie) return undefined;
 
-  return decodeURIComponent(
-    cookie.split("=").slice(1).join("=")
-  );
+  return decodeURIComponent(cookie.split("=").slice(1).join("="));
 }
 
 function getStoredIdentity() {
@@ -80,8 +75,8 @@ function saveStoredIdentity(identity = {}) {
         compactObject({
           ...current,
           ...identity,
-        })
-      )
+        }),
+      ),
     );
   } catch {
     // Storage may be unavailable in privacy mode.
@@ -131,10 +126,7 @@ export function normalizeMetaExternalId(value) {
 }
 
 export function normalizeMetaUserData(userData = {}) {
-  const email =
-    userData.email ||
-    userData.em ||
-    userData.customerEmail;
+  const email = userData.email || userData.em || userData.customerEmail;
 
   const phone =
     userData.phone ||
@@ -158,36 +150,22 @@ export function normalizeMetaUserData(userData = {}) {
     external_id: normalizeMetaExternalId(externalId),
 
     first_name: String(
-      userData.first_name ||
-        userData.firstName ||
-        userData.fn ||
-        ""
+      userData.first_name || userData.firstName || userData.fn || "",
     )
       .trim()
       .toLowerCase(),
 
     last_name: String(
-      userData.last_name ||
-        userData.lastName ||
-        userData.ln ||
-        ""
+      userData.last_name || userData.lastName || userData.ln || "",
     )
       .trim()
       .toLowerCase(),
 
-    city: String(
-      userData.city ||
-        userData.ct ||
-        ""
-    )
+    city: String(userData.city || userData.ct || "")
       .trim()
       .toLowerCase(),
 
-    state: String(
-      userData.state ||
-        userData.st ||
-        ""
-    )
+    state: String(userData.state || userData.st || "")
       .trim()
       .toLowerCase(),
 
@@ -196,16 +174,13 @@ export function normalizeMetaUserData(userData = {}) {
         userData.zipCode ||
         userData.postalCode ||
         userData.zp ||
-        ""
+        "",
     )
       .trim()
       .toLowerCase(),
 
     country: String(
-      userData.country ||
-        userData.countryCode ||
-        userData.country_code ||
-        "in"
+      userData.country || userData.countryCode || userData.country_code || "in",
     )
       .trim()
       .toLowerCase(),
@@ -264,7 +239,7 @@ export function getMetaProductGroupId(product = {}) {
       product?.productId ||
       product?._id ||
       product?.id ||
-      ""
+      "",
   ).trim();
 }
 
@@ -281,21 +256,14 @@ export function getMetaCatalogId({
   id,
 } = {}) {
   const directId = normalizeMetaValue(
-    catalogId ||
-      metaCatalogId ||
-      variantSku ||
-      sku
+    catalogId || metaCatalogId || variantSku || sku,
   );
 
   if (directId) return directId;
 
-  const normalizedCode = normalizeMetaValue(
-    productCode || code
-  );
+  const normalizedCode = normalizeMetaValue(productCode || code);
 
-  const normalizedSize = normalizeMetaValue(
-    selectedSize || size
-  );
+  const normalizedSize = normalizeMetaValue(selectedSize || size);
 
   if (normalizedCode && normalizedSize) {
     return `${normalizedCode}-${normalizedSize}`;
@@ -312,22 +280,12 @@ async function getParameterBuilder() {
   if (typeof window === "undefined") return null;
 
   if (!builderPromise) {
-    builderPromise = import(
-      "meta-capi-param-builder-clientjs"
-    )
-      .then(
-        (module) =>
-          module?.default ||
-          module?.clientParamBuilder ||
-          module
-      )
+    builderPromise = import("meta-capi-param-builder-clientjs")
+      .then((module) => module?.default || module?.clientParamBuilder || module)
       .catch((error) => {
         builderPromise = null;
 
-        console.warn(
-          "Meta Parameter Builder failed to load:",
-          error
-        );
+        console.warn("Meta Parameter Builder failed to load:", error);
 
         return null;
       });
@@ -349,30 +307,18 @@ export async function initializeMetaParameters() {
       const builder = await getParameterBuilder();
 
       try {
-        if (
-          typeof builder?.processAndCollectAllParams ===
-          "function"
-        ) {
-          await builder.processAndCollectAllParams(
-            window.location.href
-          );
+        if (typeof builder?.processAndCollectAllParams === "function") {
+          await builder.processAndCollectAllParams(window.location.href);
         }
       } catch (error) {
-        console.warn(
-          "Meta parameter capture failed:",
-          error
-        );
+        console.warn("Meta parameter capture failed:", error);
       }
 
       const fbc =
-        typeof builder?.getFbc === "function"
-          ? builder.getFbc()
-          : undefined;
+        typeof builder?.getFbc === "function" ? builder.getFbc() : undefined;
 
       const fbp =
-        typeof builder?.getFbp === "function"
-          ? builder.getFbp()
-          : undefined;
+        typeof builder?.getFbp === "function" ? builder.getFbp() : undefined;
 
       const browserData = compactObject({
         fbc: fbc || getCookie("_fbc"),
@@ -385,10 +331,7 @@ export async function initializeMetaParameters() {
     })().catch((error) => {
       parameterCapturePromise = null;
 
-      console.warn(
-        "Meta parameter initialization failed:",
-        error
-      );
+      console.warn("Meta parameter initialization failed:", error);
 
       const browserData = compactObject({
         fbc: getCookie("_fbc"),
@@ -421,83 +364,90 @@ export async function trackMeta(
   eventName,
   customData = {},
   userData = {},
-  options = {}
+  options = {},
 ) {
-  if (!eventName) return null;
+  if (!eventName) {
+    return {
+      success: false,
+      pixelSent: false,
+      capiSent: false,
+      eventId: null,
+      error: "event_name is required",
+    };
+  }
 
-  const eventId =
-    options.event_id ||
-    options.eventId ||
-    generateEventId();
+  const eventId = options.event_id || options.eventId || generateEventId();
 
   const safeCustomData = compactObject(customData);
 
-  /* =======================================================
-     1. META PIXEL
-  ======================================================= */
-
-  if (
-    typeof window !== "undefined" &&
-    typeof window.fbq === "function"
-  ) {
-    const method = META_STANDARD_EVENTS.has(eventName)
-      ? "track"
-      : "trackCustom";
-
-    window.fbq(
-      method,
-      eventName,
-      safeCustomData,
-      {
-        eventID: eventId,
-      }
-    );
-  }
+  let pixelSent = false;
+  let capiSent = false;
+  let capiError = null;
 
   /* =======================================================
-     2. CUSTOMER + BROWSER DATA
-  ======================================================= */
-
-  const browserData = await getMetaBrowserData();
-
-  const storedUserData = getMetaUserData(userData);
-
-  const safeUserData = compactObject({
-    ...storedUserData,
-
-    fbc:
-      userData?.fbc ||
-      storedUserData?.fbc ||
-      browserData?.fbc,
-
-    fbp:
-      userData?.fbp ||
-      storedUserData?.fbp ||
-      browserData?.fbp,
-  });
-
-  saveStoredIdentity(safeUserData);
-
-  const payload = compactObject({
-    event_name: eventName,
-    event_id: eventId,
-
-    event_source_url:
-      options.event_source_url ||
-      options.eventSourceUrl ||
-      (typeof window !== "undefined"
-        ? window.location.href
-        : undefined),
-
-    custom_data: safeCustomData,
-    user_data: safeUserData,
-  });
-
-  /* =======================================================
-     3. CONVERSIONS API
+     1. PIXEL — FIRE IMMEDIATELY WHEN AVAILABLE
   ======================================================= */
 
   try {
+    if (typeof window !== "undefined" && typeof window.fbq === "function") {
+      const method = META_STANDARD_EVENTS.has(eventName)
+        ? "track"
+        : "trackCustom";
+
+      window.fbq(method, eventName, safeCustomData, {
+        eventID: eventId,
+      });
+
+      pixelSent = true;
+    }
+  } catch (error) {
+    console.warn("Meta Pixel event failed:", {
+      eventName,
+      eventId,
+      error,
+    });
+  }
+
+  /* =======================================================
+     2. CAPI PAYLOAD
+  ======================================================= */
+
+  try {
+    const storedUserData = getMetaUserData(userData);
+
+    /*
+     * Do not block CAPI while Parameter Builder loads.
+     * Cookies are collected immediately, while the builder
+     * can enrich future events in the background.
+     */
+    const immediateBrowserData = compactObject({
+      fbc: getCookie("_fbc"),
+      fbp: getCookie("_fbp"),
+    });
+
+    const safeUserData = compactObject({
+      ...storedUserData,
+
+      fbc: userData?.fbc || storedUserData?.fbc || immediateBrowserData?.fbc,
+
+      fbp: userData?.fbp || storedUserData?.fbp || immediateBrowserData?.fbp,
+    });
+
+    saveStoredIdentity(safeUserData);
+
+    const payload = compactObject({
+      event_name: eventName,
+      event_id: eventId,
+
+      event_source_url:
+        options.event_source_url ||
+        options.eventSourceUrl ||
+        (typeof window !== "undefined" ? window.location.href : undefined),
+
+      custom_data: safeCustomData,
+      user_data: safeUserData,
+    });
+
     const response = await fetch("/api/meta/capi", {
       method: "POST",
 
@@ -508,41 +458,72 @@ export async function trackMeta(
       body: JSON.stringify(payload),
 
       keepalive: true,
+      cache: "no-store",
     });
 
-    const result = await response
-      .json()
-      .catch(() => null);
+    const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      console.warn("Meta CAPI event failed:", {
+      const error = new Error(
+        result?.message ||
+          result?.error?.message ||
+          `Meta CAPI failed with status ${response.status}`,
+      );
+
+      error.status = response.status;
+      error.result = result;
+
+      throw error;
+    }
+
+    capiSent = true;
+
+    /*
+     * Enrich stored fbc/fbp asynchronously without delaying
+     * the current server event.
+     */
+    initializeMetaParameters().catch(() => null);
+
+    if (process.env.NODE_ENV === "development" || options.debug) {
+      console.log("✅ Meta event sent:", {
         eventName,
         eventId,
-        status: response.status,
-        result,
-      });
-    } else if (
-      process.env.NODE_ENV === "development"
-    ) {
-      console.log("✅ Meta CAPI event sent:", {
-        eventName,
-        eventId,
+        pixelSent,
+        capiSent,
         email: Boolean(safeUserData.email),
         phone: Boolean(safeUserData.phone),
-        externalId: Boolean(
-          safeUserData.external_id
-        ),
+        externalId: Boolean(safeUserData.external_id),
         fbc: Boolean(safeUserData.fbc),
         fbp: Boolean(safeUserData.fbp),
       });
     }
   } catch (error) {
+    capiError = error;
+
     console.warn("Meta CAPI request failed:", {
       eventName,
       eventId,
+      status: error?.status,
+      result: error?.result,
       error,
     });
   }
 
-  return eventId;
+  const response = {
+    success: capiSent,
+    eventId,
+    pixelSent,
+    capiSent,
+    error: capiError,
+  };
+
+  if (!capiSent && options.throwOnCapiFailure) {
+    const error = capiError || new Error("Meta Conversions API event failed.");
+
+    error.metaResult = response;
+
+    throw error;
+  }
+
+  return response;
 }

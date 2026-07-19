@@ -16,6 +16,9 @@ const splitName = (name = "") => {
   };
 };
 
+const sleep = (ms) =>
+  new Promise((resolve) => window.setTimeout(resolve, ms));
+
 export default function MetaPixel({
   pixelId,
   trackPageView = true,
@@ -28,9 +31,10 @@ export default function MetaPixel({
   const customer = useAuthStore((state) => state.customer);
 
   const lastTrackedUrlRef = useRef("");
+  const processingUrlRef = useRef("");
 
   const cleanedPixelId = useMemo(
-    () => (typeof pixelId === "string" ? pixelId.trim() : ""),
+    () => String(pixelId || "").trim(),
     [pixelId],
   );
 
@@ -42,35 +46,42 @@ export default function MetaPixel({
 
   const metaUserData = useMemo(() => {
     const fullName = customer?.name || user?.name || "";
-
     const { fn, ln } = splitName(fullName);
 
     return {
       em: customer?.email || user?.email || undefined,
-
-      ph: customer?.phone || undefined,
+      ph: customer?.phone || user?.phone || undefined,
 
       fn,
       ln,
 
-      ct: customer?.city || undefined,
+      ct:
+        customer?.city ||
+        customer?.address?.city ||
+        undefined,
 
-      st: customer?.state || undefined,
+      st:
+        customer?.state ||
+        customer?.address?.state ||
+        undefined,
 
       zp:
         customer?.postcode ||
         customer?.pincode ||
         customer?.zip ||
+        customer?.address?.pincode ||
         undefined,
 
       country:
         customer?.countryCode ||
         customer?.country ||
+        customer?.address?.countryCode ||
         "IN",
 
       external_id:
         customer?._id ||
         customer?.customerId ||
+        user?._id ||
         user?.uid ||
         undefined,
     };
@@ -79,30 +90,17 @@ export default function MetaPixel({
   useEffect(() => {
     if (!trackPageView || !cleanedPixelId || !url) return;
     if (lastTrackedUrlRef.current === url) return;
+    if (processingUrlRef.current === url) return;
 
-    let attempts = 0;
-    let timer;
+    let cancelled = false;
 
     const sendPageView = async () => {
-      attempts += 1;
+      processingUrlRef.current = url;
 
-      if (
-        typeof window === "undefined" ||
-        typeof window.fbq !== "function"
-      ) {
-        if (attempts < 20) {
-          timer = window.setTimeout(sendPageView, 150);
-        }
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        if (cancelled) return;
 
-        return;
-      }
-
-      if (lastTrackedUrlRef.current === url) return;
-
-      lastTrackedUrlRef.current = url;
-
-      try {
-        await trackMeta(
+        const result = await trackMeta(
           "PageView",
           {
             page_path: url,
@@ -110,25 +108,57 @@ export default function MetaPixel({
             page_title: document.title,
           },
           metaUserData,
-        );
+          {
+            throwOnCapiFailure: true,
+          },
+        ).catch((error) => ({
+          success: false,
+          error,
+        }));
+
+        if (result?.success) {
+          lastTrackedUrlRef.current = url;
+          processingUrlRef.current = "";
+
+          if (debug) {
+            console.log("✅ Meta PageView tracked:", {
+              url,
+              eventId: result.eventId,
+              pixelSent: result.pixelSent,
+              capiSent: result.capiSent,
+              externalId: metaUserData.external_id,
+            });
+          }
+
+          return;
+        }
 
         if (debug) {
-          console.log("✅ Meta PageView tracked:", {
+          console.warn(`Meta PageView attempt ${attempt} failed:`, {
             url,
-            externalId: metaUserData.external_id,
+            result,
           });
         }
-      } catch (error) {
-        console.warn("Meta PageView failed:", error);
-        lastTrackedUrlRef.current = "";
+
+        if (attempt < 3) {
+          await sleep(attempt * 500);
+        }
       }
+
+      processingUrlRef.current = "";
+
+      console.warn("Meta PageView failed after retries:", {
+        url,
+      });
     };
 
     sendPageView();
 
     return () => {
-      if (timer) {
-        window.clearTimeout(timer);
+      cancelled = true;
+
+      if (processingUrlRef.current === url) {
+        processingUrlRef.current = "";
       }
     };
   }, [
@@ -180,6 +210,7 @@ export default function MetaPixel({
             if (!window.__META_PIXEL_LOADED__) {
               window.__META_PIXEL_LOADED__ = true;
               window.__META_PIXEL_ID__ = '${cleanedPixelId}';
+
               fbq('init', '${cleanedPixelId}');
             }
           `,
