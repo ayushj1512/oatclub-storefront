@@ -18,6 +18,7 @@ const logo =
 const quickLinks = [
   ["Home", "/"],
   ["Shop", "/all-clothing"],
+  ["Affiliate Program", "/affiliate"],
   ["About", "/about"],
   ["Contact", "/contact"],
 ];
@@ -81,9 +82,8 @@ function MobileGroup({ title, children }) {
       >
         {title}
         <ChevronDown
-          className={`h-4 w-4 text-white/50 transition ${
-            open ? "rotate-180" : ""
-          }`}
+          className={`h-4 w-4 text-white/50 transition ${open ? "rotate-180" : ""
+            }`}
         />
       </button>
 
