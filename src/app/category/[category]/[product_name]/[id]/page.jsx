@@ -13,6 +13,7 @@ import { useProductStore } from "@/store/productStore";
 import { notify } from "@/lib/notify";
 import SizeGuideModal from "../../../../../components/productDetail/SizeGuideModal";
 import ProductGallery from "@/components/productDetail/ProductGallery";
+import ProductSpotlight from "@/components/productDetail/ProductSpotlight";
 import RelatedProducts from "@/components/productDetail/relatedProducts";
 import WashcareSection from "@/components/productDetail/WashcareSection";
 import ProductDetailSection from "@/components/productDetail/ProductDetailSection";
@@ -487,7 +488,12 @@ export default function ProductPage({ params }) {
           onSale:
             Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
           images,
-          description: p.raw?.description || p.description || "",
+productSpotlight: Array.isArray(p?.raw?.productSpotlight)
+  ? p.raw.productSpotlight
+  : Array.isArray(p?.productSpotlight)
+    ? p.productSpotlight
+    : [],
+description: p.raw?.description || p.description || "",
           shortDescription: p.raw?.shortDescription || "",
           sizes,
           colors,
@@ -1110,6 +1116,14 @@ export default function ProductPage({ params }) {
             </div>
           </aside>
         </div>
+
+        <ProductSpotlight
+  media={
+    product?.productSpotlight ||
+    product?.raw?.productSpotlight ||
+    []
+  }
+/>
 
         <SizeGuideModal
           open={sizeGuideOpen}
