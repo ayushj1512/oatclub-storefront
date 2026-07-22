@@ -112,19 +112,23 @@ const initialAuthState = {
   user: null,
   customer: null,
   token: null,
+  authProvider: null,
+
   loading: true,
   isAuthenticated: false,
+
   activeCartId: null,
   activeCartType: "cart",
+
   modalDismissed: false,
-  _lastSyncedUid: null,
   showLogoutConfirm: false,
+
+  _lastSyncedUid: null,
   _authUnsubscribe: null,
   _lastAuthEvent: null,
   _lastAuthEventAt: 0,
   _guestCreatePromise: null,
 };
-
 /* =====================================================================
    ⚡ UNIFIED AUTH STORE – + REALTIME PROFILE UPDATE
 ===================================================================== */
@@ -134,6 +138,8 @@ export const useAuthStore = create((set, get) => ({
   user: null, // Firebase user
   customer: null, // MongoDB customer
   token: null,
+  authProvider: null,
+
   loading: true,
   isAuthenticated: false,
   activeCartId: null,
@@ -148,29 +154,34 @@ export const useAuthStore = create((set, get) => ({
   --------------------------------------------- */
   setCustomerState: (customer) => {
     const activeCartId = customer?.cart?.activeCartId || null;
+
     const activeCartType = customer?.cart?.activeCartType || "cart";
+
+    const { user, token, authProvider, isAuthenticated } = get();
 
     set({
       customer,
       activeCartId,
       activeCartType,
-      isAuthenticated: true,
+      isAuthenticated: isAuthenticated || Boolean(token),
     });
 
-    const { user, token } = get();
-
-    // ✅ Persist cookie for BOTH logged-in + guest
     Cookies.set(
       COOKIE_KEY,
       JSON.stringify({
         user: user || null,
         customer,
         token: token || null,
+        authProvider: authProvider || null,
         activeCartId,
         activeCartType,
-        isGuest: !user,
+        isGuest: !user && !isAuthenticated,
       }),
-      { expires: 7 },
+      {
+        expires: 7,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
     );
   },
 
@@ -197,7 +208,7 @@ export const useAuthStore = create((set, get) => ({
       activeCartType: type,
     });
 
-    const { user, token } = get();
+    const { user, token, authProvider, isAuthenticated } = get();
 
     Cookies.set(
       COOKIE_KEY,
@@ -205,10 +216,16 @@ export const useAuthStore = create((set, get) => ({
         user,
         customer: updatedCustomer,
         token,
+        authProvider: authProvider || null,
         activeCartId: cartId,
         activeCartType: type,
+        isGuest: !user && !isAuthenticated,
       }),
-      { expires: 7 },
+      {
+        expires: 7,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
     );
   },
 
@@ -442,28 +459,61 @@ export const useAuthStore = create((set, get) => ({
      ✅ 1) Restore session from cookie (Guest + Auth)
   ====================================================== */
     const cached = Cookies.get(COOKIE_KEY);
+
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
 
         if (parsed?.customer?._id) {
+          const isBackendOtpSession =
+            parsed?.authProvider === "email_otp" && Boolean(parsed?.token);
+
+          const isFirebaseSession =
+            parsed?.authProvider === "google" ||
+            Boolean(
+              parsed?.user?.uid &&
+              !String(parsed.user.uid).startsWith("customer_"),
+            );
+
+          const isGuestSession = parsed?.isGuest === true;
+
           set({
             user: parsed.user || null,
             customer: parsed.customer,
             token: parsed.token || null,
+
+            authProvider:
+              parsed.authProvider ||
+              (isFirebaseSession
+                ? "google"
+                : isBackendOtpSession
+                  ? "email_otp"
+                  : null),
+
             activeCartId: parsed.activeCartId || null,
+
             activeCartType: parsed.activeCartType || "cart",
-            isAuthenticated: true,
+
+            isAuthenticated: isBackendOtpSession || isFirebaseSession,
+
             loading: false,
 
-            // ✅ avoid immediate re-sync
-            _lastSyncedUid: parsed?.user?.uid || null,
+            _lastSyncedUid: isFirebaseSession
+              ? parsed?.user?.uid || null
+              : null,
           });
 
-          console.log("✅ Restored auth session from cookie");
+          console.log(
+            isBackendOtpSession
+              ? "✅ Restored email OTP session"
+              : isGuestSession
+                ? "✅ Restored guest session"
+                : "✅ Restored Firebase session",
+          );
         }
-      } catch (e) {
+      } catch (error) {
         console.warn("⚠️ Invalid auth cookie");
+        Cookies.remove(COOKIE_KEY);
       }
     }
 
@@ -473,25 +523,54 @@ export const useAuthStore = create((set, get) => ({
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       // ✅ If no firebaseUser
       if (!firebaseUser) {
-        // ✅ If guest exists, DON'T wipe it
         const cookie = Cookies.get(COOKIE_KEY);
+
         if (cookie) {
           try {
             const parsed = JSON.parse(cookie);
-            if (parsed?.isGuest && parsed?.customer?._id) {
-              set({ loading: false });
+
+            const isBackendOtpSession =
+              parsed?.authProvider === "email_otp" &&
+              Boolean(parsed?.token) &&
+              Boolean(parsed?.customer?._id);
+
+            const isGuestSession =
+              parsed?.isGuest === true && Boolean(parsed?.customer?._id);
+
+            if (isBackendOtpSession || isGuestSession) {
+              set({
+                user: parsed.user || null,
+                customer: parsed.customer,
+                token: parsed.token || null,
+
+                authProvider: isBackendOtpSession ? "email_otp" : null,
+
+                activeCartId: parsed.activeCartId || null,
+
+                activeCartType: parsed.activeCartType || "cart",
+
+                isAuthenticated: isBackendOtpSession,
+
+                loading: false,
+                _lastSyncedUid: null,
+              });
+
               return;
             }
-          } catch {}
+          } catch {
+            Cookies.remove(COOKIE_KEY);
+          }
         }
 
-        // ✅ Normal logout cleanup
         set({
           user: null,
           customer: null,
           token: null,
+          authProvider: null,
+
           activeCartId: null,
           activeCartType: "cart",
+
           isAuthenticated: false,
           loading: false,
           _lastSyncedUid: null,
@@ -534,6 +613,7 @@ export const useAuthStore = create((set, get) => ({
         name: firebaseUser.displayName || "",
         email: firebaseUser.email || "",
         photoURL: firebaseUser.photoURL || "",
+        authProvider: "google",
       };
 
       /* ======================================================
@@ -577,6 +657,7 @@ export const useAuthStore = create((set, get) => ({
         user: userData,
         customer,
         token,
+        authProvider: "google",
         activeCartId,
         activeCartType,
         isAuthenticated: true,
@@ -589,11 +670,16 @@ export const useAuthStore = create((set, get) => ({
           user: userData,
           customer,
           token,
+          authProvider: "google",
           activeCartId,
           activeCartType,
           isGuest: false,
         }),
-        { expires: 7 },
+        {
+          expires: 7,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        },
       );
     });
 
@@ -602,66 +688,171 @@ export const useAuthStore = create((set, get) => ({
   },
 
   /* ---------------------------------------------
-     GOOGLE LOGIN
-/* ---------------------------------------------
-   GOOGLE LOGIN
+   BACKEND EMAIL OTP LOGIN
 --------------------------------------------- */
+  loginWithBackendOtp: ({ token, customer, purpose = "login" }) => {
+    if (!token) {
+      throw new Error("Authentication token is missing");
+    }
+
+    if (!customer?._id) {
+      throw new Error("Customer data is missing");
+    }
+
+    const userData = {
+      uid: `customer_${customer._id}`,
+      name:
+        customer?.name || customer?.email?.split("@")?.[0] || "OATCLUB Member",
+      email: customer?.email || "",
+      photoURL: customer?.profileImage || "/profile/user-avatar.jpg",
+      authProvider: "email_otp",
+    };
+
+    const activeCartId = customer?.cart?.activeCartId || null;
+
+    const activeCartType = customer?.cart?.activeCartType || "cart";
+
+    set({
+      user: userData,
+      customer,
+      token,
+      authProvider: "email_otp",
+
+      activeCartId,
+      activeCartType,
+
+      isAuthenticated: true,
+      loading: false,
+
+      // OTP login is not a Firebase session
+      _lastSyncedUid: null,
+    });
+
+    Cookies.set(
+      COOKIE_KEY,
+      JSON.stringify({
+        user: userData,
+        customer,
+        token,
+
+        authProvider: "email_otp",
+        purpose,
+
+        activeCartId,
+        activeCartType,
+
+        isGuest: false,
+      }),
+      {
+        expires: 7,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    );
+
+    try {
+      const eventName = purpose === "signup" ? "CompleteRegistration" : "Login";
+
+      const eventKey =
+        purpose === "signup"
+          ? `register_otp_${customer._id}`
+          : `login_otp_${customer._id}`;
+
+      const shouldSkip = shouldSkipAuthMetaEvent(get, set, eventKey, 5000);
+
+      if (!shouldSkip) {
+        trackMeta(
+          eventName,
+          {
+            content_name:
+              purpose === "signup" ? "Email OTP Signup" : "Email OTP Login",
+            status: "success",
+          },
+          buildMetaCustomerData({
+            customer,
+            fallbackEmail: customer.email,
+            fallbackName: customer.name,
+          }),
+        ).catch((error) => {
+          console.warn("🧾 Meta OTP auth tracking failed", error);
+        });
+      }
+    } catch (error) {
+      console.warn("🧾 OTP auth tracking failed", error);
+    }
+
+    return {
+      user: userData,
+      customer,
+      token,
+    };
+  },
   /* ---------------------------------------------
    GOOGLE LOGIN
 --------------------------------------------- */
+
   loginWithGoogle: async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser = result.user;
 
       if (!firebaseUser) {
-        console.error("❌ Google login failed: no Firebase user");
-        return null;
+        throw new Error("Google login failed");
       }
 
-      // 🔄 Sync customer with backend (CRASH-SAFE)
       const syncResult = await get().syncCustomer(firebaseUser);
+
       if (!syncResult) {
-        console.error("❌ Customer sync failed (Google login)");
-        return null;
+        throw new Error("Customer sync failed");
       }
 
       const { customer, token } = syncResult;
 
       const userData = {
         uid: firebaseUser.uid,
-        name: firebaseUser.displayName || "",
-        email: firebaseUser.email || "",
-        photoURL: firebaseUser.photoURL || "",
+        name: firebaseUser.displayName || customer?.name || "",
+        email: firebaseUser.email || customer?.email || "",
+        photoURL:
+          firebaseUser.photoURL ||
+          customer?.profileImage ||
+          "/profile/user-avatar.jpg",
+        authProvider: "google",
       };
 
-      // ✅ Update Zustand store
+      const activeCartId = customer?.cart?.activeCartId || null;
+
+      const activeCartType = customer?.cart?.activeCartType || "cart";
+
       set({
         user: userData,
         customer,
         token,
+        authProvider: "google",
         isAuthenticated: true,
-        activeCartId: customer?.cart?.activeCartId || null,
-        activeCartType: customer?.cart?.activeCartType || "cart",
+        activeCartId,
+        activeCartType,
+        loading: false,
+        _lastSyncedUid: firebaseUser.uid,
       });
 
-      // 🍪 Persist session
       Cookies.set(
         COOKIE_KEY,
         JSON.stringify({
           user: userData,
           customer,
           token,
-          activeCartId: customer?.cart?.activeCartId || null,
-          activeCartType: customer?.cart?.activeCartType || "cart",
+          authProvider: "google",
+          activeCartId,
+          activeCartType,
+          isGuest: false,
         }),
-        { expires: 7 },
+        {
+          expires: 7,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        },
       );
 
-      /* ---------------------------------------------
-       🧾 META (PIXEL + CAPI): Login (Google)
-       ✅ Fire ONLY on successful login (with dedupe guard)
-    --------------------------------------------- */
       try {
         const key = `login_google_${firebaseUser.uid}`;
         const shouldSkip = shouldSkipAuthMetaEvent(get, set, key, 4000);
@@ -673,64 +864,25 @@ export const useAuthStore = create((set, get) => ({
               content_name: "Google Login",
               status: "success",
             },
-            {
-              em: customer?.email || firebaseUser.email || undefined,
-              ph: customer?.phone || firebaseUser.phoneNumber || undefined,
-
-              fn:
-                customer?.firstName ||
-                customer?.name?.trim()?.split(/\s+/)?.[0] ||
-                firebaseUser.displayName?.trim()?.split(/\s+/)?.[0] ||
-                undefined,
-
-              ln:
-                customer?.lastName ||
-                customer?.name?.trim()?.split(/\s+/)?.slice(1).join(" ") ||
-                firebaseUser.displayName
-                  ?.trim()
-                  ?.split(/\s+/)
-                  ?.slice(1)
-                  .join(" ") ||
-                undefined,
-
-              ct: customer?.city || undefined,
-              st: customer?.state || undefined,
-
-              zp:
-                customer?.postcode ||
-                customer?.pincode ||
-                customer?.zip ||
-                undefined,
-
-              country: customer?.countryCode || customer?.country || "IN",
-
-              ge:
-                customer?.gender === "female"
-                  ? "f"
-                  : customer?.gender === "male"
-                    ? "m"
-                    : undefined,
-
-              db: customer?.dateOfBirth
-                ? String(customer.dateOfBirth).slice(0, 10).replaceAll("-", "")
-                : undefined,
-
-              external_id:
-                customer?._id ||
-                customer?.customerId ||
-                firebaseUser.uid ||
-                undefined,
-            },
+            buildMetaCustomerData({
+              customer,
+              firebaseUser,
+            }),
           );
         }
-      } catch (e) {
-        console.warn("🧾 Meta Login (Google) failed", e);
+      } catch (error) {
+        console.warn("🧾 Meta Login (Google) failed", error);
       }
 
-      return { user: userData, customer };
-    } catch (err) {
-      console.error("❌ loginWithGoogle exception:", err);
-      return null;
+      return {
+        user: userData,
+        customer,
+        token,
+      };
+    } catch (error) {
+      console.error("❌ loginWithGoogle exception:", error);
+
+      throw error;
     }
   },
 
