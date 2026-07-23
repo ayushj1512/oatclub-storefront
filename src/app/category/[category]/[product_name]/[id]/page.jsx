@@ -28,6 +28,7 @@ import ProductNotFound from "@/components/productDetail/ProductNotFound";
 import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 import CouponPriceSlideshow from "@/components/productDetail/CouponPriceSlideshow";
 import SizeRecommendationModal from "@/components/productDetail/SizeRecommendationModal";
+import DispatchTimeline from "@/components/productDetail/DispatchTimeline";
 
 const money = (n) => {
   const num = Number(n);
@@ -488,12 +489,12 @@ export default function ProductPage({ params }) {
           onSale:
             Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
           images,
-productSpotlight: Array.isArray(p?.raw?.productSpotlight)
-  ? p.raw.productSpotlight
-  : Array.isArray(p?.productSpotlight)
-    ? p.productSpotlight
-    : [],
-description: p.raw?.description || p.description || "",
+          productSpotlight: Array.isArray(p?.raw?.productSpotlight)
+            ? p.raw.productSpotlight
+            : Array.isArray(p?.productSpotlight)
+              ? p.productSpotlight
+              : [],
+          description: p.raw?.description || p.description || "",
           shortDescription: p.raw?.shortDescription || "",
           sizes,
           colors,
@@ -1007,10 +1008,10 @@ description: p.raw?.description || p.description || "",
                         return (
                           <button
                             key={s}
-                           onClick={() => handleSizeSelect(s)}
+                            onClick={() => handleSizeSelect(s)}
                             className={`h-10 min-w-11 border border-black px-3.5 text-xs font-semibold transition active:scale-95 ${active
-                                ? "bg-black text-white"
-                                : "bg-white text-black hover:bg-black hover:text-white"
+                              ? "bg-black text-white"
+                              : "bg-white text-black hover:bg-black hover:text-white"
                               }`}
                           >
                             {s}
@@ -1020,9 +1021,9 @@ description: p.raw?.description || p.description || "",
                     })()}
                   </div>
 
-                  <p className="mt-3 text-[10px] font-medium uppercase leading-4 tracking-[0.08em] text-black/58">
-                    We will dispatch within 7 days as this piece is specially curated for you only.
-                  </p>
+                  <DispatchTimeline
+                    isDispatchReady={Boolean(product?.raw?.isDispatchReady)}
+                  />
 
                 </div>
               )}
@@ -1118,12 +1119,12 @@ description: p.raw?.description || p.description || "",
         </div>
 
         <ProductSpotlight
-  media={
-    product?.productSpotlight ||
-    product?.raw?.productSpotlight ||
-    []
-  }
-/>
+          media={
+            product?.productSpotlight ||
+            product?.raw?.productSpotlight ||
+            []
+          }
+        />
 
         <SizeGuideModal
           open={sizeGuideOpen}
@@ -1132,11 +1133,11 @@ description: p.raw?.description || p.description || "",
         />
 
         <SizeRecommendationModal
-  open={sizeRecommendationOpen}
-  onClose={() => setSizeRecommendationOpen(false)}
-  availableSizes={product?.sizes || []}
-  onSelectSize={handleSizeSelect}
-/>
+          open={sizeRecommendationOpen}
+          onClose={() => setSizeRecommendationOpen(false)}
+          availableSizes={product?.sizes || []}
+          onSelectSize={handleSizeSelect}
+        />
 
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white p-3 shadow-[0_-12px_30px_rgba(0,0,0,0.08)] xl:hidden">
           <div className="grid grid-cols-[1fr_1.1fr] gap-2">

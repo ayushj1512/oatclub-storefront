@@ -1,387 +1,270 @@
 "use client";
 
-import Image from "next/image";
-import {
-  Heart,
-  Share2,
-  ShoppingCart,
-  Truck,
-  RotateCcw,
-  ShieldCheck,
-  Zap,
-} from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
-const BROWN_THEMES = [
-  { name: "Mocha", color: "#3B241B" },
-  { name: "Espresso", color: "#2A1711" },
-  { name: "Chocolate", color: "#4A2C20" },
-  { name: "Cocoa", color: "#5A3526" },
-  { name: "Walnut", color: "#6B422E" },
-  { name: "Coffee", color: "#7B4B34" },
-  { name: "Caramel", color: "#8B5A3C" },
-  { name: "Toffee", color: "#9C6A46" },
-  { name: "Hazelnut", color: "#A6764D" },
-  { name: "Latte", color: "#B38A5C" },
-  { name: "Camel", color: "#C19A6B" },
-  { name: "Sand", color: "#D2B48C" },
-  { name: "Taupe", color: "#8B7355" },
-  { name: "Vintage Brown", color: "#6F4E37" },
-  { name: "Dark Roast", color: "#3C2218" },
-];
+const DEFAULT_HTML = `
+<section style="max-width:980px;margin:0 auto;padding:60px 20px;font-family:Inter,Arial,sans-serif;color:#111;background:#fff;">
 
-const product = {
-  title: "Double Layer Cowl Neck Tank Top",
-  productCode: "00023",
-  shortDescription:
-    "A chic, deep burgundy top from Oatclub featuring a dramatic, low-sweeping cowl neckline layered over a structured, built-in sweetheart bustier with central ruched bow detailing and a subtle front cut-out",
-  howToStyle:
-    "For a 90s vintage look, pair the top high-waisted straight-leg jeans, an oversized leather blazer, and square-toe boots. To transition into an edgy night-out aesthetic, tuck it into high-waisted faux-leather pants paired with stilettos and a metallic clutch.",
-  fabricDetails:
-    "Fit: True to size, slim fit with moderate stretch.\n\nMaterial: Premium Polyester/Spandex blend.\n\nCare: Machine wash cold on a gentle cycle inside out, or hand wash; line dry to preserve fabric elasticity and structure.",
-  price: 899,
-  compareAtPrice: 1299,
-  category: "TOPS",
-  color: "Burgandy",
-  fabric: "Premium Polyester/Spandex blend",
-  neckline: "Sweathaert",
-  length: "Regular",
-  sizes: ["XS", "S", "M", "L", "XL"],
-  images: [
-    "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1781632219/dflebse7uoflurrb2akf.jpg",
-    "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1781632217/anbb38ybhucci9h8bhoc.jpg",
-    "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1781632218/ilstw0tzagvvapeo44dd.jpg",
-  ],
-};
-
-const money = (n) => Number(n || 0).toLocaleString("en-IN");
-
-const normalizeHex = (value) => {
-  const clean = String(value || "").trim();
-  const withHash = clean.startsWith("#") ? clean : `#${clean}`;
-  return withHash.toUpperCase();
-};
-
-const isValidHex = (value) => /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(value);
-
-function InfoBlock({ title, children }) {
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div className="border-t border-[var(--theme)]/15 py-4">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-left text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--theme)]"
-      >
-        {title}
-        <span className="text-lg">{open ? "-" : "+"}</span>
-      </button>
-
-      {open && (
-        <div className="mt-3 whitespace-pre-line text-sm leading-6 text-[var(--theme)]/65">
-          {children}
-        </div>
-      )}
+  <div style="text-align:center;margin-bottom:50px;">
+    <div style="display:inline-block;padding:8px 18px;border:1px solid #ddd;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;">
+      Support
     </div>
-  );
-}
 
-export default function TestProductPage() {
-  const [theme, setTheme] = useState(BROWN_THEMES[0]);
-  const [customHex, setCustomHex] = useState(BROWN_THEMES[0].color);
-  const [hexError, setHexError] = useState("");
-  const [activeImage, setActiveImage] = useState(product.images[0]);
-  const [selectedSize, setSelectedSize] = useState("");
+    <h1 style="font-size:52px;line-height:1.05;margin:24px 0 18px;font-weight:800;">
+      Frequently Asked Questions
+    </h1>
 
-  const off = useMemo(
-    () =>
-      Math.round(
-        ((product.compareAtPrice - product.price) / product.compareAtPrice) *
-          100
-      ),
-    []
-  );
+    <p style="max-width:640px;margin:0 auto;font-size:18px;line-height:1.8;color:#666;">
+      Everything you need to know about ordering, shipping, returns,
+      payments and your OATCLUB experience.
+    </p>
+  </div>
 
-  const applyCustomTheme = () => {
-    const nextHex = normalizeHex(customHex);
+  <div style="display:grid;gap:18px;">
 
-    if (!isValidHex(nextHex)) {
-      setHexError("Enter valid hex, example #3B241B");
-      return;
-    }
+    <details open style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
+      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
+        How long does shipping take?
+      </summary>
 
-    setHexError("");
-    setTheme({
-      name: "Custom Brown",
-      color: nextHex,
+      <p style="margin-top:18px;line-height:1.9;color:#555;">
+        Most orders are dispatched within 24–48 business hours.
+        Delivery generally takes 3–7 business days depending on your location.
+      </p>
+    </details>
+
+    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
+      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
+        Can I exchange my order?
+      </summary>
+
+      <p style="margin-top:18px;line-height:1.9;color:#555;">
+        Yes. Eligible products can be exchanged according to our Exchange Policy.
+        Simply initiate an exchange request from your account or contact support.
+      </p>
+    </details>
+
+    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
+      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
+        Do you offer Cash on Delivery?
+      </summary>
+
+      <p style="margin-top:18px;line-height:1.9;color:#555;">
+        Yes, Cash on Delivery is available on selected pin codes.
+        Availability is automatically shown during checkout.
+      </p>
+    </details>
+
+    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
+      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
+        How do I track my order?
+      </summary>
+
+      <p style="margin-top:18px;line-height:1.9;color:#555;">
+        Once your order is shipped you'll receive tracking information through
+        email and WhatsApp along with your tracking link.
+      </p>
+    </details>
+
+    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
+      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
+        What payment methods are accepted?
+      </summary>
+
+      <p style="margin-top:18px;line-height:1.9;color:#555;">
+        We accept UPI, Credit Cards, Debit Cards, Net Banking,
+        Wallets and Cash on Delivery wherever available.
+      </p>
+    </details>
+
+    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
+      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
+        Can I cancel my order?
+      </summary>
+
+      <p style="margin-top:18px;line-height:1.9;color:#555;">
+        Orders can be cancelled before dispatch.
+        Once shipped, cancellation may not be possible.
+      </p>
+    </details>
+
+    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
+      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
+        How do I choose the correct size?
+      </summary>
+
+      <p style="margin-top:18px;line-height:1.9;color:#555;">
+        Every product includes a detailed Size Guide.
+        You can also use our Size Recommendation tool for a better fit.
+      </p>
+    </details>
+
+    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
+      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
+        Are your products original?
+      </summary>
+
+      <p style="margin-top:18px;line-height:1.9;color:#555;">
+        Absolutely. Every OATCLUB product is quality checked before dispatch
+        to ensure premium craftsmanship and finish.
+      </p>
+    </details>
+
+  </div>
+
+  <div style="margin-top:70px;padding:40px;background:#111;color:#fff;border-radius:24px;text-align:center;">
+
+    <h2 style="font-size:36px;margin:0 0 16px;">
+      Still need help?
+    </h2>
+
+    <p style="max-width:620px;margin:0 auto 28px;line-height:1.8;color:#ddd;">
+      Our support team is always happy to help with sizing,
+      orders, returns or any other questions.
+    </p>
+
+    <a
+      href="#"
+      style="
+      display:inline-block;
+      padding:16px 34px;
+      background:#fff;
+      color:#111;
+      text-decoration:none;
+      border-radius:999px;
+      font-weight:700;
+      ">
+      Contact Support
+    </a>
+
+  </div>
+
+</section>
+`;
+
+export default function TestCMSPage() {
+  const [title, setTitle] = useState("About Us");
+  const [html, setHtml] = useState(DEFAULT_HTML);
+
+  const handleSave = () => {
+    console.log({
+      title,
+      html,
     });
-    setCustomHex(nextHex);
-  };
 
-  const handleDropdownTheme = (value) => {
-    const next = BROWN_THEMES.find((item) => item.color === value);
-    if (!next) return;
-
-    setTheme(next);
-    setCustomHex(next.color);
-    setHexError("");
+    alert("Later this will save into MongoDB.");
   };
 
   return (
-    <main
-      style={{ "--theme": theme.color }}
-      className="min-h-screen bg-white pb-20 text-[var(--theme)]"
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "420px 1fr",
+        height: "100vh",
+      }}
     >
-      <div className="sticky top-0 z-50 border-b border-[var(--theme)]/10 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1800px] flex-col gap-3 px-4 py-3 xl:flex-row xl:items-center xl:justify-between xl:px-8">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--theme)]/45">
-              Oatclub Theme Preview
-            </p>
-            <h2 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[var(--theme)]">
-              {theme.name} / {theme.color}
-            </h2>
-          </div>
+      {/* Left Panel */}
+      <div
+        style={{
+          borderRight: "1px solid #ddd",
+          padding: 20,
+          overflow: "auto",
+        }}
+      >
+        <h2>CMS Editor</h2>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <span
-              className="hidden h-8 w-8 border border-[var(--theme)]/15 sm:block"
-              style={{ backgroundColor: theme.color }}
-            />
+        <div style={{ marginTop: 20 }}>
+          <label>Page Title</label>
 
-            <select
-              value={
-                BROWN_THEMES.some((item) => item.color === theme.color)
-                  ? theme.color
-                  : ""
-              }
-              onChange={(e) => handleDropdownTheme(e.target.value)}
-              className="h-10 min-w-[180px] border border-[var(--theme)]/20 bg-white px-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--theme)] outline-none focus:border-[var(--theme)]"
-            >
-              <option value="" disabled>
-                Custom — {theme.color}
-              </option>
-
-              {BROWN_THEMES.map((item) => (
-                <option key={item.color} value={item.color}>
-                  {item.name} — {item.color}
-                </option>
-              ))}
-            </select>
-
-            <div className="flex items-center gap-2">
-              <input
-                value={customHex}
-                onChange={(e) => {
-                  setCustomHex(e.target.value);
-                  setHexError("");
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyCustomTheme();
-                }}
-                placeholder="#3B241B"
-                className="h-10 w-[140px] border border-[var(--theme)]/20 bg-white px-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--theme)] outline-none placeholder:text-[var(--theme)]/35 focus:border-[var(--theme)]"
-              />
-
-              <button
-                type="button"
-                onClick={applyCustomTheme}
-                className="h-10 border border-[var(--theme)] bg-[var(--theme)] px-4 text-[10px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-white hover:text-[var(--theme)]"
-              >
-                Apply
-              </button>
-            </div>
-
-            {hexError ? (
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-red-600">
-                {hexError}
-              </p>
-            ) : null}
-          </div>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            style={{
+              width: "100%",
+              marginTop: 8,
+              padding: 12,
+              border: "1px solid #ccc",
+              borderRadius: 8,
+            }}
+          />
         </div>
+
+        <div style={{ marginTop: 20 }}>
+          <label>HTML</label>
+
+          <textarea
+            value={html}
+            onChange={(e) => setHtml(e.target.value)}
+            style={{
+              width: "100%",
+              height: "70vh",
+              marginTop: 8,
+              padding: 14,
+              fontFamily: "monospace",
+              fontSize: 14,
+              border: "1px solid #ccc",
+              borderRadius: 8,
+              resize: "vertical",
+            }}
+          />
+        </div>
+
+        <button
+          onClick={handleSave}
+          style={{
+            marginTop: 20,
+            width: "100%",
+            padding: 14,
+            background: "#000",
+            color: "#fff",
+            border: 0,
+            borderRadius: 8,
+            cursor: "pointer",
+            fontSize: 16,
+          }}
+        >
+          Save
+        </button>
       </div>
 
-      <section className="w-full px-0 py-0 xl:px-8 xl:py-5">
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[55fr_45fr] xl:gap-1">
-          <div className="bg-white">
-            <div className="relative aspect-[3/4] w-full bg-[#f8f5f2] xl:aspect-[4/5]">
-              <Image
-                src={activeImage}
-                alt={product.title}
-                fill
-                priority
-                className="object-cover"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 p-3 xl:p-0 xl:pt-3">
-              {product.images.map((img) => (
-                <button
-                  key={img}
-                  type="button"
-                  onClick={() => setActiveImage(img)}
-                  className={`relative aspect-[3/4] overflow-hidden border ${
-                    activeImage === img
-                      ? "border-[var(--theme)]"
-                      : "border-[var(--theme)]/10"
-                  }`}
-                >
-                  <Image src={img} alt="" fill className="object-cover" />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <aside className="bg-white px-4 md:px-6 xl:sticky xl:top-24 xl:max-h-[calc(100vh-96px)] xl:overflow-y-auto xl:px-8 xl:py-5">
-            <div className="space-y-4">
-              <div className="flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-[0.2em] text-[var(--theme)]/40">
-                Home <span>/</span> {product.category}
-              </div>
-
-              <div className="border-b border-[var(--theme)]/15 pb-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="bg-[var(--theme)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white">
-                      {product.category}
-                    </span>
-
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--theme)]/50">
-                      SKU{" "}
-                      <span className="font-semibold text-[var(--theme)]">
-                        {product.productCode}
-                      </span>
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button className="grid h-9 w-9 place-items-center hover:text-[var(--theme)]/60">
-                      <Heart size={18} />
-                    </button>
-                    <button className="grid h-9 w-9 place-items-center hover:text-[var(--theme)]/60">
-                      <Share2 size={18} />
-                    </button>
-                  </div>
-                </div>
-
-                <h1 className="text-[20px] font-extrabold uppercase leading-[1.08] md:text-[24px] xl:text-[30px]">
-                  {product.title}
-                </h1>
-
-                <p className="mt-3 text-sm leading-6 text-[var(--theme)]/60">
-                  {product.shortDescription}
-                </p>
-              </div>
-
-              <div className="border-b border-[var(--theme)]/15 pb-4">
-                <div className="flex flex-wrap items-end gap-3">
-                  <span className="text-[26px] font-extrabold leading-none">
-                    RS. {money(product.price)}
-                  </span>
-
-                  <span className="text-base font-medium text-[var(--theme)]/35 line-through">
-                    RS. {money(product.compareAtPrice)}
-                  </span>
-
-                  <span className="bg-[var(--theme)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-white">
-                    {off}% OFF
-                  </span>
-                </div>
-
-                <p className="mt-2 text-xs font-medium uppercase text-[var(--theme)]/45">
-                  Inclusive of all taxes
-                </p>
-              </div>
-
-              <div className="border-b border-[var(--theme)]/15 pb-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-extrabold uppercase tracking-[0.08em]">
-                      Select Size
-                    </h3>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--theme)]/45">
-                      Choose your preferred fit
-                    </p>
-                  </div>
-
-                  <button className="text-[10px] font-extrabold uppercase tracking-[0.08em] underline underline-offset-4">
-                    Size Guide
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => setSelectedSize(size)}
-                      className={`h-10 min-w-11 border border-[var(--theme)] px-3.5 text-xs font-semibold transition ${
-                        selectedSize === size
-                          ? "bg-[var(--theme)] text-white"
-                          : "bg-white text-[var(--theme)] hover:bg-[var(--theme)] hover:text-white"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-
-                <p className="mt-3 text-[10px] font-medium uppercase leading-4 tracking-[0.08em] text-[var(--theme)]/55">
-                  We will dispatch within 7 days as this piece is specially
-                  curated for you only.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <button className="inline-flex h-11 items-center justify-center gap-2 bg-[var(--theme)] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white hover:text-[var(--theme)] hover:ring-1 hover:ring-[var(--theme)]">
-                  <ShoppingCart size={18} />
-                  Add To Bag
-                </button>
-
-                <button className="inline-flex h-11 items-center justify-center gap-2 border border-[var(--theme)] bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-[var(--theme)] transition hover:bg-[var(--theme)] hover:text-white">
-                  <Zap size={18} />
-                  Buy Now
-                </button>
-              </div>
-
-              <div className="grid grid-cols-3 border-y border-[var(--theme)]/15 bg-white">
-                {[
-                  [ShieldCheck, "Quality Checked"],
-                  [Truck, "Made For You"],
-                  [RotateCcw, "Easy Exchange"],
-                ].map(([Icon, title]) => (
-                  <div
-                    key={title}
-                    className="flex flex-col items-center justify-center px-2 py-4 text-center"
-                  >
-                    <Icon className="mb-2 h-4 w-4" />
-                    <p className="text-[9px] font-bold uppercase tracking-[0.08em]">
-                      {title}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <InfoBlock title="Product Details">
-                {product.shortDescription}
-              </InfoBlock>
-
-              <InfoBlock title="How To Style">{product.howToStyle}</InfoBlock>
-
-              <InfoBlock title="Fabric Details">
-                {product.fabricDetails}
-              </InfoBlock>
-
-              <InfoBlock title="Specifications">
-                Colour: {product.color}
-                {"\n"}Fabric: {product.fabric}
-                {"\n"}Neckline: {product.neckline}
-                {"\n"}Length: {product.length}
-              </InfoBlock>
-            </div>
-          </aside>
+      {/* Right Panel */}
+      <div
+        style={{
+          overflow: "auto",
+          background: "#fafafa",
+        }}
+      >
+        <div
+          style={{
+            padding: 30,
+            borderBottom: "1px solid #eee",
+            background: "#fff",
+            position: "sticky",
+            top: 0,
+            zIndex: 100,
+          }}
+        >
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 34,
+            }}
+          >
+            {title}
+          </h1>
         </div>
-      </section>
-    </main>
+
+        <div
+          style={{
+            padding: 40,
+            background: "#fff",
+            minHeight: "100%",
+          }}
+          dangerouslySetInnerHTML={{
+            __html: html,
+          }}
+        />
+      </div>
+    </div>
   );
 }
