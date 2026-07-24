@@ -113,12 +113,7 @@ export default function CheckoutPage() {
   const [walletAmount, setWalletAmount] = useState(0);
 
   /* ---------------- GUEST + ADDRESS FORM ---------------- */
-  const [guestInfo, setGuestInfo] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-  });
+
   const [creatingGuest, setCreatingGuest] = useState(false);
 
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -352,6 +347,14 @@ export default function CheckoutPage() {
 
   const lastGuestEmailRef = useRef("");
 
+  const getGuestPassword = (email = "") => {
+    const normalizedEmail = String(email)
+      .trim()
+      .toLowerCase();
+
+    return `Oatclub@${btoa(normalizedEmail).slice(0, 16)}`;
+  };
+
   const resetGuestContext = () => {
     // clear addresses if you have this in store
     clearAddresses?.();
@@ -408,10 +411,7 @@ export default function CheckoutPage() {
   };
 
 
-  const updateGuestField = (e) => {
-    const { name, value } = e.target;
-    setGuestInfo((p) => ({ ...p, [name]: value }));
-  };
+
 
   /* ---------------- FETCH ADDRESS FOR LOGGED IN ---------------- */
   useEffect(() => {
@@ -441,40 +441,44 @@ export default function CheckoutPage() {
 
   /* ---------------- ENSURE CUSTOMER FOR GUEST ---------------- */
   const ensureGuestCustomer = async () => {
-    if (user?.uid && customer?._id) return customer;
-    if (!user?.uid && guestCustomer?._id) return guestCustomer;
+    if (customer?._id) return customer;
+    if (guestCustomer?._id) return guestCustomer;
 
-    const email = addressForm.email?.trim();
-    const phone = addressForm.phone?.trim();
     const name = addressForm.fullName?.trim();
-    const password = guestInfo.password?.trim();
+    const email = addressForm.email?.trim().toLowerCase();
+    const phone = addressForm.phone?.trim();
 
-    if (!email || !phone || !name || !password) {
-      toast.error("Fill Name, Email, Phone & Password");
+    if (!name || !email || !phone) {
+      toast.error("Please fill name, email and phone.");
       return null;
     }
 
-    // ✅ toast: creating account
-    const tId = toast.loading("Creating account...");
-
     try {
       setCreatingGuest(true);
-      const created = await createGuestCustomer({ name, email, phone, password });
 
-      const createdCustomer = created?.customer || null;
+      const result = await createGuestCustomer({
+        name,
+        email,
+        phone,
+        password: getGuestPassword(email),
+        mode: "checkout",
+      });
+
+      const createdCustomer = result?.customer || result;
+
       if (!createdCustomer?._id) {
-        toast.error("Account creation failed.", { id: tId });
-        return null;
+        throw new Error("Customer could not be created.");
       }
 
       setGuestCustomer(createdCustomer);
-
-      // ✅ toast: created
-      toast.success("Account created ✅", { id: tId });
       return createdCustomer;
-    } catch (e) {
-      console.error("❌ ensureGuestCustomer failed", e);
-      toast.error("Account creation failed.", { id: tId });
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+        error?.message ||
+        "Could not continue checkout.",
+      );
+
       return null;
     } finally {
       setCreatingGuest(false);
@@ -528,9 +532,7 @@ export default function CheckoutPage() {
 
         // If your backend does NOT need password for logged-in users,
         // you should update backend + store. For now we still call same function.
-        const password =
-          (guestInfo.password || "").trim() ||
-          "__firebase_login__"; // placeholder; backend should ignore in logged-in mode
+        const password = "__firebase_login__";
 
         if (!email || !phone) {
           if (!silent) toast.error("Please fill email & phone to continue.");
@@ -574,71 +576,101 @@ export default function CheckoutPage() {
     }
   };
 
+  /* ---------------- DIRECT ORDER ADDRESS SNAPSHOT ---------------- */
 
+  const buildCheckoutAddressSnapshot = (finalCustomer = {}) => {
+    const source = selectedAddressObj?._id
+      ? selectedAddressObj
+      : addressForm;
 
+    return {
+      fullName:
+        source?.fullName ||
+        source?.name ||
+        finalCustomer?.name ||
+        "",
 
-  /* ---------------- SAVE NEW ADDRESS ---------------- */
-  const saveNewAddress = async () => {
-    // ✅ ALWAYS ensure customer (logged-in OR guest)
-    const finalCustomer = await ensureCustomer();
-    if (!finalCustomer?._id) return false;
+      phone:
+        source?.phone ||
+        finalCustomer?.phone ||
+        finalCustomer?.mobile ||
+        "",
 
-    if (!addressForm.postalCode || addressForm.postalCode.length !== 6) {
-      toast.error("Enter valid pincode");
-      return false;
-    }
-    if (!addressForm.fullName) {
-      toast.error("Full name required");
-      return false;
-    }
-    if (!addressForm.phone) {
-      toast.error("Phone required");
-      return false;
-    }
-    if (!addressForm.addressLine1) {
-      toast.error("Address required");
-      return false;
-    }
+      email:
+        source?.email ||
+        addressForm?.email ||
+        finalCustomer?.email ||
+        user?.email ||
+        "",
 
-    const tId = toast.loading("Saving address...");
+      addressLine1:
+        source?.addressLine1 ||
+        source?.line1 ||
+        "",
 
-    try {
-      setSavingAddress(true);
+      addressLine2:
+        source?.addressLine2 ||
+        source?.line2 ||
+        "",
 
-      const payload = {
-        ...addressForm,
-        firebaseUID: finalCustomer?.firebaseUID || user?.uid || null,
-        customerId: finalCustomer._id, // ✅ NEVER null now
-        email: user?.email || addressForm.email || finalCustomer?.email || "",
-      };
+      city: source?.city || "",
 
-      const created = await createAddress?.(payload);
+      state: source?.state || "",
 
-      // ✅ support both response shapes
-      const createdId = created?._id || created?.address?._id;
+      postalCode:
+        source?.postalCode ||
+        source?.pincode ||
+        "",
 
-      if (!createdId) {
-        toast.error("Address save failed.", { id: tId });
-        return false;
-      }
-
-      // ✅ IMPORTANT: refresh addresses so UI list updates correctly
-      await fetchAddresses?.({ firebaseUID: payload.firebaseUID });
-
-      // ✅ close form and auto-select the newly created address
-      setShowAddressForm(false);
-      setSelectedAddressId(createdId);
-
-      toast.success("Address saved ✅", { id: tId });
-      return true;
-    } catch (e) {
-      console.error("❌ saveNewAddress failed", e);
-      toast.error("Address save failed.", { id: tId });
-      return false;
-    } finally {
-      setSavingAddress(false);
-    }
+      country:
+        source?.country ||
+        "IN",
+    };
   };
+
+
+ 
+
+  /* ---------------- SAVE ADDRESS AFTER ORDER ---------------- */
+
+  const saveAddressInBackground = (finalCustomer) => {
+    if (!finalCustomer?._id) return;
+
+    if (selectedAddressObj?._id) return;
+
+    const payload = {
+      ...addressForm,
+
+      firebaseUID:
+        finalCustomer.firebaseUID ||
+        user?.uid ||
+        null,
+
+      customerId: finalCustomer._id,
+
+      email:
+        user?.email ||
+        addressForm.email ||
+        finalCustomer.email ||
+        "",
+    };
+
+    Promise.resolve(createAddress?.(payload))
+      .then((created) => {
+        const address = created?.address || created;
+
+        if (address?._id) {
+          setSelectedAddressId(address._id);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          "Background address save failed:",
+          error?.message || error,
+        );
+      });
+  };
+
   const refreshCustomerByEmail = async () => {
     const email =
       addressForm.email ||
@@ -692,27 +724,71 @@ export default function CheckoutPage() {
 
 
 
-  /* ✅✅ FIXED VALIDATION (NO CUSTOMER ID DEPENDENCY) */
-  const validateCheckout = () => {
-    const payload = getCheckoutPayload();
-    if (!payload?.length) return "Your cart is empty.";
+  /* ---------------- CHECKOUT VALIDATION ---------------- */
+ const validateCheckout = () => {
+  const checkoutItems =
+    getCheckoutPayload?.() || [];
 
-    // ✅ guest must enter email
-    if (!user?.uid && !addressForm.email?.trim()) {
-      return "Please enter your email.";
-    }
+  if (!checkoutItems.length) {
+    return "Your cart is empty.";
+  }
 
-    // ✅ must select address
-    if (!selectedAddressObj?._id) {
-      return "Please select or add an address.";
-    }
+  const email =
+    addressForm.email ||
+    activeCustomer?.email ||
+    user?.email ||
+    "";
 
-    if (!["cod", "razorpay", "wallet"].includes(selectedPayment)) {
-      return "Invalid payment method.";
-    }
+  if (!email.trim()) {
+    return "Please enter your email.";
+  }
 
+  if (selectedAddressObj?._id) {
     return null;
-  };
+  }
+
+  const phone = String(
+    addressForm.phone || "",
+  ).replace(/\D/g, "");
+
+  if (!addressForm.fullName?.trim()) {
+    return "Please enter your full name.";
+  }
+
+  if (phone.length !== 10) {
+    return "Please enter a valid phone number.";
+  }
+
+  if (!addressForm.addressLine1?.trim()) {
+    return "Please enter your delivery address.";
+  }
+
+  if (!addressForm.city?.trim()) {
+    return "Please enter your city.";
+  }
+
+  if (!addressForm.state?.trim()) {
+    return "Please enter your state.";
+  }
+
+  if (
+    !/^\d{6}$/.test(
+      String(addressForm.postalCode || ""),
+    )
+  ) {
+    return "Please enter a valid PIN code.";
+  }
+
+  if (
+    !["cod", "razorpay", "wallet"].includes(
+      selectedPayment,
+    )
+  ) {
+    return "Please select a payment method.";
+  }
+
+  return null;
+};
 
   /* ---------------- ORDER SUCCESS ---------------- */
   const finishSuccessfulOrder = async ({
@@ -788,16 +864,26 @@ export default function CheckoutPage() {
       return;
     }
 
+    const validationMessage = validateCheckout();
+
+    if (validationMessage) {
+      toast.error(validationMessage);
+      setShowAddress(true);
+
+      if (!selectedAddressObj?._id) {
+        setShowAddressForm(true);
+      }
+
+      return;
+    }
+
     const finalCustomer = await ensureCustomer();
     if (!finalCustomer?._id) return;
 
-    await refreshCustomerByEmail();
-
-    const validationMessage = validateCheckout();
-    if (validationMessage) {
-      toast.error(validationMessage);
-      return;
-    }
+    const checkoutAddress =
+      buildCheckoutAddressSnapshot(
+        finalCustomer,
+      );
 
     const toastId = toast.loading(
       resolvedPaymentMethod === "razorpay"
@@ -898,63 +984,18 @@ export default function CheckoutPage() {
 
         customer: {
           ...finalCustomer,
-
-          shippingAddressSnapshot: {
-            fullName:
-              selectedAddressObj?.fullName ||
-              selectedAddressObj?.name ||
-              addressForm?.fullName ||
-              finalCustomer?.name ||
-              "",
-
-            phone:
-              selectedAddressObj?.phone ||
-              addressForm?.phone ||
-              finalCustomer?.phone ||
-              finalCustomer?.mobile ||
-              "",
-
-            email:
-              selectedAddressObj?.email ||
-              addressForm?.email ||
-              finalCustomer?.email ||
-              user?.email ||
-              "",
-
-            addressLine1:
-              selectedAddressObj?.addressLine1 ||
-              addressForm?.addressLine1 ||
-              "",
-
-            addressLine2:
-              selectedAddressObj?.addressLine2 ||
-              addressForm?.addressLine2 ||
-              "",
-
-            city:
-              selectedAddressObj?.city ||
-              addressForm?.city ||
-              "",
-
-            state:
-              selectedAddressObj?.state ||
-              addressForm?.state ||
-              "",
-
-            country:
-              selectedAddressObj?.country ||
-              "IN",
-
-            pincode:
-              selectedAddressObj?.pincode ||
-              selectedAddressObj?.postalCode ||
-              addressForm?.postalCode ||
-              "",
-          },
+          shippingAddressSnapshot: checkoutAddress,
         },
 
-        shippingAddressId: selectedAddressObj._id,
-        billingAddressId: selectedAddressObj._id,
+        ...(selectedAddressObj?._id
+          ? {
+            shippingAddressId: selectedAddressObj._id,
+            billingAddressId: selectedAddressObj._id,
+          }
+          : {
+            shippingAddressSnapshot: checkoutAddress,
+            billingAddressSnapshot: checkoutAddress,
+          }),
 
         paymentMethod: resolvedPaymentMethod,
 
@@ -966,11 +1007,13 @@ export default function CheckoutPage() {
 
         subtotal: Number(subtotal || 0),
         discount: Number(discount || 0),
+
         razorpayExtraDiscount: Number(
           resolvedPaymentMethod === "razorpay"
             ? razorpayExtraDiscount || 0
-            : 0
+            : 0,
         ),
+
         payable: Number(payable || 0),
 
         coupon: coupon
@@ -982,6 +1025,10 @@ export default function CheckoutPage() {
 
         attribution,
       });
+
+      if (!selectedAddressObj?._id) {
+  saveAddressInBackground(finalCustomer);
+}
 
       const mongoOrderId =
         order?._id ||
@@ -1101,6 +1148,7 @@ export default function CheckoutPage() {
           {/* Step 1: Email + Address */}
           <AddressSelection
             user={user}
+            customer={activeCustomer}
             addresses={addresses}
             selectedAddressId={selectedAddressId}
             setSelectedAddressId={setSelectedAddressId}
@@ -1110,13 +1158,7 @@ export default function CheckoutPage() {
             setShowAddressForm={setShowAddressForm}
             addressForm={addressForm}
             updateAddressField={updateAddressField}
-            saveNewAddress={saveNewAddress}
             pinLoading={pinLoading}
-            savingAddress={savingAddress}
-            creatingGuest={creatingGuest}
-            guestInfo={guestInfo}
-            updateGuestField={updateGuestField}
-            onCustomerFound={onCustomerFound}
           />
 
           {/* Step 2: Summary */}
@@ -1131,12 +1173,11 @@ export default function CheckoutPage() {
             walletAmount={walletAmount}
             setWalletAmount={setWalletAmount}
             walletBalance={walletBalance}
-            payable={paymentOptionsPayable} showSummary={showSummary}
+            payable={payable} showSummary={showSummary}
             setShowSummary={setShowSummary}
             email={addressForm.email}
             phone={addressForm.phone}
-            customerId={user?.uid || null}
-            cartItems={couponCartItems}
+            customerId={activeCustomer?._id || null} cartItems={couponCartItems}
           />
 
 

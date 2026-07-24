@@ -171,15 +171,25 @@ export default function PaymentOptions({
     (!selectedPayment && !isFullyPaidByWallet);
 
   const updateWalletToggle = (checked) => {
-    if (typeof setUseWallet !== "function") return;
-    if (typeof setWalletAmount !== "function") return;
+  if (
+    typeof setUseWallet !== "function" ||
+    typeof setWalletAmount !== "function"
+  ) {
+    return;
+  }
 
-    setUseWallet(checked);
+  setUseWallet(checked);
 
-    setWalletAmount(
-      checked ? Math.min(safeWalletBalance, safePayable) : 0
-    );
-  };
+  setWalletAmount(
+    checked
+      ? Math.min(
+          safeWalletBalance,
+          safePayable +
+            appliedWalletAmount,
+        )
+      : 0,
+  );
+};
 
   const handlePlaceOrder = async () => {
     const error = validate?.();

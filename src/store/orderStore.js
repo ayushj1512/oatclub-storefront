@@ -79,8 +79,13 @@ export const useOrderStore = create((set, get) => ({
   createOrder: async ({
     customerId,
     customer: customerData = {},
-    shippingAddressId,
-    billingAddressId,
+
+    shippingAddressId = null,
+    billingAddressId = null,
+
+    shippingAddressSnapshot = null,
+    billingAddressSnapshot = null,
+
     items,
     subtotal = 0,
     payable = null,
@@ -90,9 +95,10 @@ export const useOrderStore = create((set, get) => ({
     shippingFee = 0,
     tax = 0,
     paymentMethod = "cod",
-    // ✅ wallet support
+
     useWallet = false,
     walletAmount = 0,
+
     source = "website",
     isGiftOrder = false,
     customerMessage = "",
@@ -101,9 +107,17 @@ export const useOrderStore = create((set, get) => ({
     set({ placing: true, error: null });
 
     try {
-      if (!customerId) throw new Error("customerId is required");
-      if (!shippingAddressId) throw new Error("shippingAddressId is required");
-      if (!items?.length) throw new Error("Order items missing");
+      if (!customerId) {
+        throw new Error("customerId is required");
+      }
+
+      if (!shippingAddressId && !shippingAddressSnapshot) {
+        throw new Error("Delivery address is required");
+      }
+
+      if (!items?.length) {
+        throw new Error("Order items missing");
+      }
 
       const pm = String(paymentMethod).toLowerCase();
       const customer = customerData || {};
@@ -112,42 +126,39 @@ export const useOrderStore = create((set, get) => ({
         throw new Error("Invalid payment method");
       }
 
+      const metaAddress =
+        shippingAddressSnapshot ||
+        customer?.shippingAddressSnapshot ||
+        customer?.shippingAddress ||
+        {};
+
       const metaUserData = {
         external_id: customer?._id || customerId,
-        email: customer?.email || customer?.shippingAddressSnapshot?.email,
-        phone:
-          customer?.phone ||
-          customer?.mobile ||
-          customer?.shippingAddressSnapshot?.phone,
+
+        email: customer?.email || metaAddress?.email || "",
+
+        phone: customer?.phone || customer?.mobile || metaAddress?.phone || "",
+
         firstName:
-          customer?.firstName ||
-          customer?.shippingAddress?.firstName ||
-          customer?.shippingAddressSnapshot?.fullName?.split?.(" ")?.[0],
+          customer?.firstName || metaAddress?.fullName?.split?.(" ")?.[0] || "",
+
         lastName:
           customer?.lastName ||
-          customer?.shippingAddress?.lastName ||
-          customer?.shippingAddressSnapshot?.fullName
-            ?.split?.(" ")
-            ?.slice?.(1)
-            ?.join?.(" "),
-        city:
-          customer?.city ||
-          customer?.shippingAddress?.city ||
-          customer?.shippingAddressSnapshot?.city,
-        state:
-          customer?.state ||
-          customer?.shippingAddress?.state ||
-          customer?.shippingAddressSnapshot?.state,
-        country:
-          customer?.country ||
-          customer?.shippingAddress?.country ||
-          customer?.shippingAddressSnapshot?.country ||
-          "in",
+          metaAddress?.fullName?.split?.(" ")?.slice?.(1)?.join?.(" ") ||
+          "",
+
+        city: customer?.city || metaAddress?.city || "",
+
+        state: customer?.state || metaAddress?.state || "",
+
+        country: customer?.country || metaAddress?.country || "in",
+
         zip:
           customer?.pincode ||
           customer?.zip ||
-          customer?.shippingAddress?.pincode ||
-          customer?.shippingAddressSnapshot?.pincode,
+          metaAddress?.pincode ||
+          metaAddress?.postalCode ||
+          "",
       };
 
       const couponCode =
@@ -184,7 +195,10 @@ export const useOrderStore = create((set, get) => ({
           it?.isPrimaryProduct === true ||
           it?.productSnapshot?.isPrimaryProduct === true;
 
-        if (!productId) throw new Error("Each item must have productId");
+        if (!productId) {
+          throw new Error("Each item must have productId");
+        }
+
         if (!Number.isFinite(quantity) || quantity < 1) {
           throw new Error("Invalid item quantity");
         }
@@ -225,6 +239,7 @@ export const useOrderStore = create((set, get) => ({
           price,
           itemPrice: price,
           item_price: price,
+
           collections,
           isPrimaryProduct,
 
@@ -259,8 +274,6 @@ export const useOrderStore = create((set, get) => ({
         };
       });
 
-      console.log("🧾 ORDER NORMALIZED ITEMS:", normalizedItems);
-
       const contents = normalizedItems
         .map((it) => {
           const catalogId = String(
@@ -277,12 +290,8 @@ export const useOrderStore = create((set, get) => ({
 
           if (!catalogId) return null;
 
-          const quantity = Number(it?.quantity || 1);
-          const price = Number(it?.price || 0);
-
           return {
             id: catalogId,
-
             variantId: it?.variantId ? String(it.variantId) : null,
 
             variant: [it?.selectedSize, it?.selectedColor]
@@ -290,15 +299,15 @@ export const useOrderStore = create((set, get) => ({
               .join(" / "),
 
             name: it?.productSnapshot?.title || "",
-
-            quantity,
-            item_price: price,
+            quantity: Number(it?.quantity || 1),
+            item_price: Number(it?.price || 0),
           };
         })
         .filter(Boolean);
 
       const itemsTotal = contents.reduce(
-        (s, c) => s + Number(c.item_price || 0) * Number(c.quantity || 1),
+        (sum, item) =>
+          sum + Number(item.item_price || 0) * Number(item.quantity || 1),
         0,
       );
 
@@ -315,9 +324,9 @@ export const useOrderStore = create((set, get) => ({
               itemsTotal +
                 Number(shippingFee || 0) +
                 Number(tax || 0) -
-                Number(finalDiscount || 0),
+                finalDiscount,
             );
-      // ✅ wallet credits
+
       const requestedWalletAmount =
         useWallet === true || Number(walletAmount || 0) > 0 || pm === "wallet"
           ? Math.max(0, Number(walletAmount || 0))
@@ -328,14 +337,18 @@ export const useOrderStore = create((set, get) => ({
         orderValue - requestedWalletAmount,
       );
 
-      const metaContents = contents.map((c) => ({
-        id: c.id,
-        quantity: c.quantity,
-        item_price: c.item_price,
+      const metaContents = contents.map((item) => ({
+        id: item.id,
+        quantity: item.quantity,
+        item_price: item.item_price,
       }));
 
-      const itemIds = contents.map((c) => String(c.id));
-      const numItems = metaContents.reduce((s, c) => s + (c.quantity || 0), 0);
+      const itemIds = contents.map((item) => String(item.id));
+
+      const numItems = metaContents.reduce(
+        (sum, item) => sum + Number(item.quantity || 0),
+        0,
+      );
 
       try {
         await trackMeta(
@@ -350,13 +363,15 @@ export const useOrderStore = create((set, get) => ({
             num_items: numItems,
             ...(couponCode ? { coupon: couponCode } : {}),
             ...(pm === "razorpay"
-              ? { razorpay_extra_discount: extraDiscount }
+              ? {
+                  razorpay_extra_discount: extraDiscount,
+                }
               : {}),
           },
           metaUserData,
         );
-      } catch (e) {
-        console.warn("🧾 Meta InitiateCheckout failed", e);
+      } catch (error) {
+        console.warn("Meta InitiateCheckout failed", error);
       }
 
       try {
@@ -370,7 +385,9 @@ export const useOrderStore = create((set, get) => ({
             contents: metaContents,
             payment_method: pm,
             ...(pm === "razorpay"
-              ? { razorpay_extra_discount: extraDiscount }
+              ? {
+                  razorpay_extra_discount: extraDiscount,
+                }
               : {}),
           },
           metaUserData,
@@ -386,35 +403,59 @@ export const useOrderStore = create((set, get) => ({
               payment_method: pm,
             },
             {},
-            { event_id: metaPaymentEventId },
+            {
+              event_id: metaPaymentEventId,
+            },
           );
-        } catch (e) {
-          console.warn("👻 Snap ADD_BILLING failed", e);
+        } catch (error) {
+          console.warn("Snap ADD_BILLING failed", error);
         }
-      } catch (e) {
-        console.warn("🧾 Meta AddPaymentInfo failed", e);
+      } catch (error) {
+        console.warn("Meta AddPaymentInfo failed", error);
       }
 
-      // ✅ Universal attribution snapshot from marketing store
       const attribution =
         useMarketingCampaignStore.getState().getOrderMarketingPayload?.() ||
         null;
 
-      console.log("📣 [Order Attribution]", attribution);
-
       const payload = {
         customerId,
-        shippingAddressId,
-        billingAddressId: billingAddressId || shippingAddressId,
+
+        ...(shippingAddressId
+          ? {
+              shippingAddressId,
+            }
+          : {
+              shippingAddressSnapshot,
+            }),
+
+        ...(billingAddressId
+          ? {
+              billingAddressId,
+            }
+          : shippingAddressId
+            ? {
+                billingAddressId: shippingAddressId,
+              }
+            : {
+                billingAddressSnapshot:
+                  billingAddressSnapshot || shippingAddressSnapshot,
+              }),
+
         items: normalizedItems,
-        coupon: couponCode ? { code: couponCode } : null,
+
+        coupon: couponCode
+          ? {
+              code: couponCode,
+            }
+          : null,
+
         shippingFee: Number(shippingFee || 0),
         tax: Number(tax || 0),
         currency,
 
         paymentMethod: pm,
 
-        // ✅ wallet support
         useWallet: requestedWalletAmount > 0 || pm === "wallet",
 
         walletAmount: requestedWalletAmount,
@@ -425,7 +466,7 @@ export const useOrderStore = create((set, get) => ({
         customerMessage,
       };
 
-      console.log("🚀 CREATE ORDER PAYLOAD:", payload);
+      console.log("CREATE ORDER PAYLOAD:", payload);
 
       const data = await api("/api/orders", {
         method: "POST",
@@ -449,29 +490,44 @@ export const useOrderStore = create((set, get) => ({
       if (pm === "cod" || pm === "wallet") {
         await get().trackPurchaseSuccess({
           orderId: order?.orderNumber || order?._id || customerId,
+
           currency,
           value: backendValue || orderValue,
           contents,
           coupon: couponCode,
           paymentMethod: pm,
-          customer,
+
+          customer: {
+            ...customer,
+            shippingAddressSnapshot:
+              shippingAddressSnapshot || customer?.shippingAddressSnapshot,
+          },
         });
       }
 
       try {
         const analytics = useAnalyticsStore.getState();
-        normalizedItems.forEach((it) =>
-          analytics.trackInitiateCheckout?.(it.productId),
-        );
-      } catch (e) {
-        console.warn("📊 Analytics checkout tracking failed", e);
+
+        normalizedItems.forEach((item) => {
+          analytics.trackInitiateCheckout?.(item.productId);
+        });
+      } catch (error) {
+        console.warn("Analytics checkout tracking failed", error);
       }
 
-      set({ lastCreatedOrder: order, placing: false });
+      set({
+        lastCreatedOrder: order,
+        placing: false,
+      });
+
       return order;
-    } catch (e) {
-      set({ error: e.message, placing: false });
-      throw e;
+    } catch (error) {
+      set({
+        error: error.message,
+        placing: false,
+      });
+
+      throw error;
     }
   },
 

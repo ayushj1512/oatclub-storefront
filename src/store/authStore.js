@@ -478,7 +478,25 @@ export const useAuthStore = create((set, get) => ({
           const isGuestSession = parsed?.isGuest === true;
 
           set({
-            user: parsed.user || null,
+            user:
+              parsed.user ||
+              (isGuestSession
+                ? {
+                    uid: `customer_${parsed.customer._id}`,
+                    name:
+                      parsed.customer?.name ||
+                      parsed.customer?.email?.split("@")?.[0] ||
+                      "OATCLUB Customer",
+
+                    email: parsed.customer?.email || "",
+
+                    photoURL:
+                      parsed.customer?.profileImage ||
+                      "/profile/user-avatar.jpg",
+
+                    authProvider: "guest_checkout",
+                  }
+                : null),
             customer: parsed.customer,
             token: parsed.token || null,
 
@@ -488,14 +506,16 @@ export const useAuthStore = create((set, get) => ({
                 ? "google"
                 : isBackendOtpSession
                   ? "email_otp"
-                  : null),
+                  : isGuestSession
+                    ? "guest_checkout"
+                    : null),
 
             activeCartId: parsed.activeCartId || null,
 
             activeCartType: parsed.activeCartType || "cart",
 
-            isAuthenticated: isBackendOtpSession || isFirebaseSession,
-
+            isAuthenticated:
+              isBackendOtpSession || isFirebaseSession || isGuestSession,
             loading: false,
 
             _lastSyncedUid: isFirebaseSession
@@ -538,18 +558,40 @@ export const useAuthStore = create((set, get) => ({
               parsed?.isGuest === true && Boolean(parsed?.customer?._id);
 
             if (isBackendOtpSession || isGuestSession) {
+              const restoredUser =
+                parsed.user ||
+                (isGuestSession
+                  ? {
+                      uid: `customer_${parsed.customer._id}`,
+                      name:
+                        parsed.customer?.name ||
+                        parsed.customer?.email?.split("@")?.[0] ||
+                        "OATCLUB Customer",
+
+                      email: parsed.customer?.email || "",
+
+                      photoURL:
+                        parsed.customer?.profileImage ||
+                        "/profile/user-avatar.jpg",
+
+                      authProvider: "guest_checkout",
+                    }
+                  : null);
+
               set({
-                user: parsed.user || null,
+                user: restoredUser,
                 customer: parsed.customer,
                 token: parsed.token || null,
 
-                authProvider: isBackendOtpSession ? "email_otp" : null,
+                authProvider: isBackendOtpSession
+                  ? "email_otp"
+                  : "guest_checkout",
 
                 activeCartId: parsed.activeCartId || null,
 
                 activeCartType: parsed.activeCartType || "cart",
 
-                isAuthenticated: isBackendOtpSession,
+                isAuthenticated: true,
 
                 loading: false,
                 _lastSyncedUid: null,
@@ -1163,121 +1205,189 @@ export const useAuthStore = create((set, get) => ({
     email = "",
     phone = "",
     password = "",
+    mode = "checkout",
+    firebaseUID = null,
   } = {}) => {
-    // ✅ 1) If already in progress, return same promise (blocks 2nd call)
-    console.log(
-      "🚨 createGuestCustomer CALLED",
-      { email, at: Date.now() },
-      new Error("trace").stack,
-    );
-
     const inflight = get()._guestCreatePromise;
+
     if (inflight) return inflight;
-    console.log("🔥 Firebase SIGNUP attempt", { email });
 
     const run = (async () => {
       try {
-        name = String(name || "").trim();
-        email = String(email || "")
-          .trim()
-          .toLowerCase();
-        phone = String(phone || "").trim();
-        password = String(password || "").trim();
+        const cleanName = String(name).trim();
 
-        if (!email || !password || password.length < 4)
-          throw new Error("Email + Password required");
-        if (!name || !phone) throw new Error("Name + Phone required");
+        const cleanEmail = String(email).trim().toLowerCase();
+
+        const cleanPhone = String(phone).replace(/\D/g, "").slice(-10);
+
+        if (!cleanName) {
+          throw new Error("Name is required");
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+          throw new Error("Valid email is required");
+        }
+
+        if (!/^\d{10}$/.test(cleanPhone)) {
+          throw new Error("Valid phone number is required");
+        }
 
         set({ loading: true });
 
-        // ✅ 2) If firebase already logged-in with same email, DON'T signup again
-        let firebaseUser = auth.currentUser;
-        if (firebaseUser?.email?.toLowerCase() !== email) firebaseUser = null;
+        /*
+         * Guest checkout:
+         * Do not create Firebase account.
+         * Directly create/upsert Mongo customer.
+         */
+        if (mode === "checkout") {
+          const response = await fetch(`${BACKEND}/api/customers/guest`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: cleanName,
+              email: cleanEmail,
+              phone: cleanPhone,
+              mode: "checkout",
+            }),
+          });
 
-        // ✅ 3) Create/Login only if needed
-        if (!firebaseUser) {
-          try {
-            const signupRes = await createUserWithEmailAndPassword(
-              auth,
-              email,
-              password,
-            );
-            firebaseUser = signupRes.user;
-          } catch (err) {
-            if (err?.code === "auth/email-already-in-use") {
-              const loginRes = await signInWithEmailAndPassword(
-                auth,
-                email,
-                password,
-              );
-              firebaseUser = loginRes.user;
-            } else {
-              throw err;
-            }
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data?.message || "Could not create customer");
           }
+
+          const customer = data?.customer || data?.data || data;
+
+          if (!customer?._id) {
+            throw new Error("Invalid customer response");
+          }
+
+          const guestUser = {
+            uid: `customer_${customer._id}`,
+            name:
+              customer?.name ||
+              customer?.email?.split("@")?.[0] ||
+              "OATCLUB Customer",
+            email: customer?.email || cleanEmail,
+            photoURL: customer?.profileImage || "/profile/user-avatar.jpg",
+            authProvider: "guest_checkout",
+          };
+
+          set({
+            user: guestUser,
+            customer,
+            token: null,
+            authProvider: "guest_checkout",
+
+            activeCartId: customer?.cart?.activeCartId || null,
+
+            activeCartType: customer?.cart?.activeCartType || "cart",
+
+            isAuthenticated: true,
+            loading: false,
+          });
+
+          Cookies.set(
+            COOKIE_KEY,
+            JSON.stringify({
+              user: guestUser,
+              customer,
+              token: null,
+
+              authProvider: "guest_checkout",
+
+              activeCartId: customer?.cart?.activeCartId || null,
+
+              activeCartType: customer?.cart?.activeCartType || "cart",
+
+              isGuest: true,
+            }),
+            {
+              expires: 7,
+              sameSite: "lax",
+              secure: process.env.NODE_ENV === "production",
+            },
+          );
+
+          return {
+            user: guestUser,
+            customer,
+            token: null,
+          };
         }
 
-        if (!firebaseUser) throw new Error("Firebase user missing");
+        /*
+         * Logged-in Firebase fallback
+         */
+        if (firebaseUID) {
+          const firebaseUser = auth.currentUser;
 
-        // ✅ 4) Update profile
-        try {
-          await updateProfile(firebaseUser, {
-            displayName: name,
-            photoURL: firebaseUser.photoURL || "/profile/user-avatar.jpg",
+          if (!firebaseUser) {
+            throw new Error("Firebase session missing");
+          }
+
+          const syncResult = await get().syncCustomer(firebaseUser, {
+            name: cleanName,
+            email: cleanEmail,
+            phone: cleanPhone,
           });
-        } catch {}
 
-        // ✅ 5) Sync backend NOW (so address save won't race)
-        set({ _lastSyncedUid: firebaseUser.uid });
+          if (!syncResult?.customer?._id) {
+            throw new Error("Customer sync failed");
+          }
 
-        const syncResult = await get().syncCustomer(firebaseUser, {
-          name,
-          phone,
-          email,
-        });
-        if (!syncResult) throw new Error("Customer sync failed");
+          get().setCustomerState(syncResult.customer);
 
-        const { customer, token, activeCartId, activeCartType } = syncResult;
+          return syncResult;
+        }
 
-        const userData = {
-          uid: firebaseUser.uid,
-          name,
-          email: firebaseUser.email || email,
-          photoURL: firebaseUser.photoURL || "/profile/user-avatar.jpg",
-        };
+        /*
+         * Actual email-password registration only
+         */
+        const cleanPassword = String(password).trim();
 
-        set({
-          user: userData,
-          customer,
-          token,
-          activeCartId,
-          activeCartType,
-          isAuthenticated: true,
-          loading: false,
-        });
+        if (cleanPassword.length < 6) {
+          throw new Error("Password must be at least 6 characters");
+        }
 
-        Cookies.set(
-          COOKIE_KEY,
-          JSON.stringify({
-            user: userData,
-            customer,
-            token,
-            activeCartId,
-            activeCartType,
-            isGuest: false,
-          }),
-          { expires: 7 },
+        const signupResult = await createUserWithEmailAndPassword(
+          auth,
+          cleanEmail,
+          cleanPassword,
         );
 
-        return { user: userData, customer };
+        const firebaseUser = signupResult.user;
+
+        await updateProfile(firebaseUser, {
+          displayName: cleanName,
+        });
+
+        const syncResult = await get().syncCustomer(firebaseUser, {
+          name: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
+        });
+
+        if (!syncResult?.customer?._id) {
+          throw new Error("Customer sync failed");
+        }
+
+        return syncResult;
       } finally {
-        // ✅ release lock
-        set({ _guestCreatePromise: null, loading: false });
+        set({
+          _guestCreatePromise: null,
+          loading: false,
+        });
       }
     })();
 
-    // ✅ store promise lock
-    set({ _guestCreatePromise: run });
+    set({
+      _guestCreatePromise: run,
+    });
+
     return run;
   },
 
@@ -1431,75 +1541,55 @@ export const useAuthStore = create((set, get) => ({
 
   confirmLogout: async () => {
     try {
-      // ✅ Firebase Signout
-      await signOut(auth);
-    } catch (e) {
-      console.warn("⚠️ Firebase signOut failed:", e);
-    }
+      // Stop guest/Firebase session restore immediately
+      Cookies.remove(COOKIE_KEY);
 
-    try {
-      /* ----------------------------------------
-       ✅ 1) Clear CART + BUY NOW Cookies (Safe)
-    ----------------------------------------- */
+      set({
+        ...initialAuthState,
+        loading: false,
+        showLogoutConfirm: false,
+      });
 
-      // ✅ remove exact cookie (if single key)
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.warn("Firebase signOut failed:", error);
+      }
+
+      // Clear cart cookies
       Cookies.remove("cart_products");
       Cookies.remove("buy_now_item");
 
-      // ✅ remove any cart_products_* (if user-specific keys exist)
-      Object.keys(Cookies.get() || {}).forEach((k) => {
-        if (k.startsWith("cart_products")) Cookies.remove(k);
-        if (k.startsWith("buy_now_item")) Cookies.remove(k);
+      Object.keys(Cookies.get() || {}).forEach((key) => {
+        if (key.startsWith("cart_products") || key.startsWith("buy_now_item")) {
+          Cookies.remove(key);
+        }
       });
 
-      /* ----------------------------------------
-       ✅ 2) Reset Zustand Stores
-    ----------------------------------------- */
-
-      // ✅ reset cart store properly (items + cookies + hydrated flag etc)
+      // Reset cart
       try {
         const cart = useCartStore.getState();
+
         if (cart?.resetCartOnLogout) {
           await cart.resetCartOnLogout();
         } else {
-          // fallback if resetCartOnLogout not implemented
           useCartStore.setState({
             items: [],
             buyNowItem: null,
             hasHydrated: false,
           });
         }
-      } catch (e) {
-        console.warn("⚠️ Cart reset on logout failed:", e);
+      } catch (error) {
+        console.warn("Cart reset failed:", error);
       }
 
-      // ✅ Abandoned cart store clear
+      // Reset addresses
       try {
-        const abandoned = useAbandonedCartStore.getState();
-        abandoned?.clear?.();
-      } catch (e) {
-        console.warn("⚠️ AbandonedCart clear failed:", e);
-      }
+        const addressStore = useAddressStore.getState();
 
-      // ✅ Coupon store clear
-      try {
-        const coupon = useCouponStore.getState();
-        if (coupon?.isApplied?.()) {
-          await coupon.clearPersistedCoupon();
+        if (addressStore?.resetAddressOnLogout) {
+          addressStore.resetAddressOnLogout();
         } else {
-          coupon?.clearPersistedCoupon?.();
-        }
-      } catch (e) {
-        console.warn("⚠️ Coupon clear failed:", e);
-      }
-
-      // ✅ Address store clear (🔥 NEW)
-      try {
-        const addr = useAddressStore.getState();
-        addr?.resetAddressOnLogout?.();
-
-        // fallback if reset function not present
-        if (!addr?.resetAddressOnLogout) {
           useAddressStore.setState({
             addresses: [],
             loading: false,
@@ -1511,32 +1601,38 @@ export const useAuthStore = create((set, get) => ({
             _lastEventAt: 0,
           });
         }
-      } catch (e) {
-        console.warn("⚠️ Address reset failed on logout:", e);
+      } catch (error) {
+        console.warn("Address reset failed:", error);
       }
-
-      /* ----------------------------------------
-       ✅ 3) Clear Storages (Optional but OK)
-    ----------------------------------------- */
 
       try {
         localStorage.clear();
         sessionStorage.clear();
-      } catch (e) {
-        console.warn("⚠️ Storage clear failed:", e);
+      } catch (error) {
+        console.warn("Storage cleanup failed:", error);
       }
 
-      /* ----------------------------------------
-       ✅ 4) Reset AUTH Store
-    ----------------------------------------- */
-      set(initialAuthState);
+      Cookies.remove(COOKIE_KEY);
 
-      /* ----------------------------------------
-       ✅ 5) Hard Redirect
-    ----------------------------------------- */
-      window.location.href = "/";
-    } catch (e) {
-      console.error("❌ Logout cleanup failed:", e);
+      set({
+        ...initialAuthState,
+        loading: false,
+        showLogoutConfirm: false,
+      });
+
+      window.location.replace("/");
+    } catch (error) {
+      console.error("Logout cleanup failed:", error);
+
+      Cookies.remove(COOKIE_KEY);
+
+      set({
+        ...initialAuthState,
+        loading: false,
+        showLogoutConfirm: false,
+      });
+
+      window.location.replace("/");
     }
   },
 }));
