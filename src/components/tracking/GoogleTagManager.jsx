@@ -81,18 +81,6 @@ export default function GoogleTagManager({
         }}
       />
 
-      {/* ✅ NoScript fallback
-          NOTE: Best practice is to place this immediately after <body> in app/layout.js.
-          Keeping it here for convenience. */}
-      <noscript>
-        <iframe
-          src={`https://www.googletagmanager.com/ns.html?id=${cleanedGtmId}`}
-          height="0"
-          width="0"
-          style={{ display: "none", visibility: "hidden" }}
-          title="gtm"
-        />
-      </noscript>
     </>
   );
 }

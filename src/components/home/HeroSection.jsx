@@ -16,7 +16,7 @@ import { useHomepageSettingsStore } from "@/store/homepageSettingsStore";
    CONSTANTS
 ========================================================= */
 
-const AUTOPLAY_DELAY = 5000;
+const IMAGE_AUTOPLAY_DELAY = 5000;
 const MOBILE_BREAKPOINT = 768;
 
 /* =========================================================
@@ -87,11 +87,7 @@ export default function HeroSection() {
     if (!settings && !loading) {
       fetchHomepageSettings();
     }
-  }, [
-    settings,
-    loading,
-    fetchHomepageSettings,
-  ]);
+  }, [settings, loading, fetchHomepageSettings]);
 
   /* =======================================================
      DEVICE DETECTION
@@ -107,17 +103,10 @@ export default function HeroSection() {
     };
 
     updateDevice();
-
-    mediaQuery.addEventListener(
-      "change",
-      updateDevice
-    );
+    mediaQuery.addEventListener("change", updateDevice);
 
     return () => {
-      mediaQuery.removeEventListener(
-        "change",
-        updateDevice
-      );
+      mediaQuery.removeEventListener("change", updateDevice);
     };
   }, []);
 
@@ -126,29 +115,21 @@ export default function HeroSection() {
   ======================================================= */
 
   const desktopBanners = useMemo(
-    () =>
-      sortActiveBanners(
-        settings?.desktopHeroBanners || []
-      ),
+    () => sortActiveBanners(settings?.desktopHeroBanners || []),
     [settings?.desktopHeroBanners]
   );
 
   const mobileBanners = useMemo(
-    () =>
-      sortActiveBanners(
-        settings?.mobileHeroBanners || []
-      ),
+    () => sortActiveBanners(settings?.mobileHeroBanners || []),
     [settings?.mobileHeroBanners]
   );
 
   /*
    * Temporary fallback for old database records.
-   * Remove this later once every document has separate arrays.
+   * Remove this once all documents use separate arrays.
    */
   const legacyDesktopBanners = useMemo(() => {
-    const legacy = Array.isArray(
-      settings?.heroBanners
-    )
+    const legacy = Array.isArray(settings?.heroBanners)
       ? settings.heroBanners
       : [];
 
@@ -156,10 +137,7 @@ export default function HeroSection() {
       .filter(
         (banner) =>
           banner?.isActive !== false &&
-          (
-            banner?.desktopImage ||
-            banner?.image
-          )
+          (banner?.desktopImage || banner?.image)
       )
       .sort(
         (firstBanner, secondBanner) =>
@@ -168,17 +146,12 @@ export default function HeroSection() {
       )
       .map((banner) => ({
         ...banner,
-        image:
-          banner?.desktopImage ||
-          banner?.image ||
-          "",
+        image: banner?.desktopImage || banner?.image || "",
       }));
   }, [settings?.heroBanners]);
 
   const legacyMobileBanners = useMemo(() => {
-    const legacy = Array.isArray(
-      settings?.heroBanners
-    )
+    const legacy = Array.isArray(settings?.heroBanners)
       ? settings.heroBanners
       : [];
 
@@ -186,11 +159,9 @@ export default function HeroSection() {
       .filter(
         (banner) =>
           banner?.isActive !== false &&
-          (
-            banner?.mobileImage ||
+          (banner?.mobileImage ||
             banner?.image ||
-            banner?.desktopImage
-          )
+            banner?.desktopImage)
       )
       .sort(
         (firstBanner, secondBanner) =>
@@ -225,68 +196,27 @@ export default function HeroSection() {
     legacyDesktopBanners,
   ]);
 
+  const activeBanner = banners[current];
+  const activeMediaUrl = activeBanner?.image || "";
+  const activeIsVideo = isVideoUrl(activeMediaUrl);
   const firstMedia = banners?.[0]?.image || "";
 
   /* =======================================================
-     RESET WHEN DEVICE/BANNERS CHANGE
-  ======================================================= */
-
-  useEffect(() => {
-    setCurrent(0);
-    setLoaded(false);
-
-    if (!firstMedia) return;
-
-    if (isVideoUrl(firstMedia)) {
-      return;
-    }
-
-    const frame = requestAnimationFrame(() => {
-      setLoaded(true);
-    });
-
-    return () => cancelAnimationFrame(frame);
-  }, [firstMedia, isMobile]);
-
-  useEffect(() => {
-    if (current >= banners.length) {
-      setCurrent(0);
-    }
-  }, [current, banners.length]);
-
-  /* =======================================================
-     AUTOPLAY TIMER
+     BASIC NAVIGATION
   ======================================================= */
 
   const stopAutoplay = useCallback(() => {
     if (timerRef.current) {
-      clearInterval(timerRef.current);
+      window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
   }, []);
-
-  const startAutoplay = useCallback(() => {
-    stopAutoplay();
-
-    if (
-      banners.length > 1 &&
-      !isPausedRef.current
-    ) {
-      timerRef.current = setInterval(() => {
-        setCurrent(
-          (previous) =>
-            (previous + 1) % banners.length
-        );
-      }, AUTOPLAY_DELAY);
-    }
-  }, [banners.length, stopAutoplay]);
 
   const next = useCallback(() => {
     if (banners.length <= 1) return;
 
     setCurrent(
-      (previous) =>
-        (previous + 1) % banners.length
+      (previous) => (previous + 1) % banners.length
     );
   }, [banners.length]);
 
@@ -295,49 +225,145 @@ export default function HeroSection() {
 
     setCurrent(
       (previous) =>
-        (
-          previous -
-          1 +
-          banners.length
-        ) % banners.length
+        (previous - 1 + banners.length) % banners.length
     );
   }, [banners.length]);
 
+  const goToSlide = useCallback(
+    (index) => {
+      if (index < 0 || index >= banners.length) return;
+      setCurrent(index);
+    },
+    [banners.length]
+  );
+
+  /* =======================================================
+     RESET WHEN DEVICE/BANNERS CHANGE
+  ======================================================= */
+
   useEffect(() => {
-    startAutoplay();
+    stopAutoplay();
+    setCurrent(0);
+    setLoaded(false);
+
+    videoRefs.current.forEach((videoElement) => {
+      if (!videoElement) return;
+
+      videoElement.pause();
+      videoElement.currentTime = 0;
+    });
+
+    if (!firstMedia) return;
+
+    if (!isVideoUrl(firstMedia)) {
+      const frame = requestAnimationFrame(() => {
+        setLoaded(true);
+      });
+
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [firstMedia, isMobile, stopAutoplay]);
+
+  useEffect(() => {
+    if (current >= banners.length) {
+      setCurrent(0);
+    }
+  }, [current, banners.length]);
+
+  /* =======================================================
+     IMAGE AUTOPLAY
+
+     Images move after 5 seconds.
+     Videos move only after they finish.
+  ======================================================= */
+
+  const startImageAutoplay = useCallback(() => {
+    stopAutoplay();
+
+    if (
+      banners.length <= 1 ||
+      isPausedRef.current ||
+      activeIsVideo
+    ) {
+      return;
+    }
+
+    timerRef.current = window.setTimeout(() => {
+      next();
+    }, IMAGE_AUTOPLAY_DELAY);
+  }, [
+    activeIsVideo,
+    banners.length,
+    next,
+    stopAutoplay,
+  ]);
+
+  useEffect(() => {
+    startImageAutoplay();
 
     return stopAutoplay;
+  }, [current, startImageAutoplay, stopAutoplay]);
+
+  /* =======================================================
+     PLAY ONLY ACTIVE VIDEO
+
+     Works for both mobile and desktop.
+     Video restarts from beginning when revisited.
+  ======================================================= */
+
+  useEffect(() => {
+    stopAutoplay();
+
+    videoRefs.current.forEach((videoElement, index) => {
+      if (!videoElement) return;
+
+      if (index === current && activeIsVideo) {
+        videoElement.currentTime = 0;
+
+        if (!isPausedRef.current) {
+          videoElement.play().catch(() => {});
+        }
+      } else {
+        videoElement.pause();
+        videoElement.currentTime = 0;
+      }
+    });
+
+    if (!activeIsVideo) {
+      startImageAutoplay();
+    }
   }, [
-    startAutoplay,
+    current,
+    activeIsVideo,
+    banners,
+    startImageAutoplay,
     stopAutoplay,
   ]);
 
   /* =======================================================
-     PLAY ACTIVE MOBILE VIDEO ONLY
+     PAUSE / RESUME CURRENT MEDIA
   ======================================================= */
 
-  useEffect(() => {
-    videoRefs.current.forEach(
-      (videoElement, index) => {
-        if (!videoElement) return;
+  const pauseCarousel = useCallback(() => {
+    isPausedRef.current = true;
+    stopAutoplay();
 
-        if (
-          isMobile &&
-          index === current
-        ) {
-          videoElement
-            .play()
-            .catch(() => {});
-        } else {
-          videoElement.pause();
-        }
-      }
-    );
-  }, [
-    current,
-    isMobile,
-    banners,
-  ]);
+    const activeVideo = videoRefs.current.get(current);
+    activeVideo?.pause();
+  }, [current, stopAutoplay]);
+
+  const resumeCarousel = useCallback(() => {
+    isPausedRef.current = false;
+
+    if (activeIsVideo) {
+      const activeVideo = videoRefs.current.get(current);
+
+      activeVideo?.play().catch(() => {});
+      return;
+    }
+
+    startImageAutoplay();
+  }, [activeIsVideo, current, startImageAutoplay]);
 
   /* =======================================================
      TOUCH SWIPE
@@ -346,10 +372,7 @@ export default function HeroSection() {
   useEffect(() => {
     const element = containerRef.current;
 
-    if (
-      !element ||
-      banners.length <= 1
-    ) {
+    if (!element || banners.length <= 1) {
       return;
     }
 
@@ -357,37 +380,25 @@ export default function HeroSection() {
     const verticalLimit = 25;
 
     const handleTouchStart = (event) => {
-      isPausedRef.current = true;
-      stopAutoplay();
+      pauseCarousel();
 
       blockClickRef.current = false;
       isSwipingRef.current = false;
 
-      startXRef.current =
-        event.touches[0].clientX;
-
-      startYRef.current =
-        event.touches[0].clientY;
+      startXRef.current = event.touches[0].clientX;
+      startYRef.current = event.touches[0].clientY;
     };
 
     const handleTouchMove = (event) => {
-      const currentX =
-        event.touches[0].clientX;
+      const currentX = event.touches[0].clientX;
+      const currentY = event.touches[0].clientY;
 
-      const currentY =
-        event.touches[0].clientY;
-
-      const differenceX =
-        startXRef.current - currentX;
-
-      const differenceY =
-        startYRef.current - currentY;
+      const differenceX = startXRef.current - currentX;
+      const differenceY = startYRef.current - currentY;
 
       const isVerticalGesture =
-        Math.abs(differenceY) >
-          Math.abs(differenceX) &&
-        Math.abs(differenceY) >
-          verticalLimit;
+        Math.abs(differenceY) > Math.abs(differenceX) &&
+        Math.abs(differenceY) > verticalLimit;
 
       if (isVerticalGesture) return;
 
@@ -401,29 +412,20 @@ export default function HeroSection() {
 
     const handleTouchEnd = (event) => {
       if (!isSwipingRef.current) {
-        isPausedRef.current = false;
-        startAutoplay();
+        resumeCarousel();
         return;
       }
 
-      const endX =
-        event.changedTouches[0].clientX;
+      const endX = event.changedTouches[0].clientX;
+      const differenceX = startXRef.current - endX;
 
-      const differenceX =
-        startXRef.current - endX;
-
-      if (
-        differenceX > swipeThreshold
-      ) {
+      if (differenceX > swipeThreshold) {
         next();
-      } else if (
-        differenceX < -swipeThreshold
-      ) {
+      } else if (differenceX < -swipeThreshold) {
         previous();
       }
 
       isPausedRef.current = false;
-      startAutoplay();
 
       window.setTimeout(() => {
         blockClickRef.current = false;
@@ -473,10 +475,36 @@ export default function HeroSection() {
   }, [
     banners.length,
     next,
+    pauseCarousel,
     previous,
-    startAutoplay,
-    stopAutoplay,
+    resumeCarousel,
   ]);
+
+  /* =======================================================
+     PAGE VISIBILITY
+  ======================================================= */
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        pauseCarousel();
+      } else {
+        resumeCarousel();
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, [pauseCarousel, resumeCarousel]);
 
   /* =======================================================
      LOADING STATE
@@ -507,14 +535,8 @@ export default function HeroSection() {
       style={{
         touchAction: "pan-y",
       }}
-      onMouseEnter={() => {
-        isPausedRef.current = true;
-        stopAutoplay();
-      }}
-      onMouseLeave={() => {
-        isPausedRef.current = false;
-        startAutoplay();
-      }}
+      onMouseEnter={pauseCarousel}
+      onMouseLeave={resumeCarousel}
     >
       {!loaded && (
         <div className="absolute inset-0 z-10 bg-gray-200">
@@ -524,146 +546,130 @@ export default function HeroSection() {
 
       <div
         className={`absolute inset-0 flex transition-[transform,opacity] duration-700 ease-in-out ${
-          loaded
-            ? "opacity-100"
-            : "opacity-0"
+          loaded ? "opacity-100" : "opacity-0"
         }`}
         style={{
-          transform: `translateX(-${
-            current * 100
-          }%)`,
+          transform: `translateX(-${current * 100}%)`,
         }}
       >
-        {banners.map(
-          (banner, index) => {
-            const mediaUrl =
-              banner?.image || "";
+        {banners.map((banner, index) => {
+          const mediaUrl = banner?.image || "";
+          const video = isVideoUrl(mediaUrl);
 
-            const video =
-              isMobile &&
-              isVideoUrl(mediaUrl);
-
-            const slide = (
-              <div className="relative h-full w-full flex-shrink-0 overflow-hidden">
-                {video ? (
-                  <video
-                    ref={(element) => {
-                      if (element) {
-                        videoRefs.current.set(
-                          index,
-                          element
-                        );
-                      } else {
-                        videoRefs.current.delete(
-                          index
-                        );
-                      }
-                    }}
-                    src={mediaUrl}
-                    muted
-                    loop
-                    playsInline
-                    autoPlay={
-                      index === current
+          const slide = (
+            <div className="relative h-full w-full flex-shrink-0 overflow-hidden">
+              {video ? (
+                <video
+                  ref={(element) => {
+                    if (element) {
+                      videoRefs.current.set(
+                        index,
+                        element
+                      );
+                    } else {
+                      videoRefs.current.delete(index);
                     }
-                    preload={
-                      index === 0
-                        ? "auto"
-                        : "metadata"
+                  }}
+                  src={mediaUrl}
+                  muted
+                  playsInline
+                  preload={
+                    index === 0
+                      ? "auto"
+                      : "metadata"
+                  }
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onLoadedData={() => {
+                    if (index === 0) {
+                      setLoaded(true);
                     }
-                    className="absolute inset-0 h-full w-full object-cover"
-                    onLoadedData={() => {
-                      if (index === 0) {
-                        setLoaded(true);
-                      }
-                    }}
-                    onCanPlay={() => {
-                      if (index === current) {
-                        videoRefs.current
-                          .get(index)
-                          ?.play()
-                          .catch(() => {});
-                      }
-
-                      if (index === 0) {
-                        setLoaded(true);
-                      }
-                    }}
-                    onError={() => {
-                      if (index === 0) {
-                        setLoaded(true);
-                      }
-                    }}
-                  />
-                ) : (
-                  <Image
-                    src={mediaUrl}
-                    alt={
-                      banner?.title ||
-                      `Hero banner ${
-                        index + 1
-                      }`
+                  }}
+                  onCanPlay={() => {
+                    if (
+                      index === current &&
+                      !isPausedRef.current
+                    ) {
+                      videoRefs.current
+                        .get(index)
+                        ?.play()
+                        .catch(() => {});
                     }
-                    fill
-                    priority={index === 0}
-                    sizes="100vw"
-                    className="object-cover"
-                    unoptimized
-                    onLoad={() => {
-                      if (index === 0) {
-                        setLoaded(true);
-                      }
-                    }}
-                    onError={() => {
-                      if (index === 0) {
-                        setLoaded(true);
-                      }
-                    }}
-                  />
-                )}
-              </div>
-            );
 
-            const handleClick = (event) => {
-              if (
-                blockClickRef.current
-              ) {
-                event.preventDefault();
-                event.stopPropagation();
+                    if (index === 0) {
+                      setLoaded(true);
+                    }
+                  }}
+                  onEnded={() => {
+                    if (index === current) {
+                      next();
+                    }
+                  }}
+                  onError={() => {
+                    if (index === 0) {
+                      setLoaded(true);
+                    }
+
+                    if (index === current) {
+                      next();
+                    }
+                  }}
+                />
+              ) : (
+                <Image
+                  src={mediaUrl}
+                  alt={
+                    banner?.title ||
+                    `Hero banner ${index + 1}`
+                  }
+                  fill
+                  priority={index === 0}
+                  sizes="100vw"
+                  className="object-cover"
+                  unoptimized
+                  onLoad={() => {
+                    if (index === 0) {
+                      setLoaded(true);
+                    }
+                  }}
+                  onError={() => {
+                    if (index === 0) {
+                      setLoaded(true);
+                    }
+                  }}
+                />
+              )}
+            </div>
+          );
+
+          const handleClick = (event) => {
+            if (blockClickRef.current) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          };
+
+          return banner?.link ? (
+            <Link
+              key={getBannerKey(banner, index)}
+              href={banner.link}
+              onClick={handleClick}
+              className="h-full w-full flex-shrink-0"
+              aria-label={
+                banner?.title ||
+                `Open banner ${index + 1}`
               }
-            };
-
-            return banner?.link ? (
-              <Link
-                key={getBannerKey(
-                  banner,
-                  index
-                )}
-                href={banner.link}
-                onClick={handleClick}
-                className="h-full w-full flex-shrink-0"
-                aria-label={
-                  banner?.title ||
-                  `Open banner ${
-                    index + 1
-                  }`
-                }
-              >
-                {slide}
-              </Link>
-            ) : (
-              <div
-                key={getBannerKey(
-                  banner,
-                  index
-                )}
-                className="h-full w-full flex-shrink-0"
-              >
-                {slide}
-              </div>
-            );
-          }
-        )}
+            >
+              {slide}
+            </Link>
+          ) : (
+            <div
+              key={getBannerKey(banner, index)}
+              className="h-full w-full flex-shrink-0"
+            >
+              {slide}
+            </div>
+          );
+        })}
       </div>
 
       {/* Desktop arrows */}
@@ -671,10 +677,7 @@ export default function HeroSection() {
         <>
           <button
             type="button"
-            onClick={() => {
-              previous();
-              startAutoplay();
-            }}
+            onClick={previous}
             className="absolute left-4 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-black/30 px-3 py-2 text-3xl leading-none text-white transition hover:bg-black/50 md:flex"
             aria-label="Previous banner"
           >
@@ -683,10 +686,7 @@ export default function HeroSection() {
 
           <button
             type="button"
-            onClick={() => {
-              next();
-              startAutoplay();
-            }}
+            onClick={next}
             className="absolute right-4 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-black/30 px-3 py-2 text-3xl leading-none text-white transition hover:bg-black/50 md:flex"
             aria-label="Next banner"
           >
@@ -698,29 +698,19 @@ export default function HeroSection() {
       {/* Pagination */}
       {banners.length > 1 && (
         <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-          {banners.map(
-            (banner, index) => (
-              <button
-                key={getBannerKey(
-                  banner,
-                  index
-                )}
-                type="button"
-                onClick={() => {
-                  setCurrent(index);
-                  startAutoplay();
-                }}
-                className={`h-2.5 w-2.5 rounded-full border border-black/10 transition ${
-                  current === index
-                    ? "bg-white"
-                    : "bg-white/45"
-                }`}
-                aria-label={`Go to banner ${
-                  index + 1
-                }`}
-              />
-            )
-          )}
+          {banners.map((banner, index) => (
+            <button
+              key={getBannerKey(banner, index)}
+              type="button"
+              onClick={() => goToSlide(index)}
+              className={`h-2.5 w-2.5 rounded-full border border-black/10 transition ${
+                current === index
+                  ? "bg-white"
+                  : "bg-white/45"
+              }`}
+              aria-label={`Go to banner ${index + 1}`}
+            />
+          ))}
         </div>
       )}
     </section>

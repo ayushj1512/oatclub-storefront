@@ -9,6 +9,9 @@ import {
   SEO_KEYWORDS,
 } from "@/lib/seo/seoMeta";
 
+const GTM_ID =
+  process.env.NEXT_PUBLIC_GTM_ID || "GTM-55DGB55Q";
+
 const lato = Lato({
   subsets: ["latin"],
   weight: ["300", "400", "700", "900"],
@@ -112,6 +115,15 @@ export default function RootLayout({
       className={`${lato.variable} ${nunitoSans.variable}`}
     >
       <body>
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+            title="Google Tag Manager"
+          />
+        </noscript>
         <LayoutClient>{children}</LayoutClient>
       </body>
     </html>
