@@ -6,7 +6,6 @@ import { Suspense, useEffect } from "react";
 import { Toaster } from "sonner";
 
 import GTMPageView from "@/components/tracking/GTMPageView";
-import GoogleTagManager from "@/components/tracking/GoogleTagManager";
 import MetaPixel from "@/components/tracking/MetaPixel";
 import SnapPixel from "@/components/tracking/SnapPixel";
 import ClarityProvider from "@/components/clarity/ClarityProvider";
@@ -89,9 +88,6 @@ export default function LayoutClient({
   const SNAP_PIXEL_ID =
     process.env.NEXT_PUBLIC_SNAP_PIXEL_ID || "";
 
-  const GTM_ID =
-    process.env.NEXT_PUBLIC_GTM_ID || "GTM-55DGB55Q";
-
   return (
     <>
       {/* =====================================================
@@ -116,8 +112,6 @@ export default function LayoutClient({
           trackPageView
           debug={process.env.NODE_ENV === "development"}
         />
-
-        <GoogleTagManager gtmId={GTM_ID} />
 
         <GTMPageView />
 
