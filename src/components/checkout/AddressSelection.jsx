@@ -6,17 +6,18 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  MapPin,
   Plus,
 } from "lucide-react";
 
 const normalizeEmail = (value = "") =>
-  String(value).trim().toLowerCase();
+  String(value || "").trim().toLowerCase();
 
 const isValidEmail = (value = "") =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
 
 const normalizePhone = (value = "") => {
-  let digits = String(value).replace(/\D/g, "");
+  let digits = String(value || "").replace(/\D/g, "");
 
   if (digits.startsWith("91") && digits.length > 10) {
     digits = digits.slice(2);
@@ -55,7 +56,7 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-[9px] font-black uppercase tracking-[0.14em] text-black/42">
+      <label className="mb-1 block text-[9px] font-black uppercase tracking-[0.14em] text-black/40">
         {label}
       </label>
 
@@ -69,7 +70,7 @@ function FormField({
           placeholder={placeholder}
           inputMode={inputMode}
           autoComplete={autoComplete}
-          className={`h-11 w-full border bg-[#fffefa] px-3 pr-11 text-[13px] font-bold tracking-[0.04em] text-black outline-none transition placeholder:uppercase placeholder:text-black/28 ${error
+          className={`h-11 w-full border bg-[#fffefa] px-3 pr-11 text-[13px] font-bold tracking-[0.04em] text-black outline-none transition placeholder:uppercase placeholder:text-black/25 ${error
               ? "border-red-500"
               : "border-neutral-300 focus:border-black"
             }`}
@@ -93,6 +94,8 @@ function FormField({
 
 export default function AddressSelection({
   addresses = [],
+  addressesLoading = false,
+
   selectedAddressId,
   setSelectedAddressId,
 
@@ -112,34 +115,77 @@ export default function AddressSelection({
 }) {
   const [touched, setTouched] = useState({});
 
+  const firebaseUID =
+    user?.uid ||
+    user?.firebaseUID ||
+    customer?.firebaseUID ||
+    "";
 
-  const visibleAddresses =
-  customer?._id &&
-  Array.isArray(addresses)
-    ? addresses
-    : [];
+  const customerId =
+    customer?._id ||
+    customer?.id ||
+    "";
 
-const hasSavedAddresses =
-  visibleAddresses.length > 0;
+  const isLoggedIn = Boolean(firebaseUID || customerId);
+
+  const visibleAddresses = useMemo(() => {
+    if (!isLoggedIn || !Array.isArray(addresses)) {
+      return [];
+    }
+
+    return addresses.filter((address) => address?._id);
+  }, [addresses, isLoggedIn]);
+
+  const hasSavedAddresses = visibleAddresses.length > 0;
+
+  const selectedAddress = useMemo(
+    () =>
+      visibleAddresses.find(
+        (address) =>
+          String(address._id) === String(selectedAddressId),
+      ) || null,
+    [visibleAddresses, selectedAddressId],
+  );
 
   useEffect(() => {
+    if (addressesLoading) return;
+
     if (!hasSavedAddresses) {
       setSelectedAddressId(null);
       setShowAddressForm(true);
       return;
     }
 
+    // ✅ User ne manually "Use a new address" select kiya hai
+    // Is case mein saved address auto-select mat karo
+    if (showAddressForm) {
+      return;
+    }
+
     const selectedExists = visibleAddresses.some(
-      (address) => String(address._id) === String(selectedAddressId),
+      (address) =>
+        String(address._id) === String(selectedAddressId)
     );
 
     if (!selectedExists) {
-      setSelectedAddressId(visibleAddresses[0]._id);
+      const defaultAddress =
+        visibleAddresses.find(
+          (address) => address.isDefaultShipping
+        ) ||
+        visibleAddresses.find(
+          (address) => address.isDefaultBilling
+        ) ||
+        visibleAddresses[0];
+
+      setSelectedAddressId(defaultAddress._id);
+      setShowAddressForm(false);
     }
   }, [
+    addressesLoading,
     hasSavedAddresses,
-    visibleAddresses,
     selectedAddressId,
+    showAddressForm,
+    visibleAddresses,
     setSelectedAddressId,
     setShowAddressForm,
   ]);
@@ -147,10 +193,12 @@ const hasSavedAddresses =
   const errors = useMemo(() => {
     const next = {};
 
-    if (
-      !customer?.email &&
-      !isValidEmail(addressForm.email)
-    ) {
+    const customerEmail =
+      customer?.email ||
+      user?.email ||
+      "";
+
+    if (!customerEmail && !isValidEmail(addressForm.email)) {
       next.email = "Enter a valid email";
     }
 
@@ -163,7 +211,11 @@ const hasSavedAddresses =
         next.phone = "Enter a valid 10-digit phone";
       }
 
-      if (!/^[0-9]{6}$/.test(String(addressForm.postalCode || ""))) {
+      if (
+        !/^[0-9]{6}$/.test(
+          String(addressForm.postalCode || ""),
+        )
+      ) {
         next.postalCode = "Enter a valid 6-digit PIN code";
       }
 
@@ -184,10 +236,12 @@ const hasSavedAddresses =
   }, [
     addressForm,
     customer?.email,
+    user?.email,
     showAddressForm,
   ]);
+
   const suggestions = useMemo(() => {
-    if (customer?.email) return [];
+    if (customer?.email || user?.email) return [];
 
     const value = String(addressForm.email || "").trim();
 
@@ -201,7 +255,9 @@ const hasSavedAddresses =
   }, [
     addressForm.email,
     customer?.email,
+    user?.email,
   ]);
+
   const touch = (field) => {
     setTouched((current) => ({
       ...current,
@@ -227,20 +283,47 @@ const hasSavedAddresses =
     setTouched({});
   };
 
-  const toggleAddressForm = () => {
+  const chooseNewAddress = () => {
+    setSelectedAddressId(null);
+    setShowAddressForm(true);
     setTouched({});
-    setShowAddressForm((current) => !current);
   };
+
+  const closeNewAddressForm = () => {
+    setShowAddressForm(false);
+    setTouched({});
+
+    if (!selectedAddressId && visibleAddresses.length) {
+      const fallback =
+        visibleAddresses.find(
+          (address) => address.isDefaultShipping,
+        ) || visibleAddresses[0];
+
+      setSelectedAddressId(fallback._id);
+    }
+  };
+
+  const customerEmail =
+    customer?.email ||
+    user?.email ||
+    "";
+
+  const customerName =
+    customer?.name ||
+    user?.displayName ||
+    "OATCLUB Customer";
 
   return (
     <Card className="p-3.5 sm:p-4">
       <button
         type="button"
-        onClick={() => setShowAddress((current) => !current)}
+        onClick={() =>
+          setShowAddress((current) => !current)
+        }
         className="flex w-full items-center justify-between"
       >
         <div className="text-left">
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-black/36">
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-black/35">
             Step 1
           </p>
 
@@ -259,18 +342,18 @@ const hasSavedAddresses =
       {showAddress && (
         <div className="space-y-3 pt-3">
           <div className="border border-neutral-200 bg-[#fbfaf7] p-3">
-            {customer?.email ? (
+            {customerEmail ? (
               <>
-                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-black/38">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-black/40">
                   Contact details
                 </p>
 
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.06em]">
-                  {customer?.name || "OATCLUB Customer"}
+                  {customerName}
                 </p>
 
                 <p className="mt-1 break-all text-[10px] font-bold tracking-[0.05em] text-black/45">
-                  {customer.email}
+                  {customerEmail}
                 </p>
               </>
             ) : (
@@ -318,17 +401,39 @@ const hasSavedAddresses =
             )}
           </div>
 
-          {hasSavedAddresses && (
+          {addressesLoading && isLoggedIn && (
+            <div className="flex items-center justify-center gap-2 border border-neutral-200 bg-[#fbfaf7] px-3 py-6">
+              <Loader2 className="h-4 w-4 animate-spin" />
+
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-black/45">
+                Loading saved addresses
+              </p>
+            </div>
+          )}
+
+          {!addressesLoading && hasSavedAddresses && (
             <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-black/40">
+                  Saved addresses
+                </p>
+
+                <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-black/35">
+                  {visibleAddresses.length} saved
+                </span>
+              </div>
+
               {visibleAddresses.map((address) => {
                 const selected =
-                  String(selectedAddressId) === String(address._id);
+                  !showAddressForm &&
+                  String(selectedAddressId) ===
+                  String(address._id);
 
                 return (
                   <label
                     key={address._id}
                     className={`block cursor-pointer border p-3 transition sm:p-4 ${selected
-                        ? "border-black bg-white"
+                        ? "border-black bg-white shadow-sm"
                         : "border-neutral-200 bg-[#fbfaf7] hover:border-black"
                       }`}
                   >
@@ -336,6 +441,7 @@ const hasSavedAddresses =
                       <input
                         type="radio"
                         name="deliveryAddress"
+                        value={address._id}
                         checked={selected}
                         onChange={() =>
                           selectSavedAddress(address._id)
@@ -343,10 +449,18 @@ const hasSavedAddresses =
                         className="mt-1 h-4 w-4 accent-black"
                       />
 
-                      <div className="min-w-0">
-                        <p className="text-xs font-black uppercase tracking-[0.08em]">
-                          {address.fullName}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-xs font-black uppercase tracking-[0.08em]">
+                            {address.fullName}
+                          </p>
+
+                          {address.isDefaultShipping && (
+                            <span className="bg-black px-2 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-white">
+                              Default
+                            </span>
+                          )}
+                        </div>
 
                         <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-black/50">
                           {address.phone}
@@ -358,32 +472,80 @@ const hasSavedAddresses =
                             ? `, ${address.addressLine2}`
                             : ""}
                           , {address.city}, {address.state} -{" "}
-                          {address.postalCode || address.pincode}
+                          {address.postalCode ||
+                            address.pincode}
                         </p>
                       </div>
+
+                      {selected && (
+                        <CheckCircle2 className="h-5 w-5 shrink-0" />
+                      )}
                     </div>
                   </label>
                 );
               })}
+
+              <label
+                onClick={chooseNewAddress}
+                className={`block cursor-pointer border p-3 transition sm:p-4 ${showAddressForm
+                    ? "border-black bg-white shadow-sm"
+                    : "border-neutral-200 bg-[#fbfaf7] hover:border-black"
+                  }`}
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    name="deliveryAddress"
+                    checked={showAddressForm}
+                    onChange={chooseNewAddress}
+                    className="h-4 w-4 accent-black"
+                  />
+
+                  <div className="flex flex-1 items-center gap-2">
+                    <Plus className="h-4 w-4" />
+
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em]">
+                      Use a new address
+                    </p>
+                  </div>
+                </div>
+              </label>
             </div>
           )}
 
-          {hasSavedAddresses && (
-            <button
-              type="button"
-              onClick={toggleAddressForm}
-              className="inline-flex h-10 items-center gap-2 bg-black px-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800"
-            >
-              <Plus className="h-4 w-4" />
-              {showAddressForm ? "Close Address Form" : "Add New Address"}
-            </button>
-          )}
+          {!addressesLoading &&
+            isLoggedIn &&
+            !hasSavedAddresses && (
+              <div className="border border-neutral-200 bg-[#fbfaf7] p-4 text-center">
+                <MapPin className="mx-auto h-5 w-5 text-black/45" />
+
+                <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em]">
+                  No saved address found
+                </p>
+
+                <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.08em] text-black/40">
+                  Add your delivery address below
+                </p>
+              </div>
+            )}
 
           {showAddressForm && (
             <div className="border border-neutral-200 bg-[#fbfaf7] p-3">
-              <h3 className="mb-3 text-xs font-black uppercase tracking-[0.14em]">
-                Delivery Address
-              </h3>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-xs font-black uppercase tracking-[0.14em]">
+                  New Delivery Address
+                </h3>
+
+                {hasSavedAddresses && (
+                  <button
+                    type="button"
+                    onClick={closeNewAddressForm}
+                    className="text-[9px] font-black uppercase tracking-[0.12em] text-black/45 hover:text-black"
+                  >
+                    Use saved address
+                  </button>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
@@ -397,10 +559,13 @@ const hasSavedAddresses =
                   autoComplete="postal-code"
                   error={getError("postalCode")}
                   rightNode={
-                    String(addressForm.postalCode || "").length === 6 ? (
+                    String(
+                      addressForm.postalCode || "",
+                    ).length === 6 ? (
                       pinLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin text-black/40" />
-                      ) : addressForm.city || addressForm.state ? (
+                      ) : addressForm.city ||
+                        addressForm.state ? (
                         <CheckCircle2 className="h-4 w-4" />
                       ) : null
                     ) : null
@@ -423,7 +588,10 @@ const hasSavedAddresses =
                   name="phone"
                   value={addressForm.phone}
                   onChange={(event) =>
-                    changeField("phone", normalizePhone(event.target.value))
+                    changeField(
+                      "phone",
+                      normalizePhone(event.target.value),
+                    )
                   }
                   onBlur={() => touch("phone")}
                   placeholder="10-digit mobile number"
@@ -438,7 +606,9 @@ const hasSavedAddresses =
                   value={addressForm.city}
                   onChange={updateAddressField}
                   onBlur={() => touch("city")}
-                  placeholder={pinLoading ? "Auto-filling..." : "City"}
+                  placeholder={
+                    pinLoading ? "Auto-filling..." : "City"
+                  }
                   autoComplete="address-level2"
                   error={getError("city")}
                 />
@@ -449,7 +619,9 @@ const hasSavedAddresses =
                   value={addressForm.state}
                   onChange={updateAddressField}
                   onBlur={() => touch("state")}
-                  placeholder={pinLoading ? "Auto-filling..." : "State"}
+                  placeholder={
+                    pinLoading ? "Auto-filling..." : "State"
+                  }
                   autoComplete="address-level1"
                   error={getError("state")}
                 />
@@ -476,10 +648,16 @@ const hasSavedAddresses =
               </div>
 
               <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.06em] text-black/40">
-                Your address will be saved automatically when you place
-                the order.
+                This address will be used for the current order
+                and saved after successful order placement.
               </p>
             </div>
+          )}
+
+          {!showAddressForm && selectedAddress && (
+            <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-black/40">
+              Selected address will be used for delivery.
+            </p>
           )}
         </div>
       )}

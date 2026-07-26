@@ -1,4 +1,3 @@
-// src/app/checkout/page.jsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -65,7 +64,11 @@ export default function CheckoutPage() {
   const createGuestCustomer = useAuthStore((s) => s.createGuestCustomer);
 
   const addresses = useAddressStore((s) => s.addresses) || [];
-  const fetchAddresses = useAddressStore((s) => s.fetchAddresses);
+  const addressesLoading = useAddressStore((s) => s.loading);
+  const fetchAddressesBoth = useAddressStore((s) => s.fetchAddressesBoth);
+  const fetchAddressesByEmail = useAddressStore(
+    (s) => s.fetchAddressesByEmail
+  );
   const createAddress = useAddressStore((s) => s.createAddress);
   const clearAddresses = useAddressStore((s) => s.clearAddresses);
   const lookupPincode = useAddressStore((s) => s.lookupPincode);
@@ -249,27 +252,45 @@ export default function CheckoutPage() {
   const paymentOptionsPayable = payableAfterWallet;
 
   const selectedAddressObj = useMemo(() => {
-    if (!selectedAddressId) return null;
+    if (showAddressForm || !selectedAddressId) return null;
+
     return (
-      addresses.find((a) => String(a?._id) === String(selectedAddressId)) || null
+      addresses.find(
+        (address) =>
+          String(address?._id) === String(selectedAddressId)
+      ) || null
     );
-  }, [addresses, selectedAddressId]);
+  }, [addresses, selectedAddressId, showAddressForm]);
+
+  const usingSavedAddress = Boolean(
+    !showAddressForm && selectedAddressObj?._id
+  );
 
   /* ---------------- DEFAULT ADDRESS ---------------- */
   useEffect(() => {
+    if (addressesLoading) return;
+
     if (!addresses?.length) {
       setSelectedAddressId(null);
+      setShowAddressForm(true);
       return;
     }
 
-    const exists = addresses.some(
-      (a) => String(a?._id) === String(selectedAddressId)
+    const selectedExists = addresses.some(
+      (address) =>
+        String(address?._id) === String(selectedAddressId)
     );
 
-    if (!selectedAddressId || !exists) {
-      setSelectedAddressId(addresses[0]?._id || null); // ✅ top address selected
+    if (!selectedExists) {
+      const defaultAddress =
+        addresses.find((address) => address?.isDefaultShipping) ||
+        addresses.find((address) => address?.isDefaultBilling) ||
+        addresses[0];
+
+      setSelectedAddressId(defaultAddress?._id || null);
+      setShowAddressForm(false);
     }
-  }, [addresses, selectedAddressId]);
+  }, [addresses, addressesLoading, selectedAddressId]);
 
 
   /* ---------------- GA4 ITEMS ---------------- */
@@ -415,28 +436,82 @@ export default function CheckoutPage() {
 
   /* ---------------- FETCH ADDRESS FOR LOGGED IN ---------------- */
   useEffect(() => {
-    if (!user?.uid) return;
+    const firebaseUID =
+      user?.uid ||
+      user?.firebaseUID ||
+      activeCustomer?.firebaseUID ||
+      "";
 
-    fetchAddresses?.({ firebaseUID: user.uid });
+    const customerId =
+      activeCustomer?._id ||
+      activeCustomer?.id ||
+      "";
 
-    setAddressForm((p) => ({
-      ...p,
-      email: user.email || p.email,
-      fullName: p.fullName || customer?.name || "",
-      phone: p.phone || customer?.phone || "",
+    if (!firebaseUID && !customerId) return;
+
+    fetchAddressesBoth?.({
+      firebaseUID,
+      customerId,
+    });
+
+    setAddressForm((current) => ({
+      ...current,
+      email:
+        user?.email ||
+        activeCustomer?.email ||
+        current.email,
+      fullName:
+        current.fullName ||
+        activeCustomer?.name ||
+        user?.displayName ||
+        "",
+      phone:
+        current.phone ||
+        activeCustomer?.phone ||
+        activeCustomer?.mobile ||
+        "",
     }));
-  }, [user?.uid, user?.email, customer?.name, customer?.phone]);
+  }, [
+    user?.uid,
+    user?.firebaseUID,
+    user?.email,
+    user?.displayName,
+    activeCustomer?._id,
+    activeCustomer?.id,
+    activeCustomer?.firebaseUID,
+    activeCustomer?.email,
+    activeCustomer?.name,
+    activeCustomer?.phone,
+    activeCustomer?.mobile,
+    fetchAddressesBoth,
+  ]);
 
   /* ---------------- EXISTING CUSTOMER FOUND (guest email flow) ---------------- */
   const onCustomerFound = async (cust) => {
-    // ✅ store locally
+    if (!cust) return;
+
     setGuestCustomer(cust);
 
-    // ✅ patch email into form
-    setAddressForm((p) => ({ ...p, email: cust.email || p.email }));
+    setAddressForm((current) => ({
+      ...current,
+      email: cust?.email || current.email,
+      fullName: current.fullName || cust?.name || "",
+      phone:
+        current.phone ||
+        cust?.phone ||
+        cust?.mobile ||
+        "",
+    }));
 
-    // ✅ load addresses
-    await fetchAddresses?.({ firebaseUID: cust.firebaseUID });
+    if (cust?.email) {
+      await fetchAddressesByEmail?.(cust.email);
+      return;
+    }
+
+    await fetchAddressesBoth?.({
+      customerId: cust?._id,
+      firebaseUID: cust?.firebaseUID,
+    });
   };
 
   /* ---------------- ENSURE CUSTOMER FOR GUEST ---------------- */
@@ -579,7 +654,7 @@ export default function CheckoutPage() {
   /* ---------------- DIRECT ORDER ADDRESS SNAPSHOT ---------------- */
 
   const buildCheckoutAddressSnapshot = (finalCustomer = {}) => {
-    const source = selectedAddressObj?._id
+    const source = usingSavedAddress
       ? selectedAddressObj
       : addressForm;
 
@@ -636,7 +711,7 @@ export default function CheckoutPage() {
   const saveAddressInBackground = (finalCustomer) => {
     if (!finalCustomer?._id) return;
 
-    if (selectedAddressObj?._id) return;
+    if (usingSavedAddress) return;
 
     const payload = {
       ...addressForm,
@@ -704,6 +779,16 @@ export default function CheckoutPage() {
       if (found?._id) {
         setGuestCustomer(found);
         fetchCustomerCreditSummary(found._id).catch(() => { });
+
+        if (found?.email) {
+          await fetchAddressesByEmail?.(found.email);
+        } else {
+          await fetchAddressesBoth?.({
+            customerId: found._id,
+            firebaseUID: found.firebaseUID,
+          });
+        }
+
         return found;
       }
 
@@ -725,70 +810,86 @@ export default function CheckoutPage() {
 
 
   /* ---------------- CHECKOUT VALIDATION ---------------- */
- const validateCheckout = () => {
-  const checkoutItems =
-    getCheckoutPayload?.() || [];
+  const validateCheckout = () => {
+    const checkoutItems = getCheckoutPayload?.() || [];
 
-  if (!checkoutItems.length) {
-    return "Your cart is empty.";
-  }
+    if (!checkoutItems.length) {
+      return "Your cart is empty.";
+    }
 
-  const email =
-    addressForm.email ||
-    activeCustomer?.email ||
-    user?.email ||
-    "";
+    const email =
+      addressForm.email ||
+      activeCustomer?.email ||
+      user?.email ||
+      "";
 
-  if (!email.trim()) {
-    return "Please enter your email.";
-  }
+    if (!String(email).trim()) {
+      return "Please enter your email.";
+    }
 
-  if (selectedAddressObj?._id) {
+    if (usingSavedAddress) {
+      const postalCode =
+        selectedAddressObj?.postalCode ||
+        selectedAddressObj?.pincode ||
+        "";
+
+      if (
+        !selectedAddressObj?.fullName ||
+        !selectedAddressObj?.phone ||
+        !selectedAddressObj?.addressLine1 ||
+        !selectedAddressObj?.city ||
+        !selectedAddressObj?.state ||
+        !/^\d{6}$/.test(String(postalCode))
+      ) {
+        return "Selected address is incomplete.";
+      }
+
+      return null;
+    }
+
+    const phone = String(addressForm.phone || "").replace(
+      /\D/g,
+      ""
+    );
+
+    if (!addressForm.fullName?.trim()) {
+      return "Please enter your full name.";
+    }
+
+    if (phone.length !== 10) {
+      return "Please enter a valid phone number.";
+    }
+
+    if (!addressForm.addressLine1?.trim()) {
+      return "Please enter your delivery address.";
+    }
+
+    if (!addressForm.city?.trim()) {
+      return "Please enter your city.";
+    }
+
+    if (!addressForm.state?.trim()) {
+      return "Please enter your state.";
+    }
+
+    if (
+      !/^\d{6}$/.test(
+        String(addressForm.postalCode || "")
+      )
+    ) {
+      return "Please enter a valid PIN code.";
+    }
+
+    if (
+      !["cod", "razorpay", "wallet"].includes(
+        selectedPayment
+      )
+    ) {
+      return "Please select a payment method.";
+    }
+
     return null;
-  }
-
-  const phone = String(
-    addressForm.phone || "",
-  ).replace(/\D/g, "");
-
-  if (!addressForm.fullName?.trim()) {
-    return "Please enter your full name.";
-  }
-
-  if (phone.length !== 10) {
-    return "Please enter a valid phone number.";
-  }
-
-  if (!addressForm.addressLine1?.trim()) {
-    return "Please enter your delivery address.";
-  }
-
-  if (!addressForm.city?.trim()) {
-    return "Please enter your city.";
-  }
-
-  if (!addressForm.state?.trim()) {
-    return "Please enter your state.";
-  }
-
-  if (
-    !/^\d{6}$/.test(
-      String(addressForm.postalCode || ""),
-    )
-  ) {
-    return "Please enter a valid PIN code.";
-  }
-
-  if (
-    !["cod", "razorpay", "wallet"].includes(
-      selectedPayment,
-    )
-  ) {
-    return "Please select a payment method.";
-  }
-
-  return null;
-};
+  };
 
   /* ---------------- ORDER SUCCESS ---------------- */
   const finishSuccessfulOrder = async ({
@@ -870,7 +971,7 @@ export default function CheckoutPage() {
       toast.error(validationMessage);
       setShowAddress(true);
 
-      if (!selectedAddressObj?._id) {
+      if (!usingSavedAddress) {
         setShowAddressForm(true);
       }
 
@@ -987,7 +1088,7 @@ export default function CheckoutPage() {
           shippingAddressSnapshot: checkoutAddress,
         },
 
-        ...(selectedAddressObj?._id
+        ...(usingSavedAddress
           ? {
             shippingAddressId: selectedAddressObj._id,
             billingAddressId: selectedAddressObj._id,
@@ -1026,9 +1127,9 @@ export default function CheckoutPage() {
         attribution,
       });
 
-      if (!selectedAddressObj?._id) {
-  saveAddressInBackground(finalCustomer);
-}
+      if (!usingSavedAddress) {
+        saveAddressInBackground(finalCustomer);
+      }
 
       const mongoOrderId =
         order?._id ||
@@ -1150,6 +1251,7 @@ export default function CheckoutPage() {
             user={user}
             customer={activeCustomer}
             addresses={addresses}
+            addressesLoading={addressesLoading}
             selectedAddressId={selectedAddressId}
             setSelectedAddressId={setSelectedAddressId}
             showAddress={showAddress}

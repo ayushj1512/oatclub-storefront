@@ -15,6 +15,86 @@ import toast from "react-hot-toast";
 import { useCartStore } from "@/store/cartStore";
 import { useAddressStore } from "@/store/addressStore";
 const COOKIE_KEY = "user_auth";
+const AUTH_STORAGE_KEY = "oatclub_auth_session";
+
+const saveAuthSession = (session = {}) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    const safeSession = {
+      user: session?.user || null,
+      customer: session?.customer || null,
+      token: session?.token || null,
+      authProvider: session?.authProvider || null,
+      purpose: session?.purpose || null,
+      activeCartId: session?.activeCartId || null,
+      activeCartType: session?.activeCartType || "cart",
+      isGuest: session?.isGuest === true,
+    };
+
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(safeSession));
+
+    /*
+     * Cookie should remain very small.
+     * Full customer object must not go into cookie.
+     */
+    Cookies.set(
+      COOKIE_KEY,
+      JSON.stringify({
+        customerId: safeSession?.customer?._id || null,
+        authProvider: safeSession.authProvider,
+        hasToken: Boolean(safeSession.token),
+        isGuest: safeSession.isGuest,
+      }),
+      {
+        expires: 7,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    );
+
+    console.log("✅ Auth session saved:", safeSession.authProvider);
+  } catch (error) {
+    console.error("❌ Failed to save auth session:", error);
+  }
+};
+
+const getAuthSession = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+
+    if (!stored) {
+      return null;
+    }
+
+    const parsed = JSON.parse(stored);
+
+    if (!parsed?.customer?._id) {
+      return null;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.warn("⚠️ Invalid stored auth session:", error);
+
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    Cookies.remove(COOKIE_KEY);
+
+    return null;
+  }
+};
+
+const clearAuthSession = () => {
+  if (typeof window === "undefined") return;
+
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  Cookies.remove(COOKIE_KEY);
+};
+
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 const buildCustomerId = (firebaseUser) => {
   const uid = String(firebaseUser?.uid || "").trim();
@@ -166,23 +246,15 @@ export const useAuthStore = create((set, get) => ({
       isAuthenticated: isAuthenticated || Boolean(token),
     });
 
-    Cookies.set(
-      COOKIE_KEY,
-      JSON.stringify({
-        user: user || null,
-        customer,
-        token: token || null,
-        authProvider: authProvider || null,
-        activeCartId,
-        activeCartType,
-        isGuest: !user && !isAuthenticated,
-      }),
-      {
-        expires: 7,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      },
-    );
+    saveAuthSession({
+      user: user || null,
+      customer,
+      token: token || null,
+      authProvider: authProvider || null,
+      activeCartId,
+      activeCartType,
+      isGuest: authProvider === "guest_checkout",
+    });
   },
 
   /* ---------------------------------------------
@@ -210,23 +282,15 @@ export const useAuthStore = create((set, get) => ({
 
     const { user, token, authProvider, isAuthenticated } = get();
 
-    Cookies.set(
-      COOKIE_KEY,
-      JSON.stringify({
-        user,
-        customer: updatedCustomer,
-        token,
-        authProvider: authProvider || null,
-        activeCartId: cartId,
-        activeCartType: type,
-        isGuest: !user && !isAuthenticated,
-      }),
-      {
-        expires: 7,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      },
-    );
+    saveAuthSession({
+      user,
+      customer: updatedCustomer,
+      token,
+      authProvider: authProvider || null,
+      activeCartId: cartId,
+      activeCartType: type,
+      isGuest: authProvider === "guest_checkout",
+    });
   },
 
   /* ---------------------------------------------
@@ -385,7 +449,9 @@ export const useAuthStore = create((set, get) => ({
         `${BACKEND}/api/customers/${existingCustomer._id}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(cleanBody),
         },
       );
@@ -393,6 +459,7 @@ export const useAuthStore = create((set, get) => ({
       const raw = await res.text();
 
       let data = null;
+
       try {
         data = raw ? JSON.parse(raw) : null;
       } catch {
@@ -405,38 +472,39 @@ export const useAuthStore = create((set, get) => ({
         return null;
       }
 
-      // ✅ supports both response shapes
       const updatedCustomer = data?.customer || data?.data || data;
 
       if (!updatedCustomer?._id) {
-        console.error("❌ Updated customer missing in response:", data);
+        console.error("❌ Updated customer missing:", data);
         return null;
       }
 
+      const activeCartId = updatedCustomer?.cart?.activeCartId || null;
+
+      const activeCartType = updatedCustomer?.cart?.activeCartType || "cart";
+
       set({
         customer: updatedCustomer,
-        activeCartId: updatedCustomer?.cart?.activeCartId || null,
-        activeCartType: updatedCustomer?.cart?.activeCartType || "cart",
+        activeCartId,
+        activeCartType,
       });
 
-      const { user, token } = get();
+      const { user, token, authProvider } = get();
 
-      Cookies.set(
-        COOKIE_KEY,
-        JSON.stringify({
-          user,
-          customer: updatedCustomer,
-          token,
-          activeCartId: updatedCustomer?.cart?.activeCartId || null,
-          activeCartType: updatedCustomer?.cart?.activeCartType || "cart",
-          isGuest: !user,
-        }),
-        { expires: 7 },
-      );
+      saveAuthSession({
+        user,
+        customer: updatedCustomer,
+        token,
+        authProvider,
+        activeCartId,
+        activeCartType,
+        isGuest: authProvider === "guest_checkout",
+      });
 
       return updatedCustomer;
-    } catch (err) {
-      console.error("❌ updateCustomerProfile exception:", err);
+    } catch (error) {
+      console.error("❌ updateCustomerProfile exception:", error);
+
       return null;
     }
   },
@@ -447,256 +515,237 @@ export const useAuthStore = create((set, get) => ({
   initialize: () => {
     if (typeof window === "undefined") return;
 
-    /* ======================================================
-     ✅ 0) Prevent attaching multiple firebase listeners
-  ====================================================== */
     if (get()._authUnsubscribe) {
-      console.log("⚠️ Auth listener already attached, skipping...");
+      console.log("⚠️ Auth listener already attached");
       return;
     }
 
-    /* ======================================================
-     ✅ 1) Restore session from cookie (Guest + Auth)
-  ====================================================== */
-    const cached = Cookies.get(COOKIE_KEY);
+    /*
+     * Restore localStorage session immediately.
+     * This supports:
+     * - Email OTP
+     * - Google
+     * - Guest checkout
+     */
+    const storedSession = getAuthSession();
 
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
+    if (storedSession?.customer?._id) {
+      const isEmailOtpSession =
+        storedSession.authProvider === "email_otp" &&
+        Boolean(storedSession.token);
 
-        if (parsed?.customer?._id) {
-          const isBackendOtpSession =
-            parsed?.authProvider === "email_otp" && Boolean(parsed?.token);
+      const isGoogleSession = storedSession.authProvider === "google";
 
-          const isFirebaseSession =
-            parsed?.authProvider === "google" ||
-            Boolean(
-              parsed?.user?.uid &&
-              !String(parsed.user.uid).startsWith("customer_"),
-            );
+      const isGuestSession =
+        storedSession.authProvider === "guest_checkout" ||
+        storedSession.isGuest === true;
 
-          const isGuestSession = parsed?.isGuest === true;
+      if (isEmailOtpSession || isGoogleSession || isGuestSession) {
+        set({
+          user: storedSession.user || null,
 
-          set({
-            user:
-              parsed.user ||
-              (isGuestSession
-                ? {
-                    uid: `customer_${parsed.customer._id}`,
-                    name:
-                      parsed.customer?.name ||
-                      parsed.customer?.email?.split("@")?.[0] ||
-                      "OATCLUB Customer",
+          customer: storedSession.customer,
 
-                    email: parsed.customer?.email || "",
+          token: storedSession.token || null,
 
-                    photoURL:
-                      parsed.customer?.profileImage ||
-                      "/profile/user-avatar.jpg",
+          authProvider: storedSession.authProvider || null,
 
-                    authProvider: "guest_checkout",
-                  }
-                : null),
-            customer: parsed.customer,
-            token: parsed.token || null,
+          activeCartId:
+            storedSession.activeCartId ||
+            storedSession.customer?.cart?.activeCartId ||
+            null,
 
-            authProvider:
-              parsed.authProvider ||
-              (isFirebaseSession
-                ? "google"
-                : isBackendOtpSession
-                  ? "email_otp"
-                  : isGuestSession
-                    ? "guest_checkout"
-                    : null),
+          activeCartType:
+            storedSession.activeCartType ||
+            storedSession.customer?.cart?.activeCartType ||
+            "cart",
 
-            activeCartId: parsed.activeCartId || null,
+          isAuthenticated: true,
+          loading: false,
 
-            activeCartType: parsed.activeCartType || "cart",
+          _lastSyncedUid: isGoogleSession
+            ? storedSession.user?.uid || null
+            : null,
+        });
 
-            isAuthenticated:
-              isBackendOtpSession || isFirebaseSession || isGuestSession,
-            loading: false,
-
-            _lastSyncedUid: isFirebaseSession
-              ? parsed?.user?.uid || null
-              : null,
-          });
-
-          console.log(
-            isBackendOtpSession
-              ? "✅ Restored email OTP session"
-              : isGuestSession
-                ? "✅ Restored guest session"
-                : "✅ Restored Firebase session",
-          );
-        }
-      } catch (error) {
-        console.warn("⚠️ Invalid auth cookie");
-        Cookies.remove(COOKIE_KEY);
+        console.log("✅ Restored auth session:", storedSession.authProvider);
       }
     }
 
-    /* ======================================================
-     ✅ 2) Firebase Listener
-  ====================================================== */
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // ✅ If no firebaseUser
+      /*
+       * Firebase may return null for email OTP
+       * because OTP login is backend-based.
+       */
       if (!firebaseUser) {
-        const cookie = Cookies.get(COOKIE_KEY);
+        const savedSession = getAuthSession();
 
-        if (cookie) {
-          try {
-            const parsed = JSON.parse(cookie);
+        const isEmailOtpSession =
+          savedSession?.authProvider === "email_otp" &&
+          Boolean(savedSession?.token) &&
+          Boolean(savedSession?.customer?._id);
 
-            const isBackendOtpSession =
-              parsed?.authProvider === "email_otp" &&
-              Boolean(parsed?.token) &&
-              Boolean(parsed?.customer?._id);
+        const isGuestSession =
+          (savedSession?.authProvider === "guest_checkout" ||
+            savedSession?.isGuest === true) &&
+          Boolean(savedSession?.customer?._id);
 
-            const isGuestSession =
-              parsed?.isGuest === true && Boolean(parsed?.customer?._id);
+        if (isEmailOtpSession || isGuestSession) {
+          set({
+            user: savedSession.user || {
+              uid: `customer_${savedSession.customer._id}`,
+              name:
+                savedSession.customer?.name ||
+                savedSession.customer?.email?.split("@")?.[0] ||
+                "OATCLUB Customer",
+              email: savedSession.customer?.email || "",
+              photoURL:
+                savedSession.customer?.profileImage ||
+                "/profile/user-avatar.jpg",
+              authProvider: savedSession.authProvider,
+            },
 
-            if (isBackendOtpSession || isGuestSession) {
-              const restoredUser =
-                parsed.user ||
-                (isGuestSession
-                  ? {
-                      uid: `customer_${parsed.customer._id}`,
-                      name:
-                        parsed.customer?.name ||
-                        parsed.customer?.email?.split("@")?.[0] ||
-                        "OATCLUB Customer",
+            customer: savedSession.customer,
 
-                      email: parsed.customer?.email || "",
+            token: savedSession.token || null,
 
-                      photoURL:
-                        parsed.customer?.profileImage ||
-                        "/profile/user-avatar.jpg",
+            authProvider: savedSession.authProvider,
 
-                      authProvider: "guest_checkout",
-                    }
-                  : null);
+            activeCartId:
+              savedSession.activeCartId ||
+              savedSession.customer?.cart?.activeCartId ||
+              null,
 
-              set({
-                user: restoredUser,
-                customer: parsed.customer,
-                token: parsed.token || null,
+            activeCartType:
+              savedSession.activeCartType ||
+              savedSession.customer?.cart?.activeCartType ||
+              "cart",
 
-                authProvider: isBackendOtpSession
-                  ? "email_otp"
-                  : "guest_checkout",
+            isAuthenticated: true,
+            loading: false,
+            _lastSyncedUid: null,
+          });
 
-                activeCartId: parsed.activeCartId || null,
-
-                activeCartType: parsed.activeCartType || "cart",
-
-                isAuthenticated: true,
-
-                loading: false,
-                _lastSyncedUid: null,
-              });
-
-              return;
-            }
-          } catch {
-            Cookies.remove(COOKIE_KEY);
-          }
+          return;
         }
+
+        /*
+         * No Firebase user and no backend OTP
+         * or guest session.
+         */
+        clearAuthSession();
 
         set({
           user: null,
           customer: null,
           token: null,
           authProvider: null,
-
           activeCartId: null,
           activeCartType: "cart",
-
           isAuthenticated: false,
           loading: false,
           _lastSyncedUid: null,
         });
 
-        Cookies.remove(COOKIE_KEY);
         return;
       }
 
-      /* ======================================================
-       ✅ 3) Prevent duplicate syncCustomer calls
-    ====================================================== */
       const uid = firebaseUser.uid;
       const lastUid = get()._lastSyncedUid;
 
-      if (lastUid === uid && get().customer?._id) {
-        console.log("✅ Skipping duplicate syncCustomer for UID:", uid);
-
+      /*
+       * If Google session is already restored
+       * from localStorage, avoid duplicate API sync.
+       */
+      if (lastUid === uid && get().customer?._id && get().token) {
         set({
           user: {
             uid: firebaseUser.uid,
-            name: firebaseUser.displayName || "",
-            email: firebaseUser.email || "",
-            photoURL: firebaseUser.photoURL || "",
+            name: firebaseUser.displayName || get().customer?.name || "",
+            email: firebaseUser.email || get().customer?.email || "",
+            photoURL:
+              firebaseUser.photoURL ||
+              get().customer?.profileImage ||
+              "/profile/user-avatar.jpg",
+            authProvider: "google",
           },
+          authProvider: "google",
+          isAuthenticated: true,
           loading: false,
         });
 
         return;
       }
 
-      // ✅ mark synced uid
-      set({ _lastSyncedUid: uid });
+      set({
+        _lastSyncedUid: uid,
+        loading: true,
+      });
 
-      /* ======================================================
-       ✅ 4) Normal auth flow
-    ====================================================== */
       const userData = {
         uid: firebaseUser.uid,
         name: firebaseUser.displayName || "",
         email: firebaseUser.email || "",
-        photoURL: firebaseUser.photoURL || "",
+        photoURL: firebaseUser.photoURL || "/profile/user-avatar.jpg",
         authProvider: "google",
       };
 
-      /* ======================================================
-       ✅ 5) Guest Overrides (name + phone) from localStorage
-    ====================================================== */
       let overrides = {};
+
       try {
         const pending = localStorage.getItem("pending_guest_profile");
+
         if (pending) {
           overrides = JSON.parse(pending);
-          localStorage.removeItem("pending_guest_profile");
-          console.log(
-            "✅ Using overrides from pending_guest_profile:",
-            overrides,
-          );
-        }
-      } catch (e) {
-        console.warn("⚠️ Failed to parse pending_guest_profile");
-      }
 
-      console.log("🔄 syncCustomer running for UID:", uid);
+          localStorage.removeItem("pending_guest_profile");
+        }
+      } catch (error) {
+        console.warn("⚠️ Invalid pending guest profile", error);
+      }
 
       const syncResult = await get().syncCustomer(firebaseUser, overrides);
 
-      if (!syncResult) {
+      if (!syncResult?.customer?._id || !syncResult?.token) {
+        console.error("❌ Google customer sync failed");
+
+        clearAuthSession();
+
         set({
-          user: userData,
+          user: null,
           customer: null,
           token: null,
+          authProvider: null,
           activeCartId: null,
           activeCartType: "cart",
           isAuthenticated: false,
           loading: false,
+          _lastSyncedUid: null,
         });
+
+        try {
+          await signOut(auth);
+        } catch (error) {
+          console.warn("⚠️ Firebase cleanup failed:", error);
+        }
+
         return;
       }
 
       const { customer, token, activeCartId, activeCartType } = syncResult;
 
+      const finalUserData = {
+        ...userData,
+        name: firebaseUser.displayName || customer?.name || "",
+        email: firebaseUser.email || customer?.email || "",
+        photoURL:
+          firebaseUser.photoURL ||
+          customer?.profileImage ||
+          "/profile/user-avatar.jpg",
+      };
+
       set({
-        user: userData,
+        user: finalUserData,
         customer,
         token,
         authProvider: "google",
@@ -704,29 +753,45 @@ export const useAuthStore = create((set, get) => ({
         activeCartType,
         isAuthenticated: true,
         loading: false,
+        _lastSyncedUid: firebaseUser.uid,
       });
 
-      Cookies.set(
-        COOKIE_KEY,
-        JSON.stringify({
-          user: userData,
-          customer,
-          token,
-          authProvider: "google",
-          activeCartId,
-          activeCartType,
-          isGuest: false,
-        }),
-        {
-          expires: 7,
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-        },
-      );
+      saveAuthSession({
+        user: finalUserData,
+        customer,
+        token,
+        authProvider: "google",
+        activeCartId,
+        activeCartType,
+        isGuest: false,
+      });
+
+      try {
+        const eventKey = `login_google_${firebaseUser.uid}`;
+
+        const shouldSkip = shouldSkipAuthMetaEvent(get, set, eventKey, 4000);
+
+        if (!shouldSkip) {
+          await trackMeta(
+            "Login",
+            {
+              content_name: "Google Login",
+              status: "success",
+            },
+            buildMetaCustomerData({
+              customer,
+              firebaseUser,
+            }),
+          );
+        }
+      } catch (error) {
+        console.warn("🧾 Google login tracking failed", error);
+      }
     });
 
-    // ✅ store unsubscribe so it won't attach again
-    set({ _authUnsubscribe: unsubscribe });
+    set({
+      _authUnsubscribe: unsubscribe,
+    });
   },
 
   /* ---------------------------------------------
@@ -770,28 +835,16 @@ export const useAuthStore = create((set, get) => ({
       _lastSyncedUid: null,
     });
 
-    Cookies.set(
-      COOKIE_KEY,
-      JSON.stringify({
-        user: userData,
-        customer,
-        token,
-
-        authProvider: "email_otp",
-        purpose,
-
-        activeCartId,
-        activeCartType,
-
-        isGuest: false,
-      }),
-      {
-        expires: 7,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      },
-    );
-
+    saveAuthSession({
+      user: userData,
+      customer,
+      token,
+      authProvider: "email_otp",
+      purpose,
+      activeCartId,
+      activeCartType,
+      isGuest: false,
+    });
     try {
       const eventName = purpose === "signup" ? "CompleteRegistration" : "Login";
 
@@ -835,96 +888,58 @@ export const useAuthStore = create((set, get) => ({
 
   loginWithGoogle: async () => {
     try {
+      set({ loading: true });
+
       const result = await signInWithPopup(auth, googleProvider);
-      const firebaseUser = result.user;
 
-      if (!firebaseUser) {
-        throw new Error("Google login failed");
+      const firebaseUser = result?.user;
+
+      if (!firebaseUser?.uid) {
+        throw new Error("Google sign-in failed");
       }
 
-      const syncResult = await get().syncCustomer(firebaseUser);
-
-      if (!syncResult) {
-        throw new Error("Customer sync failed");
-      }
-
-      const { customer, token } = syncResult;
-
-      const userData = {
-        uid: firebaseUser.uid,
-        name: firebaseUser.displayName || customer?.name || "",
-        email: firebaseUser.email || customer?.email || "",
-        photoURL:
-          firebaseUser.photoURL ||
-          customer?.profileImage ||
-          "/profile/user-avatar.jpg",
-        authProvider: "google",
-      };
-
-      const activeCartId = customer?.cart?.activeCartId || null;
-
-      const activeCartType = customer?.cart?.activeCartType || "cart";
-
-      set({
-        user: userData,
-        customer,
-        token,
-        authProvider: "google",
-        isAuthenticated: true,
-        activeCartId,
-        activeCartType,
-        loading: false,
-        _lastSyncedUid: firebaseUser.uid,
-      });
-
-      Cookies.set(
-        COOKIE_KEY,
-        JSON.stringify({
-          user: userData,
-          customer,
-          token,
-          authProvider: "google",
-          activeCartId,
-          activeCartType,
-          isGuest: false,
-        }),
-        {
-          expires: 7,
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-        },
-      );
-
-      try {
-        const key = `login_google_${firebaseUser.uid}`;
-        const shouldSkip = shouldSkipAuthMetaEvent(get, set, key, 4000);
-
-        if (!shouldSkip) {
-          await trackMeta(
-            "Login",
-            {
-              content_name: "Google Login",
-              status: "success",
-            },
-            buildMetaCustomerData({
-              customer,
-              firebaseUser,
-            }),
-          );
-        }
-      } catch (error) {
-        console.warn("🧾 Meta Login (Google) failed", error);
-      }
-
+      /*
+       * Customer sync yahan mat karo.
+       *
+       * Firebase onAuthStateChanged listener automatically:
+       * - backend customer sync karega
+       * - token store karega
+       * - cookie create karega
+       * - isAuthenticated true karega
+       */
       return {
-        user: userData,
-        customer,
-        token,
+        firebaseUser,
+        pending: true,
       };
     } catch (error) {
-      console.error("❌ loginWithGoogle exception:", error);
+      console.error("❌ loginWithGoogle exception:", {
+        code: error?.code,
+        message: error?.message,
+      });
 
-      throw error;
+      set({ loading: false });
+
+      if (error?.code === "auth/popup-closed-by-user") {
+        throw new Error("Google sign-in cancelled");
+      }
+
+      if (error?.code === "auth/popup-blocked") {
+        throw new Error("Please allow popups and try again");
+      }
+
+      if (error?.code === "auth/cancelled-popup-request") {
+        throw new Error("Google sign-in is already in progress");
+      }
+
+      if (error?.code === "auth/unauthorized-domain") {
+        throw new Error("This website domain is not authorized in Firebase");
+      }
+
+      if (error?.code === "auth/network-request-failed") {
+        throw new Error("Network error. Please check your internet connection");
+      }
+
+      throw new Error(error?.message || "Unable to continue with Google");
     }
   },
 
@@ -977,10 +992,17 @@ export const useAuthStore = create((set, get) => ({
           user: userData,
           customer,
           token,
-          activeCartId: customer?.cart?.activeCartId || null,
-          activeCartType: customer?.cart?.activeCartType || "cart",
+          authProvider: "email_otp",
+          purpose,
+          activeCartId,
+          activeCartType,
+          isGuest: false,
         }),
-        { expires: 7 },
+        {
+          expires: 7,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        },
       );
 
       /* ---------------------------------------------
@@ -1115,10 +1137,17 @@ export const useAuthStore = create((set, get) => ({
           user: userData,
           customer,
           token,
-          activeCartId: customer?.cart?.activeCartId || null,
-          activeCartType: customer?.cart?.activeCartType || "cart",
+          authProvider: "email_otp",
+          purpose,
+          activeCartId,
+          activeCartType,
+          isGuest: false,
         }),
-        { expires: 7 },
+        {
+          expires: 7,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        },
       );
 
       /* ---------------------------------------------
@@ -1208,9 +1237,11 @@ export const useAuthStore = create((set, get) => ({
     mode = "checkout",
     firebaseUID = null,
   } = {}) => {
-    const inflight = get()._guestCreatePromise;
+    const existingPromise = get()._guestCreatePromise;
 
-    if (inflight) return inflight;
+    if (existingPromise) {
+      return existingPromise;
+    }
 
     const run = (async () => {
       try {
@@ -1235,9 +1266,7 @@ export const useAuthStore = create((set, get) => ({
         set({ loading: true });
 
         /*
-         * Guest checkout:
-         * Do not create Firebase account.
-         * Directly create/upsert Mongo customer.
+         * Guest checkout customer.
          */
         if (mode === "checkout") {
           const response = await fetch(`${BACKEND}/api/customers/guest`, {
@@ -1253,7 +1282,15 @@ export const useAuthStore = create((set, get) => ({
             }),
           });
 
-          const data = await response.json();
+          const raw = await response.text();
+
+          let data = null;
+
+          try {
+            data = raw ? JSON.parse(raw) : null;
+          } catch {
+            data = null;
+          }
 
           if (!response.ok) {
             throw new Error(data?.message || "Could not create customer");
@@ -1276,41 +1313,30 @@ export const useAuthStore = create((set, get) => ({
             authProvider: "guest_checkout",
           };
 
+          const activeCartId = customer?.cart?.activeCartId || null;
+
+          const activeCartType = customer?.cart?.activeCartType || "cart";
+
           set({
             user: guestUser,
             customer,
             token: null,
             authProvider: "guest_checkout",
-
-            activeCartId: customer?.cart?.activeCartId || null,
-
-            activeCartType: customer?.cart?.activeCartType || "cart",
-
+            activeCartId,
+            activeCartType,
             isAuthenticated: true,
             loading: false,
           });
 
-          Cookies.set(
-            COOKIE_KEY,
-            JSON.stringify({
-              user: guestUser,
-              customer,
-              token: null,
-
-              authProvider: "guest_checkout",
-
-              activeCartId: customer?.cart?.activeCartId || null,
-
-              activeCartType: customer?.cart?.activeCartType || "cart",
-
-              isGuest: true,
-            }),
-            {
-              expires: 7,
-              sameSite: "lax",
-              secure: process.env.NODE_ENV === "production",
-            },
-          );
+          saveAuthSession({
+            user: guestUser,
+            customer,
+            token: null,
+            authProvider: "guest_checkout",
+            activeCartId,
+            activeCartType,
+            isGuest: true,
+          });
 
           return {
             user: guestUser,
@@ -1320,7 +1346,7 @@ export const useAuthStore = create((set, get) => ({
         }
 
         /*
-         * Logged-in Firebase fallback
+         * Already logged-in Firebase user.
          */
         if (firebaseUID) {
           const firebaseUser = auth.currentUser;
@@ -1339,13 +1365,27 @@ export const useAuthStore = create((set, get) => ({
             throw new Error("Customer sync failed");
           }
 
-          get().setCustomerState(syncResult.customer);
+          const customer = syncResult.customer;
+
+          const currentState = get();
+
+          saveAuthSession({
+            user: currentState.user,
+            customer,
+            token: syncResult.token || currentState.token,
+            authProvider: currentState.authProvider || "google",
+            activeCartId: customer?.cart?.activeCartId || null,
+            activeCartType: customer?.cart?.activeCartType || "cart",
+            isGuest: false,
+          });
+
+          get().setCustomerState(customer);
 
           return syncResult;
         }
 
         /*
-         * Actual email-password registration only
+         * Email-password Firebase registration.
          */
         const cleanPassword = String(password).trim();
 
@@ -1397,6 +1437,7 @@ export const useAuthStore = create((set, get) => ({
 --------------------------------------------- */
   updateCustomerPayoutDetails: async (payload = {}) => {
     const existingCustomer = get().customer;
+
     if (!existingCustomer?._id) {
       console.error("❌ No customer loaded");
       return null;
@@ -1408,108 +1449,127 @@ export const useAuthStore = create((set, get) => ({
     }
 
     try {
-      // ✅ Accept payload shapes:
-      // 1) { bank: { accountHolderName, accountNumber, ifscCode } }
-      // 2) { upi: { upiId } }
-      // 3) { payoutDetails: { bank: {...}, upi: {...} } }  (if UI sends this)
-      const bankIn = payload?.bank || payload?.payoutDetails?.bank || {};
-      const upiIn = payload?.upi || payload?.payoutDetails?.upi || {};
+      const bankInput = payload?.bank || payload?.payoutDetails?.bank || {};
 
-      const accountHolderName = bankIn?.accountHolderName
-        ? String(bankIn.accountHolderName).trim()
-        : "";
-      const accountNumber = bankIn?.accountNumber
-        ? String(bankIn.accountNumber).trim()
-        : "";
-      const ifscCode = bankIn?.ifscCode
-        ? String(bankIn.ifscCode).trim().toUpperCase()
-        : "";
+      const upiInput = payload?.upi || payload?.payoutDetails?.upi || {};
 
-      const upiId = upiIn?.upiId
-        ? String(upiIn.upiId).trim().toLowerCase()
-        : "";
+      const accountHolderName = String(
+        bankInput?.accountHolderName || "",
+      ).trim();
 
-      const hasAnyBank = !!(accountHolderName || accountNumber || ifscCode);
-      const hasUpi = !!upiId;
+      const accountNumber = String(bankInput?.accountNumber || "").trim();
 
-      // ✅ must provide at least one method
-      if (!hasAnyBank && !hasUpi) {
+      const ifscCode = String(bankInput?.ifscCode || "")
+        .trim()
+        .toUpperCase();
+
+      const upiId = String(upiInput?.upiId || "")
+        .trim()
+        .toLowerCase();
+
+      const hasAnyBankDetail = Boolean(
+        accountHolderName || accountNumber || ifscCode,
+      );
+
+      const hasUpi = Boolean(upiId);
+
+      if (!hasAnyBankDetail && !hasUpi) {
         toast.error("Provide either UPI ID or Bank details");
         return null;
       }
 
-      // ✅ if using bank method → enforce required fields (matches backend)
-      if (hasAnyBank && (!accountHolderName || !accountNumber || !ifscCode)) {
+      if (
+        hasAnyBankDetail &&
+        (!accountHolderName || !accountNumber || !ifscCode)
+      ) {
         toast.error("Bank details need Name, Account No. & IFSC");
         return null;
       }
 
-      // ✅ build request body in backend-expected format
       const body = {};
-      if (hasAnyBank)
-        body.bank = { accountHolderName, accountNumber, ifscCode };
-      if (hasUpi) body.upi = { upiId };
 
-      const res = await fetch(
+      if (hasAnyBankDetail) {
+        body.bank = {
+          accountHolderName,
+          accountNumber,
+          ifscCode,
+        };
+      }
+
+      if (hasUpi) {
+        body.upi = {
+          upiId,
+        };
+      }
+
+      const response = await fetch(
         `${BACKEND}/api/customers/${existingCustomer._id}/payout-details`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(body),
         },
       );
 
-      // parse safely
-      const raw = await res.text();
+      const raw = await response.text();
+
       let data = null;
+
       try {
         data = raw ? JSON.parse(raw) : null;
       } catch {
         data = null;
       }
 
-      if (!res.ok) {
-        const msg = data?.message || `Payout update failed (${res.status})`;
-        console.error("❌ updateCustomerPayoutDetails error:", msg, data);
-        toast.error(msg);
+      if (!response.ok) {
+        const message =
+          data?.message || `Payout update failed (${response.status})`;
+
+        console.error("❌ Payout update error:", message);
+
+        toast.error(message);
         return null;
       }
 
-      // backend returns { payoutDetails, customer } in your controller
-      const updatedCustomer = data?.customer || null;
+      const updatedCustomer = data?.customer || data?.data?.customer || null;
+
       if (!updatedCustomer?._id) {
-        console.error("❌ payout update: customer missing in response", data);
-        toast.error("Payout updated, but customer not returned");
+        toast.error("Customer was not returned");
         return null;
       }
 
-      // ✅ update Zustand store
+      const activeCartId = updatedCustomer?.cart?.activeCartId || null;
+
+      const activeCartType = updatedCustomer?.cart?.activeCartType || "cart";
+
       set({
         customer: updatedCustomer,
-        activeCartId: updatedCustomer?.cart?.activeCartId || null,
-        activeCartType: updatedCustomer?.cart?.activeCartType || "cart",
+        activeCartId,
+        activeCartType,
       });
 
-      // ✅ update cookie
-      const { user, token } = get();
-      Cookies.set(
-        COOKIE_KEY,
-        JSON.stringify({
-          user,
-          customer: updatedCustomer,
-          token,
-          activeCartId: updatedCustomer?.cart?.activeCartId || null,
-          activeCartType: updatedCustomer?.cart?.activeCartType || "cart",
-          isGuest: !user,
-        }),
-        { expires: 7 },
-      );
+      const { user, token, authProvider } = get();
+
+      saveAuthSession({
+        user,
+        customer: updatedCustomer,
+        token,
+        authProvider,
+        activeCartId,
+        activeCartType,
+        isGuest: authProvider === "guest_checkout",
+      });
 
       toast.success("Payout details saved");
+
       return updatedCustomer?.payoutDetails || updatedCustomer;
-    } catch (err) {
-      console.error("❌ updateCustomerPayoutDetails exception:", err);
+    } catch (error) {
+      console.error("❌ Payout update exception:", error);
+
       toast.error("Server error while saving payout details");
+
       return null;
     }
   },
@@ -1541,13 +1601,13 @@ export const useAuthStore = create((set, get) => ({
 
   confirmLogout: async () => {
     try {
-      // Stop guest/Firebase session restore immediately
-      Cookies.remove(COOKIE_KEY);
+      clearAuthSession();
 
       set({
         ...initialAuthState,
         loading: false,
         showLogoutConfirm: false,
+        _authUnsubscribe: get()._authUnsubscribe,
       });
 
       try {
@@ -1556,8 +1616,8 @@ export const useAuthStore = create((set, get) => ({
         console.warn("Firebase signOut failed:", error);
       }
 
-      // Clear cart cookies
       Cookies.remove("cart_products");
+
       Cookies.remove("buy_now_item");
 
       Object.keys(Cookies.get() || {}).forEach((key) => {
@@ -1566,7 +1626,6 @@ export const useAuthStore = create((set, get) => ({
         }
       });
 
-      // Reset cart
       try {
         const cart = useCartStore.getState();
 
@@ -1583,7 +1642,6 @@ export const useAuthStore = create((set, get) => ({
         console.warn("Cart reset failed:", error);
       }
 
-      // Reset addresses
       try {
         const addressStore = useAddressStore.getState();
 
@@ -1606,13 +1664,16 @@ export const useAuthStore = create((set, get) => ({
       }
 
       try {
-        localStorage.clear();
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+
+        localStorage.removeItem("pending_guest_profile");
+
         sessionStorage.clear();
       } catch (error) {
         console.warn("Storage cleanup failed:", error);
       }
 
-      Cookies.remove(COOKIE_KEY);
+      clearAuthSession();
 
       set({
         ...initialAuthState,
@@ -1624,7 +1685,7 @@ export const useAuthStore = create((set, get) => ({
     } catch (error) {
       console.error("Logout cleanup failed:", error);
 
-      Cookies.remove(COOKIE_KEY);
+      clearAuthSession();
 
       set({
         ...initialAuthState,

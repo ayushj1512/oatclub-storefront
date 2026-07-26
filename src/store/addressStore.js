@@ -103,6 +103,54 @@ export const useAddressStore = create((set, get) => ({
     }
   },
 
+  fetchAddressesByEmail: async (email) => {
+  if (!BACKEND) return [];
+
+  const normalized = String(email || "").trim().toLowerCase();
+
+  if (!normalized) {
+    set({ addresses: [] });
+    return [];
+  }
+
+  try {
+    set({ loading: true, error: null });
+
+    const res = await fetch(
+      `${BACKEND}/api/addresses/email/${encodeURIComponent(normalized)}`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    const data = await safeJson(res);
+
+    if (!res.ok || !data?.success) {
+      set({
+        loading: false,
+        error: data?.message || "Failed to load addresses",
+      });
+      return [];
+    }
+
+    set({
+      addresses: data.data || [],
+      loading: false,
+    });
+
+    return data.data || [];
+  } catch (e) {
+    console.error("Fetch addresses by email error:", e);
+
+    set({
+      loading: false,
+      error: "Unable to load addresses",
+    });
+
+    return [];
+  }
+},
+
   /* ======================================================
      ✅ CREATE ADDRESS
      - MUST have firebaseUID OR customerId
