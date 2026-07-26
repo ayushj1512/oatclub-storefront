@@ -194,7 +194,7 @@ function ProductTag({ concept, index }) {
 
           <div className="exchange-copy">
             <strong>Easy Exchange</strong>
-            <span>www.oatclub.com/exchange</span>
+            <span>www.oatclub.in/exchange</span>
           </div>
 
           <div className="barcode-area">
@@ -231,7 +231,7 @@ function ProductTag({ concept, index }) {
           <footer className="tag-footer">
             <strong>Manufactured &amp; Marketed by OATCLUB</strong>
             <span>Made in India</span>
-            <span>support@oatclub.com</span>
+            <span>support@oatclub.in</span>
           </footer>
         </div>
       </div>

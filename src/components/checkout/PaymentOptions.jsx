@@ -9,8 +9,13 @@ import {
   CreditCard,
   IndianRupee,
   ShieldCheck,
+  Sparkles,
   Wallet,
 } from "lucide-react";
+
+/* =========================================================
+   SHARED UI
+========================================================= */
 
 const GlassCard = ({ children, className = "" }) => (
   <div
@@ -25,7 +30,8 @@ const Chip = ({ children, tone = "neutral" }) => {
     neutral: "border-neutral-200 bg-[#fbfaf7] text-black/55",
     wallet: "border-neutral-200 bg-white text-black",
     cod: "border-neutral-200 bg-white text-black",
-    razorpay: "border-blue-200 bg-blue-50 text-blue-700",
+    razorpay:
+      "border-emerald-200 bg-emerald-50 text-emerald-700",
   };
 
   return (
@@ -38,6 +44,10 @@ const Chip = ({ children, tone = "neutral" }) => {
     </span>
   );
 };
+
+/* =========================================================
+   PAYMENT CARD
+========================================================= */
 
 function PayCard({
   label,
@@ -57,7 +67,7 @@ function PayCard({
       aria-pressed={active}
       className={`relative w-full border px-3 py-2.5 text-left transition sm:px-3.5 ${
         active
-          ? "border-[#2f7d46] bg-[#edf8ef]"
+          ? "border-emerald-600 bg-emerald-50"
           : "border-neutral-200 bg-[#fbfaf7] hover:border-black hover:bg-white"
       }`}
     >
@@ -65,7 +75,7 @@ function PayCard({
         <span
           className={`grid size-9 shrink-0 place-items-center border bg-white ${
             active
-              ? "border-[#2f7d46] text-[#1f6a38]"
+              ? "border-emerald-600 text-emerald-700"
               : "border-neutral-200 text-black"
           }`}
         >
@@ -76,7 +86,7 @@ function PayCard({
           <div className="flex flex-wrap items-center gap-1.5">
             <div
               className={`text-xs font-black uppercase tracking-[0.08em] ${
-                active ? "text-[#1f6a38]" : "text-black"
+                active ? "text-emerald-800" : "text-black"
               }`}
             >
               {label}
@@ -85,7 +95,7 @@ function PayCard({
             {badge}
 
             {active && (
-              <span className="inline-flex items-center gap-1 border border-[#2f7d46]/30 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#1f6a38]">
+              <span className="inline-flex items-center gap-1 border border-emerald-300 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-emerald-700">
                 <CheckCircle2 className="h-3 w-3" />
                 Selected
               </span>
@@ -94,7 +104,9 @@ function PayCard({
 
           <div
             className={`mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.06em] ${
-              active ? "text-[#1f6a38]/70" : "text-black/45"
+              active
+                ? "text-emerald-700/80"
+                : "text-black/45"
             }`}
           >
             {sub}
@@ -104,6 +116,10 @@ function PayCard({
     </button>
   );
 }
+
+/* =========================================================
+   HELPERS
+========================================================= */
 
 const money = (value) => {
   const amount = Number(value);
@@ -117,6 +133,10 @@ const toNumber = (value) => {
   const amount = Number(value);
   return Number.isFinite(amount) ? amount : 0;
 };
+
+/* =========================================================
+   COMPONENT
+========================================================= */
 
 export default function PaymentOptions({
   showPayment,
@@ -150,46 +170,70 @@ export default function PaymentOptions({
 
   const safeWalletBalance = Math.max(
     0,
-    toNumber(walletBalance || customer?.credits?.balance || 0)
+    toNumber(
+      walletBalance ||
+        customer?.credits?.balance ||
+        0
+    )
   );
 
-  const safePayable = Math.max(0, toNumber(payable));
-  const appliedWalletAmount = Math.max(0, toNumber(walletAmount));
+  const safePayable = Math.max(
+    0,
+    toNumber(payable)
+  );
+
+  const appliedWalletAmount = Math.max(
+    0,
+    toNumber(walletAmount)
+  );
 
   const finalPayable = safePayable;
   const hasWalletBalance = safeWalletBalance > 0;
 
   const isCOD = selectedPayment === "cod";
-  const isRazorpay = selectedPayment === "razorpay";
-  const isFullyPaidByWallet = finalPayable <= 0;
+  const isRazorpay =
+    selectedPayment === "razorpay";
 
-  const paymentLoading = placing || razorpayLoading;
+  const isFullyPaidByWallet =
+    finalPayable <= 0;
+
+  const paymentLoading =
+    placing || razorpayLoading;
 
   const disabledCTA =
     paymentLoading ||
     Boolean(validationError) ||
-    (!selectedPayment && !isFullyPaidByWallet);
+    (!selectedPayment &&
+      !isFullyPaidByWallet);
+
+  /* =========================================================
+     WALLET
+  ========================================================= */
 
   const updateWalletToggle = (checked) => {
-  if (
-    typeof setUseWallet !== "function" ||
-    typeof setWalletAmount !== "function"
-  ) {
-    return;
-  }
+    if (
+      typeof setUseWallet !== "function" ||
+      typeof setWalletAmount !== "function"
+    ) {
+      return;
+    }
 
-  setUseWallet(checked);
+    setUseWallet(checked);
 
-  setWalletAmount(
-    checked
-      ? Math.min(
-          safeWalletBalance,
-          safePayable +
-            appliedWalletAmount,
-        )
-      : 0,
-  );
-};
+    setWalletAmount(
+      checked
+        ? Math.min(
+            safeWalletBalance,
+            safePayable +
+              appliedWalletAmount
+          )
+        : 0
+    );
+  };
+
+  /* =========================================================
+     PLACE ORDER
+  ========================================================= */
 
   const handlePlaceOrder = async () => {
     const error = validate?.();
@@ -199,20 +243,32 @@ export default function PaymentOptions({
       return;
     }
 
-    if (!selectedPayment && !isFullyPaidByWallet) {
-      toast.error("Please select a payment method.");
+    if (
+      !selectedPayment &&
+      !isFullyPaidByWallet
+    ) {
+      toast.error(
+        "Please select a payment method."
+      );
+
       setShowPayment?.(true);
       return;
     }
 
-    if (typeof onPlaceOrder !== "function") {
-      toast.error("Unable to place order. Please refresh.");
+    if (
+      typeof onPlaceOrder !== "function"
+    ) {
+      toast.error(
+        "Unable to place order. Please refresh."
+      );
+
       return;
     }
 
-    const paymentMethod = isFullyPaidByWallet
-      ? "wallet"
-      : selectedPayment;
+    const paymentMethod =
+      isFullyPaidByWallet
+        ? "wallet"
+        : selectedPayment;
 
     await onPlaceOrder({
       paymentMethod,
@@ -223,6 +279,10 @@ export default function PaymentOptions({
     });
   };
 
+  /* =========================================================
+     PAYMENT CHIP
+  ========================================================= */
+
   const getPaymentChip = () => {
     if (isFullyPaidByWallet) {
       return {
@@ -231,14 +291,20 @@ export default function PaymentOptions({
       };
     }
 
-    if (isRazorpay && appliedWalletAmount > 0) {
+    if (
+      isRazorpay &&
+      appliedWalletAmount > 0
+    ) {
       return {
         label: "Credits + Online",
         tone: "razorpay",
       };
     }
 
-    if (isCOD && appliedWalletAmount > 0) {
+    if (
+      isCOD &&
+      appliedWalletAmount > 0
+    ) {
       return {
         label: "Credits + COD",
         tone: "cod",
@@ -247,7 +313,7 @@ export default function PaymentOptions({
 
     if (isRazorpay) {
       return {
-        label: "Razorpay",
+        label: "Online",
         tone: "razorpay",
       };
     }
@@ -257,6 +323,10 @@ export default function PaymentOptions({
       tone: "cod",
     };
   };
+
+  /* =========================================================
+     BUTTON TEXT
+  ========================================================= */
 
   const getButtonText = () => {
     if (razorpayLoading) {
@@ -272,7 +342,9 @@ export default function PaymentOptions({
     }
 
     if (isRazorpay) {
-      return `Pay ₹${money(finalPayable)} Securely`;
+      return `Pay ₹${money(
+        finalPayable
+      )} Securely`;
     }
 
     if (appliedWalletAmount > 0) {
@@ -282,17 +354,24 @@ export default function PaymentOptions({
     return "Place Order (COD)";
   };
 
+  /* =========================================================
+     PAYMENT MESSAGE
+  ========================================================= */
+
   const getPaymentMessage = () => {
     if (isFullyPaidByWallet) {
       return "Your order will be fully paid using OATCLUB credits.";
     }
 
-    if (isRazorpay && appliedWalletAmount > 0) {
+    if (
+      isRazorpay &&
+      appliedWalletAmount > 0
+    ) {
       return "Credits will be applied first. Pay the remaining amount securely through Razorpay.";
     }
 
     if (isRazorpay) {
-      return "Secure payment through Razorpay using UPI, cards, netbanking or supported wallets.";
+      return "Secure online payment using UPI, cards, netbanking or supported wallets.";
     }
 
     if (appliedWalletAmount > 0) {
@@ -306,11 +385,17 @@ export default function PaymentOptions({
 
   return (
     <>
+      {/* =====================================================
+          PAYMENT METHOD
+      ====================================================== */}
+
       <GlassCard className="p-3.5 sm:p-4">
         <button
           type="button"
           onClick={() =>
-            setShowPayment?.((current) => !current)
+            setShowPayment?.(
+              (current) => !current
+            )
           }
           className="flex w-full items-center justify-between"
         >
@@ -333,6 +418,8 @@ export default function PaymentOptions({
 
         {showPayment && (
           <div className="pt-3">
+            {/* Wallet Credits */}
+
             {hasWalletBalance && (
               <div className="mb-3 border border-neutral-200 bg-[#fbfaf7] p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -348,7 +435,12 @@ export default function PaymentOptions({
 
                       <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/50">
                         Available Balance:{" "}
-                        <b>₹{money(safeWalletBalance)}</b>
+                        <b>
+                          ₹
+                          {money(
+                            safeWalletBalance
+                          )}
+                        </b>
                       </div>
                     </div>
                   </div>
@@ -358,7 +450,9 @@ export default function PaymentOptions({
                       type="checkbox"
                       checked={useWallet}
                       onChange={(event) =>
-                        updateWalletToggle(event.target.checked)
+                        updateWalletToggle(
+                          event.target.checked
+                        )
                       }
                       className="h-4 w-4 accent-black"
                     />
@@ -370,15 +464,22 @@ export default function PaymentOptions({
                 {useWallet && (
                   <div className="mt-3 border border-neutral-200 bg-white px-3 py-2">
                     <div className="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
-                      <span>Credits Applied</span>
+                      <span>
+                        Credits Applied
+                      </span>
 
                       <b className="text-black">
-                        ₹{money(appliedWalletAmount)}
+                        ₹
+                        {money(
+                          appliedWalletAmount
+                        )}
                       </b>
                     </div>
 
                     <div className="mt-1 flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
-                      <span>Remaining Payable</span>
+                      <span>
+                        Remaining Payable
+                      </span>
 
                       <b className="text-black">
                         ₹{money(finalPayable)}
@@ -403,62 +504,134 @@ export default function PaymentOptions({
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {/* COD */}
+
                   <PayCard
                     label="Cash on Delivery"
                     value="cod"
-                    icon={<Wallet className="h-5 w-5" />}
+                    icon={
+                      <Wallet className="h-5 w-5" />
+                    }
                     sub={
                       appliedWalletAmount > 0
-                        ? `Pay ₹${money(finalPayable)} on delivery`
+                        ? `Pay ₹${money(
+                            finalPayable
+                          )} on delivery`
                         : "Pay when your order arrives"
                     }
                     selected={selectedPayment}
-                    setSelected={setSelectedPayment}
+                    setSelected={
+                      setSelectedPayment
+                    }
                   />
+
+                  {/* ONLINE */}
 
                   <PayCard
                     label="Online Payment"
                     value="razorpay"
-                    icon={<CreditCard className="h-5 w-5" />}
+                    icon={
+                      <CreditCard className="h-5 w-5" />
+                    }
                     sub="UPI / Cards / Netbanking"
                     selected={selectedPayment}
-                    setSelected={setSelectedPayment}
+                    setSelected={
+                      setSelectedPayment
+                    }
                     badge={
-                      <span className="inline-flex items-center border border-blue-200 bg-blue-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-blue-700">
-                        Razorpay
+                      <span className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">
+                        <Sparkles className="h-3 w-3" />
+                        Save 10%
                       </span>
                     }
                   />
                 </div>
+
+                {/* COD UPSELL MESSAGE */}
+
+                {isCOD && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedPayment?.(
+                        "razorpay"
+                      )
+                    }
+                    className="mt-2.5 flex w-full items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-left transition hover:border-emerald-400 hover:bg-emerald-100"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="grid size-8 shrink-0 place-items-center bg-emerald-100 text-emerald-700">
+                        <Sparkles className="h-4 w-4" />
+                      </span>
+
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-[0.06em] text-emerald-900">
+                          Save 10% by paying
+                          online
+                        </p>
+
+                        <p className="mt-0.5 text-[10px] font-semibold text-emerald-700">
+                          Switch to secure online
+                          payment
+                        </p>
+                      </div>
+                    </div>
+
+                    <ArrowRight className="h-4 w-4 shrink-0 text-emerald-700" />
+                  </button>
+                )}
+
+                {/* ONLINE SELECTED MESSAGE */}
+
+                {isRazorpay && (
+                  <div className="mt-2.5 flex items-center gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" />
+
+                    <p className="text-[10px] font-bold text-emerald-800">
+                      Online payment selected —
+                      you save 10%.
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </div>
         )}
       </GlassCard>
 
+      {/* =====================================================
+          PAYMENT SUMMARY
+      ====================================================== */}
+
       <GlassCard className="p-3.5 sm:p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            {coupon && Number(discount || 0) > 0 && (
-              <div className="flex items-center justify-between gap-3 text-sm text-black">
-                <span className="truncate">
-                  Coupon <b>{coupon.code}</b>
-                </span>
+            {coupon &&
+              Number(discount || 0) > 0 && (
+                <div className="flex items-center justify-between gap-3 text-sm text-black">
+                  <span className="truncate">
+                    Coupon{" "}
+                    <b>{coupon.code}</b>
+                  </span>
 
-                <span className="shrink-0 tabular-nums">
-                  − ₹{money(discount)}
-                </span>
-              </div>
-            )}
+                  <span className="shrink-0 tabular-nums">
+                    − ₹{money(discount)}
+                  </span>
+                </div>
+              )}
 
             {appliedWalletAmount > 0 && (
               <div className="mt-1 flex items-center justify-between gap-3 text-sm text-black">
                 <span className="truncate">
-                  Wallet Credits <b>Applied</b>
+                  Wallet Credits{" "}
+                  <b>Applied</b>
                 </span>
 
                 <span className="shrink-0 tabular-nums">
-                  − ₹{money(appliedWalletAmount)}
+                  − ₹
+                  {money(
+                    appliedWalletAmount
+                  )}
                 </span>
               </div>
             )}

@@ -59,6 +59,8 @@ const getProductCategories = (product = {}) =>
     product.raw?.categoryId,
   );
 
+  
+
 const getProductCollections = (product = {}) =>
   normalizeIds(
     product.collections,

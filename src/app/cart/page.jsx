@@ -82,8 +82,7 @@ function QuantityControl({ qty, onDec, onInc }) {
 
 export default function CartPage() {
   const router = useRouter();
-  const lastViewCartRef = useRef({ key: null, at: 0 });
-
+  const viewCartTrackedRef = useRef(false);
   const items = useCartStore((s) => s.items) || [];
   const initialize = useCartStore((s) => s.initialize);
   const decreaseQty = useCartStore((s) => s.decreaseQty);
@@ -124,35 +123,65 @@ export default function CartPage() {
   const payable = coupon?.code && couponFinalTotal != null ? Number(couponFinalTotal) || 0 : subtotal;
 
   useEffect(() => {
+    if (viewCartTrackedRef.current) return;
+    if (!items.length) return;
+
     try {
-      if (!items.length) return;
       const contents = items
         .map((item) => ({
-          id: String(item?.productId || item?.productSnapshot?.sku || ""),
-          quantity: Number(item?.qty ?? item?.quantity ?? 1) || 1,
-          item_price: Number(item?.price ?? 0) || 0,
+          id: String(
+            item?.productId ||
+            item?.productSnapshot?.sku ||
+            ""
+          ),
+          quantity:
+            Number(
+              item?.qty ??
+              item?.quantity ??
+              1
+            ) || 1,
+          item_price:
+            Number(item?.price ?? 0) || 0,
         }))
         .filter((item) => item.id);
 
       if (!contents.length) return;
-      const value = contents.reduce((sum, item) => sum + item.item_price * item.quantity, 0);
-      const key = `cart_${contents.map((item) => item.id).join("_")}_${value}`;
-      const now = Date.now();
-      if (lastViewCartRef.current.key === key && now - lastViewCartRef.current.at < 2000) return;
-      lastViewCartRef.current = { key, at: now };
 
-      useGtmStore.getState().viewCart({ items: items.slice(0, 50), total: value });
+      const value = contents.reduce(
+        (sum, item) =>
+          sum + item.item_price * item.quantity,
+        0
+      );
+
+      viewCartTrackedRef.current = true;
+
+      useGtmStore.getState().viewCart({
+        items: items.slice(0, 50),
+        total: value,
+      });
+
       Promise.resolve(
         trackMeta("ViewCart", {
           currency: "INR",
           value,
           content_type: "product",
-          content_ids: contents.map((item) => item.id),
+          content_ids: contents.map(
+            (item) => item.id
+          ),
           contents,
-          num_items: contents.reduce((sum, item) => sum + item.quantity, 0),
+          num_items: contents.reduce(
+            (sum, item) =>
+              sum + item.quantity,
+            0
+          ),
         })
       ).catch(() => { });
-    } catch { }
+    } catch (error) {
+      console.warn(
+        "View cart tracking failed",
+        error
+      );
+    }
   }, [items]);
 
   const updateQtySafe = (item, nextQty) => {

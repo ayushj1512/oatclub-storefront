@@ -599,18 +599,7 @@ export const useOrderStore = create((set, get) => ({
         })
         .filter(Boolean);
 
-      try {
-        pushEcomEvent("purchase", {
-          transaction_id: String(orderId),
-          currency,
-          value: finalValue,
-          payment_type: paymentMethod,
-          coupon: couponCode || undefined,
-          items: ga4Items,
-        });
-      } catch (e) {
-        console.warn("📈 GA4 Purchase failed", e);
-      }
+     
 
       try {
         const payload = {

@@ -2,56 +2,97 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Loader2, Tag, X } from "lucide-react";
+import { Loader2, RefreshCw, Tag, X } from "lucide-react";
+
 import { useCouponStore } from "@/store/couponStore";
 import useGtmStore from "@/store/gtmStore";
 
-const money = (n) => (Number.isFinite(+n) ? (+n).toLocaleString("en-IN") : "0");
+/* =========================================================
+   HELPERS
+========================================================= */
 
-const couponLabel = (c) =>
-  c?.discountType === "percentage"
-    ? `${c.discountValue}% OFF`
-    : `RS. ${money(c?.discountValue)} OFF`;
+const money = (value) =>
+  Number.isFinite(Number(value))
+    ? Number(value).toLocaleString("en-IN")
+    : "0";
 
-const isValidEmail = (v) =>
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
+const couponLabel = (coupon) =>
+  coupon?.discountType === "percentage"
+    ? `${coupon.discountValue}% OFF`
+    : `₹${money(coupon?.discountValue)} OFF`;
 
-const isPublic = (c) =>
-  String(c?.visibility || "public").toLowerCase() !== "private";
+const isValidEmail = (value) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    String(value || "").trim()
+  );
+
+const isPublic = (coupon) =>
+  String(coupon?.visibility || "public").toLowerCase() !==
+  "private";
 
 const getCouponMeta = (coupon) => {
-  const e = coupon?._eligibility || {};
-  const desc = String(coupon?.description || "").trim();
+  const eligibility = coupon?._eligibility || {};
+  const description = String(
+    coupon?.description || ""
+  ).trim();
 
   const eligible =
-    e.isEligible !== undefined
-      ? Boolean(e.isEligible)
-      : e.okDate !== false && e.okMin !== false && e.okQty !== false;
+    eligibility.isEligible !== undefined
+      ? Boolean(eligibility.isEligible)
+      : eligibility.okDate !== false &&
+        eligibility.okMin !== false &&
+        eligibility.okQty !== false;
 
-  if (eligible) return { eligible: true, text: desc || "Tap To Apply" };
-  if (e.okDate === false) return { eligible: false, text: desc || "Expired" };
-
-  if (e.okMin === false) {
+  if (eligible) {
     return {
-      eligible: false,
-      text: desc || `Min RS. ${money(coupon.minPurchase)}`,
+      eligible: true,
+      text: description || "Tap to apply this coupon",
     };
   }
 
-  if (e.okQty === false && Number(e.remainingQty || 0) > 0) {
-    const qty = Number(e.remainingQty || 0);
+  if (eligibility.okDate === false) {
+    return {
+      eligible: false,
+      text: description || "Coupon expired",
+    };
+  }
+
+  if (eligibility.okMin === false) {
     return {
       eligible: false,
       text:
-        desc ||
-        `Add ${qty} More Item${qty > 1 ? "s" : ""} To Unlock ${couponLabel(
-          coupon
-        )}`,
+        description ||
+        `Minimum order ₹${money(coupon?.minPurchase)}`,
     };
   }
 
-  return { eligible: false, text: desc || "Locked" };
+  if (
+    eligibility.okQty === false &&
+    Number(eligibility.remainingQty || 0) > 0
+  ) {
+    const remainingQty = Number(
+      eligibility.remainingQty || 0
+    );
+
+    return {
+      eligible: false,
+      text:
+        description ||
+        `Add ${remainingQty} more item${
+          remainingQty > 1 ? "s" : ""
+        }`,
+    };
+  }
+
+  return {
+    eligible: false,
+    text: description || "Coupon locked",
+  };
 };
+
+/* =========================================================
+   COMPONENT
+========================================================= */
 
 export default function CheckoutCouponSection({
   cartTotal,
@@ -61,6 +102,7 @@ export default function CheckoutCouponSection({
   customerId,
 }) {
   const pathname = usePathname();
+
   const [code, setCode] = useState("");
   const [clicked, setClicked] = useState("");
   const [stepError, setStepError] = useState("");
@@ -82,11 +124,33 @@ export default function CheckoutCouponSection({
   } = useCouponStore();
 
   const hasCoupon = Boolean(coupon?.code);
-  const saved = useMemo(() => Math.max(0, Number(discount || 0)), [discount]);
-  const emailOk = useMemo(() => isValidEmail(email), [email]);
+
+  const saved = useMemo(
+    () => Math.max(0, Number(discount || 0)),
+    [discount]
+  );
+
+  const emailOk = useMemo(
+    () => isValidEmail(email),
+    [email]
+  );
+
+  const publicCoupons = useMemo(() => {
+    if (!Array.isArray(suggestedCoupons)) {
+      return [];
+    }
+
+    return suggestedCoupons.filter(isPublic);
+  }, [suggestedCoupons]);
+
+  /* =========================================================
+     LOAD SUGGESTIONS
+  ========================================================= */
 
   const loadSuggestions = useCallback(() => {
-    if (hasCoupon || !(cartTotal > 0)) return;
+    if (hasCoupon || !(cartTotal > 0)) {
+      return;
+    }
 
     fetchSuggestedCoupons?.({
       cartTotal,
@@ -105,18 +169,15 @@ export default function CheckoutCouponSection({
     fetchSuggestedCoupons,
   ]);
 
-  const publicCoupons = useMemo(
-    () =>
-      Array.isArray(suggestedCoupons)
-        ? suggestedCoupons.filter(isPublic)
-        : [],
-    [suggestedCoupons]
-  );
+  /* =========================================================
+     INITIALIZE
+  ========================================================= */
 
   useEffect(() => {
     setCode("");
     setClicked("");
     setStepError("");
+
     clearCouponMessages?.();
 
     if (hasCoupon && cartTotal > 0 && emailOk) {
@@ -127,6 +188,7 @@ export default function CheckoutCouponSection({
         phone,
         customerId,
       });
+
       return;
     }
 
@@ -146,24 +208,40 @@ export default function CheckoutCouponSection({
   ]);
 
   useEffect(() => {
-    if (hasCoupon && !(cartTotal > 0)) clearPersistedCoupon?.();
-  }, [hasCoupon, cartTotal, clearPersistedCoupon]);
+    if (hasCoupon && !(cartTotal > 0)) {
+      clearPersistedCoupon?.();
+    }
+  }, [
+    hasCoupon,
+    cartTotal,
+    clearPersistedCoupon,
+  ]);
+
+  /* =========================================================
+     APPLY COUPON
+  ========================================================= */
 
   const onApply = async (value = code) => {
-    const nextCode = String(value || "").trim().toUpperCase();
-    if (!nextCode || isApplying) return;
+    const nextCode = String(value || "")
+      .trim()
+      .toUpperCase();
+
+    if (!nextCode || isApplying) {
+      return;
+    }
 
     if (!emailOk) {
-      setStepError("Please Enter Email");
+      setStepError("Enter email to apply coupon");
       return;
     }
 
     try {
       setStepError("");
-      clearCouponMessages?.();
       setClicked(nextCode);
 
-      const res = await applyCoupon({
+      clearCouponMessages?.();
+
+      const response = await applyCoupon({
         code: nextCode,
         cartTotal,
         cartItems,
@@ -173,10 +251,19 @@ export default function CheckoutCouponSection({
       });
 
       const state = useCouponStore.getState();
-      const appliedCoupon = state.coupon || res?.coupon || null;
-      const appliedDiscount = Number(state.discount ?? res?.discount ?? 0) || 0;
 
-      if (appliedCoupon?.code || appliedDiscount > 0) {
+      const appliedCoupon =
+        state.coupon || response?.coupon || null;
+
+      const appliedDiscount =
+        Number(
+          state.discount ?? response?.discount ?? 0
+        ) || 0;
+
+      if (
+        appliedCoupon?.code ||
+        appliedDiscount > 0
+      ) {
         useGtmStore.getState().couponApplied({
           code: appliedCoupon?.code || nextCode,
           discount: appliedDiscount,
@@ -184,23 +271,37 @@ export default function CheckoutCouponSection({
       }
 
       setCode("");
-    } catch (e) {
-      console.warn("coupon apply failed", e);
+    } catch (applyError) {
+      console.warn(
+        "Coupon apply failed:",
+        applyError
+      );
     } finally {
       setClicked("");
     }
   };
 
+  /* =========================================================
+     REMOVE COUPON
+  ========================================================= */
+
   const onRemove = async () => {
     clearCouponMessages?.();
+
     setStepError("");
     setCode("");
+
     await clearPersistedCoupon?.();
+
     setTimeout(loadSuggestions, 50);
   };
 
+  /* =========================================================
+     UI
+  ========================================================= */
+
   return (
-    <div className="mt-3 space-y-2">
+    <section className="mt-3 space-y-2.5">
       <style jsx>{`
         .coupon-scroll {
           scrollbar-width: none;
@@ -212,18 +313,20 @@ export default function CheckoutCouponSection({
         }
       `}</style>
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="grid size-8 shrink-0 place-items-center border border-neutral-200 bg-white text-black">
-            <Tag className="h-4 w-4" />
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700">
+            <Tag className="size-3.5" />
           </span>
 
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.08em] text-black">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase leading-none tracking-[0.08em] text-black">
               Coupons
             </p>
-            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
-              Apply Code To Get Discount
+
+            <p className="mt-1 text-[10px] font-medium leading-none text-neutral-500">
+              Pick an eligible offer
             </p>
           </div>
         </div>
@@ -232,148 +335,208 @@ export default function CheckoutCouponSection({
           <button
             type="button"
             onClick={loadSuggestions}
-            className="text-[10px] font-black uppercase tracking-[0.12em] text-black/45 transition hover:text-black"
+            disabled={isLoadingSuggestions}
+            className="inline-flex shrink-0 items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-emerald-700 transition hover:text-emerald-900 disabled:opacity-40"
           >
+            <RefreshCw
+              className={`size-3 ${
+                isLoadingSuggestions
+                  ? "animate-spin"
+                  : ""
+              }`}
+            />
+
             Refresh
           </button>
         )}
       </div>
 
-      {!emailOk && (
-        <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
-          Enter Email In Step 1 To Apply Coupon.
+      {!emailOk && !hasCoupon && (
+        <p className="rounded-lg bg-neutral-100 px-2.5 py-1.5 text-[10px] font-semibold text-neutral-600">
+          Enter your email to apply a coupon.
         </p>
       )}
 
       {hasCoupon ? (
-        <div className="flex items-center justify-between border border-neutral-200 bg-white px-3 py-2">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.08em] text-black">
-              {coupon.code} Applied
-            </p>
-            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
-              Saved <b>RS. {money(saved)}</b>
-            </p>
+        /* Applied Coupon */
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700">
+              <Tag className="size-3.5" />
+            </span>
+
+            <div className="min-w-0">
+              <p className="truncate text-[12px] font-black uppercase tracking-wide text-emerald-950">
+                {coupon.code} Applied
+              </p>
+
+              <p className="mt-0.5 text-[10px] font-semibold text-emerald-700">
+                You saved ₹{money(saved)}
+              </p>
+            </div>
           </div>
 
           <button
             type="button"
             onClick={onRemove}
             aria-label="Remove coupon"
-            className="grid h-8 w-8 place-items-center border border-neutral-200 bg-white transition hover:border-black"
+            className="grid size-7 shrink-0 place-items-center rounded-lg border border-emerald-200 bg-white text-emerald-800 transition hover:border-emerald-400"
           >
-            <X className="h-4 w-4 text-black" />
+            <X className="size-3.5" />
           </button>
         </div>
       ) : (
         <>
+          {/* Manual Code */}
           <div className="flex items-center gap-2">
             <input
               value={code}
-              onChange={(e) => {
-                setCode(e.target.value.toUpperCase());
-                if (stepError) setStepError("");
+              onChange={(event) => {
+                setCode(
+                  event.target.value.toUpperCase()
+                );
+
+                if (stepError) {
+                  setStepError("");
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  onApply();
+                }
               }}
               placeholder="ENTER CODE"
-              className="h-10 min-w-0 flex-1 border border-neutral-300 bg-white px-3 text-xs font-bold uppercase tracking-[0.08em] outline-none transition placeholder:text-black/28 focus:border-black"
+              className="h-9 min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 text-[11px] font-bold uppercase tracking-wide outline-none transition placeholder:text-neutral-300 focus:border-emerald-500"
             />
 
             <button
               type="button"
-              disabled={isApplying || !code.trim() || !emailOk}
+              disabled={
+                isApplying ||
+                !code.trim() ||
+                !emailOk
+              }
               onClick={() => onApply()}
-              className="inline-flex h-10 shrink-0 items-center justify-center bg-black px-3 text-[10px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-neutral-800 disabled:bg-black/20 disabled:text-black/40"
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-emerald-700 px-3.5 text-[9px] font-black uppercase tracking-[0.1em] text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-neutral-200 disabled:text-neutral-400"
             >
-              {isApplying && clicked === code.trim().toUpperCase() ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+              {isApplying &&
+              clicked ===
+                code.trim().toUpperCase() ? (
+                <Loader2 className="size-3.5 animate-spin" />
               ) : (
                 "Apply"
               )}
             </button>
           </div>
 
-          <div className="space-y-2">
-            {stepError && (
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-red-600">
-                {stepError}
-              </p>
-            )}
+          {stepError && (
+            <p className="text-[10px] font-semibold text-red-600">
+              {stepError}
+            </p>
+          )}
 
-            {isLoadingSuggestions ? (
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading Coupons...
-              </div>
-            ) : suggestionError ? (
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-red-600">
-                {suggestionError}
-              </p>
-            ) : publicCoupons.length ? (
-              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 coupon-scroll">
-                {publicCoupons.map((item) => {
-                  const couponCode = String(item.code || "").toUpperCase();
-                  const spin = isApplying && clicked === couponCode;
-                  const { eligible, text } = getCouponMeta(item);
+          {isLoadingSuggestions ? (
+            <div className="flex items-center gap-1.5 py-1 text-[10px] font-semibold text-neutral-500">
+              <Loader2 className="size-3.5 animate-spin" />
+              Loading coupons...
+            </div>
+          ) : suggestionError ? (
+            <p className="text-[10px] font-semibold text-red-600">
+              {suggestionError}
+            </p>
+          ) : publicCoupons.length > 0 ? (
+            /* Coupon Cards */
+            <div className="coupon-scroll -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+              {publicCoupons.map((item) => {
+                const couponCode = String(
+                  item?.code || ""
+                ).toUpperCase();
 
-                  return (
-                    <button
-                      key={item._id || couponCode}
-                      type="button"
-                      disabled={isApplying || !emailOk || !eligible}
-                      onClick={() => onApply(couponCode)}
-                      className={[
-                        "w-[150px] shrink-0 border px-2.5 py-2 text-left transition",
-                        eligible
-                          ? "border-neutral-300 bg-white text-black hover:border-black"
-                          : "cursor-not-allowed border-neutral-200 bg-neutral-100 text-black/35",
-                      ].join(" ")}
-                    >
-                      <div className="flex min-w-0 items-center gap-1">
-                        {spin && (
-                          <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                        )}
+                const loading =
+                  isApplying &&
+                  clicked === couponCode;
 
-                        <span className="truncate text-[11px] font-black uppercase tracking-[0.08em]">
-                          {couponCode}
-                        </span>
-                      </div>
+                const { eligible, text } =
+                  getCouponMeta(item);
 
-                      <div className="mt-0.5 truncate text-[10px] font-semibold uppercase text-black/70">
-                        {couponLabel(item)}
-                      </div>
+                return (
+                  <button
+                    key={
+                      item?._id || couponCode
+                    }
+                    type="button"
+                    disabled={
+                      isApplying ||
+                      !emailOk ||
+                      !eligible
+                    }
+                    onClick={() =>
+                      onApply(couponCode)
+                    }
+                    className={[
+                      "w-[142px] shrink-0 rounded-xl border p-2.5 text-left transition duration-200",
+                      eligible
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-950 hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-sm"
+                        : "cursor-not-allowed border-neutral-200 bg-neutral-100 text-neutral-400 opacity-75",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="min-w-0 truncate text-[12px] font-black uppercase tracking-[0.06em]">
+                        {couponCode}
+                      </span>
 
-                      <div
+                      <span
                         className={[
-                          "mt-1 line-clamp-2 text-[9px] leading-tight",
-                          eligible ? "text-black/50" : "text-zinc-400",
+                          "grid size-5 shrink-0 place-items-center rounded-md",
+                          eligible
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-neutral-200 text-neutral-400",
                         ].join(" ")}
                       >
-                        {text}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
-                No Public Coupons Available
-              </p>
-            )}
+                        {loading ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <Tag className="size-3" />
+                        )}
+                      </span>
+                    </div>
 
-            {error && (
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-red-600">
-                {error}
-              </p>
-            )}
+                    <p className="mt-1.5 truncate text-[12px] font-extrabold uppercase leading-tight">
+                      {couponLabel(item)}
+                    </p>
 
-            {message && (
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-black">
-                {message}
-              </p>
-            )}
-          </div>
+                    <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-[1.35] opacity-75">
+                      {text}
+                    </p>
+
+                    {eligible && (
+                      <p className="mt-1.5 text-[9px] font-black uppercase tracking-wide text-emerald-700">
+                        Tap to apply
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="py-1 text-[10px] font-medium text-neutral-500">
+              No coupons available.
+            </p>
+          )}
+
+          {error && (
+            <p className="rounded-lg bg-red-50 px-2.5 py-1.5 text-[10px] font-semibold text-red-600">
+              {error}
+            </p>
+          )}
+
+          {message && (
+            <p className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-700">
+              {message}
+            </p>
+          )}
         </>
       )}
-    </div>
+    </section>
   );
 }
