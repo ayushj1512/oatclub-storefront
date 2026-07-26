@@ -7,9 +7,15 @@ const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 HELPERS
 ------------------------------------------------------------------- */
 
-const normCode = (v) => String(v || "").trim().toUpperCase();
+const normCode = (v) =>
+  String(v || "")
+    .trim()
+    .toUpperCase();
 const norm = (v) => String(v || "").trim();
-const normEmail = (v) => String(v || "").trim().toLowerCase();
+const normEmail = (v) =>
+  String(v || "")
+    .trim()
+    .toLowerCase();
 
 const normPhone = (v) => {
   const digits = String(v || "").replace(/\D/g, "");
@@ -51,12 +57,15 @@ const getItemPrice = (item) => {
       product?.price ??
       product?.salePrice ??
       product?.finalPrice ??
-      0
+      0,
   );
 };
 
 const getCartTotalFromItems = (cartItems = []) =>
-  cartItems.reduce((sum, item) => sum + getItemPrice(item) * getItemQty(item), 0);
+  cartItems.reduce(
+    (sum, item) => sum + getItemPrice(item) * getItemQty(item),
+    0,
+  );
 
 const getCartQty = (cartItems = [], countMode = "total_quantity") => {
   if (!Array.isArray(cartItems) || !cartItems.length) return 0;
@@ -85,7 +94,8 @@ const normalizeCartItems = (cartItems = []) => {
         ...product,
         _id: product?._id || item?.productId || item?._id,
         productCode: product?.productCode || item?.productCode || "",
-        title: product?.title || product?.name || item?.title || item?.name || "",
+        title:
+          product?.title || product?.name || item?.title || item?.name || "",
         price: getItemPrice(item),
         isPrimaryProduct:
           item?.isPrimaryProduct ??
@@ -96,7 +106,8 @@ const normalizeCartItems = (cartItems = []) => {
         categories: product?.categories || item?.categories || [],
         collections: product?.collections || item?.collections || [],
         category: product?.category || item?.category || item?.categoryId,
-        collection: product?.collection || item?.collection || item?.collectionId,
+        collection:
+          product?.collection || item?.collection || item?.collectionId,
       },
       quantity: getItemQty(item),
       price: getItemPrice(item),
@@ -133,7 +144,7 @@ const getBestQuantityTier = (coupons = []) =>
     .sort(
       (a, b) =>
         Number(b.quantityRule?.minItems || 0) -
-        Number(a.quantityRule?.minItems || 0)
+        Number(a.quantityRule?.minItems || 0),
     )[0] || null;
 
 const getNextQuantityTier = ({ coupons = [], cartItems = [] }) => {
@@ -146,7 +157,7 @@ const getNextQuantityTier = ({ coupons = [], cartItems = [] }) => {
     .sort(
       (a, b) =>
         Number(a.quantityRule.minItems || 0) -
-        Number(b.quantityRule.minItems || 0)
+        Number(b.quantityRule.minItems || 0),
     );
 
   for (const coupon of tiers) {
@@ -247,8 +258,12 @@ export const useCouponStore = create(
       },
 
       getMyCoupons: () => {
-        const earned = Array.isArray(get().earnedCoupons) ? get().earnedCoupons : [];
-        const suggested = Array.isArray(get().suggestedCoupons) ? get().suggestedCoupons : [];
+        const earned = Array.isArray(get().earnedCoupons)
+          ? get().earnedCoupons
+          : [];
+        const suggested = Array.isArray(get().suggestedCoupons)
+          ? get().suggestedCoupons
+          : [];
         const map = new Map();
 
         [...earned, ...suggested].forEach((coupon) => {
@@ -290,7 +305,8 @@ export const useCouponStore = create(
         const item = {
           code,
           title: coupon.title || "OATCLUB reward",
-          description: coupon.description || "Unlocked from your OATCLUB activity.",
+          description:
+            coupon.description || "Unlocked from your OATCLUB activity.",
           discountType: coupon.discountType || "percent",
           discountValue: Number(coupon.discountValue || 0),
           source: coupon.source || "reward",
@@ -300,8 +316,13 @@ export const useCouponStore = create(
         };
 
         set((state) => {
-          const prev = Array.isArray(state.earnedCoupons) ? state.earnedCoupons : [];
-          const next = [item, ...prev.filter((c) => normCode(c?.code) !== code)];
+          const prev = Array.isArray(state.earnedCoupons)
+            ? state.earnedCoupons
+            : [];
+          const next = [
+            item,
+            ...prev.filter((c) => normCode(c?.code) !== code),
+          ];
           return { earnedCoupons: next.slice(0, 30) };
         });
 
@@ -337,7 +358,13 @@ export const useCouponStore = create(
       SUGGESTED PUBLIC COUPONS
       ------------------------------------------------------------------- */
 
-      fetchSuggestedCoupons: async ({ cartTotal, cartItems = [] } = {}) => {
+      fetchSuggestedCoupons: async ({
+        cartTotal,
+        cartItems = [],
+        email,
+        phone,
+        customerId,
+      } = {}) => {
         if (!API_BASE) {
           return set({ suggestionError: "Backend not configured" });
         }
@@ -350,13 +377,22 @@ export const useCouponStore = create(
             ? getCartTotalFromItems(normalizedItems)
             : Number(cartTotal || 0);
 
-          const res = await fetch(`${API_BASE}/api/coupons`, {
+          const res = await fetch(`${API_BASE}/api/coupons/available`, {
+            method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
+            body: JSON.stringify({
+              cartTotal: actualCartTotal,
+              cartItems: normalizedItems,
+              email: email ? normEmail(email) : null,
+              phone: phone ? normPhone(phone) : null,
+              customerId,
+            }),
           });
 
           const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.message || "Failed to fetch coupons");
+          if (!res.ok)
+            throw new Error(data.message || "Failed to fetch coupons");
 
           const now = new Date();
           const coupons = Array.isArray(data.data) ? data.data : [];
@@ -367,17 +403,25 @@ export const useCouponStore = create(
             .map((coupon) => {
               const quantityRule = normalizeQuantityRule(coupon.quantityRule);
 
-              const validFrom = coupon.validFrom ? new Date(coupon.validFrom) : null;
-              const validTill = coupon.validTill ? new Date(coupon.validTill) : null;
+              const validFrom = coupon.validFrom
+                ? new Date(coupon.validFrom)
+                : null;
+              const validTill = coupon.validTill
+                ? new Date(coupon.validTill)
+                : null;
 
               const okDate =
-                (!validFrom || validFrom <= now) && (!validTill || validTill >= now);
+                (!validFrom || validFrom <= now) &&
+                (!validTill || validTill >= now);
 
               const okMin =
                 !coupon.minPurchase ||
                 actualCartTotal >= Number(coupon.minPurchase || 0);
 
-              const cartQty = getCartQty(normalizedItems, quantityRule.countMode);
+              const cartQty = getCartQty(
+                normalizedItems,
+                quantityRule.countMode,
+              );
               const okQty =
                 !quantityRule.enabled ||
                 cartQty >= Number(quantityRule.minItems || 0);
@@ -399,10 +443,15 @@ export const useCouponStore = create(
             })
             .sort((a, b) => {
               if (b._eligibility.isEligible !== a._eligibility.isEligible) {
-                return Number(b._eligibility.isEligible) - Number(a._eligibility.isEligible);
+                return (
+                  Number(b._eligibility.isEligible) -
+                  Number(a._eligibility.isEligible)
+                );
               }
 
-              return Number(b.discountValue || 0) - Number(a.discountValue || 0);
+              return (
+                Number(b.discountValue || 0) - Number(a.discountValue || 0)
+              );
             });
 
           set({
@@ -455,7 +504,9 @@ export const useCouponStore = create(
         }
 
         if (!cKey) {
-          throw new Error("Please enter email or phone number to apply coupon.");
+          throw new Error(
+            "Please enter email or phone number to apply coupon.",
+          );
         }
 
         if (get().isApplying && get()._applyPromise) {
@@ -485,7 +536,8 @@ export const useCouponStore = create(
             });
 
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.message || "Failed to apply coupon");
+            if (!res.ok)
+              throw new Error(data.message || "Failed to apply coupon");
 
             get().setAppliedCouponFromResponse({
               data,
@@ -586,9 +638,14 @@ export const useCouponStore = create(
             });
 
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.message || "Failed to auto apply coupon");
+            if (!res.ok)
+              throw new Error(data.message || "Failed to auto apply coupon");
 
-            if (!data.applied || !data?.coupon?.code || Number(data.discount || 0) <= 0) {
+            if (
+              !data.applied ||
+              !data?.coupon?.code ||
+              Number(data.discount || 0) <= 0
+            ) {
               set({
                 coupon: null,
                 discount: 0,
@@ -684,12 +741,17 @@ export const useCouponStore = create(
         phone,
         customerId,
       }) => {
-        const hasManualCoupon = Boolean(get().coupon?.code && !get().autoAppliedCoupon);
+        const hasManualCoupon = Boolean(
+          get().coupon?.code && !get().autoAppliedCoupon,
+        );
         const normalizedItems = normalizeCartItems(cartItems);
 
         await get().fetchSuggestedCoupons({
           cartTotal,
           cartItems: normalizedItems,
+          email,
+          phone,
+          customerId,
         });
 
         if (hasManualCoupon) {
@@ -729,7 +791,8 @@ export const useCouponStore = create(
         if (!appliedCode) return null;
 
         const cKey = customerKey({ email, phone, customerId });
-        if (!cKey) throw new Error("Customer details required to redeem coupon.");
+        if (!cKey)
+          throw new Error("Customer details required to redeem coupon.");
 
         const normalizedItems = normalizeCartItems(cartItems);
 
@@ -755,7 +818,8 @@ export const useCouponStore = create(
           });
 
           const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.message || "Failed to redeem coupon");
+          if (!res.ok)
+            throw new Error(data.message || "Failed to redeem coupon");
 
           set({
             isRedeeming: false,
@@ -810,8 +874,10 @@ export const useCouponStore = create(
       partialize: (state) => ({
         coupon: state.coupon?.code ? { code: state.coupon.code } : null,
         couponCustomerKey: state.couponCustomerKey || null,
-        earnedCoupons: Array.isArray(state.earnedCoupons) ? state.earnedCoupons : [],
+        earnedCoupons: Array.isArray(state.earnedCoupons)
+          ? state.earnedCoupons
+          : [],
       }),
-    }
-  )
+    },
+  ),
 );

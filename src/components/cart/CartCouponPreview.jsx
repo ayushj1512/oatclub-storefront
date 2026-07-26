@@ -3,49 +3,89 @@
 import { useEffect, useMemo } from "react";
 import { TicketPercent, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
+
 import { useCouponStore } from "@/store/couponStore";
+import { useAuthStore } from "@/store/authStore";
 
-const money = (n) => (Number.isFinite(+n) ? (+n).toLocaleString("en-IN") : "0");
+const money = (value) =>
+  Number.isFinite(Number(value))
+    ? Number(value).toLocaleString("en-IN")
+    : "0";
 
-const couponLabel = (c) =>
-  c?.discountType === "percentage"
-    ? `${c.discountValue}% OFF`
-    : `₹${money(c?.discountValue)} OFF`;
+const couponLabel = (coupon) =>
+  coupon?.discountType === "percentage"
+    ? `${coupon.discountValue}% OFF`
+    : `₹${money(coupon?.discountValue)} OFF`;
 
-const isPublic = (c) =>
-  String(c?.visibility || "public").toLowerCase() !== "private";
+const isPublicCoupon = (coupon) =>
+  String(coupon?.visibility || "public").toLowerCase() !== "private";
 
-const getMeta = (coupon) => {
-  const e = coupon?._eligibility || {};
-  const desc = String(coupon?.description || "").trim();
+const getCouponMeta = (coupon) => {
+  const eligibility = coupon?._eligibility || {};
+  const description = String(coupon?.description || "").trim();
 
-  const eligible =
-    e.isEligible !== undefined
-      ? Boolean(e.isEligible)
-      : e.okDate !== false && e.okMin !== false && e.okQty !== false;
+  const isEligible =
+    eligibility.isEligible !== undefined
+      ? Boolean(eligibility.isEligible)
+      : eligibility.okDate !== false &&
+        eligibility.okMin !== false &&
+        eligibility.okQty !== false;
 
-  if (eligible) return { eligible: true, text: desc || "Eligible on checkout" };
-  if (e.okDate === false) return { eligible: false, text: desc || "Expired" };
-
-  if (e.okMin === false) {
+  if (isEligible) {
     return {
-      eligible: false,
-      text: desc || `Min cart ₹${money(coupon.minPurchase)}`,
+      eligible: true,
+      text: description || "Eligible on checkout",
     };
   }
 
-  if (e.okQty === false && Number(e.remainingQty || 0) > 0) {
-    const qty = Number(e.remainingQty || 0);
+  if (eligibility.okDate === false) {
     return {
       eligible: false,
-      text: desc || `Add ${qty} more item${qty > 1 ? "s" : ""}`,
+      text: description || "Expired",
     };
   }
 
-  return { eligible: false, text: desc || "Not eligible yet" };
+  if (eligibility.okMin === false) {
+    return {
+      eligible: false,
+      text:
+        description ||
+        `Minimum cart ₹${money(coupon?.minPurchase)}`,
+    };
+  }
+
+  if (
+    eligibility.okQty === false &&
+    Number(eligibility.remainingQty || 0) > 0
+  ) {
+    const remainingQty = Number(
+      eligibility.remainingQty || 0
+    );
+
+    return {
+      eligible: false,
+      text:
+        description ||
+        `Add ${remainingQty} more item${
+          remainingQty > 1 ? "s" : ""
+        }`,
+    };
+  }
+
+  return {
+    eligible: false,
+    text: description || "Not eligible yet",
+  };
 };
 
-export default function CartCouponPreview({ cartTotal, cartItems = [] }) {
+export default function CartCouponPreview({
+  cartTotal,
+  cartItems = [],
+}) {
+  const customer = useAuthStore(
+    (state) => state.customer || state.user
+  );
+
   const {
     suggestedCoupons,
     isLoadingSuggestions,
@@ -53,22 +93,53 @@ export default function CartCouponPreview({ cartTotal, cartItems = [] }) {
     fetchSuggestedCoupons,
   } = useCouponStore();
 
+  const customerId =
+    customer?._id ||
+    customer?.id ||
+    customer?.customerId ||
+    null;
+
+  const email = customer?.email || null;
+  const phone =
+    customer?.phone ||
+    customer?.phoneNumber ||
+    customer?.mobile ||
+    null;
+
   useEffect(() => {
     if (!(Number(cartTotal) > 0)) return;
-    fetchSuggestedCoupons?.({ cartTotal, cartItems });
-  }, [cartTotal, cartItems, fetchSuggestedCoupons]);
+
+    fetchSuggestedCoupons?.({
+      cartTotal,
+      cartItems,
+      email,
+      phone,
+      customerId,
+    });
+  }, [
+    cartTotal,
+    cartItems,
+    email,
+    phone,
+    customerId,
+    fetchSuggestedCoupons,
+  ]);
 
   const coupons = useMemo(() => {
     const list = Array.isArray(suggestedCoupons)
-      ? suggestedCoupons.filter(isPublic)
+      ? suggestedCoupons.filter(isPublicCoupon)
       : [];
 
     return list
-      .map((coupon) => {
-        const meta = getMeta(coupon);
-        return { ...coupon, _meta: meta };
-      })
-      .sort((a, b) => Number(b._meta.eligible) - Number(a._meta.eligible))
+      .map((coupon) => ({
+        ...coupon,
+        _meta: getCouponMeta(coupon),
+      }))
+      .sort(
+        (a, b) =>
+          Number(b._meta.eligible) -
+          Number(a._meta.eligible)
+      )
       .slice(0, 6);
   }, [suggestedCoupons]);
 
@@ -86,6 +157,7 @@ export default function CartCouponPreview({ cartTotal, cartItems = [] }) {
             <p className="text-sm font-semibold text-gray-900">
               Available coupons
             </p>
+
             <p className="text-[11px] text-gray-500">
               Apply eligible coupons on checkout
             </p>
@@ -96,7 +168,8 @@ export default function CartCouponPreview({ cartTotal, cartItems = [] }) {
           href="/checkout"
           className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-gray-700 transition hover:text-black"
         >
-          Checkout <ArrowRight className="h-3.5 w-3.5" />
+          Checkout
+          <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
 
@@ -106,7 +179,9 @@ export default function CartCouponPreview({ cartTotal, cartItems = [] }) {
           Checking coupons...
         </div>
       ) : suggestionError ? (
-        <p className="text-xs text-red-600">{suggestionError}</p>
+        <p className="text-xs text-red-600">
+          {suggestionError}
+        </p>
       ) : coupons.length ? (
         <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0">
           <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
@@ -124,7 +199,12 @@ export default function CartCouponPreview({ cartTotal, cartItems = [] }) {
                   ].join(" ")}
                 >
                   <div className="flex items-center gap-1">
-                    <span>{String(coupon.code || "").toUpperCase()}</span>
+                    <span>
+                      {String(
+                        coupon.code || ""
+                      ).toUpperCase()}
+                    </span>
+
                     <span className="font-medium opacity-75">
                       {couponLabel(coupon)}
                     </span>
@@ -133,7 +213,9 @@ export default function CartCouponPreview({ cartTotal, cartItems = [] }) {
                   <p
                     className={[
                       "mt-0.5 truncate text-[10px] font-medium",
-                      eligible ? "text-green-700/70" : "text-zinc-400",
+                      eligible
+                        ? "text-green-700/70"
+                        : "text-zinc-400",
                     ].join(" ")}
                   >
                     {text}
