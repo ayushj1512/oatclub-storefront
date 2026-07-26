@@ -87,7 +87,8 @@ export default function CartPage() {
   const initialize = useCartStore((s) => s.initialize);
   const decreaseQty = useCartStore((s) => s.decreaseQty);
   const updateQty = useCartStore((s) => s.updateQty);
-  const removeFromCart = useCartStore((s) => s.removeFromCart);
+const removeFromCart = useCartStore((s) => s.removeFromCart);
+const clearCart = useCartStore((s) => s.clearCart);
   const totalPrice = useCartStore((s) => s.totalPrice);
   const totalCompareAtPrice = useCartStore((s) => s.totalCompareAtPrice);
   const totalSavings = useCartStore((s) => s.totalSavings);
@@ -229,13 +230,30 @@ export default function CartPage() {
             </p>
           </div>
 
-          <Link
-            href="/all-clothing"
-            className="inline-flex w-fit items-center gap-2 border border-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition hover:bg-black hover:text-white"
-          >
-            CONTINUE SHOPPING
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+  {items.length > 0 && (
+    <button
+      type="button"
+      onClick={() => {
+        if (window.confirm("Clear all items from your shopping bag?")) {
+          clearCart?.();
+        }
+      }}
+      className="inline-flex items-center gap-2 border border-red-300 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-red-600 transition hover:bg-red-600 hover:text-white"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+      CLEAR BAG
+    </button>
+  )}
+
+  <Link
+    href="/all-clothing"
+    className="inline-flex items-center gap-2 border border-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition hover:bg-black hover:text-white"
+  >
+    CONTINUE SHOPPING
+    <ArrowRight className="h-3.5 w-3.5" />
+  </Link>
+</div>
         </header>
 
         <CartCouponPreview
