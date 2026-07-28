@@ -1,7 +1,7 @@
 // src/app/[category]/[product_name]/[id]/page.jsx
 "use client";
 
-import { use, useEffect, useMemo, useState, useCallback } from "react";
+import { use, useEffect, useMemo, useState, useCallback, useRef, } from "react";
 import { Heart, RotateCcw, Share2, ShieldCheck, ShoppingCart, Truck, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -436,7 +436,7 @@ export default function ProductPage({ params }) {
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [sizeRecommendationOpen, setSizeRecommendationOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState(null);
-
+  const sizeSectionRef = useRef(null);
   const viewItem = useGtmStore((s) => s.viewItem);
 
   const trackProductView = useMarketingCampaignStore((s) => s.trackProductView);
@@ -626,6 +626,20 @@ export default function ProductPage({ params }) {
     });
   }, [cartItems, selectedCartKey]);
 
+  const scrollToSizeSection = useCallback(() => {
+    requestAnimationFrame(() => {
+      sizeSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  }, []);
+
+  const showSizeRequired = useCallback(() => {
+    notify.error("PLEASE SELECT A SIZE");
+    scrollToSizeSection();
+  }, [scrollToSizeSection]);
+
   const handleSizeSelect = useCallback(
     (size) => {
       const nextSize = str(size).trim().toUpperCase();
@@ -677,8 +691,10 @@ export default function ProductPage({ params }) {
 
     if (!normalized || !product) return;
 
-    if (requireSize && !selectedSize) return notify.error("PLEASE SELECT A SIZE");
-    if (requireColor && !selectedColor) return notify.error("PLEASE SELECT A COLOR");
+    if (requireSize && !selectedSize) {
+      showSizeRequired();
+      return;
+    } if (requireColor && !selectedColor) return notify.error("PLEASE SELECT A COLOR");
 
     if (product.productType === "variable" && !selectedVariantId) {
       return notify.error(requireColor ? "PLEASE SELECT SIZE & COLOR" : "PLEASE SELECT A SIZE");
@@ -700,6 +716,7 @@ export default function ProductPage({ params }) {
     selectedSize,
     selectedColor,
     selectedVariantId,
+    showSizeRequired,
   ]);
 
 
@@ -717,7 +734,7 @@ export default function ProductPage({ params }) {
     if (!normalized || !product) return;
 
     if (requireSize && !selectedSize) {
-      notify.error("PLEASE SELECT A SIZE");
+      showSizeRequired();
       return;
     }
 
@@ -950,8 +967,10 @@ export default function ProductPage({ params }) {
 
               {/* Size Selector */}
               {(product.sizes || []).length > 0 && (
-                <div className="border-b border-black/10 pb-4">
-                  <div className="mb-3 flex items-start justify-between gap-4">
+                <div
+                  ref={sizeSectionRef}
+                  className="scroll-mt-32 border-b border-black/10 pb-4"
+                >                  <div className="mb-3 flex items-start justify-between gap-4">
                     <div>
                       <h3 className="text-xs font-extrabold uppercase tracking-[0.08em] text-black">
                         SELECT SIZE
