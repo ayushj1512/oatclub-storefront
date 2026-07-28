@@ -105,13 +105,18 @@ export default function CheckoutPage() {
   // const [showCodCaptcha, setShowCodCaptcha] = useState(false);
 
   /* ✅ IMPORTANT: local customer for existing-email users (no login) */
-  const [guestCustomer, setGuestCustomer] = useState(null);
-  const activeCustomer = customer || guestCustomer;
-  const walletBalance = Number(
-    creditSummary?.balance ||
-    activeCustomer?.credits?.balance ||
-    0
-  );
+const [guestCustomer, setGuestCustomer] = useState(null);
+
+const activeCustomer = customer || guestCustomer;
+
+const isCustomerBlacklisted =
+  activeCustomer?.isBlacklisted === true;
+
+const walletBalance = Number(
+  creditSummary?.balance ||
+  activeCustomer?.credits?.balance ||
+  0
+);
   const [useWallet, setUseWallet] = useState(false);
   const [walletAmount, setWalletAmount] = useState(0);
 
@@ -150,6 +155,16 @@ export default function CheckoutPage() {
       st.clearBuyNow?.();
     }
   }, []);
+
+  useEffect(() => {
+  if (
+    isCustomerBlacklisted &&
+    selectedPayment === "cod"
+  ) {
+    setSelectedPayment("razorpay");
+    setShowPayment(true);
+  }
+}, [isCustomerBlacklisted, selectedPayment]);
 
   /* ✅ sync local guestCustomer if store customer exists */
   useEffect(() => {
@@ -980,6 +995,19 @@ export default function CheckoutPage() {
 
     const finalCustomer = await ensureCustomer();
     if (!finalCustomer?._id) return;
+
+    if (
+  finalCustomer?.isBlacklisted === true &&
+  resolvedPaymentMethod === "cod"
+) {
+  toast.error(
+    "Cash on Delivery is unavailable at the Moment."
+  );
+
+  setSelectedPayment("razorpay");
+  setShowPayment(true);
+  return;
+}
 
     const checkoutAddress =
       buildCheckoutAddressSnapshot(

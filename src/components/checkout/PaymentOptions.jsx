@@ -12,7 +12,7 @@ import {
   Sparkles,
   Wallet,
 } from "lucide-react";
-
+import { useEffect } from "react";
 /* =========================================================
    SHARED UI
 ========================================================= */
@@ -36,9 +36,8 @@ const Chip = ({ children, tone = "neutral" }) => {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${
-        styles[tone] || styles.neutral
-      }`}
+      className={`inline-flex items-center gap-1.5 border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${styles[tone] || styles.neutral
+        }`}
     >
       {children}
     </span>
@@ -57,27 +56,40 @@ function PayCard({
   selected,
   setSelected,
   badge,
+  disabled = false,
+  disabledMessage = "",
 }) {
-  const active = selected === value;
+  const active = selected === value && !disabled;
 
   return (
     <button
       type="button"
-      onClick={() => setSelected(value)}
+      disabled={disabled}
+      onClick={() => {
+        if (disabled) {
+          toast.error(
+            disabledMessage || "This payment option is unavailable.",
+          );
+          return;
+        }
+
+        setSelected?.(value);
+      }}
       aria-pressed={active}
-      className={`relative w-full border px-3 py-2.5 text-left transition sm:px-3.5 ${
-        active
+      aria-disabled={disabled}
+      className={`relative w-full border px-3 py-2.5 text-left transition sm:px-3.5 ${disabled
+        ? "cursor-not-allowed border-red-200 bg-red-50 opacity-70"
+        : active
           ? "border-emerald-600 bg-emerald-50"
           : "border-neutral-200 bg-[#fbfaf7] hover:border-black hover:bg-white"
-      }`}
+        }`}
     >
       <div className="flex items-center gap-3">
         <span
-          className={`grid size-9 shrink-0 place-items-center border bg-white ${
-            active
-              ? "border-emerald-600 text-emerald-700"
-              : "border-neutral-200 text-black"
-          }`}
+          className={`grid size-9 shrink-0 place-items-center border bg-white ${active
+            ? "border-emerald-600 text-emerald-700"
+            : "border-neutral-200 text-black"
+            }`}
         >
           {icon}
         </span>
@@ -85,9 +97,12 @@ function PayCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <div
-              className={`text-xs font-black uppercase tracking-[0.08em] ${
-                active ? "text-emerald-800" : "text-black"
-              }`}
+              className={`text-xs font-black uppercase tracking-[0.08em] ${disabled
+                ? "text-red-700"
+                : active
+                  ? "text-emerald-800"
+                  : "text-black"
+                }`}
             >
               {label}
             </div>
@@ -103,13 +118,12 @@ function PayCard({
           </div>
 
           <div
-            className={`mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.06em] ${
-              active
-                ? "text-emerald-700/80"
-                : "text-black/45"
-            }`}
+            className={`mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.06em] ${active
+              ? "text-emerald-700/80"
+              : "text-black/45"
+              }`}
           >
-            {sub}
+            {disabled && disabledMessage ? disabledMessage : sub}
           </div>
         </div>
       </div>
@@ -167,13 +181,17 @@ export default function PaymentOptions({
   customer,
 }) {
   const validationError = validate?.() || null;
+  const isCustomerBlacklisted = customer?.isBlacklisted === true;
+
+  const codDisabledMessage =
+    "Cash on Delivery is unavailable for this account. Please pay online.";
 
   const safeWalletBalance = Math.max(
     0,
     toNumber(
       walletBalance ||
-        customer?.credits?.balance ||
-        0
+      customer?.credits?.balance ||
+      0
     )
   );
 
@@ -189,13 +207,33 @@ export default function PaymentOptions({
 
   const finalPayable = safePayable;
   const hasWalletBalance = safeWalletBalance > 0;
-
   const isCOD = selectedPayment === "cod";
+
   const isRazorpay =
     selectedPayment === "razorpay";
 
   const isFullyPaidByWallet =
     finalPayable <= 0;
+
+  const isInvalidBlacklistedCOD =
+    isCustomerBlacklisted &&
+    isCOD &&
+    !isFullyPaidByWallet;
+
+  useEffect(() => {
+    if (
+      isCustomerBlacklisted &&
+      selectedPayment === "cod" &&
+      !isFullyPaidByWallet
+    ) {
+      setSelectedPayment?.("razorpay");
+    }
+  }, [
+    isCustomerBlacklisted,
+    selectedPayment,
+    isFullyPaidByWallet,
+    setSelectedPayment,
+  ]);
 
   const paymentLoading =
     placing || razorpayLoading;
@@ -203,8 +241,8 @@ export default function PaymentOptions({
   const disabledCTA =
     paymentLoading ||
     Boolean(validationError) ||
-    (!selectedPayment &&
-      !isFullyPaidByWallet);
+    isInvalidBlacklistedCOD ||
+    (!selectedPayment && !isFullyPaidByWallet);
 
   /* =========================================================
      WALLET
@@ -223,10 +261,10 @@ export default function PaymentOptions({
     setWalletAmount(
       checked
         ? Math.min(
-            safeWalletBalance,
-            safePayable +
-              appliedWalletAmount
-          )
+          safeWalletBalance,
+          safePayable +
+          appliedWalletAmount
+        )
         : 0
     );
   };
@@ -240,6 +278,20 @@ export default function PaymentOptions({
 
     if (error) {
       toast.error(error);
+      return;
+    }
+
+    if (
+      customer?.isBlacklisted === true &&
+      selectedPayment === "cod" &&
+      !isFullyPaidByWallet
+    ) {
+      toast.error(
+        "Cash on Delivery is unavailable for this account. Please select online payment.",
+      );
+
+      setSelectedPayment?.("razorpay");
+      setShowPayment?.(true);
       return;
     }
 
@@ -507,21 +559,28 @@ export default function PaymentOptions({
                   {/* COD */}
 
                   <PayCard
-                    label="Cash on Delivery"
-                    value="cod"
-                    icon={
-                      <Wallet className="h-5 w-5" />
+                    label={
+                      isCustomerBlacklisted
+                        ? "Cash on Delivery Unavailable"
+                        : "Cash on Delivery"
                     }
+                    value="cod"
+                    icon={<Wallet className="h-5 w-5" />}
                     sub={
                       appliedWalletAmount > 0
-                        ? `Pay ₹${money(
-                            finalPayable
-                          )} on delivery`
+                        ? `Pay ₹${money(finalPayable)} on delivery`
                         : "Pay when your order arrives"
                     }
                     selected={selectedPayment}
-                    setSelected={
-                      setSelectedPayment
+                    setSelected={setSelectedPayment}
+                    disabled={isCustomerBlacklisted}
+                    disabledMessage={codDisabledMessage}
+                    badge={
+                      isCustomerBlacklisted ? (
+                        <span className="inline-flex items-center border border-red-200 bg-red-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-red-700">
+                          Online Only
+                        </span>
+                      ) : null
                     }
                   />
 
