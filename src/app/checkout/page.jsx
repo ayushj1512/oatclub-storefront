@@ -105,18 +105,18 @@ export default function CheckoutPage() {
   // const [showCodCaptcha, setShowCodCaptcha] = useState(false);
 
   /* ✅ IMPORTANT: local customer for existing-email users (no login) */
-const [guestCustomer, setGuestCustomer] = useState(null);
+  const [guestCustomer, setGuestCustomer] = useState(null);
 
-const activeCustomer = customer || guestCustomer;
+  const activeCustomer = customer || guestCustomer;
 
-const isCustomerBlacklisted =
-  activeCustomer?.isBlacklisted === true;
+  const isCustomerBlacklisted =
+    activeCustomer?.isBlacklisted === true;
 
-const walletBalance = Number(
-  creditSummary?.balance ||
-  activeCustomer?.credits?.balance ||
-  0
-);
+  const walletBalance = Number(
+    creditSummary?.balance ||
+    activeCustomer?.credits?.balance ||
+    0
+  );
   const [useWallet, setUseWallet] = useState(false);
   const [walletAmount, setWalletAmount] = useState(0);
 
@@ -140,31 +140,17 @@ const walletBalance = Number(
   });
 
   /* ---------------- INIT ---------------- */
+
+
   useEffect(() => {
-    resetRazorpay?.();
-
-    const st = useCartStore.getState();
-    if (!st.items?.length && !st.buyNowItem) initCart?.();
-    initializeAuth?.();
-    // safety: if user came normal checkout from cart, don't let stale buyNow hijack checkout
-    const isBuyNowCheckout =
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("mode") === "buy-now";
-
-    if (!isBuyNowCheckout) {
-      st.clearBuyNow?.();
+    if (
+      isCustomerBlacklisted &&
+      selectedPayment === "cod"
+    ) {
+      setSelectedPayment("razorpay");
+      setShowPayment(true);
     }
-  }, []);
-
-  useEffect(() => {
-  if (
-    isCustomerBlacklisted &&
-    selectedPayment === "cod"
-  ) {
-    setSelectedPayment("razorpay");
-    setShowPayment(true);
-  }
-}, [isCustomerBlacklisted, selectedPayment]);
+  }, [isCustomerBlacklisted, selectedPayment]);
 
   /* ✅ sync local guestCustomer if store customer exists */
   useEffect(() => {
@@ -719,7 +705,7 @@ const walletBalance = Number(
   };
 
 
- 
+
 
   /* ---------------- SAVE ADDRESS AFTER ORDER ---------------- */
 
@@ -994,25 +980,13 @@ const walletBalance = Number(
     }
 
     const finalCustomer = await ensureCustomer();
-    if (!finalCustomer?._id) return;
 
-    if (
-  finalCustomer?.isBlacklisted === true &&
-  resolvedPaymentMethod === "cod"
-) {
-  toast.error(
-    "Cash on Delivery is unavailable at the Moment."
-  );
-
-  setSelectedPayment("razorpay");
-  setShowPayment(true);
-  return;
-}
+    if (!finalCustomer?._id) {
+      return;
+    }
 
     const checkoutAddress =
-      buildCheckoutAddressSnapshot(
-        finalCustomer,
-      );
+      buildCheckoutAddressSnapshot(finalCustomer);
 
     const toastId = toast.loading(
       resolvedPaymentMethod === "razorpay"
@@ -1219,17 +1193,26 @@ const walletBalance = Number(
         paymentMethod: resolvedPaymentMethod,
       });
     } catch (error) {
-      console.error("❌ PLACE ORDER FAILED:", error);
+      console.error("❌ PLACE ORDER FAILED:", {
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        data: error?.data,
+        error,
+      });
 
-      toast.error(
+      const message =
+        error?.data?.message ||
         error?.response?.data?.message ||
         error?.message ||
-        "Failed to place order.",
-        { id: toastId }
-      );
+        "We couldn't process your order at this time. Please try again.";
+
+      toast.error(message, {
+        id: toastId,
+        duration: 5000,
+      });
     }
   };
-
 
   /* ---------------- UI ---------------- */
   return (
