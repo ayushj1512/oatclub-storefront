@@ -365,7 +365,7 @@ export default function CheckoutPage() {
   // ✅ Prevent multiple parallel ensure calls
   const ensureLockRef = useRef(false);
   const ensuredCustomerRef = useRef(null);
-
+  const placingOrderRef = useRef(false);
 
   const lastGuestEmailRef = useRef("");
 
@@ -883,10 +883,13 @@ export default function CheckoutPage() {
 
     if (
       !["cod", "razorpay", "wallet"].includes(
-        selectedPayment
+        String(resolvedPaymentMethod || "").toLowerCase()
       )
     ) {
-      return "Please select a payment method.";
+      placingOrderRef.current = false;
+      toast.error("Please select a valid payment method.");
+      setShowPayment(true);
+      return;
     }
 
     return null;
@@ -950,6 +953,13 @@ export default function CheckoutPage() {
 
   /* ---------------- PLACE ORDER ---------------- */
   const handlePlaceOrder = async (paymentSelection = {}) => {
+    if (placingOrderRef.current) {
+      console.warn("Duplicate place-order click blocked");
+      return;
+    }
+
+    placingOrderRef.current = true;
+
     const requestedPaymentMethod =
       paymentSelection?.paymentMethod || selectedPayment;
 
@@ -969,6 +979,8 @@ export default function CheckoutPage() {
     const validationMessage = validateCheckout();
 
     if (validationMessage) {
+      placingOrderRef.current = false;
+
       toast.error(validationMessage);
       setShowAddress(true);
 
@@ -982,6 +994,7 @@ export default function CheckoutPage() {
     const finalCustomer = await ensureCustomer();
 
     if (!finalCustomer?._id) {
+      placingOrderRef.current = false;
       return;
     }
 
@@ -1161,15 +1174,21 @@ export default function CheckoutPage() {
           mongoOrderId: String(mongoOrderId),
 
           onSuccess: async () => {
-            await finishSuccessfulOrder({
-              order,
-              revenue: payable,
-              toastId,
-              paymentMethod: "razorpay",
-            });
+            try {
+              await finishSuccessfulOrder({
+                order,
+                revenue: payable,
+                toastId,
+                paymentMethod: "razorpay",
+              });
+            } finally {
+              placingOrderRef.current = false;
+            }
           },
 
           onFailure: (paymentError) => {
+            placingOrderRef.current = false;
+
             console.error(
               "❌ Razorpay payment failed:",
               paymentError
@@ -1192,7 +1211,11 @@ export default function CheckoutPage() {
         toastId,
         paymentMethod: resolvedPaymentMethod,
       });
+
+      placingOrderRef.current = false;
     } catch (error) {
+      placingOrderRef.current = false;
+
       console.error("❌ PLACE ORDER FAILED:", {
         message: error?.message,
         code: error?.code,
