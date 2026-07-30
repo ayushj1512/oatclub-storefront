@@ -811,7 +811,7 @@ export default function CheckoutPage() {
 
 
   /* ---------------- CHECKOUT VALIDATION ---------------- */
-  const validateCheckout = () => {
+  const validateCheckout = (paymentMethod = selectedPayment) => {
     const checkoutItems = getCheckoutPayload?.() || [];
 
     if (!checkoutItems.length) {
@@ -844,52 +844,40 @@ export default function CheckoutPage() {
       ) {
         return "Selected address is incomplete.";
       }
+    } else {
+      const phone = String(addressForm.phone || "").replace(/\D/g, "");
 
-      return null;
-    }
+      if (!addressForm.fullName?.trim()) {
+        return "Please enter your full name.";
+      }
 
-    const phone = String(addressForm.phone || "").replace(
-      /\D/g,
-      ""
-    );
+      if (phone.length !== 10) {
+        return "Please enter a valid phone number.";
+      }
 
-    if (!addressForm.fullName?.trim()) {
-      return "Please enter your full name.";
-    }
+      if (!addressForm.addressLine1?.trim()) {
+        return "Please enter your delivery address.";
+      }
 
-    if (phone.length !== 10) {
-      return "Please enter a valid phone number.";
-    }
+      if (!addressForm.city?.trim()) {
+        return "Please enter your city.";
+      }
 
-    if (!addressForm.addressLine1?.trim()) {
-      return "Please enter your delivery address.";
-    }
+      if (!addressForm.state?.trim()) {
+        return "Please enter your state.";
+      }
 
-    if (!addressForm.city?.trim()) {
-      return "Please enter your city.";
-    }
-
-    if (!addressForm.state?.trim()) {
-      return "Please enter your state.";
-    }
-
-    if (
-      !/^\d{6}$/.test(
-        String(addressForm.postalCode || "")
-      )
-    ) {
-      return "Please enter a valid PIN code.";
+      if (!/^\d{6}$/.test(String(addressForm.postalCode || ""))) {
+        return "Please enter a valid PIN code.";
+      }
     }
 
     if (
       !["cod", "razorpay", "wallet"].includes(
-        String(resolvedPaymentMethod || "").toLowerCase()
+        String(paymentMethod || "").toLowerCase()
       )
     ) {
-      placingOrderRef.current = false;
-      toast.error("Please select a valid payment method.");
-      setShowPayment(true);
-      return;
+      return "Please select a valid payment method.";
     }
 
     return null;
@@ -971,13 +959,13 @@ export default function CheckoutPage() {
         String(resolvedPaymentMethod || "").toLowerCase()
       )
     ) {
+      placingOrderRef.current = false;
       toast.error("Please select a valid payment method.");
       setShowPayment(true);
       return;
     }
 
-    const validationMessage = validateCheckout();
-
+    const validationMessage = validateCheckout(resolvedPaymentMethod);
     if (validationMessage) {
       placingOrderRef.current = false;
 
