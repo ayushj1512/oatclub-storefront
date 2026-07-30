@@ -3,31 +3,40 @@
 import Image from "next/image";
 import { ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { trackMeta } from "@/lib/meta/track";
 import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
 
-/* ---------- helpers ---------- */
+/* =========================================================
+   HELPERS
+========================================================= */
 
-// GA4 item mapper
-const ga4CartItem = (it) =>
+const ga4CartItem = (item) =>
   mapItem(
     {
-      _id: it?.productId || it?.id || it?._id,
-      id: it?.productId || it?.id || it?._id,
-      name: it?.name,
-      title: it?.name,
-      price: Number(it?.price ?? 0) || 0,
-      category: it?.productSnapshot?.category || "",
-      variant: it?.selectedSize || "",
-      sku: it?.variant?.sku || it?.productSnapshot?.sku || "",
+      _id: item?.productId || item?.id || item?._id,
+      id: item?.productId || item?.id || item?._id,
+      name: item?.name,
+      title: item?.name,
+      price: Number(item?.price ?? 0) || 0,
+      category: item?.productSnapshot?.category || "",
+      variant: item?.selectedSize || "",
+      sku:
+        item?.variant?.sku ||
+        item?.productSnapshot?.sku ||
+        "",
     },
-    Number(it?.quantity || 1)
+    Number(item?.quantity || 1),
   );
 
-// find best image source
 const getImageSrc = (item) =>
   [
     item?.image,
@@ -37,187 +46,477 @@ const getImageSrc = (item) =>
     item?.images?.[0]?.src,
     item?.images?.[0],
     item?.productSnapshot?.images?.[0],
-  ].find((v) => typeof v === "string" && v.trim()) || null;
+  ].find(
+    (value) =>
+      typeof value === "string" && value.trim(),
+  ) || null;
+
+const getCartSummary = (cartItems = []) => {
+  const contents = cartItems
+    .map((item) => {
+      const id =
+        item?.productId || item?.id || item?._id;
+
+      if (!id) return null;
+
+      return {
+        id: String(id),
+        quantity: Number(item?.quantity || 1),
+        item_price: Number(item?.price || 0),
+      };
+    })
+    .filter(Boolean);
+
+  const value = contents.reduce(
+    (total, item) =>
+      total + item.item_price * item.quantity,
+    0,
+  );
+
+  const quantity = contents.reduce(
+    (total, item) => total + item.quantity,
+    0,
+  );
+
+  return {
+    contents,
+    value,
+    quantity,
+  };
+};
+
+/* =========================================================
+   COMPONENT
+========================================================= */
 
 export default function CartButton() {
   const router = useRouter();
-  const ref = useRef(null);
+  const dropdownRef = useRef(null);
 
-  const items = useCartStore((s) => s.items) || [];
-  const totalCount = useCartStore((s) => s.totalCount);
-
-  // total cart count
-  const cartCount = useMemo(
-    () =>
-      typeof totalCount === "function"
-        ? totalCount()
-        : items.reduce((sum, i) => sum + (Number(i?.quantity) || 0), 0),
-    [items, totalCount]
+  const items = useCartStore((state) => state.items) || [];
+  const totalCount = useCartStore(
+    (state) => state.totalCount,
   );
 
   const [open, setOpen] = useState(false);
   const [pulse, setPulse] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // detect mobile/touch devices (coarse pointer)
-  const isMobile = useMemo(
+  const lastViewCartRef = useRef({
+    key: "",
+    at: 0,
+  });
+
+  /* =========================================================
+     COMPUTED VALUES
+  ========================================================= */
+
+  const cartCount = useMemo(() => {
+    if (typeof totalCount === "function") {
+      return totalCount();
+    }
+
+    return items.reduce(
+      (total, item) =>
+        total + (Number(item?.quantity) || 0),
+      0,
+    );
+  }, [items, totalCount]);
+
+  const cartValue = useMemo(
     () =>
-      typeof window === "undefined"
-        ? false
-        : window.matchMedia?.("(pointer: coarse)")?.matches ?? false,
-    []
+      items.reduce(
+        (total, item) =>
+          total +
+          Number(item?.price || 0) *
+          Number(item?.quantity || 1),
+        0,
+      ),
+    [items],
   );
 
-  /* ---------- track ViewCart (GA4 + Meta) with dedupe ---------- */
-  const lastRef = useRef({ key: "", at: 0 });
+  /* =========================================================
+     DEVICE DETECTION
+  ========================================================= */
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(
+      "(pointer: coarse)",
+    );
+
+    const updateDevice = () => {
+      setIsMobile(mediaQuery.matches);
+    };
+
+    updateDevice();
+
+    mediaQuery.addEventListener?.(
+      "change",
+      updateDevice,
+    );
+
+    return () => {
+      mediaQuery.removeEventListener?.(
+        "change",
+        updateDevice,
+      );
+    };
+  }, []);
+
+  /* =========================================================
+     VIEW CART TRACKING
+  ========================================================= */
 
   const fireViewCart = useCallback(async () => {
-    const cartItems = useCartStore.getState().items || [];
+    const cartItems =
+      useCartStore.getState().items || [];
+
     if (!cartItems.length) return;
 
-    const contents = cartItems
-      .map((it) => {
-        const id = it?.productId || it?.id || it?._id;
-        if (!id) return null;
-        return { id: String(id), quantity: Number(it?.quantity || 1), item_price: Number(it?.price || 0) };
-      })
-      .filter(Boolean);
+    const { contents, value, quantity } =
+      getCartSummary(cartItems);
 
     if (!contents.length) return;
 
-    const value = contents.reduce((s, c) => s + c.item_price * c.quantity, 0);
-    const key = `${contents.map((c) => c.id).join("_")}_${value}`;
+    const key = `${contents
+      .map((item) => item.id)
+      .join("_")}_${value}`;
+
     const now = Date.now();
 
-    // prevent firing multiple times quickly
-    if (lastRef.current.key === key && now - lastRef.current.at < 2000) return;
-    lastRef.current = { key, at: now };
-
-    // ✅ GA4 view_cart
-    try {
-      pushEcomEvent("view_cart", { currency: "INR", value, items: cartItems.slice(0, 50).map(ga4CartItem) });
-    } catch (e) {
-      console.warn("GA4 view_cart failed", e);
+    if (
+      lastViewCartRef.current.key === key &&
+      now - lastViewCartRef.current.at < 2000
+    ) {
+      return;
     }
 
-    // ✅ Meta ViewCart
+    lastViewCartRef.current = {
+      key,
+      at: now,
+    };
+
+    try {
+      pushEcomEvent("view_cart", {
+        currency: "INR",
+        value,
+        items: cartItems
+          .slice(0, 50)
+          .map(ga4CartItem),
+      });
+    } catch (error) {
+      console.warn(
+        "GA4 view_cart failed",
+        error,
+      );
+    }
+
     try {
       await trackMeta("ViewCart", {
         currency: "INR",
         value,
         content_type: "product",
-        content_ids: contents.map((c) => c.id),
+        content_ids: contents.map(
+          (item) => item.id,
+        ),
         contents,
-        num_items: contents.reduce((s, c) => s + c.quantity, 0),
+        num_items: quantity,
       });
-    } catch (e) {
-      console.warn("Meta ViewCart failed", e);
+    } catch (error) {
+      console.warn(
+        "Meta ViewCart failed",
+        error,
+      );
     }
   }, []);
 
-  /* ---------- UI effects ---------- */
+  /* =========================================================
+     CHECKOUT TRACKING
+  ========================================================= */
 
-  // cart count animation
+  const fireBeginCheckout =
+    useCallback(async () => {
+      const cartItems =
+        useCartStore.getState().items || [];
+
+      if (!cartItems.length) return;
+
+      const { contents, value, quantity } =
+        getCartSummary(cartItems);
+
+      if (!contents.length) return;
+
+      try {
+        pushEcomEvent("begin_checkout", {
+          currency: "INR",
+          value,
+          items: cartItems
+            .slice(0, 50)
+            .map(ga4CartItem),
+        });
+      } catch (error) {
+        console.warn(
+          "GA4 begin_checkout failed",
+          error,
+        );
+      }
+
+      try {
+        await trackMeta("InitiateCheckout", {
+          currency: "INR",
+          value,
+          content_type: "product",
+          content_ids: contents.map(
+            (item) => item.id,
+          ),
+          contents,
+          num_items: quantity,
+        });
+      } catch (error) {
+        console.warn(
+          "Meta InitiateCheckout failed",
+          error,
+        );
+      }
+    }, []);
+
+  /* =========================================================
+     UI EFFECTS
+  ========================================================= */
+
   useEffect(() => {
     if (!cartCount) return;
+
     setPulse(true);
-    const t = setTimeout(() => setPulse(false), 450);
-    return () => clearTimeout(t);
+
+    const timeout = setTimeout(() => {
+      setPulse(false);
+    }, 450);
+
+    return () => clearTimeout(timeout);
   }, [cartCount]);
 
-  // close dropdown on outside click
   useEffect(() => {
-    const close = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    const handleOutsideClick = (event) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleOutsideClick,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleOutsideClick,
+      );
+    };
   }, []);
 
-  /* ---------- actions ---------- */
+  /* =========================================================
+     ACTIONS
+  ========================================================= */
 
   const goToCart = () => {
     setOpen(false);
     router.push("/cart");
   };
 
-  // ✅ click: desktop opens dropdown | mobile navigates
-  const onCartClick = () => {
-    if (isMobile) return goToCart();
-    setOpen((s) => !s);
-    fireViewCart();
+  const goToCheckout = async () => {
+    if (!items.length) return;
+
+    setOpen(false);
+
+    await fireBeginCheckout();
+
+    router.push("/checkout");
   };
 
+  const handleCartClick = () => {
+    if (isMobile) {
+      goToCart();
+      return;
+    }
+
+    setOpen((current) => !current);
+
+    if (!open) {
+      fireViewCart();
+    }
+  };
+
+  /* =========================================================
+     UI
+  ========================================================= */
+
   return (
-    <div className="relative" ref={ref}>
-      {/* Cart Icon Button */}
+    <div
+      ref={dropdownRef}
+      className="relative"
+    >
+      {/* Cart icon */}
       <button
         type="button"
-        onClick={onCartClick}
+        onClick={handleCartClick}
         className="relative p-1"
-        aria-label="Cart"
+        aria-label={`Cart with ${cartCount} items`}
         title="Cart"
       >
         <ShoppingBag
-          className={`w-6 h-6 transition-all duration-300 hover:text-black ${
-            pulse ? "scale-[1.15] text-wh" : "text-gray-700"
-          }`}
+          className={`h-6 w-6 transition-all duration-300 hover:text-black ${pulse
+              ? "scale-[1.15] text-black"
+              : "text-gray-700"
+            }`}
         />
 
-        {/* Badge */}
         {!!cartCount && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-[16px] min-w-[16px] items-center justify-center bg-black px-[4px] text-[9px] font-black text-white">
-            {cartCount}
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center bg-black px-1 text-[9px] font-black text-white">
+            {cartCount > 99 ? "99+" : cartCount}
           </span>
         )}
       </button>
 
-      {/* Dropdown (Desktop only) */}
+      {/* Desktop cart dropdown */}
       {open && !isMobile && (
-        <div className="absolute right-0 z-50 mt-3 w-72 border border-black/10 bg-white p-4 shadow-[0_24px_80px_-38px_rgba(0,0,0,0.28)]">
-          <h3 className="mb-3 text-[11px] font-black uppercase tracking-[0.16em] text-black">CART ITEMS</h3>
+        <div className="absolute right-0 z-50 mt-3 w-80 border border-black/10 bg-white p-4 shadow-[0_24px_80px_-38px_rgba(0,0,0,0.28)]">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-black">
+              Cart Items
+            </h3>
+
+            {!!items.length && (
+              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-black/50">
+                {cartCount}{" "}
+                {cartCount === 1
+                  ? "Item"
+                  : "Items"}
+              </span>
+            )}
+          </div>
 
           {!items.length ? (
-            <p className="py-2 text-xs font-bold uppercase tracking-[0.08em] text-black/50">YOUR CART IS EMPTY.</p>
-          ) : (
-            <div className="max-h-60 overflow-y-auto space-y-3">
-              {items.map((item, idx) => {
-                const src = getImageSrc(item);
-                const qty = item?.quantity ?? 1;
+            <div className="py-5 text-center">
+              <ShoppingBag className="mx-auto mb-2 h-6 w-6 text-black/25" />
 
-                return (
-                  <div key={item?.__key || `${idx}`} className="flex items-center gap-3 border-b border-gray-100 pb-2">
-                    {/* ✅ next/image */}
-                    {src ? (
-                      <Image
-                        src={src}
-                        alt={item?.name || "Product"}
-                        width={48}
-                        height={48}
-                        className="h-12 w-12 bg-gray-100 object-contain"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 items-center justify-center bg-gray-100 text-[10px] uppercase text-gray-500">
-                        NO IMAGE
-                      </div>
-                    )}
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{item?.name || "Product"}</p>
-                      <p className="text-xs text-gray-500">
-                        Qty: {qty} × ₹{item?.price ?? 0}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-black/50">
+                Your cart is empty
+              </p>
             </div>
+          ) : (
+            <>
+              <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                {items.map((item, index) => {
+                  const src = getImageSrc(item);
+                  const quantity =
+                    Number(item?.quantity) || 1;
+                  const price =
+                    Number(item?.price) || 0;
+
+                  return (
+                    <div
+                      key={
+                        item?.__key ||
+                        item?.lineId ||
+                        `${item?.productId}-${item?.selectedSize}-${index}`
+                      }
+                      className="flex items-center gap-3 border-b border-gray-100 pb-3"
+                    >
+                      {src ? (
+                        <Image
+                          src={src}
+                          alt={
+                            item?.name ||
+                            "OATCLUB product"
+                          }
+                          width={56}
+                          height={64}
+                          className="h-16 w-14 shrink-0 bg-gray-100 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-16 w-14 shrink-0 items-center justify-center bg-gray-100 px-1 text-center text-[9px] font-bold uppercase text-gray-400">
+                          No image
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-gray-900">
+                          {item?.name || "Product"}
+                        </p>
+
+                        {!!item?.selectedSize && (
+                          <p className="mt-0.5 text-[11px] font-medium uppercase text-gray-500">
+                            Size:{" "}
+                            {item.selectedSize}
+                          </p>
+                        )}
+
+                        <div className="mt-1 flex items-center justify-between gap-2">
+                          <p className="text-xs text-gray-500">
+                            Qty: {quantity} × ₹
+                            {price.toLocaleString(
+                              "en-IN",
+                            )}
+                          </p>
+
+                          <p className="text-xs font-bold text-black">
+                            ₹
+                            {(
+                              price * quantity
+                            ).toLocaleString(
+                              "en-IN",
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 flex items-center justify-between border-t border-black/10 pt-3">
+                <span className="text-xs font-black uppercase tracking-[0.12em] text-black">
+                  Subtotal
+                </span>
+
+                <span className="text-base font-black text-black">
+                  ₹
+                  {cartValue.toLocaleString(
+                    "en-IN",
+                  )}
+                </span>
+              </div>
+
+              <p className="mt-1 text-[10px] font-medium text-black/45">
+                Shipping and discounts calculated at
+                checkout.
+              </p>
+            </>
           )}
 
-          <button
-            type="button"
-            onClick={goToCart}
-            className="mt-4 w-full bg-black py-2 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-black/85 active:scale-95"
-          >
-            GO TO CART
-          </button>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={goToCart}
+              className="w-full border border-black bg-white px-3 py-2.5 text-[11px] font-black uppercase tracking-[0.12em] text-black transition hover:bg-black/5 active:scale-[0.98]"
+            >
+              Go to cart
+            </button>
+
+            <button
+              type="button"
+              onClick={goToCheckout}
+              disabled={!items.length}
+              className="w-full bg-black px-3 py-2.5 text-[11px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-black/85 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-black/30"
+            >
+              Checkout
+            </button>
+          </div>
         </div>
       )}
     </div>
