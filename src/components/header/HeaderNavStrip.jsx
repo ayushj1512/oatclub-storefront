@@ -9,6 +9,7 @@ const STATIC_LINKS = [
   { label: "ALL CLOTHING", href: "/all-clothing", slug: "all-clothing" },
   { label: "NEW ARRIVALS", href: "/new-arrivals", slug: "new-arrivals" },
   { label: "BESTSELLER", href: "/bestseller", slug: "bestseller" },
+  { label: "PAYDAY SALE", href: "/payday-sale", slug: "payday-sale" },
 ];
 
 const slugOf = (value = "") =>
@@ -83,9 +84,8 @@ export default function HeaderNavStrip({ variant = "desktop" }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${
-              active ? "text-black" : "text-black/58 hover:text-black"
-            }`}
+            className={`shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${active ? "text-black" : "text-black/58 hover:text-black"
+              }`}
           >
             {item.label}
           </Link>
