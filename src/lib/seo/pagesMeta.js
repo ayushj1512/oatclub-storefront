@@ -47,6 +47,21 @@ const PAGES = {
       "women dresses online",
     ],
   },
+
+  "payday-sale": {
+    title: "Payday Sale Women Fashion India | OATCLUB",
+    description:
+      "Shop the OATCLUB Payday Sale for women fashion in India: dresses, tops, co ord sets, party wear and everyday outfits at special prices.",
+    path: "/payday-sale",
+    ogImage: "/og-payday-sale.jpg",
+    ogAlt: "Payday Sale Women Fashion India | OATCLUB",
+    keywords: [
+      "payday sale women fashion",
+      "women clothing sale india",
+      "western wear sale online",
+      "OATCLUB sale",
+    ],
+  },
 };
 
 export const buildPageMetadata = (pageKey, overrides = {}) => {
