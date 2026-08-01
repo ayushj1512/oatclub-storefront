@@ -6,10 +6,10 @@ import { usePathname } from "next/navigation";
 import { useCategoryStore } from "@/store/categoryStore";
 
 const STATIC_LINKS = [
+  { label: "PAYDAY SALE", href: "/payday-sale", slug: "payday-sale", highlight: true },
   { label: "ALL CLOTHING", href: "/all-clothing", slug: "all-clothing" },
   { label: "NEW ARRIVALS", href: "/new-arrivals", slug: "new-arrivals" },
   { label: "BESTSELLER", href: "/bestseller", slug: "bestseller" },
-  { label: "PAYDAY SALE", href: "/payday-sale", slug: "payday-sale" },
 ];
 
 const slugOf = (value = "") =>
@@ -43,6 +43,7 @@ export default function HeaderNavStrip({ variant = "desktop" }) {
       "bestseller",
       "best-seller",
       "best-sellers",
+      "payday-sale",
       "featured",
       "uncategorized",
     ]);
@@ -51,6 +52,7 @@ export default function HeaderNavStrip({ variant = "desktop" }) {
       .filter((category) => !category?.parent)
       .map((category) => {
         const slug = slugOf(category?.slug || category?.name);
+
         return {
           label: titleOf(category?.name || slug),
           href: `/category/${slug}`,
@@ -60,8 +62,10 @@ export default function HeaderNavStrip({ variant = "desktop" }) {
       .filter((item) => item.slug && !blocked.has(item.slug));
 
     const seen = new Set();
+
     return [...STATIC_LINKS, ...dynamic].filter((item) => {
       if (seen.has(item.href)) return false;
+
       seen.add(item.href);
       return true;
     });
@@ -79,13 +83,23 @@ export default function HeaderNavStrip({ variant = "desktop" }) {
       aria-label="Primary categories"
     >
       {links.map((item) => {
-        const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+        const active =
+          pathname === item.href ||
+          pathname?.startsWith(`${item.href}/`);
+
+        const isHighlighted = item.highlight === true;
+
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${active ? "text-black" : "text-black/58 hover:text-black"
-              }`}
+            className={`shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${
+              isHighlighted
+                ? "text-red-600 hover:text-red-700"
+                : active
+                  ? "text-black"
+                  : "text-black/58 hover:text-black"
+            }`}
           >
             {item.label}
           </Link>
