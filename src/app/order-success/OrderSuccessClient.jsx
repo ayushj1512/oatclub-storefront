@@ -19,7 +19,7 @@ import {
   Truck,
   Wallet,
 } from "lucide-react";
-import useGtmStore from "@/store/gtmStore";
+import { useTrackingStore } from "@/store/trackingStore";
 
 const API =
   process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
@@ -184,54 +184,243 @@ export default function OrderSuccessClient() {
   useEffect(() => {
     if (!order?.orderNumber && !order?._id) return;
 
-    const transactionId = order?.orderNumber || order?._id;
-    const storageKey = `gtm_purchase_${transactionId}`;
+    const transactionId = String(
+      order?.orderNumber ||
+      order?._id ||
+      ""
+    ).trim();
 
-    try {
-      if (localStorage.getItem(storageKey)) return;
+    if (!transactionId) return;
 
-      const orderItems = Array.isArray(order?.items)
-        ? order.items.map((item) => {
-            const productId = String(item?.productId?._id || item?.productId || "");
-            const product = productMap?.[productId] || {};
-            const attrs = Array.isArray(item?.variant?.attributes)
+    const storageKey = `purchase_${transactionId}`;
+
+    const firePurchase = async () => {
+      try {
+        /*
+         * Prevent Purchase from firing again when:
+         * - page refreshes
+         * - React effect reruns
+         * - productMap updates
+         */
+        if (localStorage.getItem(storageKey)) {
+          console.log("Purchase already tracked:", transactionId);
+          return;
+        }
+
+        const orderItems = Array.isArray(order?.items)
+          ? order.items.map((item) => {
+            const productId = String(
+              item?.productId?._id ||
+              item?.productId ||
+              ""
+            );
+
+            const product =
+              productMap?.[productId] || {};
+
+            const attributes = Array.isArray(
+              item?.variant?.attributes
+            )
               ? item.variant.attributes
               : [];
-            const variantText =
-              attrs.map((attr) => attr?.value).filter(Boolean).join(" / ") ||
-              item?.variantId ||
+
+            const selectedSize =
+              attributes.find(
+                (attribute) =>
+                  String(attribute?.key || "")
+                    .trim()
+                    .toLowerCase() === "size"
+              )?.value ||
+              item?.selectedSize ||
+              item?.size ||
+              item?.variant?.size ||
+              "";
+
+            const sku =
+              item?.variant?.sku ||
+              item?.sku ||
+              product?.sku ||
+              "";
+
+            const productCode =
+              product?.productCode ||
+              item?.productCode ||
+              item?.productSnapshot?.productCode ||
               "";
 
             return {
               productId,
-              productCode: product?.productCode || item?.productSnapshot?.productCode || "",
-              name: product?.name || product?.title || item?.productSnapshot?.title || "Item",
-              price: Number(item?.price || product?.price || 0),
-              quantity: Number(item?.quantity || 1),
-              category: product?.category?.name || product?.categoryName || "",
-              variant: variantText,
-              sku: item?.variant?.sku || product?.sku || "",
+
+              productCode,
+
+              selectedSize,
+              size: selectedSize,
+
+              sku,
+              variantSku: sku,
+
+              name:
+                product?.name ||
+                product?.title ||
+                item?.productSnapshot?.title ||
+                "Item",
+
+              price: Number(
+                item?.price ??
+                item?.itemPrice ??
+                product?.price ??
+                item?.productSnapshot?.price ??
+                0
+              ),
+
+              quantity: Math.max(
+                1,
+                Number(item?.quantity || 1)
+              ),
+
+              category:
+                product?.category?.name ||
+                product?.categoryName ||
+                item?.productSnapshot?.categoryName ||
+                "",
             };
           })
-        : [];
+          : [];
 
-      useGtmStore.getState().purchase({
-        order: {
-          _id: order?._id,
-          orderNumber: transactionId,
-          totalAmount: Number(order?.finalPayable ?? order?.payable ?? order?.subtotal ?? 0),
-          taxAmount: Number(order?.taxAmount || 0),
-          shippingAmount: Number(order?.shippingAmount || 0),
-          couponCode: order?.coupon?.code || order?.couponCode || "",
-          paymentMethod: order?.paymentMethod || "",
-        },
-        items: orderItems,
-      });
+        const shippingAddress =
+          order?.shippingAddressSnapshot || {};
 
-      localStorage.setItem(storageKey, "1");
-    } catch (error) {
-      console.warn("GTM purchase failed", error);
-    }
+        const customer =
+          order?.customerId &&
+            typeof order.customerId === "object"
+            ? order.customerId
+            : {};
+
+        const fullName =
+          shippingAddress?.fullName ||
+          customer?.name ||
+          "";
+
+        const nameParts = String(fullName)
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean);
+
+        const purchaseValue = Number(
+          order?.finalPayable ??
+          order?.payable ??
+          order?.totalAmount ??
+          order?.subtotal ??
+          0
+        );
+
+        const result =
+          await useTrackingStore
+            .getState()
+            .purchase({
+              orderId: transactionId,
+
+              value: purchaseValue,
+
+              items: orderItems,
+
+              email:
+                shippingAddress?.email ||
+                customer?.email ||
+                order?.billingAddressSnapshot?.email ||
+                "",
+
+              phone:
+                shippingAddress?.phone ||
+                customer?.phone ||
+                customer?.mobile ||
+                "",
+
+              customerId:
+                customer?._id ||
+                order?.customerId ||
+                transactionId,
+
+              firstName:
+                nameParts[0] || "",
+
+              lastName:
+                nameParts
+                  .slice(1)
+                  .join(" "),
+
+              address: {
+                city:
+                  shippingAddress?.city ||
+                  "",
+
+                state:
+                  shippingAddress?.state ||
+                  "",
+
+                postalCode:
+                  shippingAddress?.postalCode ||
+                  shippingAddress?.pincode ||
+                  "",
+
+                country:
+                  shippingAddress?.country ||
+                  shippingAddress?.countryCode ||
+                  "IN",
+              },
+
+              tax: Number(
+                order?.taxAmount || 0
+              ),
+
+              shipping: Number(
+                order?.shippingAmount || 0
+              ),
+
+              coupon:
+                order?.coupon?.code ||
+                order?.couponCode ||
+                "",
+
+              customerType:
+                customer?._id
+                  ? "registered"
+                  : "guest",
+            });
+
+        /*
+         * Only lock after successful tracking execution.
+         */
+        localStorage.setItem(
+          storageKey,
+          "1"
+        );
+
+        console.log(
+          "✅ Meta + Google Purchase fired:",
+          {
+            transactionId,
+            value: purchaseValue,
+            items: orderItems,
+            result,
+          }
+        );
+      } catch (error) {
+        /*
+         * Do not save localStorage key on failure.
+         * Refreshing page can retry Purchase.
+         */
+        console.warn(
+          "❌ Purchase tracking failed:",
+          {
+            transactionId,
+            error,
+          }
+        );
+      }
+    };
+
+    firePurchase();
   }, [order, productMap]);
 
   const onCopy = async () => {
@@ -242,7 +431,7 @@ export default function OrderSuccessClient() {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 900);
-    } catch {}
+    } catch { }
   };
 
   const currency = order?.currency || "INR";
