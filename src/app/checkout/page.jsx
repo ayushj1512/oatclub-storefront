@@ -1,23 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Lock, PackageCheck, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 // import CodConfirmCaptcha from "@/components/checkout/CodConfirmCaptcha";
-import OrderSummary from "@/components/checkout/OrderSummary";
 import AddressSelection from "@/components/checkout/AddressSelection";
+import OrderSummary from "@/components/checkout/OrderSummary";
 import PaymentOptions from "@/components/checkout/PaymentOptions";
-import CheckoutCouponSection from "@/components/checkout/CheckoutCouponSection";
-import { useCartStore } from "@/store/cartStore";
+import { trackSnap } from "@/lib/snap/track.js";
 import { useAddressStore } from "@/store/addressStore";
 import { useAuthStore } from "@/store/authStore";
-import { useOrderStore } from "@/store/orderStore";
-import { useRazorpayStore } from "@/store/razorpayStore";
+import { useCartStore } from "@/store/cartStore";
 import { useCouponStore } from "@/store/couponStore";
 import useGtmStore from "@/store/gtmStore";
-import { trackSnap } from "@/lib/snap/track.js";
+import { useOrderStore } from "@/store/orderStore";
+import { useRazorpayStore } from "@/store/razorpayStore";
 
 import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 
@@ -761,7 +760,7 @@ export default function CheckoutPage() {
       const baseURL =
         process.env.NEXT_PUBLIC_API_URL ||
         process.env.NEXT_PUBLIC_BACKEND_URL ||
-        "http://localhost:5000";
+        "http://localhost:6001";
 
       const res = await fetch(
         `${baseURL}/api/customers/search?email=${encodeURIComponent(email)}`

@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:6001";
 
 const buildQuery = (params = {}) => {
   const searchParams = new URLSearchParams();
@@ -514,5 +514,6 @@ export const useAffiliateStore = create(
 );
 
 export {
-  defaultOrderFilters,
+  defaultOrderFilters
 };
+

@@ -1,12 +1,12 @@
+import axios from "axios";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import axios from "axios";
 
 /* ================================
    CONFIG
 ================================ */
 const API_BASE =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:6001";
 
 const API_URL = `${API_BASE}/api/influencer-program`;
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { create } from "zustand";
 import axios from "axios";
+import { create } from "zustand";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6001";
 const MARKETING_API = `${API_URL}/api/marketing-campaigns`;
 
 const STORAGE_KEY = "oatclub_marketing_campaign_tracking";
@@ -117,16 +117,16 @@ const getUrlParams = () => {
 
   const hasAnyTracking = Boolean(
     data.source ||
-      data.medium ||
-      data.campaign ||
-      data.campaignId ||
-      data.marketingLinkId ||
-      data.shortCode ||
-      data.fbclid ||
-      data.gclid ||
-      data.msclkid ||
-      data.ttclid ||
-      data.scClickId
+    data.medium ||
+    data.campaign ||
+    data.campaignId ||
+    data.marketingLinkId ||
+    data.shortCode ||
+    data.fbclid ||
+    data.gclid ||
+    data.msclkid ||
+    data.ttclid ||
+    data.scClickId
   );
 
   log("URL params checked", {
@@ -281,17 +281,17 @@ export const useMarketingCampaignStore = create((set, get) => ({
 
     const result = Boolean(
       tracking?.source ||
-        tracking?.medium ||
-        tracking?.campaign ||
-        tracking?.campaignId ||
-        tracking?.campaignSlug ||
-        tracking?.marketingLinkId ||
-        tracking?.shortCode ||
-        tracking?.fbclid ||
-        tracking?.gclid ||
-        tracking?.msclkid ||
-        tracking?.ttclid ||
-        tracking?.scClickId
+      tracking?.medium ||
+      tracking?.campaign ||
+      tracking?.campaignId ||
+      tracking?.campaignSlug ||
+      tracking?.marketingLinkId ||
+      tracking?.shortCode ||
+      tracking?.fbclid ||
+      tracking?.gclid ||
+      tracking?.msclkid ||
+      tracking?.ttclid ||
+      tracking?.scClickId
     );
 
     log("hasTracking result", { result, tracking });

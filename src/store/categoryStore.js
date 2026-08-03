@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL; // http://localhost:5000
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL; // http://localhost:6001
 
 async function safeJson(res) {
   const text = await res.text();
