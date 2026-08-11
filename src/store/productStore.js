@@ -22,9 +22,12 @@ const normalize = (p) => {
     id,
     productId: id,
     productCode: p?.productCode || "",
+
     productType:
       p?.productType ||
-      (Array.isArray(p?.variants) && p.variants.length ? "variable" : "simple"),
+      (Array.isArray(p?.variants) && p.variants.length
+        ? "variable"
+        : "simple"),
 
     name: p?.name || p?.title || "",
     slug: p?.slug || "",
@@ -35,8 +38,13 @@ const normalize = (p) => {
     description: p?.shortDescription || p?.description || "",
 
     category: p?.category?.slug || "uncategorized",
-    categoryId: p?.category?._id ? String(p.category._id) : null,
-    subcategoryId: p?.subcategory?._id ? String(p.subcategory._id) : null,
+    categoryId: p?.category?._id
+      ? String(p.category._id)
+      : null,
+
+    subcategoryId: p?.subcategory?._id
+      ? String(p.subcategory._id)
+      : null,
 
     image: thumb,
     thumbnail: thumb,
@@ -44,12 +52,24 @@ const normalize = (p) => {
 
     variants: Array.isArray(p?.variants) ? p.variants : [],
 
-    // ✅ inventory removed from store mapping
-    // stock: Number(p?.stock ?? 0),
-    // isInStock: Boolean(p?.isInStock ?? stock > 0),
+    // ✅ inventory passthrough
+    stock: Number(p?.stock ?? 0),
+    reservedStock: Number(p?.reservedStock ?? 0),
+
+    availableStock: Number(
+      p?.availableStock ??
+      Math.max(
+        0,
+        Number(p?.stock ?? 0) -
+        Number(p?.reservedStock ?? 0),
+      ),
+    ),
+
+    isInStock: Boolean(p?.isInStock),
 
     tags: Array.isArray(p?.tags) ? p.tags : [],
     dateCreated: p?.createdAt || null,
+
     source: "backend",
     raw: p,
   };

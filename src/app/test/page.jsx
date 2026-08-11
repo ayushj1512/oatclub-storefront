@@ -1,270 +1,280 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 
-const DEFAULT_HTML = `
-<section style="max-width:980px;margin:0 auto;padding:60px 20px;font-family:Inter,Arial,sans-serif;color:#111;background:#fff;">
+const NAV_ITEMS = [
+  { label: "INDEPENDENCE DAY SALE", href: "#", sale: true },
+  { label: "ALL CLOTHING", href: "#" },
+  { label: "NEW ARRIVALS", href: "#" },
+  { label: "BESTSELLER", href: "#" },
+  { label: "DRESSES", href: "#" },
+  { label: "TOPS", href: "#" },
+];
 
-  <div style="text-align:center;margin-bottom:50px;">
-    <div style="display:inline-block;padding:8px 18px;border:1px solid #ddd;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;">
-      Support
-    </div>
-
-    <h1 style="font-size:52px;line-height:1.05;margin:24px 0 18px;font-weight:800;">
-      Frequently Asked Questions
-    </h1>
-
-    <p style="max-width:640px;margin:0 auto;font-size:18px;line-height:1.8;color:#666;">
-      Everything you need to know about ordering, shipping, returns,
-      payments and your OATCLUB experience.
-    </p>
-  </div>
-
-  <div style="display:grid;gap:18px;">
-
-    <details open style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
-      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
-        How long does shipping take?
-      </summary>
-
-      <p style="margin-top:18px;line-height:1.9;color:#555;">
-        Most orders are dispatched within 24–48 business hours.
-        Delivery generally takes 3–7 business days depending on your location.
-      </p>
-    </details>
-
-    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
-      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
-        Can I exchange my order?
-      </summary>
-
-      <p style="margin-top:18px;line-height:1.9;color:#555;">
-        Yes. Eligible products can be exchanged according to our Exchange Policy.
-        Simply initiate an exchange request from your account or contact support.
-      </p>
-    </details>
-
-    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
-      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
-        Do you offer Cash on Delivery?
-      </summary>
-
-      <p style="margin-top:18px;line-height:1.9;color:#555;">
-        Yes, Cash on Delivery is available on selected pin codes.
-        Availability is automatically shown during checkout.
-      </p>
-    </details>
-
-    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
-      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
-        How do I track my order?
-      </summary>
-
-      <p style="margin-top:18px;line-height:1.9;color:#555;">
-        Once your order is shipped you'll receive tracking information through
-        email and WhatsApp along with your tracking link.
-      </p>
-    </details>
-
-    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
-      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
-        What payment methods are accepted?
-      </summary>
-
-      <p style="margin-top:18px;line-height:1.9;color:#555;">
-        We accept UPI, Credit Cards, Debit Cards, Net Banking,
-        Wallets and Cash on Delivery wherever available.
-      </p>
-    </details>
-
-    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
-      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
-        Can I cancel my order?
-      </summary>
-
-      <p style="margin-top:18px;line-height:1.9;color:#555;">
-        Orders can be cancelled before dispatch.
-        Once shipped, cancellation may not be possible.
-      </p>
-    </details>
-
-    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
-      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
-        How do I choose the correct size?
-      </summary>
-
-      <p style="margin-top:18px;line-height:1.9;color:#555;">
-        Every product includes a detailed Size Guide.
-        You can also use our Size Recommendation tool for a better fit.
-      </p>
-    </details>
-
-    <details style="border:1px solid #e5e5e5;border-radius:16px;padding:22px;background:#fff;">
-      <summary style="cursor:pointer;font-size:20px;font-weight:700;">
-        Are your products original?
-      </summary>
-
-      <p style="margin-top:18px;line-height:1.9;color:#555;">
-        Absolutely. Every OATCLUB product is quality checked before dispatch
-        to ensure premium craftsmanship and finish.
-      </p>
-    </details>
-
-  </div>
-
-  <div style="margin-top:70px;padding:40px;background:#111;color:#fff;border-radius:24px;text-align:center;">
-
-    <h2 style="font-size:36px;margin:0 0 16px;">
-      Still need help?
-    </h2>
-
-    <p style="max-width:620px;margin:0 auto 28px;line-height:1.8;color:#ddd;">
-      Our support team is always happy to help with sizing,
-      orders, returns or any other questions.
-    </p>
-
-    <a
-      href="#"
-      style="
-      display:inline-block;
-      padding:16px 34px;
-      background:#fff;
-      color:#111;
-      text-decoration:none;
-      border-radius:999px;
-      font-weight:700;
-      ">
-      Contact Support
-    </a>
-
-  </div>
-
-</section>
-`;
-
-export default function TestCMSPage() {
-  const [title, setTitle] = useState("About Us");
-  const [html, setHtml] = useState(DEFAULT_HTML);
-
-  const handleSave = () => {
-    console.log({
-      title,
-      html,
-    });
-
-    alert("Later this will save into MongoDB.");
-  };
-
+function Nav({ renderSale }) {
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "420px 1fr",
-        height: "100vh",
-      }}
-    >
-      {/* Left Panel */}
-      <div
-        style={{
-          borderRight: "1px solid #ddd",
-          padding: 20,
-          overflow: "auto",
-        }}
-      >
-        <h2>CMS Editor</h2>
-
-        <div style={{ marginTop: 20 }}>
-          <label>Page Title</label>
-
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            style={{
-              width: "100%",
-              marginTop: 8,
-              padding: 12,
-              border: "1px solid #ccc",
-              borderRadius: 8,
-            }}
-          />
-        </div>
-
-        <div style={{ marginTop: 20 }}>
-          <label>HTML</label>
-
-          <textarea
-            value={html}
-            onChange={(e) => setHtml(e.target.value)}
-            style={{
-              width: "100%",
-              height: "70vh",
-              marginTop: 8,
-              padding: 14,
-              fontFamily: "monospace",
-              fontSize: 14,
-              border: "1px solid #ccc",
-              borderRadius: 8,
-              resize: "vertical",
-            }}
-          />
-        </div>
-
-        <button
-          onClick={handleSave}
-          style={{
-            marginTop: 20,
-            width: "100%",
-            padding: 14,
-            background: "#000",
-            color: "#fff",
-            border: 0,
-            borderRadius: 8,
-            cursor: "pointer",
-            fontSize: 16,
-          }}
-        >
-          Save
-        </button>
-      </div>
-
-      {/* Right Panel */}
-      <div
-        style={{
-          overflow: "auto",
-          background: "#fafafa",
-        }}
-      >
-        <div
-          style={{
-            padding: 30,
-            borderBottom: "1px solid #eee",
-            background: "#fff",
-            position: "sticky",
-            top: 0,
-            zIndex: 100,
-          }}
-        >
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 34,
-            }}
+    <div className="overflow-x-auto border-y border-black/10 bg-white">
+      <nav className="flex min-w-max items-center justify-center gap-8 px-8 py-4 lg:gap-10">
+        {NAV_ITEMS.map((item) => (
+          <Link
+            key={item.label}
+            href={item.href}
+            className="shrink-0 whitespace-nowrap text-[11px] font-black uppercase tracking-[0.16em]"
           >
-            {title}
+            {item.sale ? (
+              renderSale()
+            ) : (
+              <span className="text-black/60 transition hover:text-black">
+                {item.label}
+              </span>
+            )}
+          </Link>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+function Section({ number, title, description, children }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-black/10 bg-white">
+      <div className="border-b border-black/10 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black text-[11px] font-bold text-white">
+            {number}
+          </span>
+
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-tight">
+              {title}
+            </h2>
+
+            <p className="mt-0.5 text-xs text-black/45">
+              {description}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {children}
+    </section>
+  );
+}
+
+export default function TestPage() {
+  return (
+    <main className="min-h-screen bg-[#f5f5f5] px-4 py-10 md:px-8">
+      <div className="mx-auto max-w-7xl">
+        {/* HEADER */}
+
+        <div className="mb-10">
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-black/40">
+            OATCLUB / NAV EXPERIMENT
+          </p>
+
+          <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] md:text-5xl">
+            INDEPENDENCE DAY
           </h1>
+
+          <p className="mt-2 max-w-xl text-sm text-black/50">
+            6 navbar treatments. Compare them on the same white header and pick
+            the cleanest one.
+          </p>
         </div>
 
-        <div
-          style={{
-            padding: 40,
-            background: "#fff",
-            minHeight: "100%",
-          }}
-          dangerouslySetInnerHTML={{
-            __html: html,
-          }}
-        />
+        <div className="space-y-6">
+          {/* 01 */}
+
+          <Section
+            number="01"
+            title="Classic Tiranga Gradient"
+            description="Simple saffron → white → green text."
+          >
+            <Nav
+              renderSale={() => (
+                <span
+                  className="
+                    bg-gradient-to-r
+                    from-[#FF671F]
+                    via-[#cfcfcf]
+                    to-[#046A38]
+                    bg-clip-text
+                    text-transparent
+                  "
+                >
+                  INDEPENDENCE DAY SALE
+                </span>
+              )}
+            />
+          </Section>
+
+          {/* 02 */}
+
+          <Section
+            number="02"
+            title="Sharp Tiranga"
+            description="Hard colour transitions instead of a soft gradient."
+          >
+            <Nav
+              renderSale={() => (
+                <span
+                  className="
+                    bg-[linear-gradient(90deg,#FF671F_0%,#FF671F_32%,#b8b8b8_45%,#b8b8b8_55%,#046A38_68%,#046A38_100%)]
+                    bg-clip-text
+                    text-transparent
+                  "
+                >
+                  INDEPENDENCE DAY SALE
+                </span>
+              )}
+            />
+          </Section>
+
+          {/* 03 */}
+
+          <Section
+            number="03"
+            title="Tiranga Underline"
+            description="Black text with a subtle tricolour line underneath."
+          >
+            <Nav
+              renderSale={() => (
+                <span className="relative pb-1 text-black">
+                  INDEPENDENCE DAY SALE
+
+                  <span
+                    className="
+                      absolute
+                      bottom-0
+                      left-0
+                      h-[2px]
+                      w-full
+                      bg-gradient-to-r
+                      from-[#FF671F]
+                      via-[#d5d5d5]
+                      to-[#046A38]
+                    "
+                  />
+                </span>
+              )}
+            />
+          </Section>
+
+          {/* 04 */}
+
+          <Section
+            number="04"
+            title="Tiranga Pill"
+            description="More promotional and immediately noticeable."
+          >
+            <Nav
+              renderSale={() => (
+                <span
+                  className="
+                    relative
+                    inline-flex
+                    items-center
+                    rounded-full
+                    bg-gradient-to-r
+                    from-[#FF671F]
+                    via-white
+                    to-[#046A38]
+                    p-[1.5px]
+                  "
+                >
+                  <span className="rounded-full bg-white px-3 py-1.5 text-black">
+                    INDEPENDENCE DAY SALE
+                  </span>
+                </span>
+              )}
+            />
+          </Section>
+
+          {/* 05 */}
+
+          <Section
+            number="05"
+            title="Split Tiranga"
+            description="Each part gets its own Independence Day colour."
+          >
+            <Nav
+              renderSale={() => (
+                <span className="inline-flex items-center gap-[4px]">
+                  <span className="text-[#FF671F]">INDEPENDENCE</span>
+
+                  <span className="text-black/45">DAY</span>
+
+                  <span className="text-[#046A38]">SALE</span>
+                </span>
+              )}
+            />
+          </Section>
+
+          {/* 06 */}
+
+          <Section
+            number="06"
+            title="Premium Highlight"
+            description="Gradient text with a subtle promotional background."
+          >
+            <Nav
+              renderSale={() => (
+                <span
+                  className="
+                    inline-flex
+                    rounded-md
+                    bg-gradient-to-r
+                    from-orange-50
+                    via-white
+                    to-green-50
+                    px-3
+                    py-1.5
+                    ring-1
+                    ring-black/[0.06]
+                  "
+                >
+                  <span
+                    className="
+                      bg-gradient-to-r
+                      from-[#FF671F]
+                      via-[#a8a8a8]
+                      to-[#046A38]
+                      bg-clip-text
+                      text-transparent
+                    "
+                  >
+                    INDEPENDENCE DAY SALE
+                  </span>
+                </span>
+              )}
+            />
+          </Section>
+        </div>
+
+        <div className="mt-10 rounded-2xl bg-black p-6 text-white">
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">
+            QUICK PICK
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[
+              "01 Gradient",
+              "02 Sharp",
+              "03 Underline",
+              "04 Pill",
+              "05 Split",
+              "06 Premium",
+            ].map((item) => (
+              <span
+                key={item}
+                className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-bold"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

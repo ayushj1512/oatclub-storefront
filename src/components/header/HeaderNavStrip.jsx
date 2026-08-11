@@ -6,10 +6,27 @@ import { usePathname } from "next/navigation";
 import { useCategoryStore } from "@/store/categoryStore";
 
 const STATIC_LINKS = [
-  { label: "PAYDAY SALE", href: "/payday-sale", slug: "payday-sale", highlight: true },
-  { label: "ALL CLOTHING", href: "/all-clothing", slug: "all-clothing" },
-  { label: "NEW ARRIVALS", href: "/new-arrivals", slug: "new-arrivals" },
-  { label: "BESTSELLER", href: "/bestseller", slug: "bestseller" },
+  {
+    label: "INDEPENDENCE DAY SALE",
+    href: "/independence-day-sale",
+    slug: "independence-day-sale",
+    highlight: true,
+  },
+  {
+    label: "ALL CLOTHING",
+    href: "/all-clothing",
+    slug: "all-clothing",
+  },
+  {
+    label: "NEW ARRIVALS",
+    href: "/new-arrivals",
+    slug: "new-arrivals",
+  },
+  {
+    label: "BESTSELLER",
+    href: "/bestseller",
+    slug: "bestseller",
+  },
 ];
 
 const slugOf = (value = "") =>
@@ -29,11 +46,15 @@ const titleOf = (value = "") =>
 
 export default function HeaderNavStrip({ variant = "desktop" }) {
   const pathname = usePathname();
+
   const categories = useCategoryStore((s) => s.categories);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
 
   useEffect(() => {
-    fetchCategories?.({ active: true, parent: "null" });
+    fetchCategories?.({
+      active: true,
+      parent: "null",
+    });
   }, [fetchCategories]);
 
   const links = useMemo(() => {
@@ -93,15 +114,30 @@ export default function HeaderNavStrip({ variant = "desktop" }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${
-              isHighlighted
-                ? "text-red-600 hover:text-red-700"
+            className={`shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${isHighlighted
+                ? ""
                 : active
                   ? "text-black"
                   : "text-black/58 hover:text-black"
-            }`}
+              }`}
           >
-            {item.label}
+            {isHighlighted ? (
+              <span
+                className="transition-opacity duration-200 hover:opacity-75"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(90deg, #FF671F 0%, #FF671F 32%, #B8B8B8 45%, #B8B8B8 55%, #046A38 68%, #046A38 100%)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  color: "transparent",
+                }}
+              >
+                {item.label}
+              </span>
+            ) : (
+              item.label
+            )}
           </Link>
         );
       })}

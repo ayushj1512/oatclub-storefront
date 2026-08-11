@@ -1,6 +1,10 @@
 // src/lib/seo/pagesMeta.js
-
-import { CATEGORY_KEYWORDS, SEO_KEYWORDS, buildSeoMetadata, uniqueKeywords } from "@/lib/seo/seoMeta";
+import {
+  CATEGORY_KEYWORDS,
+  SEO_KEYWORDS,
+  buildSeoMetadata,
+  uniqueKeywords,
+} from "@/lib/seo/seoMeta";
 
 const PAGES = {
   "all-clothing": {
@@ -48,17 +52,21 @@ const PAGES = {
     ],
   },
 
-  "payday-sale": {
-    title: "Payday Sale Women Fashion India | OATCLUB",
+  "independence-day-sale": {
+    title: "Independence Day Sale Women Fashion India | OATCLUB",
     description:
-      "Shop the OATCLUB Payday Sale for women fashion in India: dresses, tops, co ord sets, party wear and everyday outfits at special prices.",
-    path: "/payday-sale",
-    ogImage: "/og-payday-sale.jpg",
-    ogAlt: "Payday Sale Women Fashion India | OATCLUB",
+      "Shop the OATCLUB Independence Day Sale for women fashion in India. Discover dresses, tops, co ord sets, party wear and trendy outfits at special prices.",
+    path: "/independence-day-sale",
+    ogImage: "/og-independence-day-sale.jpg",
+    ogAlt: "Independence Day Sale Women Fashion India | OATCLUB",
     keywords: [
-      "payday sale women fashion",
+      "independence day sale women fashion",
+      "independence day clothing sale india",
       "women clothing sale india",
       "western wear sale online",
+      "15 august sale women clothing",
+      "women fashion sale india",
+      "OATCLUB independence day sale",
       "OATCLUB sale",
     ],
   },
@@ -69,7 +77,9 @@ export const buildPageMetadata = (pageKey, overrides = {}) => {
 
   if (!cfg) {
     throw new Error(
-      `buildPageMetadata: unknown pageKey "${pageKey}". Allowed: ${Object.keys(PAGES).join(", ")}`
+      `buildPageMetadata: unknown pageKey "${pageKey}". Allowed: ${Object.keys(
+        PAGES
+      ).join(", ")}`
     );
   }
 
@@ -79,7 +89,12 @@ export const buildPageMetadata = (pageKey, overrides = {}) => {
     path: overrides.canonical || cfg.path,
     image: overrides.ogImage || cfg.ogImage,
     imageAlt: overrides.ogAlt || cfg.ogAlt || cfg.title,
-    keywords: uniqueKeywords(SEO_KEYWORDS, CATEGORY_KEYWORDS, cfg.keywords || [], overrides.keywords || []),
+    keywords: uniqueKeywords(
+      SEO_KEYWORDS,
+      CATEGORY_KEYWORDS,
+      cfg.keywords || [],
+      overrides.keywords || []
+    ),
     robots: overrides.robots,
   });
 };

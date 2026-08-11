@@ -498,8 +498,16 @@ export default function ProductPage({ params }) {
           shortDescription: p.raw?.shortDescription || "",
           sizes,
           colors,
-          isInStock: Boolean(p.isInStock ?? true),
+          isInStock: Boolean(p.isInStock),
           stock: Number(p.stock ?? 0),
+          reservedStock: Number(p.reservedStock ?? 0),
+          availableStock: Number(
+            p.availableStock ??
+            Math.max(
+              0,
+              Number(p.stock ?? 0) - Number(p.reservedStock ?? 0),
+            ),
+          ),
           productType: p.productType,
           raw: p.raw || p,
         };
@@ -607,6 +615,49 @@ export default function ProductPage({ params }) {
 
 
   const requireSize = (product?.sizes?.length || 0) > 0;
+
+  const selectedVariant = useMemo(() => {
+    if (!selectedVariantId) return null;
+
+    const variants = Array.isArray(product?.raw?.variants)
+      ? product.raw.variants
+      : [];
+
+    return (
+      variants.find(
+        (variant) =>
+          String(variant?._id || variant?.id || "") ===
+          String(selectedVariantId),
+      ) || null
+    );
+  }, [product?.raw?.variants, selectedVariantId]);
+
+  const dispatchAvailableStock = useMemo(() => {
+    // variable product -> selected size inventory
+    if (product?.productType === "variable") {
+      if (!selectedVariant) return 0;
+
+      return Math.max(
+        0,
+        Number(
+          selectedVariant?.availableStock ??
+          Number(selectedVariant?.stock ?? 0) -
+          Number(selectedVariant?.reservedStock ?? 0),
+        ),
+      );
+    }
+
+    // simple product -> product inventory
+    return Math.max(
+      0,
+      Number(
+        product?.availableStock ??
+        Number(product?.stock ?? 0) -
+        Number(product?.reservedStock ?? 0),
+      ),
+    );
+  }, [product, selectedVariant]);
+
   const wishlisted = isInWishlist?.(product?.productId || product?.id);
 
   // ✅ Determine which cart entry corresponds to current selection
@@ -1041,7 +1092,10 @@ export default function ProductPage({ params }) {
                   </div>
 
                   <DispatchTimeline
-                    isDispatchReady={Boolean(product?.raw?.isDispatchReady)}
+                    availableStock={dispatchAvailableStock}
+                    waitingForSelection={
+                      product?.productType === "variable" && !selectedVariantId
+                    }
                   />
 
                 </div>
