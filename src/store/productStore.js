@@ -208,6 +208,27 @@ const buildUrl = (p = {}) => {
   if (p.isActive != null) setIf("isActive", p.isActive);
   else setIf("isActive", true);
 
+  // ✅ PRODUCT FLAGS
+  if (p.isBestSeller != null) {
+    setIf("isBestSeller", p.isBestSeller);
+  }
+
+  if (p.isTrending != null) {
+    setIf("isTrending", p.isTrending);
+  }
+
+  if (p.isDispatchReady != null) {
+    setIf("isDispatchReady", p.isDispatchReady);
+  }
+
+  if (p.isPrimaryProduct != null) {
+    setIf("isPrimaryProduct", p.isPrimaryProduct);
+  }
+
+  if (p.isDraft != null) {
+    setIf("isDraft", p.isDraft);
+  }
+
   if (p.sku) setIf("sku", p.sku);
 
   const q = qs.toString();
