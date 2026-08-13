@@ -18,7 +18,7 @@ import { useProductStore } from "@/store/productStore";
 const PAGE_SIZE = 20;
 
 const SORT_OPTIONS = [
-  { label: "Default", value: "default" },
+  { label: "Recommended", value: "default" },
   { label: "Newest", value: "newest" },
   { label: "Price: Low → High", value: "priceLowHigh" },
   { label: "Price: High → Low", value: "priceHighLow" },
@@ -89,8 +89,7 @@ export default function AllClothingPage() {
   );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sort, setSort] = useState("newest");
-
+  const [sort, setSort] = useState("default");
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
   const [draftPriceMin, setDraftPriceMin] =
@@ -234,7 +233,7 @@ export default function AllClothingPage() {
     });
 
     if (sort === "priceLowHigh") {
-      products.sort(
+      return products.sort(
         (a, b) =>
           getProductPrice(a) -
           getProductPrice(b)
@@ -242,7 +241,7 @@ export default function AllClothingPage() {
     }
 
     if (sort === "priceHighLow") {
-      products.sort(
+      return products.sort(
         (a, b) =>
           getProductPrice(b) -
           getProductPrice(a)
@@ -250,13 +249,21 @@ export default function AllClothingPage() {
     }
 
     if (sort === "newest") {
-      products.sort(
+      return products.sort(
         (a, b) =>
           getTimeValue(b) -
           getTimeValue(a)
       );
     }
 
+    /*
+     * default / recommended:
+     * backend order preserve karo
+     *
+     * Bestseller
+     * -> Trending
+     * -> Newest remaining
+     */
     return products;
   }, [
     displayProducts,
@@ -409,7 +416,7 @@ export default function AllClothingPage() {
         </div>
 
         {!error &&
-        displayProducts.length > 0 ? (
+          displayProducts.length > 0 ? (
           <div className="mt-5 flex flex-col items-center gap-2 px-2">
             {hasMore() ? (
               <>

@@ -130,19 +130,29 @@ export const useRazorpayStore = create((set, get) => ({
 
             // ✅ CENTRAL: Purchase tracking (GA4 + Meta + internal)
             // value here is backend amount => will include 5% extra off if your order creation applied it.
-            await useOrderStore.getState().trackPurchaseSuccess({
-              orderId: data.mongoOrderId || data.orderNumber || mongoOrderId,
-              currency,
-              value,
-              contents,
-              coupon: data?.coupon?.code || data?.coupon || null,
-              paymentMethod: "razorpay",
-              // optional (for Meta CAPI attribution if you pass thankyou URL):
-              event_source_url:
-                typeof window !== "undefined"
-                  ? `${window.location.origin}/order-success?order=${data.orderNumber || ""}`
-                  : undefined,
-            });
+            const metaOrderId = String(
+              data?.mongoOrderId || mongoOrderId || ""
+            ).trim();
+
+            if (!metaOrderId) {
+              console.warn("Meta Purchase skipped: Mongo order _id missing", {
+                orderNumber: data?.orderNumber,
+              });
+            } else {
+              await useOrderStore.getState().trackPurchaseSuccess({
+                orderId: metaOrderId,
+                currency,
+                value,
+                contents,
+                coupon: data?.coupon?.code || data?.coupon || null,
+                paymentMethod: "razorpay",
+
+                event_source_url:
+                  typeof window !== "undefined"
+                    ? `${window.location.origin}/order-success?order=${data.orderNumber || ""}`
+                    : undefined,
+              });
+            }
 
             // ✅ Abandoned cart recovered
             try {

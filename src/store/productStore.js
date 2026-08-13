@@ -67,8 +67,17 @@ const normalize = (p) => {
 
     isInStock: Boolean(p?.isInStock),
 
+    // ✅ storefront product flags
+    isBestSeller: Boolean(p?.isBestSeller),
+    isTrending: Boolean(p?.isTrending),
+    isFeatured: Boolean(p?.isFeatured),
+    isDispatchReady: Boolean(p?.isDispatchReady),
+    isPrimaryProduct: Boolean(p?.isPrimaryProduct),
+    availableForCollab: Boolean(p?.availableForCollab),
+
     tags: Array.isArray(p?.tags) ? p.tags : [],
     dateCreated: p?.createdAt || null,
+    dateUpdated: p?.updatedAt || null,
 
     source: "backend",
     raw: p,

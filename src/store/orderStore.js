@@ -488,21 +488,30 @@ export const useOrderStore = create((set, get) => ({
         ) || 0;
 
       if (pm === "cod" || pm === "wallet") {
-        await get().trackPurchaseSuccess({
-          orderId: order?.orderNumber || order?._id || customerId,
+        const metaOrderId = String(order?._id || "").trim();
 
-          currency,
-          value: backendValue || orderValue,
-          contents,
-          coupon: couponCode,
-          paymentMethod: pm,
+        if (!metaOrderId) {
+          console.warn("Meta Purchase skipped: Mongo order _id missing", {
+            orderNumber: order?.orderNumber,
+            paymentMethod: pm,
+          });
+        } else {
+          await get().trackPurchaseSuccess({
+            orderId: metaOrderId,
 
-          customer: {
-            ...customer,
-            shippingAddressSnapshot:
-              shippingAddressSnapshot || customer?.shippingAddressSnapshot,
-          },
-        });
+            currency,
+            value: backendValue || orderValue,
+            contents,
+            coupon: couponCode,
+            paymentMethod: pm,
+
+            customer: {
+              ...customer,
+              shippingAddressSnapshot:
+                shippingAddressSnapshot || customer?.shippingAddressSnapshot,
+            },
+          });
+        }
       }
 
       try {
@@ -599,7 +608,7 @@ export const useOrderStore = create((set, get) => ({
         })
         .filter(Boolean);
 
-     
+
 
       try {
         const payload = {

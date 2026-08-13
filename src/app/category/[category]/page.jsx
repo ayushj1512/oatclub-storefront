@@ -19,7 +19,7 @@ import { useProductStore } from "@/store/productStore";
 const PAGE_SIZE = 20;
 
 const SORT_OPTIONS = [
-  { label: "Default", value: "newest" },
+  { label: "Recommended", value: "default" },
   { label: "Newest", value: "newest" },
   { label: "Price: Low → High", value: "price_asc" },
   { label: "Price: High → Low", value: "price_desc" },
@@ -107,8 +107,7 @@ export default function CategoryPage() {
   );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sort, setSort] = useState("newest");
-
+  const [sort, setSort] = useState("default");
   const [priceMin, setPriceMin] = useState(null);
   const [priceMax, setPriceMax] = useState(null);
 
@@ -262,31 +261,35 @@ export default function CategoryPage() {
         );
       }
     );
-
     if (sort === "price_asc") {
-      filteredProducts.sort(
+      return filteredProducts.sort(
         (first, second) =>
-          getPrice(first) -
-          getPrice(second)
+          getPrice(first) - getPrice(second)
       );
     }
 
     if (sort === "price_desc") {
-      filteredProducts.sort(
+      return filteredProducts.sort(
         (first, second) =>
-          getPrice(second) -
-          getPrice(first)
+          getPrice(second) - getPrice(first)
       );
     }
 
     if (sort === "newest") {
-      filteredProducts.sort(
+      return filteredProducts.sort(
         (first, second) =>
           getTimeValue(second) -
           getTimeValue(first)
       );
     }
 
+    /*
+     * IMPORTANT:
+     * "default" / "recommended" mein backend ka order preserve karo.
+     *
+     * Backend:
+     * Bestseller -> Trending -> Newest remaining
+     */
     return filteredProducts;
   }, [
     displayProducts,

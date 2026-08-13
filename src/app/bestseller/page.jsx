@@ -1,6 +1,6 @@
 "use client";
 
-import React, {
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -11,344 +11,324 @@ import React, {
 import ProductGrid from "@/components/common/ProductGrid";
 import FilterSortBar from "@/components/category/FilterSortBar";
 
-import { useBestsellerFrontendStore } from "@/store/bestsellerStore";
-import { useProductStore } from "@/store/productStore";
+const BACKEND =
+  process.env.NEXT_PUBLIC_BACKEND_URL;
 
-const PAGE_SIZE = 20;
+const PAGE_LIMIT = 200;
 const MAX_SHIMMER_MS = 8000;
 
 const getProductId = (product) =>
-  String(product?.id || product?._id || "");
+  String(
+    product?.id ||
+    product?._id ||
+    product?.productId ||
+    product?.raw?._id ||
+    "",
+  ).trim();
 
-const getTimeValue = (product) => {
-  const time =
-    product?.createdAt ||
-    product?.updatedAt ||
-    product?.created_at ||
-    product?.updated_at ||
-    product?.dateCreated ||
-    product?.date;
+const normalizeProduct = (product = {}) => {
+  const id = String(product?._id || product?.id || "");
 
-  const milliseconds = new Date(time).getTime();
+  const images = Array.isArray(product?.images)
+    ? product.images
+    : [];
 
-  return Number.isFinite(milliseconds)
-    ? milliseconds
-    : 0;
+  const thumbnail =
+    product?.thumbnail ||
+    product?.image ||
+    images[0] ||
+    "/placeholder.png";
+
+  return {
+    ...product,
+
+    id,
+    productId: id,
+
+    name:
+      product?.name ||
+      product?.title ||
+      "",
+
+    title:
+      product?.title ||
+      product?.name ||
+      "",
+
+    image: thumbnail,
+    thumbnail,
+    images,
+
+    price: Number(product?.price || 0),
+
+    compareAtPrice:
+      product?.compareAtPrice ?? null,
+
+    isBestSeller:
+      Boolean(product?.isBestSeller),
+
+    isTrending:
+      Boolean(product?.isTrending),
+
+    isActive:
+      Boolean(product?.isActive),
+
+    isDraft:
+      Boolean(product?.isDraft),
+
+    raw: product,
+  };
+};
+
+const uniqueProducts = (products = []) => {
+  const seen = new Set();
+
+  return products.filter((product) => {
+    const id = getProductId(product);
+
+    if (!id || seen.has(id)) {
+      return false;
+    }
+
+    seen.add(id);
+    return true;
+  });
+};
+
+const fetchProductList = async (params = {}) => {
+  if (!BACKEND) {
+    throw new Error(
+      "NEXT_PUBLIC_BACKEND_URL missing",
+    );
+  }
+
+  const qs = new URLSearchParams();
+
+  Object.entries(params).forEach(
+    ([key, value]) => {
+      if (
+        value === undefined ||
+        value === null ||
+        value === ""
+      ) {
+        return;
+      }
+
+      qs.set(key, String(value));
+    },
+  );
+
+  const response = await fetch(
+    `${BACKEND}/api/products?${qs.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  const data = await response
+    .json()
+    .catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+      "Failed to load products",
+    );
+  }
+
+  return (
+    Array.isArray(data?.products)
+      ? data.products
+      : []
+  ).map(normalizeProduct);
 };
 
 export default function BestsellerPage() {
   const pageTitle = "Bestsellers";
 
-  /* ---------------- Bestseller store ---------------- */
-
-  const ids = useBestsellerFrontendStore(
-    (state) => state.ids
-  );
-
-  const errorBestseller = useBestsellerFrontendStore(
-    (state) => state.error
-  );
-
-  const fetchBestsellerIds =
-    useBestsellerFrontendStore(
-      (state) => state.fetchBestsellerIds
-    );
-
-  /* ---------------- Product store ---------------- */
-
-  const allProducts = useProductStore(
-    (state) => state.allProducts
-  );
-
-  const isLoading = useProductStore(
-    (state) => state.isLoading
-  );
-
-  const errorProduct = useProductStore(
-    (state) => state.error
-  );
-
-  const fetchProducts = useProductStore(
-    (state) => state.fetchProducts
-  );
-
-  const fetchProductsByIds = useProductStore(
-    (state) => state.fetchProductsByIds
-  );
-
-  const hasMore = useProductStore(
-    (state) => state.hasMore
-  );
-
-  const page = useProductStore(
-    (state) => state.page
-  );
-
-  const lastParams = useProductStore(
-    (state) => state.lastParams
-  );
-
-  const clearError = useProductStore(
-    (state) => state.clearError
-  );
-
-  /* ---------------- Local state ---------------- */
-
-  const [bestsellerProducts, setBestsellerProducts] =
+  const [products, setProducts] =
     useState([]);
 
-  const [initialLoading, setInitialLoading] =
-    useState(true);
+  const [
+    initialLoading,
+    setInitialLoading,
+  ] = useState(true);
 
   const [timedOut, setTimedOut] =
     useState(false);
 
-  const [bestsellersDone, setBestsellersDone] =
-    useState(false);
+  const [error, setError] =
+    useState("");
 
   const timeoutRef = useRef(null);
-  const loadingMoreRef = useRef(false);
   const firstRunRef = useRef(false);
-  const sentinelRef = useRef(null);
 
-  const combinedError =
-    errorBestseller || errorProduct;
-
-  const showInitialLoading =
-    initialLoading &&
-    bestsellerProducts.length === 0 &&
-    (!Array.isArray(allProducts) ||
-      allProducts.length === 0);
-
-  const bestsellerIdSet = useMemo(() => {
-    return new Set(
-      bestsellerProducts
-        .map(getProductId)
-        .filter(Boolean)
-    );
-  }, [bestsellerProducts]);
-
-  const normalProducts = useMemo(() => {
-    const source = Array.isArray(allProducts)
-      ? [...allProducts]
-      : [];
-
-    return source
-      .filter((product) => {
-        const productId = getProductId(product);
-
-        return (
-          productId &&
-          !bestsellerIdSet.has(productId)
-        );
-      })
-      .sort(
-        (first, second) =>
-          getTimeValue(second) -
-          getTimeValue(first)
-      );
-  }, [allProducts, bestsellerIdSet]);
-
-  const finalList = useMemo(() => {
-    return [
-      ...bestsellerProducts,
-      ...normalProducts,
-    ];
-  }, [bestsellerProducts, normalProducts]);
+  /* =========================================================
+     TIMEOUT
+  ========================================================= */
 
   const startTimeout = useCallback(() => {
     setTimedOut(false);
 
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+      clearTimeout(
+        timeoutRef.current,
+      );
     }
 
-    timeoutRef.current = setTimeout(() => {
-      setTimedOut(true);
-      setInitialLoading(false);
-    }, MAX_SHIMMER_MS);
+    timeoutRef.current =
+      setTimeout(() => {
+        setTimedOut(true);
+        setInitialLoading(false);
+      }, MAX_SHIMMER_MS);
   }, []);
 
   const stopTimeout = useCallback(() => {
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+      clearTimeout(
+        timeoutRef.current,
+      );
     }
 
     timeoutRef.current = null;
   }, []);
 
+  /* =========================================================
+     FETCH:
+     BESTSELLERS -> TRENDING -> END
+  ========================================================= */
   const runInitial = useCallback(async () => {
-    clearError?.();
-
     setInitialLoading(true);
     setTimedOut(false);
-    setBestsellersDone(false);
+    setError("");
+    setProducts([]);
 
     startTimeout();
 
     try {
-      const receivedIds =
-        await fetchBestsellerIds();
+      /* =========================
+         1. BESTSELLERS
+      ========================= */
 
-      const bestsellerIds = (
-        Array.isArray(receivedIds)
-          ? receivedIds
-          : ids || []
-      )
-        .map(String)
-        .filter(Boolean);
+      const bestsellers =
+        await fetchProductList({
+          isActive: true,
+          isDraft: false,
+          isBestSeller: true,
+          page: 1,
+          limit: PAGE_LIMIT,
+          sort: "default",
+        });
 
-      let fetchedBestsellers = [];
+      /* =========================
+         2. TRENDING
+      ========================= */
 
-      if (bestsellerIds.length > 0) {
-        const response =
-          await fetchProductsByIds(
-            bestsellerIds,
-            {
-              mergeIntoAllProducts: true,
-            }
+      const trending =
+        await fetchProductList({
+          isActive: true,
+          isDraft: false,
+          isTrending: true,
+          page: 1,
+          limit: PAGE_LIMIT,
+          sort: "default",
+        });
+
+      /* =========================
+         3. DEDUPE
+         Bestseller wins
+      ========================= */
+
+      const bestsellerIds = new Set(
+        bestsellers
+          .map(getProductId)
+          .filter(Boolean),
+      );
+
+      const trendingOnly =
+        trending.filter((product) => {
+          const id = getProductId(product);
+
+          return (
+            id &&
+            !bestsellerIds.has(id)
           );
+        });
 
-        fetchedBestsellers =
-          Array.isArray(response)
-            ? response
-            : [];
-      }
+      /* =========================
+         FINAL ORDER
+      ========================= */
 
-      const bestsellerMap = new Map(
-        fetchedBestsellers
-          .map((product) => [
-            getProductId(product),
-            product,
-          ])
-          .filter(([productId]) => productId)
+      setProducts(
+        uniqueProducts([
+          ...bestsellers,
+          ...trendingOnly,
+        ]),
+      );
+    } catch (err) {
+      console.error(
+        "Bestseller page error:",
+        err,
       );
 
-      const orderedBestsellers =
-        bestsellerIds
-          .map((productId) =>
-            bestsellerMap.get(
-              String(productId)
-            )
-          )
-          .filter(Boolean);
-
-      setBestsellerProducts(
-        orderedBestsellers
+      setError(
+        err?.message ||
+        "Failed to load featured products.",
       );
-
-      await fetchProducts({
-        isActive: true,
-        page: 1,
-        limit: PAGE_SIZE,
-        sort: "newest",
-      });
-
-      setBestsellersDone(true);
     } finally {
       stopTimeout();
       setInitialLoading(false);
     }
   }, [
-    clearError,
-    fetchBestsellerIds,
-    fetchProductsByIds,
-    fetchProducts,
-    ids,
     startTimeout,
     stopTimeout,
   ]);
 
+  /* =========================================================
+     INITIAL LOAD
+  ========================================================= */
+
   useEffect(() => {
-    if (firstRunRef.current) return;
+    if (firstRunRef.current) {
+      return;
+    }
 
     firstRunRef.current = true;
 
-    runInitial().catch((error) => {
-      console.error(
-        "Bestseller initialization error:",
-        error
-      );
-
-      stopTimeout();
-      setInitialLoading(false);
-    });
+    runInitial();
 
     return () => {
       stopTimeout();
     };
-  }, [runInitial, stopTimeout]);
-
-  const loadMore = useCallback(() => {
-    if (!bestsellersDone) return;
-    if (isLoading) return;
-    if (loadingMoreRef.current) return;
-    if (!hasMore?.()) return;
-
-    loadingMoreRef.current = true;
-
-    fetchProducts({
-      ...(lastParams || {}),
-      isActive: true,
-      sort: "newest",
-      page: (page || 1) + 1,
-      limit: PAGE_SIZE,
-    });
-
-    setTimeout(() => {
-      loadingMoreRef.current = false;
-    }, 350);
   }, [
-    bestsellersDone,
-    isLoading,
-    hasMore,
-    fetchProducts,
-    lastParams,
-    page,
+    runInitial,
+    stopTimeout,
   ]);
 
-  useEffect(() => {
-    const node = sentinelRef.current;
+  /* =========================================================
+     FINAL LIST
+  ========================================================= */
 
-    if (!node) return;
-
-    const observer =
-      new IntersectionObserver(
-        ([entry]) => {
-          if (!entry.isIntersecting) {
-            return;
-          }
-
-          loadMore();
-        },
-        {
-          rootMargin: "900px 0px",
-        }
-      );
-
-    observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [loadMore]);
+  const finalList = useMemo(
+    () =>
+      Array.isArray(products)
+        ? products
+        : [],
+    [products],
+  );
 
   const retry = useCallback(() => {
-    setBestsellerProducts([]);
-    setBestsellersDone(false);
-    setTimedOut(false);
-
-    runInitial().catch((error) => {
-      console.error(
-        "Bestseller retry error:",
-        error
-      );
-    });
+    runInitial();
   }, [runInitial]);
+
+  const showInitialLoading =
+    initialLoading &&
+    finalList.length === 0;
 
   return (
     <main className="min-h-screen w-full overflow-x-hidden bg-white">
       <div className="w-full pb-4 pt-2 sm:pb-5 sm:pt-3">
+
         {/* Heading */}
         <div className="px-2 sm:px-2.5 md:px-3">
           <h1 className="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl md:text-2xl">
@@ -356,7 +336,7 @@ export default function BestsellerPage() {
           </h1>
         </div>
 
-        {/* Sort bar */}
+        {/* Sort */}
         <div className="px-2 sm:px-2.5 md:px-3">
           <FilterSortBar
             category={pageTitle}
@@ -364,12 +344,12 @@ export default function BestsellerPage() {
               showInitialLoading
             }
             hideFilterButton
-            sort="newest"
-            setSort={() => {}}
+            sort="featured"
+            setSort={() => { }}
             sortOptions={[
               {
-                label: "Default",
-                value: "newest",
+                label: "Featured",
+                value: "featured",
               },
             ]}
           />
@@ -377,17 +357,17 @@ export default function BestsellerPage() {
 
         {/* Timeout */}
         {!showInitialLoading &&
-        timedOut &&
-        !combinedError &&
-        finalList.length === 0 ? (
+          timedOut &&
+          !error &&
+          finalList.length === 0 ? (
           <div className="mx-2 mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800 sm:mx-2.5 md:mx-3">
             <div className="font-semibold">
               Taking longer than usual
             </div>
 
             <div className="mt-1 text-sm">
-              Products are taking longer to
-              load. Please try again.
+              Products are taking longer
+              to load. Please try again.
             </div>
 
             <button
@@ -402,14 +382,14 @@ export default function BestsellerPage() {
 
         {/* Error */}
         {!showInitialLoading &&
-        combinedError ? (
+          error ? (
           <div className="mx-2 mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 sm:mx-2.5 md:mx-3">
             <div className="font-semibold">
               Something went wrong
             </div>
 
             <div className="mt-1 text-sm">
-              {combinedError}
+              {error}
             </div>
 
             <button
@@ -427,45 +407,34 @@ export default function BestsellerPage() {
           <ProductGrid
             key="bestseller-grid"
             products={finalList}
-            loading={showInitialLoading}
+            loading={
+              showInitialLoading
+            }
           />
         </div>
 
-        {/* Load more */}
-        {!combinedError &&
-        bestsellersDone &&
-        finalList.length > 0 ? (
-          <div className="mt-5 flex flex-col items-center gap-2 px-2">
-            {hasMore?.() ? (
-              <>
-                <button
-                  type="button"
-                  onClick={loadMore}
-                  disabled={isLoading}
-                  className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isLoading
-                    ? "Loading..."
-                    : "Load more"}
-                </button>
-
-                <div className="text-center text-xs text-zinc-500">
-                  Showing {finalList.length}{" "}
-                  items
-                </div>
-              </>
-            ) : (
-              <div className="text-sm text-zinc-600">
-                You’ve reached the end.
-              </div>
-            )}
+        {/* Empty */}
+        {!showInitialLoading &&
+          !error &&
+          finalList.length === 0 ? (
+          <div className="px-4 py-16 text-center">
+            <p className="text-sm font-semibold text-zinc-900">
+              No featured products
+              available.
+            </p>
           </div>
         ) : null}
 
-        <div
-          ref={sentinelRef}
-          className="h-1 w-full"
-        />
+        {/* Count */}
+        {!showInitialLoading &&
+          !error &&
+          finalList.length > 0 ? (
+          <div className="mt-5 text-center text-xs text-zinc-500">
+            Showing{" "}
+            {finalList.length}{" "}
+            featured products
+          </div>
+        ) : null}
       </div>
     </main>
   );
