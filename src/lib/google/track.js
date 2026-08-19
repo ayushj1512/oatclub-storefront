@@ -467,3 +467,53 @@ export const trackGoogleRefund = ({
     }),
   });
 };
+
+
+/* =========================================================
+   GOOGLE ADS PURCHASE CONVERSION
+========================================================= */
+
+export const trackGoogleAdsPurchase = ({
+  transactionId,
+  value,
+  currency = "INR",
+} = {}) => {
+  const safeTransactionId = normalizeText(transactionId);
+  const safeValue = normalizeGoogleNumber(value);
+
+  if (!safeTransactionId || safeValue <= 0 || !isBrowser()) {
+    console.warn(
+      "Google Ads purchase skipped: transaction ID or value missing",
+    );
+
+    return;
+  }
+
+  const dedupeKey = `google_ads_purchase_${safeTransactionId}`;
+
+  if (window.localStorage.getItem(dedupeKey)) {
+    return {
+      success: false,
+      duplicate: true,
+      transactionId: safeTransactionId,
+    };
+  }
+
+  const result = trackGoogle(
+    "conversion_event_purchase",
+    {
+      transaction_id: safeTransactionId,
+      value: safeValue,
+      currency,
+    },
+    {
+      clearEcommerce: false,
+    },
+  );
+
+  if (result?.success) {
+    window.localStorage.setItem(dedupeKey, "1");
+  }
+
+  return result;
+};

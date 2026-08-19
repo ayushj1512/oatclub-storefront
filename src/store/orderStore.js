@@ -3,6 +3,7 @@ import { useAnalyticsStore } from "@/store/analyticsStore";
 import { getMetaCatalogId, trackMeta } from "@/lib/meta/track";
 import { pushEcomEvent } from "@/components/tracking/gtm"; // ✅ ADD THIS
 import { trackSnap } from "@/lib/snap/track.js";
+import { trackGoogleAdsPurchase } from "@/lib/google/track";
 import axios from "axios";
 import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 
@@ -25,7 +26,7 @@ async function api(path, options = {}) {
   let data = null;
   try {
     data = await res.json();
-  } catch {}
+  } catch { }
 
   if (!res.ok) {
     throw new Error(data?.message || "Request failed");
@@ -176,12 +177,12 @@ export const useOrderStore = create((set, get) => ({
         const price =
           Number(
             it?.price ??
-              it?.itemPrice ??
-              it?.item_price ??
-              it?.salePrice ??
-              it?.productSnapshot?.price ??
-              it?.productSnapshot?.salePrice ??
-              0,
+            it?.itemPrice ??
+            it?.item_price ??
+            it?.salePrice ??
+            it?.productSnapshot?.price ??
+            it?.productSnapshot?.salePrice ??
+            0,
           ) || 0;
 
         const collections =
@@ -278,14 +279,14 @@ export const useOrderStore = create((set, get) => ({
         .map((it) => {
           const catalogId = String(
             it?.catalogId ||
-              getMetaCatalogId({
-                variantSku: it?.variantSku,
-                productCode:
-                  it?.productCode || it?.productSnapshot?.productCode,
-                selectedSize: it?.selectedSize,
-                productId: it?.productId,
-              }) ||
-              "",
+            getMetaCatalogId({
+              variantSku: it?.variantSku,
+              productCode:
+                it?.productCode || it?.productSnapshot?.productCode,
+              selectedSize: it?.selectedSize,
+              productId: it?.productId,
+            }) ||
+            "",
           ).trim();
 
           if (!catalogId) return null;
@@ -320,12 +321,12 @@ export const useOrderStore = create((set, get) => ({
         payable != null
           ? Number(payable || 0)
           : Math.max(
-              0,
-              itemsTotal +
-                Number(shippingFee || 0) +
-                Number(tax || 0) -
-                finalDiscount,
-            );
+            0,
+            itemsTotal +
+            Number(shippingFee || 0) +
+            Number(tax || 0) -
+            finalDiscount,
+          );
 
       const requestedWalletAmount =
         useWallet === true || Number(walletAmount || 0) > 0 || pm === "wallet"
@@ -364,8 +365,8 @@ export const useOrderStore = create((set, get) => ({
             ...(couponCode ? { coupon: couponCode } : {}),
             ...(pm === "razorpay"
               ? {
-                  razorpay_extra_discount: extraDiscount,
-                }
+                razorpay_extra_discount: extraDiscount,
+              }
               : {}),
           },
           metaUserData,
@@ -386,8 +387,8 @@ export const useOrderStore = create((set, get) => ({
             payment_method: pm,
             ...(pm === "razorpay"
               ? {
-                  razorpay_extra_discount: extraDiscount,
-                }
+                razorpay_extra_discount: extraDiscount,
+              }
               : {}),
           },
           metaUserData,
@@ -423,31 +424,31 @@ export const useOrderStore = create((set, get) => ({
 
         ...(shippingAddressId
           ? {
-              shippingAddressId,
-            }
+            shippingAddressId,
+          }
           : {
-              shippingAddressSnapshot,
-            }),
+            shippingAddressSnapshot,
+          }),
 
         ...(billingAddressId
           ? {
-              billingAddressId,
-            }
+            billingAddressId,
+          }
           : shippingAddressId
             ? {
-                billingAddressId: shippingAddressId,
-              }
+              billingAddressId: shippingAddressId,
+            }
             : {
-                billingAddressSnapshot:
-                  billingAddressSnapshot || shippingAddressSnapshot,
-              }),
+              billingAddressSnapshot:
+                billingAddressSnapshot || shippingAddressSnapshot,
+            }),
 
         items: normalizedItems,
 
         coupon: couponCode
           ? {
-              code: couponCode,
-            }
+            code: couponCode,
+          }
           : null,
 
         shippingFee: Number(shippingFee || 0),
@@ -478,13 +479,13 @@ export const useOrderStore = create((set, get) => ({
       const backendValue =
         Number(
           order?.finalPayable ??
-            order?.finalTotal ??
-            order?.grandTotal ??
-            order?.total ??
-            order?.payableAmount ??
-            order?.amount ??
-            order?.totalAmount ??
-            0,
+          order?.finalTotal ??
+          order?.grandTotal ??
+          order?.total ??
+          order?.payableAmount ??
+          order?.amount ??
+          order?.totalAmount ??
+          0,
         ) || 0;
 
       if (pm === "cod" || pm === "wallet") {
@@ -542,6 +543,7 @@ export const useOrderStore = create((set, get) => ({
 
   trackPurchaseSuccess: async ({
     orderId,
+    transactionId = null,
     currency = "INR",
     value = 0,
     contents = [],
@@ -552,38 +554,75 @@ export const useOrderStore = create((set, get) => ({
   } = {}) => {
     try {
       const safeValue = Number(value);
+
       const finalValue =
-        Number.isFinite(safeValue) && safeValue > 0 ? safeValue : 0;
+        Number.isFinite(safeValue) && safeValue > 0
+          ? safeValue
+          : 0;
+
       const safeOrderId = String(orderId || "").trim();
+
+      const safeTransactionId = String(
+        transactionId || safeOrderId,
+      ).trim();
 
       if (!safeOrderId) return;
 
       const purchaseEventId = `purchase_${safeOrderId}`;
       const now = Date.now();
+
       const key = `${purchaseEventId}_${paymentMethod}`;
-      const { _lastPurchaseKey, _lastPurchaseAt } = get();
+
+      const {
+        _lastPurchaseKey,
+        _lastPurchaseAt,
+      } = get();
+
       const sameKey = _lastPurchaseKey === key;
-      const tooSoon = _lastPurchaseAt && now - _lastPurchaseAt < 8000;
+
+      const tooSoon =
+        _lastPurchaseAt &&
+        now - _lastPurchaseAt < 8000;
 
       if (sameKey && tooSoon) return;
 
-      set({ _lastPurchaseKey: key, _lastPurchaseAt: now });
+      set({
+        _lastPurchaseKey: key,
+        _lastPurchaseAt: now,
+      });
 
-      const couponCode = coupon ? String(coupon).trim() : null;
+      const couponCode = coupon
+        ? String(coupon).trim()
+        : null;
 
       const metaContents = (contents || [])
         .map((c) => {
           const id = String(c?.id || "");
+
           if (!id) return null;
 
-          const quantity = Number(c?.quantity || 1);
-          const itemPrice = Number(c?.item_price || 0);
+          const quantity = Number(
+            c?.quantity || 1,
+          );
+
+          const itemPrice = Number(
+            c?.item_price || 0,
+          );
 
           return {
             id,
-            quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
-            ...(Number.isFinite(itemPrice) && itemPrice > 0
-              ? { item_price: itemPrice }
+
+            quantity:
+              Number.isFinite(quantity) &&
+                quantity > 0
+                ? quantity
+                : 1,
+
+            ...(Number.isFinite(itemPrice) &&
+              itemPrice > 0
+              ? {
+                item_price: itemPrice,
+              }
               : {}),
           };
         })
@@ -591,121 +630,265 @@ export const useOrderStore = create((set, get) => ({
 
       const ga4Items = (contents || [])
         .map((c) => {
-          const item_id = String(c?.id || "");
+          const item_id = String(
+            c?.id || "",
+          );
+
           if (!item_id) return null;
 
-          const quantity = Number(c?.quantity || 1);
-          const price = Number(c?.item_price || 0);
+          const quantity = Number(
+            c?.quantity || 1,
+          );
+
+          const price = Number(
+            c?.item_price || 0,
+          );
 
           return {
             item_id,
-            item_name: c?.name ? String(c.name) : undefined,
-            item_variant: c?.variant ? String(c.variant) : undefined,
-            variant_id: c?.variantId ? String(c.variantId) : undefined,
-            quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
-            ...(Number.isFinite(price) && price > 0 ? { price } : {}),
+
+            item_name: c?.name
+              ? String(c.name)
+              : undefined,
+
+            item_variant: c?.variant
+              ? String(c.variant)
+              : undefined,
+
+            variant_id: c?.variantId
+              ? String(c.variantId)
+              : undefined,
+
+            quantity:
+              Number.isFinite(quantity) &&
+                quantity > 0
+                ? quantity
+                : 1,
+
+            ...(Number.isFinite(price) &&
+              price > 0
+              ? {
+                price,
+              }
+              : {}),
           };
         })
         .filter(Boolean);
 
-
+      // ============================================
+      // META + SNAP PURCHASE
+      // ============================================
 
       try {
         const payload = {
           currency,
           value: finalValue,
+
           content_type: "product",
-          content_ids: metaContents.map((c) => c.id),
+
+          content_ids:
+            metaContents.map((c) => c.id),
+
           contents: metaContents,
-          num_items: metaContents.reduce((s, c) => s + (c.quantity || 0), 0),
-          order_id: String(orderId),
-          payment_method: paymentMethod,
-          ...(couponCode ? { coupon: couponCode } : {}),
+
+          num_items:
+            metaContents.reduce(
+              (sum, c) =>
+                sum + (c.quantity || 0),
+              0,
+            ),
+
+          order_id: safeTransactionId,
+
+          payment_method:
+            paymentMethod,
+
+          ...(couponCode
+            ? {
+              coupon: couponCode,
+            }
+            : {}),
         };
 
-        const metaPurchaseEventId = await trackMeta(
-          "Purchase",
-          payload,
-          {
-            external_id: customer?._id || safeOrderId,
+        const metaPurchaseEventId =
+          await trackMeta(
+            "Purchase",
+            payload,
+            {
+              external_id:
+                customer?._id ||
+                safeOrderId,
 
-            email: customer?.email || customer?.shippingAddressSnapshot?.email,
+              email:
+                customer?.email ||
+                customer
+                  ?.shippingAddressSnapshot
+                  ?.email,
 
-            phone:
-              customer?.phone ||
-              customer?.mobile ||
-              customer?.shippingAddressSnapshot?.phone,
+              phone:
+                customer?.phone ||
+                customer?.mobile ||
+                customer
+                  ?.shippingAddressSnapshot
+                  ?.phone,
 
-            firstName:
-              customer?.firstName ||
-              customer?.shippingAddress?.firstName ||
-              customer?.shippingAddressSnapshot?.fullName?.split?.(" ")?.[0],
+              firstName:
+                customer?.firstName ||
+                customer?.shippingAddress
+                  ?.firstName ||
+                customer
+                  ?.shippingAddressSnapshot
+                  ?.fullName
+                  ?.split?.(" ")?.[0],
 
-            lastName:
-              customer?.lastName ||
-              customer?.shippingAddress?.lastName ||
-              customer?.shippingAddressSnapshot?.fullName
-                ?.split?.(" ")
-                ?.slice?.(1)
-                ?.join?.(" "),
+              lastName:
+                customer?.lastName ||
+                customer?.shippingAddress
+                  ?.lastName ||
+                customer
+                  ?.shippingAddressSnapshot
+                  ?.fullName
+                  ?.split?.(" ")
+                  ?.slice?.(1)
+                  ?.join?.(" "),
 
-            city:
-              customer?.city ||
-              customer?.shippingAddress?.city ||
-              customer?.shippingAddressSnapshot?.city,
+              city:
+                customer?.city ||
+                customer?.shippingAddress
+                  ?.city ||
+                customer
+                  ?.shippingAddressSnapshot
+                  ?.city,
 
-            state:
-              customer?.state ||
-              customer?.shippingAddress?.state ||
-              customer?.shippingAddressSnapshot?.state,
+              state:
+                customer?.state ||
+                customer?.shippingAddress
+                  ?.state ||
+                customer
+                  ?.shippingAddressSnapshot
+                  ?.state,
 
-            country:
-              customer?.country ||
-              customer?.shippingAddress?.country ||
-              customer?.shippingAddressSnapshot?.country ||
-              "in",
+              country:
+                customer?.country ||
+                customer?.shippingAddress
+                  ?.country ||
+                customer
+                  ?.shippingAddressSnapshot
+                  ?.country ||
+                "in",
 
-            zip:
-              customer?.pincode ||
-              customer?.zip ||
-              customer?.shippingAddress?.pincode ||
-              customer?.shippingAddressSnapshot?.pincode,
-          },
-          {
-            event_id: purchaseEventId,
-            ...(event_source_url ? { event_source_url } : {}),
-          },
-        );
+              zip:
+                customer?.pincode ||
+                customer?.zip ||
+                customer?.shippingAddress
+                  ?.pincode ||
+                customer
+                  ?.shippingAddressSnapshot
+                  ?.pincode,
+            },
+            {
+              event_id:
+                purchaseEventId,
+
+              ...(event_source_url
+                ? {
+                  event_source_url,
+                }
+                : {}),
+            },
+          );
 
         try {
           await trackSnap(
             "PURCHASE",
             {
               currency,
-              price: finalValue,
-              transaction_id: String(orderId),
-              item_ids: metaContents.map((c) => String(c.id)),
-              payment_method: paymentMethod,
-              ...(couponCode ? { coupon: couponCode } : {}),
+
+              price:
+                finalValue,
+
+              transaction_id:
+                safeTransactionId,
+
+              item_ids:
+                metaContents.map((c) =>
+                  String(c.id),
+                ),
+
+              payment_method:
+                paymentMethod,
+
+              ...(couponCode
+                ? {
+                  coupon:
+                    couponCode,
+                }
+                : {}),
             },
             {},
-            { event_id: metaPurchaseEventId },
+            {
+              event_id:
+                metaPurchaseEventId,
+            },
           );
         } catch (e) {
-          console.warn("👻 Snap PURCHASE failed", e);
+          console.warn(
+            "👻 Snap PURCHASE failed",
+            e,
+          );
         }
       } catch (e) {
-        console.warn("🧾 Meta Purchase failed", e);
+        console.warn(
+          "🧾 Meta Purchase failed",
+          e,
+        );
       }
 
+      // ============================================
+      // GOOGLE ADS PURCHASE
+      // ============================================
+
       try {
-        const analytics = useAnalyticsStore.getState();
-        metaContents.forEach((c) => analytics.trackPurchase?.(c.id));
+        trackGoogleAdsPurchase({
+          transactionId:
+            safeTransactionId,
+
+          value:
+            finalValue,
+
+          currency,
+        });
       } catch (e) {
-        console.warn("📊 Internal purchase analytics failed", e);
+        console.warn(
+          "Google Ads PURCHASE failed",
+          e,
+        );
+      }
+
+      // ============================================
+      // INTERNAL ANALYTICS
+      // ============================================
+
+      try {
+        const analytics =
+          useAnalyticsStore.getState();
+
+        metaContents.forEach((c) =>
+          analytics.trackPurchase?.(
+            c.id,
+          ),
+        );
+      } catch (e) {
+        console.warn(
+          "📊 Internal purchase analytics failed",
+          e,
+        );
       }
     } catch (e) {
-      console.warn("Purchase tracking failed", e);
+      console.warn(
+        "Purchase tracking failed",
+        e,
+      );
     }
   },
 
