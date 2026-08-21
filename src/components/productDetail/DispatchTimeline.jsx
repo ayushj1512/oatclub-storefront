@@ -52,7 +52,7 @@ export default function DispatchTimeline({
         </p>
 
         <p className="mt-0.5 text-[10px] leading-4 text-black/60">
-          We will dispatch this piece within 7 days.
+          We will dispatch this piece within 14 days.
         </p>
       </div>
     </div>

@@ -48,8 +48,8 @@ function TrustStrip({ product }) {
     ],
     [
       Truck,
-      "7 Days Dispatch",
-      "Your order will be carefully prepared and dispatched within 7 days.",
+      "14 Days Dispatch",
+      "Your order will be carefully prepared and dispatched within 14 Days.",
     ],
     [
       RotateCcw,

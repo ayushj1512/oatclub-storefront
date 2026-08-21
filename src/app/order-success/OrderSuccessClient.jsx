@@ -490,7 +490,7 @@ export default function OrderSuccessClient() {
                       </p>
                     </div>
                     <p className="mt-3 text-[11px] font-bold uppercase leading-5 tracking-[0.08em] text-white/62">
-                      WE AIM TO SHIP WITHIN 7 DAYS. TRACKING DETAILS WILL LAND
+                      WE AIM TO SHIP WITHIN 14 DAYS. TRACKING DETAILS WILL LAND
                       IN YOUR INBOX ONCE YOUR PIECES MOVE.
                     </p>
                   </div>

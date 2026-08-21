@@ -27,7 +27,7 @@ export default function ShippingPolicyPage() {
     >
       <InfoBlock title="How Long Does Shipping Take?">
         <p>
-          We aim to ship your order within 7 days of placing it. Real talk though, we would rather
+          We aim to ship your order within 14 days of placing it. Real talk though, we would rather
           take an extra day to make sure your order is perfect than rush something out that is not
           right.
         </p>
@@ -39,7 +39,7 @@ export default function ShippingPolicyPage() {
 
       <InfoTable
         rows={[
-          ["Dispatch Goal", "Within 7 days of order placement"],
+          ["Dispatch Goal", "Within 14 days of order placement"],
           ["Tracking", "Shared by email once shipped"],
           ["Coverage", "Across India"],
           ["Support", "hey@oatclub.in"],

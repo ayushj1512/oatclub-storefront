@@ -12,7 +12,7 @@ const ITEMS = [
   [
     Sparkles,
     "Specially Curated",
-    "Curated and prepared with care. Dispatch within 5–7 days.",
+    "Curated and prepared with care. Dispatch within 14 days.",
   ],
   [
     RotateCcw,
