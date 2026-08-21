@@ -7,54 +7,34 @@ import { useCategoryStore } from "@/store/categoryStore";
 
 const STATIC_LINKS = [
   {
-    label: "INDEPENDENCE DAY SALE",
-    href: "/independence-day-sale",
-    slug: "independence-day-sale",
+    label: "FESTIVE EDIT",
+    href: "/festive-edit",
+    slug: "festive-edit",
     highlight: true,
   },
-  {
-    label: "ALL CLOTHING",
-    href: "/all-clothing",
-    slug: "all-clothing",
-  },
-  {
-    label: "NEW ARRIVALS",
-    href: "/new-arrivals",
-    slug: "new-arrivals",
-  },
-  {
-    label: "BESTSELLER",
-    href: "/bestseller",
-    slug: "bestseller",
-  },
+  { label: "ALL CLOTHING", href: "/all-clothing", slug: "all-clothing" },
+  { label: "NEW ARRIVALS", href: "/new-arrivals", slug: "new-arrivals" },
+  { label: "BESTSELLER", href: "/bestseller", slug: "bestseller" },
 ];
 
-const slugOf = (value = "") =>
-  String(value)
+const slugOf = (v = "") =>
+  String(v)
     .trim()
     .toLowerCase()
     .replace(/['"]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
-const titleOf = (value = "") =>
-  String(value)
-    .trim()
-    .replace(/[-_]+/g, " ")
-    .toUpperCase();
+const titleOf = (v = "") =>
+  String(v).trim().replace(/[-_]+/g, " ").toUpperCase();
 
 export default function HeaderNavStrip({ variant = "desktop" }) {
   const pathname = usePathname();
-
   const categories = useCategoryStore((s) => s.categories);
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
 
   useEffect(() => {
-    fetchCategories?.({
-      active: true,
-      parent: "null",
-    });
+    fetchCategories?.({ active: true, parent: "null" });
   }, [fetchCategories]);
 
   const links = useMemo(() => {
@@ -69,70 +49,51 @@ export default function HeaderNavStrip({ variant = "desktop" }) {
       "uncategorized",
     ]);
 
-    const dynamic = (Array.isArray(categories) ? categories : [])
-      .filter((category) => !category?.parent)
-      .map((category) => {
-        const slug = slugOf(category?.slug || category?.name);
-
+    const dynamic = (categories || [])
+      .filter((c) => !c?.parent)
+      .map((c) => {
+        const slug = slugOf(c?.slug || c?.name);
         return {
-          label: titleOf(category?.name || slug),
+          label: titleOf(c?.name || slug),
           href: `/category/${slug}`,
           slug,
         };
       })
-      .filter((item) => item.slug && !blocked.has(item.slug));
+      .filter((x) => x.slug && !blocked.has(x.slug));
 
-    const seen = new Set();
-
-    return [...STATIC_LINKS, ...dynamic].filter((item) => {
-      if (seen.has(item.href)) return false;
-
-      seen.add(item.href);
-      return true;
-    });
+    return [...STATIC_LINKS, ...dynamic].filter(
+      (x, i, arr) => arr.findIndex((y) => y.href === x.href) === i
+    );
   }, [categories]);
 
-  const isMobile = variant === "mobile";
+  const mobile = variant === "mobile";
 
   return (
     <nav
+      aria-label="Primary categories"
       className={
-        isMobile
+        mobile
           ? "no-scrollbar flex gap-5 overflow-x-auto border-t border-black/10 px-4 py-2.5"
           : "flex w-full items-center justify-center gap-7 border-t border-black/10 px-8 py-2.5 lg:gap-10"
       }
-      aria-label="Primary categories"
     >
       {links.map((item) => {
         const active =
-          pathname === item.href ||
-          pathname?.startsWith(`${item.href}/`);
-
-        const isHighlighted = item.highlight === true;
+          pathname === item.href || pathname?.startsWith(`${item.href}/`);
 
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${isHighlighted
+            className={`shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${item.highlight
                 ? ""
                 : active
                   ? "text-black"
                   : "text-black/58 hover:text-black"
               }`}
           >
-            {isHighlighted ? (
-              <span
-                className="transition-opacity duration-200 hover:opacity-75"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(90deg, #FF671F 0%, #FF671F 32%, #B8B8B8 45%, #B8B8B8 55%, #046A38 68%, #046A38 100%)",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  color: "transparent",
-                }}
-              >
+            {item.highlight ? (
+              <span className="bg-gradient-to-r from-[#ff4f9a] to-[#b51765] bg-clip-text text-transparent hover:opacity-75">
                 {item.label}
               </span>
             ) : (

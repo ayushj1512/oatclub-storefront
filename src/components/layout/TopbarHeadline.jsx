@@ -10,6 +10,7 @@ export default function TopbarHeadline({ interval = 3200 }) {
       "FIRST ORDER PRIVILEGE: 10% OFF WITH FIRST10",
       "PRIVATE EDIT: RS. 500 OFF ABOVE RS. 2499",
       "QUALITY CHECKED PIECES, PACKED WITH CARE",
+      "MADE WITH CARE — KINDLY ALLOW UP TO 7 DAYS FOR DISPATCH",
     ],
     []
   );
