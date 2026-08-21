@@ -48,10 +48,8 @@ function TrustStrip({ product }) {
     ],
     [
       Truck,
-      inStock ? "Fast Dispatch" : "Made For You",
-      inStock
-        ? "Ready pieces move quickly from our studio."
-        : "Dispatch timeline adjusts for limited stock pieces.",
+      "7 Days Dispatch",
+      "Your order will be carefully prepared and dispatched within 7 days.",
     ],
     [
       RotateCcw,
