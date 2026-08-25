@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import axios from "axios";
 import { RotateCcw, ShieldCheck } from "lucide-react";
+
 import OrderLookupForm from "@/components/returns-exchanges/OrderLookupForm";
 import EligibilityCard from "@/components/returns-exchanges/EligibilityCard";
 import RequestTypeSelector from "@/components/returns-exchanges/RequestTypeSelector";
@@ -25,12 +26,27 @@ const getId = (value) => {
   return null;
 };
 
+const POLICY_POINTS = [
+  "Request a return or exchange within 7 days from the date of delivery.",
+  "Convenient reverse pick-up is available for eligible returns and exchanges.",
+  "A ₹100 return shipping fee will be deducted from approved return refunds.",
+  "Exchange your product for any other available product. Any price difference will be adjusted accordingly.",
+  "Approved refunds are initiated within 3–4 business days after the returned product is received and verified.",
+];
+
+const CONDITIONS = [
+  "The product must be unused and unworn.",
+  "The product must be returned in its original condition.",
+  "All original tags, packaging, and accessories must be intact.",
+  "Damaged, altered, washed, or used products may not be eligible.",
+  "Returns and exchanges must be requested within 7 days of delivery.",
+];
+
 export default function ReturnsExchangesPage() {
   const [step, setStep] = useState("lookup");
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
   const [order, setOrder] = useState(null);
-
   const [requestType, setRequestType] = useState("exchange");
   const [selectedItems, setSelectedItems] = useState([]);
   const [reason, setReason] = useState("wrong_size");
@@ -77,8 +93,9 @@ export default function ReturnsExchangesPage() {
     setOrder(null);
 
     try {
-      const isEmail = identity.includes("@");
-      const params = isEmail ? { email: identity } : { phone: identity };
+      const params = identity.includes("@")
+        ? { email: identity }
+        : { phone: identity };
 
       const { data } = await axios.get(`${API}/api/orders/lookup`, {
         params,
@@ -99,8 +116,8 @@ export default function ReturnsExchangesPage() {
     } catch (err) {
       setLookupError(
         err?.response?.data?.message ||
-          err?.message ||
-          "Unable to verify order."
+        err?.message ||
+        "Unable to verify order."
       );
     } finally {
       setLookupLoading(false);
@@ -127,23 +144,11 @@ export default function ReturnsExchangesPage() {
     setStep("success");
   };
 
-  const handleReasonContinue = () => {
-    if (requestType === "return") {
-      setStep("refundDetails");
-      return;
-    }
+  const handleReasonContinue = () =>
+    setStep(requestType === "return" ? "refundDetails" : "review");
 
-    setStep("review");
-  };
-
-  const handleReviewBack = () => {
-    if (requestType === "return") {
-      setStep("refundDetails");
-      return;
-    }
-
-    setStep("reason");
-  };
+  const handleReviewBack = () =>
+    setStep(requestType === "return" ? "refundDetails" : "reason");
 
   return (
     <main className="min-h-screen bg-[#fafafa] px-4 py-8 text-gray-950 sm:px-6 lg:px-10">
@@ -153,25 +158,93 @@ export default function ReturnsExchangesPage() {
             <RotateCcw className="h-5 w-5" />
           </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-4xl">
-            Return or Exchange Your Order
-          </h1>
-
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500">
-            Enter your order details to verify eligibility and request a size
-            exchange or return for selected products.
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
+            OATCLUB Returns
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-2 text-xs text-gray-500">
-            <span className="rounded-full bg-gray-100 px-3 py-1.5">
-              Order verification
-            </span>
-            <span className="rounded-full bg-gray-100 px-3 py-1.5">
-              Delivered orders only
-            </span>
-            <span className="rounded-full bg-gray-100 px-3 py-1.5">
-              Partial or full order
-            </span>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-4xl">
+            7-Day Easy Exchange & Return Policy
+          </h1>
+
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-500">
+            At OATCLUB, we want you to shop with confidence. If you’re not
+            completely satisfied with your purchase, you can request an
+            exchange or return within 7 days of delivery.
+          </p>
+
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            <PolicySection title="Easy Exchange & Return">
+              <ul className="space-y-3">
+                {POLICY_POINTS.map((item) => (
+                  <li
+                    key={item}
+                    className="flex gap-3 text-sm leading-6 text-gray-600"
+                  >
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-950" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </PolicySection>
+
+            <PolicySection title="How Returns & Exchanges Work">
+              <div className="space-y-3 text-sm leading-6 text-gray-600">
+                <p>
+                  Once you raise a return or exchange request, our team will
+                  arrange a reverse pick-up for the eligible product.
+                </p>
+                <p>
+                  After the product is received, it will undergo a basic
+                  quality check. Once approved, your refund will be initiated
+                  within 3–4 business days.
+                </p>
+                <p>
+                  For exchanges, your replacement product will be processed
+                  after the returned product is received and successfully
+                  verified.
+                </p>
+              </div>
+            </PolicySection>
+
+            <PolicySection title="Refund to OATCLUB Wallet">
+              <p className="text-sm leading-6 text-gray-600">
+                Your approved refund will be credited to your OATCLUB account
+                wallet. You can redeem the wallet balance towards future
+                orders on the OATCLUB website.
+              </p>
+            </PolicySection>
+
+            <PolicySection title="Return & Exchange Conditions">
+              <ul className="space-y-3">
+                {CONDITIONS.map((item) => (
+                  <li
+                    key={item}
+                    className="flex gap-3 text-sm leading-6 text-gray-600"
+                  >
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-950" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </PolicySection>
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-gray-950 p-5 text-white">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">
+              Important
+            </p>
+
+            <p className="mt-2 text-sm leading-6 text-gray-200">
+              The ₹100 return shipping fee will be deducted from the refund
+              amount for approved returns. Refunds will be credited to your
+              OATCLUB wallet within 3–4 business days after the returned
+              product is received and verified.
+            </p>
+
+            <p className="mt-2 text-sm leading-6 text-gray-400">
+              For any questions regarding your return or exchange, please
+              contact our customer support team.
+            </p>
           </div>
         </div>
 
@@ -253,10 +326,21 @@ export default function ReturnsExchangesPage() {
 
         <div className="mt-6 flex items-center gap-2 text-xs text-gray-400">
           <ShieldCheck className="h-4 w-4" />
-          Your order details are used only to verify return/exchange
+          Your order details are used only to verify return and exchange
           eligibility.
         </div>
       </section>
     </main>
+  );
+}
+
+function PolicySection({ title, children }) {
+  return (
+    <div className="rounded-2xl bg-gray-50 p-5">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.12em] text-gray-950">
+        {title}
+      </h2>
+      {children}
+    </div>
   );
 }
