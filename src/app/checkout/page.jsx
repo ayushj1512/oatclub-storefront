@@ -95,7 +95,7 @@ export default function CheckoutPage() {
   const items = buyNowItem ? [buyNowItem] : cartItems;
 
   const [selectedAddressId, setSelectedAddressId] = useState(null);
-  const [selectedPayment, setSelectedPayment] = useState("cod");
+  const [selectedPayment, setSelectedPayment] = useState("razorpay");
 
   const [showSummary, setShowSummary] = useState(true);
   const [showAddress, setShowAddress] = useState(true);
@@ -141,15 +141,7 @@ export default function CheckoutPage() {
   /* ---------------- INIT ---------------- */
 
 
-  useEffect(() => {
-    if (
-      isCustomerBlacklisted &&
-      selectedPayment === "cod"
-    ) {
-      setSelectedPayment("razorpay");
-      setShowPayment(true);
-    }
-  }, [isCustomerBlacklisted, selectedPayment]);
+
 
   /* ✅ sync local guestCustomer if store customer exists */
   useEffect(() => {
@@ -265,6 +257,39 @@ export default function CheckoutPage() {
   const usingSavedAddress = Boolean(
     !showAddressForm && selectedAddressObj?._id
   );
+
+  const SEVEN_SISTERS = [
+    "arunachal pradesh",
+    "assam",
+    "manipur",
+    "meghalaya",
+    "mizoram",
+    "nagaland",
+    "tripura",
+  ];
+
+  const checkoutState = String(
+    showAddressForm
+      ? addressForm.state
+      : selectedAddressObj?.state || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const isSevenSisters =
+    SEVEN_SISTERS.includes(checkoutState);
+
+  const prepaidOnly =
+    isCustomerBlacklisted || isSevenSisters;
+
+  useEffect(() => {
+    if (
+      prepaidOnly &&
+      ["cod", "partial_cod"].includes(selectedPayment)
+    ) {
+      setSelectedPayment("razorpay");
+    }
+  }, [prepaidOnly, selectedPayment]);
 
   /* ---------------- DEFAULT ADDRESS ---------------- */
   useEffect(() => {
@@ -871,12 +896,22 @@ export default function CheckoutPage() {
       }
     }
 
+    const normalizedPaymentMethod =
+      String(paymentMethod || "").toLowerCase();
+
     if (
-      !["cod", "razorpay", "wallet"].includes(
-        String(paymentMethod || "").toLowerCase()
+      !["cod", "partial_cod", "razorpay", "wallet"].includes(
+        normalizedPaymentMethod,
       )
     ) {
       return "Please select a valid payment method.";
+    }
+
+    if (
+      prepaidOnly &&
+      ["cod", "partial_cod"].includes(normalizedPaymentMethod)
+    ) {
+      return "Only prepaid payment is available for this order.";
     }
 
     return null;
@@ -925,10 +960,12 @@ export default function CheckoutPage() {
     removeCoupon?.();
 
     toast.success(
-      paymentMethod === "razorpay"
-        ? "Payment successful! Order confirmed."
-        : "Order placed successfully!",
-      toastId ? { id: toastId } : undefined
+      paymentMethod === "partial_cod"
+        ? "10% paid! Order confirmed. Remaining amount due on delivery."
+        : paymentMethod === "razorpay"
+          ? "Payment successful! Order confirmed."
+          : "Order placed successfully!",
+      toastId ? { id: toastId } : undefined,
     );
 
     router.push(
@@ -954,8 +991,8 @@ export default function CheckoutPage() {
       payable <= 0 ? "wallet" : requestedPaymentMethod;
 
     if (
-      !["cod", "razorpay", "wallet"].includes(
-        String(resolvedPaymentMethod || "").toLowerCase()
+      !["cod", "partial_cod", "razorpay", "wallet"].includes(
+        String(resolvedPaymentMethod || "").toLowerCase(),
       )
     ) {
       placingOrderRef.current = false;
@@ -989,9 +1026,9 @@ export default function CheckoutPage() {
       buildCheckoutAddressSnapshot(finalCustomer);
 
     const toastId = toast.loading(
-      resolvedPaymentMethod === "razorpay"
+      ["razorpay", "partial_cod"].includes(resolvedPaymentMethod)
         ? "Creating secure payment..."
-        : "Placing your order..."
+        : "Placing your order...",
     );
 
     try {
@@ -1152,10 +1189,18 @@ export default function CheckoutPage() {
        * 2. Store creates Razorpay order using mongoOrderId.
        * 3. Cart is cleared only after payment verification succeeds.
        */
-      if (resolvedPaymentMethod === "razorpay") {
-        toast.loading("Opening Razorpay checkout...", {
-          id: toastId,
-        });
+      const requiresRazorpay = [
+        "razorpay",
+        "partial_cod",
+      ].includes(resolvedPaymentMethod);
+
+      if (requiresRazorpay) {
+        toast.loading(
+          resolvedPaymentMethod === "partial_cod"
+            ? "Opening 10% advance payment..."
+            : "Opening Razorpay checkout...",
+          { id: toastId },
+        );
 
         await payWithRazorpay({
           mongoOrderId: String(mongoOrderId),
@@ -1164,9 +1209,9 @@ export default function CheckoutPage() {
             try {
               await finishSuccessfulOrder({
                 order,
-                revenue: payable,
+                revenue: Number(order?.finalPayable || payable || 0),
                 toastId,
-                paymentMethod: "razorpay",
+                paymentMethod: resolvedPaymentMethod,
               });
             } finally {
               placingOrderRef.current = false;
@@ -1178,13 +1223,13 @@ export default function CheckoutPage() {
 
             console.error(
               "❌ Razorpay payment failed:",
-              paymentError
+              paymentError,
             );
 
             toast.error(
               paymentError?.message ||
               "Payment was not completed. Your cart is still safe.",
-              { id: toastId }
+              { id: toastId },
             );
           },
         });
@@ -1271,6 +1316,7 @@ export default function CheckoutPage() {
           <AddressSelection
             user={user}
             customer={activeCustomer}
+            prepaidOnly={prepaidOnly}
             addresses={addresses}
             addressesLoading={addressesLoading}
             selectedAddressId={selectedAddressId}

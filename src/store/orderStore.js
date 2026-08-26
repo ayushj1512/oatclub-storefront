@@ -123,7 +123,14 @@ export const useOrderStore = create((set, get) => ({
       const pm = String(paymentMethod).toLowerCase();
       const customer = customerData || {};
 
-      if (!["cod", "razorpay", "wallet"].includes(pm)) {
+      if (
+        ![
+          "cod",
+          "partial_cod",
+          "razorpay",
+          "wallet",
+        ].includes(pm)
+      ) {
         throw new Error("Invalid payment method");
       }
 
