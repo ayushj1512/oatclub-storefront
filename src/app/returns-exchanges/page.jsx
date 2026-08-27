@@ -30,6 +30,7 @@ const POLICY_POINTS = [
   "Request a return or exchange within 7 days from the date of delivery.",
   "Convenient reverse pick-up is available for eligible returns and exchanges.",
   "A ₹100 return shipping fee will be deducted from approved return refunds.",
+  "Original shipping charges paid on COD orders are non-refundable.",
   "Exchange your product for any other available product. Any price difference will be adjusted accordingly.",
   "Approved refunds are initiated within 3–4 business days after the returned product is received and verified.",
 ];
@@ -208,9 +209,10 @@ export default function ReturnsExchangesPage() {
 
             <PolicySection title="Refund to OATCLUB Wallet">
               <p className="text-sm leading-6 text-gray-600">
-                Your approved refund will be credited to your OATCLUB account
-                wallet. You can redeem the wallet balance towards future
-                orders on the OATCLUB website.
+                Your approved refund will be credited to your OATCLUB account wallet.
+                Original shipping charges paid on COD orders are non-refundable.
+                Prepaid and Partial COD orders do not carry an original shipping charge.
+                You can use your wallet balance towards future orders on the OATCLUB website.
               </p>
             </PolicySection>
 
@@ -233,12 +235,12 @@ export default function ReturnsExchangesPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">
               Important
             </p>
-
             <p className="mt-2 text-sm leading-6 text-gray-200">
-              The ₹100 return shipping fee will be deducted from the refund
-              amount for approved returns. Refunds will be credited to your
-              OATCLUB wallet within 3–4 business days after the returned
-              product is received and verified.
+              A ₹100 return shipping fee will be deducted from approved return refunds.
+              For COD orders, the original shipping charge paid while placing the order
+              is non-refundable. Prepaid and Partial COD orders have no original shipping
+              charge. Refunds will be credited to your OATCLUB wallet within 3–4 business
+              days after the returned product is received and verified.
             </p>
 
             <p className="mt-2 text-sm leading-6 text-gray-400">
