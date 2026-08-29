@@ -85,6 +85,7 @@ export default function OrderDetailsPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
+  const [exchangeMedia, setExchangeMedia] = useState([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [remarkDraft, setRemarkDraft] = useState("");
@@ -346,12 +347,16 @@ export default function OrderDetailsPage() {
     }
   }, [shouldOpenReview, statusKey, openReviewLineId, safeItems, reviewedByLineId]);
 
-  const createReturnRma = async ({ item, reason }) => {
+  const createReturnRma = async ({ item, reason, media = [] }) => {
     let toastId = null;
 
     try {
       if (!item?.lineId) throw new Error("Return item missing");
       if (!s(reason)) throw new Error("Return reason missing");
+
+      if (!media.length) {
+        throw new Error("Please upload at least one image for QC");
+      }
 
       setSubmitting(true);
       toastId = toast.loading("Submitting return request...");
@@ -360,10 +365,24 @@ export default function OrderDetailsPage() {
         type: "return",
         reason: "other",
         customerNote: reason,
-        items: [{ orderLineId: item.lineId, quantity: 1 }],
+
+        media: media.map((file) => ({
+          url: file.url,
+          publicId: file.publicId || "",
+          resourceType: file.resourceType || "image",
+          evidenceType: file.evidenceType,
+        })),
+
+        items: [
+          {
+            orderLineId: item.lineId,
+            quantity: 1,
+          },
+        ],
       });
 
       toast.success("Return request created!", { id: toastId });
+
       setReturnModal(null);
 
       await fetchRmasByOrder(order._id);
@@ -381,6 +400,10 @@ export default function OrderDetailsPage() {
     let toastId = null;
 
     try {
+      if (!exchangeMedia.length) {
+        throw new Error("Please upload at least one image for QC");
+      }
+
       setSubmitting(true);
       toastId = toast.loading("Submitting exchange request...");
 
@@ -388,7 +411,20 @@ export default function OrderDetailsPage() {
         type: "exchange",
         reason: "wrong_size",
         customerNote: `Exchange size to ${selectedSize}`,
-        items: [{ orderLineId: item.lineId, quantity: 1 }],
+
+        media: exchangeMedia.map((file) => ({
+          url: file.url,
+          publicId: file.publicId || "",
+          resourceType: file.resourceType || "image",
+        })),
+
+        items: [
+          {
+            orderLineId: item.lineId,
+            quantity: 1,
+          },
+        ],
+
         exchangeTo: {
           productId: item.productId?._id || item.productId,
           variantId: item.variant?.variantId,
@@ -402,6 +438,7 @@ export default function OrderDetailsPage() {
 
       setShowExchangeModal(null);
       setSelectedSize(null);
+      setExchangeMedia([]);
 
       await fetchRmasByOrder(order._id);
       await refetchOrder({ silent: true });
@@ -637,13 +674,13 @@ export default function OrderDetailsPage() {
         onClose={() => setReturnModal(null)}
         item={returnModal?.item}
         itemName={returnModal?.name || "Item"}
-        customer={customer}
         loading={submitting}
-        onSavePayout={async (payload) =>
-          await updateCustomerPayoutDetails(payload)
-        }
-        onSubmitReturn={async ({ item, reason }) => {
-          await createReturnRma({ item, reason });
+        onSubmitReturn={async ({ item, reason, media }) => {
+          await createReturnRma({
+            item,
+            reason,
+            media,
+          });
         }}
       />
 
