@@ -28,18 +28,57 @@ const loadRazorpaySDK = () =>
  * Prefer variantId/sku when possible, but always ensure an id exists.
  */
 const buildContents = (orderData) => {
-  const items = orderData?.items || orderData?.order?.items || [];
-  return (items || [])
+  const items =
+    orderData?.items ||
+    orderData?.order?.items ||
+    [];
+
+  return items
     .map((it) => {
-      const id = it?.productId || it?.id;
+      const id =
+        it?.catalogId ||
+        it?.variantSku ||
+        it?.productSnapshot?.sku ||
+        it?.productSnapshot?.productCode ||
+        it?.productCode ||
+        it?.productId ||
+        it?.id;
+
       if (!id) return null;
 
       return {
         id: String(id),
-        variantId: it?.variantId ? String(it.variantId) : null,
-        quantity: Number(it?.quantity ?? it?.qty ?? 1) || 1,
+
+        variantId: it?.variantId
+          ? String(it.variantId)
+          : null,
+
+        name:
+          it?.productSnapshot?.title ||
+          it?.title ||
+          it?.name ||
+          "",
+
+        variant:
+          it?.selectedSize ||
+          it?.size ||
+          "",
+
+        quantity: Math.max(
+          1,
+          Number(it?.quantity ?? it?.qty ?? 1)
+        ),
+
         item_price:
-          Number(it?.price ?? it?.item_price ?? it?.salePrice ?? it?.unitPrice ?? 0) || 0,
+          Number(
+            it?.price ??
+            it?.item_price ??
+            it?.itemPrice ??
+            it?.salePrice ??
+            it?.unitPrice ??
+            it?.productSnapshot?.price ??
+            0
+          ) || 0,
       };
     })
     .filter(Boolean);
@@ -121,61 +160,183 @@ export const useRazorpayStore = create((set, get) => ({
         // ✅ 2️⃣ Success → Verify → Purchase
         handler: async (response) => {
           try {
-            await axios.post(`${BACKEND}/api/razorpay/verify`, {
-              mongoOrderId: data.mongoOrderId,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
+            const { data: verifyData } = await axios.post(
+              `${BACKEND}/api/razorpay/verify`,
+              {
+                mongoOrderId: data.mongoOrderId,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }
+            );
 
-            // ✅ CENTRAL: Purchase tracking (GA4 + Meta + internal)
-            // value here is backend amount => will include 5% extra off if your order creation applied it.
-            const metaOrderId = String(
-              data?.mongoOrderId || mongoOrderId || ""
+            if (!verifyData?.success) {
+              throw new Error(
+                verifyData?.message || "Payment verification failed"
+              );
+            }
+
+            const verifiedOrder = verifyData?.order || {};
+
+            const paymentMethod = String(
+              verifyData?.paymentMethod ||
+              verifiedOrder?.paymentMethod ||
+              data?.paymentMethod ||
+              "razorpay"
+            )
+              .trim()
+              .toLowerCase();
+
+            const orderId = String(
+              verifiedOrder?._id ||
+              data?.mongoOrderId ||
+              mongoOrderId ||
+              ""
             ).trim();
 
-            if (!metaOrderId) {
-              console.warn("Meta Purchase skipped: Mongo order _id missing", {
-                orderNumber: data?.orderNumber,
-              });
-            } else {
-              await useOrderStore.getState().trackPurchaseSuccess({
-                orderId: metaOrderId,
-                currency,
-                value,
-                contents,
-                coupon: data?.coupon?.code || data?.coupon || null,
-                paymentMethod: "razorpay",
+            const transactionId = String(
+              verifiedOrder?.orderNumber ||
+              data?.orderNumber ||
+              orderId
+            ).trim();
 
-                event_source_url:
-                  typeof window !== "undefined"
-                    ? `${window.location.origin}/order-success?order=${data.orderNumber || ""}`
-                    : undefined,
+            const purchaseValue =
+              Number(
+                verifiedOrder?.finalPayable ??
+                verifiedOrder?.totalAmount ??
+                verifiedOrder?.grandTotal ??
+                verifiedOrder?.finalTotal ??
+                0
+              ) || paiseToRupees(data?.amount);
+
+            const contents = buildContents(verifiedOrder);
+
+            if (orderId) {
+              const metaResult =
+                await useOrderStore
+                  .getState()
+                  .trackPurchaseSuccess({
+                    orderId,
+                    transactionId,
+
+                    currency:
+                      verifiedOrder?.currency ||
+                      data?.currency ||
+                      "INR",
+
+                    value: purchaseValue,
+                    contents,
+
+                    coupon:
+                      verifiedOrder?.coupon?.code ||
+                      verifiedOrder?.coupon ||
+                      null,
+
+                    paymentMethod,
+
+                    event_source_url:
+                      typeof window !== "undefined"
+                        ? `${window.location.origin}/order-success?order=${encodeURIComponent(
+                          transactionId
+                        )}`
+                        : undefined,
+
+                    customer: {
+                      ...(verifiedOrder?.customerId &&
+                        typeof verifiedOrder.customerId === "object"
+                        ? verifiedOrder.customerId
+                        : {}),
+
+                      email:
+                        verifiedOrder
+                          ?.shippingAddressSnapshot
+                          ?.email ||
+                        data?.customer?.email ||
+                        "",
+
+                      phone:
+                        verifiedOrder
+                          ?.shippingAddressSnapshot
+                          ?.phone ||
+                        data?.customer?.phone ||
+                        "",
+
+                      shippingAddressSnapshot:
+                        verifiedOrder
+                          ?.shippingAddressSnapshot ||
+                        {},
+                    },
+                  });
+
+              console.log("🟢 META PURCHASE RESULT", {
+                orderId,
+                transactionId,
+                paymentMethod,
+                paymentStatus:
+                  verifyData?.paymentStatus ||
+                  verifiedOrder?.paymentStatus,
+                value: purchaseValue,
+                items: contents.length,
+                pixelSent: metaResult?.pixelSent,
+                capiSent: metaResult?.capiSent,
+                eventId: metaResult?.eventId,
               });
             }
 
-            // ✅ Abandoned cart recovered
             try {
-              const { useAbandonedCartStore } = await import("@/store/abandonedCartStore");
-              const abandoned = useAbandonedCartStore.getState();
+              const { useAbandonedCartStore } =
+                await import("@/store/abandonedCartStore");
+
+              const abandoned =
+                useAbandonedCartStore.getState();
+
               if (abandoned?.cart?._id) {
-                await abandoned.markRecovered(abandoned.cart._id, data.mongoOrderId);
+                await abandoned.markRecovered(
+                  abandoned.cart._id,
+                  data.mongoOrderId
+                );
               }
-            } catch {}
+            } catch { }
 
-            set({ loading: false, paymentSuccess: true, _activeKey: null });
-
-            onSuccess?.({
-              orderNumber: data.orderNumber,
-              mongoOrderId: data.mongoOrderId,
-              razorpay_payment_id: response.razorpay_payment_id,
-            });
-          } catch (err) {
             set({
               loading: false,
-              error: err?.response?.data?.message || "Payment verification failed",
+              paymentSuccess: true,
               _activeKey: null,
             });
+
+            onSuccess?.({
+              orderNumber:
+                verifiedOrder?.orderNumber ||
+                data.orderNumber,
+
+              mongoOrderId:
+                verifiedOrder?._id ||
+                data.mongoOrderId,
+
+              paymentMethod,
+
+              paymentStatus:
+                verifyData?.paymentStatus ||
+                verifiedOrder?.paymentStatus,
+
+              razorpay_payment_id:
+                response.razorpay_payment_id,
+            });
+          } catch (err) {
+            console.error(
+              "❌ Razorpay verify / Meta purchase error:",
+              err
+            );
+
+            set({
+              loading: false,
+              error:
+                err?.response?.data?.message ||
+                err?.message ||
+                "Payment verification failed",
+              _activeKey: null,
+            });
+
             onFailure?.(err);
           }
         },

@@ -686,6 +686,7 @@ export const useOrderStore = create((set, get) => ({
       // META + SNAP PURCHASE
       // ============================================
 
+      let metaResult = null;
       try {
         const payload = {
           currency,
@@ -716,8 +717,7 @@ export const useOrderStore = create((set, get) => ({
             }
             : {}),
         };
-
-        const metaPurchaseEventId =
+         metaResult =
           await trackMeta(
             "Purchase",
             payload,
@@ -835,7 +835,7 @@ export const useOrderStore = create((set, get) => ({
             {},
             {
               event_id:
-                metaPurchaseEventId,
+                metaResult?.eventId || purchaseEventId,
             },
           );
         } catch (e) {
@@ -872,6 +872,11 @@ export const useOrderStore = create((set, get) => ({
         );
       }
 
+
+
+
+
+
       // ============================================
       // INTERNAL ANALYTICS
       // ============================================
@@ -891,12 +896,28 @@ export const useOrderStore = create((set, get) => ({
           e,
         );
       }
+
+      console.log("🟢 META PURCHASE", {
+        orderId: safeOrderId,
+        transactionId: safeTransactionId,
+        paymentMethod,
+        value: finalValue,
+        pixelSent: metaResult?.pixelSent,
+        capiSent: metaResult?.capiSent,
+        eventId: metaResult?.eventId,
+      });
+
+      return metaResult;
+
     } catch (e) {
       console.warn(
         "Purchase tracking failed",
         e,
       );
+
+      return null;
     }
+
   },
 
   /**
