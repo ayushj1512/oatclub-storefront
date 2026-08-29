@@ -347,15 +347,21 @@ export default function OrderDetailsPage() {
     }
   }, [shouldOpenReview, statusKey, openReviewLineId, safeItems, reviewedByLineId]);
 
-  const createReturnRma = async ({ item, reason, media = [] }) => {
+  const createReturnRma = async ({
+    item,
+    reason,
+    customerNote,
+    media = [],
+  }) => {
     let toastId = null;
 
     try {
       if (!item?.lineId) throw new Error("Return item missing");
       if (!s(reason)) throw new Error("Return reason missing");
+      if (!s(customerNote)) throw new Error("Customer note missing");
 
       if (!media.length) {
-        throw new Error("Please upload at least one image for QC");
+        throw new Error("Please upload QC images");
       }
 
       setSubmitting(true);
@@ -363,8 +369,8 @@ export default function OrderDetailsPage() {
 
       await createRma(order._id, {
         type: "return",
-        reason: "other",
-        customerNote: reason,
+        reason: s(reason),
+        customerNote: s(customerNote),
 
         media: media.map((file) => ({
           url: file.url,
@@ -381,14 +387,15 @@ export default function OrderDetailsPage() {
         ],
       });
 
-      toast.success("Return request created!", { id: toastId });
+      await fetchRmasByOrder(order._id);
+
+      toast.success("Return request submitted", {
+        id: toastId,
+      });
 
       setReturnModal(null);
-
-      await fetchRmasByOrder(order._id);
-      await refetchOrder({ silent: true });
-    } catch (e) {
-      toast.error(e?.message || "Failed to create return request", {
+    } catch (err) {
+      toast.error(err?.message || "Failed to submit return request", {
         id: toastId,
       });
     } finally {
@@ -675,10 +682,16 @@ export default function OrderDetailsPage() {
         item={returnModal?.item}
         itemName={returnModal?.name || "Item"}
         loading={submitting}
-        onSubmitReturn={async ({ item, reason, media }) => {
+        onSubmitReturn={async ({
+          item,
+          reason,
+          customerNote,
+          media,
+        }) => {
           await createReturnRma({
             item,
             reason,
+            customerNote,
             media,
           });
         }}

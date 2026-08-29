@@ -14,6 +14,16 @@ const IMAGE_FIELDS = [
   { key: "tag", title: "Tag" },
 ];
 
+const REASONS = [
+  { value: "wrong_size", label: "Wrong size / Fit issue" },
+  { value: "wrong_item", label: "Wrong item received" },
+  { value: "damaged", label: "Damaged product" },
+  { value: "defective", label: "Defective product" },
+  { value: "quality_issue", label: "Quality issue" },
+  { value: "changed_mind", label: "Changed my mind" },
+  { value: "other", label: "Other" },
+];
+
 const getUploadedList = (data) => {
   const value =
     data?.items ||
@@ -28,9 +38,7 @@ const getUploadedList = (data) => {
     data?.data;
 
   if (Array.isArray(value)) return value;
-  if (value && typeof value === "object") return [value];
-
-  return [];
+  return value && typeof value === "object" ? [value] : [];
 };
 
 const normalizeMedia = (media, evidenceType) => ({
@@ -64,6 +72,7 @@ export default function ReturnFileModal({
   const { uploadMedia, uploading } = useMediaStore();
 
   const [reason, setReason] = useState("");
+  const [customerNote, setCustomerNote] = useState("");
   const [files, setFiles] = useState({
     front: null,
     back: null,
@@ -74,6 +83,7 @@ export default function ReturnFileModal({
     if (!open) return;
 
     setReason("");
+    setCustomerNote("");
     setFiles({
       front: null,
       back: null,
@@ -83,15 +93,9 @@ export default function ReturnFileModal({
 
   const previews = useMemo(
     () => ({
-      front: files.front
-        ? URL.createObjectURL(files.front)
-        : "",
-      back: files.back
-        ? URL.createObjectURL(files.back)
-        : "",
-      tag: files.tag
-        ? URL.createObjectURL(files.tag)
-        : "",
+      front: files.front ? URL.createObjectURL(files.front) : "",
+      back: files.back ? URL.createObjectURL(files.back) : "",
+      tag: files.tag ? URL.createObjectURL(files.tag) : "",
     }),
     [files]
   );
@@ -108,7 +112,12 @@ export default function ReturnFileModal({
   const allImagesSelected = imageCount === 3;
 
   const busy = loading || uploading;
-  const canSubmit = !!s(reason) && allImagesSelected && !busy;
+
+  const canSubmit =
+    !!s(reason) &&
+    !!s(customerNote) &&
+    allImagesSelected &&
+    !busy;
 
   if (!open) return null;
 
@@ -138,19 +147,17 @@ export default function ReturnFileModal({
       return toast.error("Select return reason.");
     }
 
+    if (!s(customerNote)) {
+      return toast.error("Please add some details about the issue.");
+    }
+
     if (!allImagesSelected) {
-      return toast.error(
-        "Front, back and tag images are required."
-      );
+      return toast.error("Front, back and tag images are required.");
     }
 
     try {
       const result = await uploadMedia({
-        files: [
-          files.front,
-          files.back,
-          files.tag,
-        ],
+        files: [files.front, files.back, files.tag],
         folder: "oatclub/rma",
       });
 
@@ -159,7 +166,6 @@ export default function ReturnFileModal({
       const uploaded = getUploadedList(result);
 
       if (uploaded.length < 3) {
-        console.error("Upload response:", result);
         throw new Error("Could not upload all 3 images.");
       }
 
@@ -176,23 +182,20 @@ export default function ReturnFileModal({
       await onSubmitReturn?.({
         item,
         reason: s(reason),
+        customerNote: s(customerNote),
         media,
       });
 
       onClose?.();
     } catch (err) {
       console.error(err);
-      toast.error(
-        err?.message || "Failed to submit return."
-      );
+      toast.error(err?.message || "Failed to submit return.");
     }
   };
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/50 sm:items-center sm:p-5">
       <div className="relative max-h-[88vh] w-full overflow-y-auto rounded-t-3xl bg-white p-4 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-5">
-
-        {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-base font-bold text-gray-900 sm:text-lg">
@@ -214,39 +217,49 @@ export default function ReturnFileModal({
           </button>
         </div>
 
-        {/* Reason */}
-        <select
-          value={reason}
-          disabled={busy}
-          onChange={(e) => setReason(e.target.value)}
-          className="mt-4 w-full rounded-xl bg-gray-100 px-3 py-2.5 text-sm outline-none"
-        >
-          <option value="" disabled>
-            Select return reason
-          </option>
+        <div className="mt-4">
+          <label className="mb-1.5 block text-xs font-semibold text-gray-700">
+            Return reason
+          </label>
 
-          <option value="Size too small">
-            Size too small
-          </option>
+          <select
+            value={reason}
+            disabled={busy}
+            onChange={(e) => setReason(e.target.value)}
+            className="w-full rounded-xl bg-gray-100 px-3 py-2.5 text-sm outline-none"
+          >
+            <option value="" disabled>
+              Select return reason
+            </option>
 
-          <option value="Size too large">
-            Size too large
-          </option>
+            {REASONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <option value="Wrong item received">
-            Wrong item received
-          </option>
+        <div className="mt-3">
+          <label className="mb-1.5 block text-xs font-semibold text-gray-700">
+            Tell us more
+          </label>
 
-          <option value="Damaged product">
-            Damaged product
-          </option>
+          <textarea
+            value={customerNote}
+            disabled={busy}
+            onChange={(e) => setCustomerNote(e.target.value)}
+            placeholder="Please describe the issue in a little more detail..."
+            rows={3}
+            maxLength={500}
+            className="w-full resize-none rounded-xl bg-gray-100 px-3 py-3 text-sm outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-black/10"
+          />
 
-          <option value="Not as described">
-            Not as described
-          </option>
-        </select>
+          <div className="mt-1 text-right text-[10px] text-gray-400">
+            {customerNote.length}/500
+          </div>
+        </div>
 
-        {/* QC heading */}
         <div className="mt-4 flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-900">
@@ -269,7 +282,6 @@ export default function ReturnFileModal({
           </span>
         </div>
 
-        {/* Images */}
         <div className="mt-3 grid grid-cols-3 gap-2">
           {IMAGE_FIELDS.map(({ key, title }) => {
             const file = files[key];
@@ -282,12 +294,12 @@ export default function ReturnFileModal({
                     {title}
                   </span>
 
-                  {file ? (
+                  {file && (
                     <CheckCircle2
                       size={12}
                       className="text-green-600"
                     />
-                  ) : null}
+                  )}
                 </div>
 
                 {preview ? (
@@ -321,10 +333,7 @@ export default function ReturnFileModal({
                         className="hidden"
                         disabled={busy}
                         onChange={(e) =>
-                          handleFile(
-                            key,
-                            e.target.files?.[0]
-                          )
+                          handleFile(key, e.target.files?.[0])
                         }
                       />
                     </label>
@@ -343,10 +352,7 @@ export default function ReturnFileModal({
                       className="hidden"
                       disabled={busy}
                       onChange={(e) =>
-                        handleFile(
-                          key,
-                          e.target.files?.[0]
-                        )
+                        handleFile(key, e.target.files?.[0])
                       }
                     />
                   </label>
@@ -356,12 +362,10 @@ export default function ReturnFileModal({
           })}
         </div>
 
-        {/* Info */}
         <p className="mt-3 text-center text-[10px] text-gray-400">
           Clear images only • Maximum 10 MB each
         </p>
 
-        {/* Submit */}
         <button
           type="button"
           disabled={!canSubmit}
@@ -374,13 +378,8 @@ export default function ReturnFileModal({
         >
           {busy ? (
             <>
-              <Loader2
-                size={15}
-                className="animate-spin"
-              />
-              {uploading
-                ? "Uploading..."
-                : "Submitting..."}
+              <Loader2 size={15} className="animate-spin" />
+              {uploading ? "Uploading..." : "Submitting..."}
             </>
           ) : (
             "Submit Return"
