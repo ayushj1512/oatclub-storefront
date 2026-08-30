@@ -1,25 +1,24 @@
 // src/app/sitemap.js
 
-const SITE_URL = "https://oatclub.in";
+const SITE_URL = "https://www.oatclub.in";
 const API_BASE = "https://api.oatclub.in";
 
 async function safeJson(url) {
   try {
     const res = await fetch(url, {
-      cache: "no-store",
+      next: { revalidate: 3600 },
     });
 
     if (!res.ok) return null;
+
     return await res.json();
   } catch {
     return null;
   }
 }
 
-function slugify(input) {
-  if (!input) return "";
-
-  return String(input)
+function slugify(value = "") {
+  return String(value)
     .toLowerCase()
     .trim()
     .replace(/['"]/g, "")
@@ -32,66 +31,68 @@ function getValidDate(value, fallback = new Date()) {
   if (!value) return fallback;
 
   const date = new Date(value);
+
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
 
 function pickCategorySlug(product) {
-  const cats = product?.categories;
+  const categories = product?.categories;
 
-  if (Array.isArray(cats) && cats.length > 0) {
-    const first = cats[0];
-
-    if (typeof first === "string") {
-      return slugify(first) || "shop";
-    }
-
-    return slugify(first?.slug || first?.name || first?.title) || "shop";
+  if (!Array.isArray(categories) || !categories.length) {
+    return "shop";
   }
 
-  return "shop";
-}
+  const category = categories[0];
 
-function collectSlugs(items) {
-  if (!Array.isArray(items)) return [];
+  if (typeof category === "string") {
+    return slugify(category) || "shop";
+  }
 
-  return items
-    .map((item) => {
-      if (typeof item === "string") return slugify(item);
-      return slugify(item?.slug || item?.name || item?.title);
-    })
-    .filter(Boolean);
+  return (
+    slugify(
+      category?.slug ||
+      category?.name ||
+      category?.title
+    ) || "shop"
+  );
 }
 
 async function fetchAllProducts() {
   const products = [];
-  const LIMIT = 50;
+  const LIMIT = 100;
 
   const first = await safeJson(
     `${API_BASE}/api/products?page=1&limit=${LIMIT}`
   );
 
-  if (!first) return products;
+  if (!first) return [];
 
-  const totalPages = Number(first?.pages || first?.totalPages || 1);
+  const getProducts = (data) => {
+    if (Array.isArray(data?.products)) {
+      return data.products;
+    }
 
-  const firstBatch = Array.isArray(first?.products)
-    ? first.products
-    : Array.isArray(first?.data)
-      ? first.data
-      : [];
+    if (Array.isArray(data?.data)) {
+      return data.data;
+    }
 
-  products.push(...firstBatch);
+    return [];
+  };
+
+  products.push(...getProducts(first));
+
+  const totalPages = Number(
+    first?.pages ||
+    first?.totalPages ||
+    1
+  );
 
   for (let page = 2; page <= totalPages; page++) {
     const data = await safeJson(
       `${API_BASE}/api/products?page=${page}&limit=${LIMIT}`
     );
 
-    const batch = Array.isArray(data?.products)
-      ? data.products
-      : Array.isArray(data?.data)
-        ? data.data
-        : [];
+    const batch = getProducts(data);
 
     if (!batch.length) break;
 
@@ -101,87 +102,130 @@ async function fetchAllProducts() {
   const seen = new Set();
 
   return products.filter((product) => {
-    const id = String(product?._id || product?.id || "");
+    const id = String(
+      product?._id ||
+      product?.id ||
+      ""
+    );
 
-    if (!id || seen.has(id)) return false;
+    if (!id || seen.has(id)) {
+      return false;
+    }
 
     const status = String(
-      product?.status || product?.productStatus || ""
+      product?.status ||
+      product?.productStatus ||
+      ""
     )
       .toLowerCase()
       .trim();
 
-    const isHidden =
+    const hidden =
       product?.isDeleted === true ||
       product?.deleted === true ||
       product?.isArchived === true ||
       product?.archived === true ||
       product?.isDraft === true ||
-      status === "draft" ||
-      status === "inactive" ||
-      status === "disabled";
+      ["draft", "inactive", "disabled"].includes(status);
 
-    if (isHidden) return false;
+    if (hidden) {
+      return false;
+    }
 
     seen.add(id);
+
     return true;
   });
 }
 
 export default async function sitemap() {
-  const now = new Date();
+  const products = await fetchAllProducts();
 
+  const productDates = products
+    .map((product) =>
+      getValidDate(
+        product?.updatedAt ||
+        product?.createdAt ||
+        product?.publishAt,
+        null
+      )
+    )
+    .filter(Boolean)
+    .sort((a, b) => b.getTime() - a.getTime());
+
+  const latestProductUpdate =
+    productDates[0] || new Date();
+
+  /*
+   * MAIN SEO + QUICK LINKS + SUPPORT PAGES
+   */
   const staticRoutes = [
+    // Homepage
     {
       path: "/",
       priority: 1,
       changeFrequency: "daily",
     },
+
+    // Core commercial pages
     {
-      path: "/all-clothing",
-      priority: 0.95,
+      path: "/new-arrivals",
+      priority: 1,
       changeFrequency: "daily",
     },
     {
-      path: "/new-arrivals",
-      priority: 0.9,
+      path: "/all-clothing",
+      priority: 0.98,
       changeFrequency: "daily",
     },
     {
       path: "/bestseller",
-      priority: 0.9,
-      changeFrequency: "weekly",
+      priority: 0.96,
+      changeFrequency: "daily",
+    },
+
+    // Main categories
+    {
+      path: "/category/tops",
+      priority: 0.95,
+      changeFrequency: "daily",
     },
     {
-      path: "/collections",
+      path: "/category/dresses",
+      priority: 0.95,
+      changeFrequency: "daily",
+    },
+    {
+      path: "/category/co-ord-sets",
+      priority: 0.95,
+      changeFrequency: "daily",
+    },
+    {
+      path: "/category/bottoms",
+      priority: 0.95,
+      changeFrequency: "daily",
+    },
+
+    // Blog
+    {
+      path: "/blog",
       priority: 0.85,
       changeFrequency: "weekly",
     },
-    {
-      path: "/blog",
-      priority: 0.72,
-      changeFrequency: "weekly",
-    },
-    {
-      path: "/the-oatclub-edit",
-      priority: 0.72,
-      changeFrequency: "weekly",
-    },
-    {
-      path: "/mission",
-      priority: 0.62,
-      changeFrequency: "monthly",
-    },
+
+    // Quick links
     {
       path: "/about",
-      priority: 0.7,
+      priority: 0.6,
       changeFrequency: "monthly",
     },
     {
       path: "/contact",
-      priority: 0.6,
+      priority: 0.55,
       changeFrequency: "monthly",
     },
+
+    // Support pages
     {
       path: "/support",
       priority: 0.5,
@@ -190,6 +234,11 @@ export default async function sitemap() {
     {
       path: "/faq",
       priority: 0.5,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/shipping-policy",
+      priority: 0.45,
       changeFrequency: "monthly",
     },
     {
@@ -203,76 +252,66 @@ export default async function sitemap() {
       changeFrequency: "monthly",
     },
     {
-      path: "/returns",
-      priority: 0.45,
-      changeFrequency: "monthly",
-    },
-    {
-      path: "/shipping-policy",
-      priority: 0.45,
-      changeFrequency: "monthly",
-    },
-    {
       path: "/privacy-policy",
-      priority: 0.35,
+      priority: 0.3,
       changeFrequency: "yearly",
     },
     {
       path: "/terms-and-conditions",
-      priority: 0.35,
+      priority: 0.3,
       changeFrequency: "yearly",
     },
   ].map((route) => ({
     url: `${SITE_URL}${route.path}`,
-    lastModified: now,
+    lastModified: latestProductUpdate,
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));
 
-  const products = await fetchAllProducts();
+  /*
+   * Prevent main category duplicates
+   */
+  const importantCategories = new Set([
+    "tops",
+    "dresses",
+    "co-ord-sets",
+    "bottoms",
+  ]);
 
-  const categorySlugs = Array.from(
-    new Set(
+  /*
+   * Other genuine product categories
+   */
+  const categorySlugs = [
+    ...new Set(
       products
-        .map((product) => pickCategorySlug(product))
-        .filter(Boolean)
-    )
-  );
+        .map(pickCategorySlug)
+        .filter(
+          (slug) =>
+            slug &&
+            slug !== "shop" &&
+            !importantCategories.has(slug)
+        )
+    ),
+  ];
 
-  const categoryRoutes = categorySlugs.map((category) => ({
-    url: `${SITE_URL}/category/${category}`,
-    lastModified: now,
+  const categoryRoutes = categorySlugs.map((slug) => ({
+    url: `${SITE_URL}/category/${slug}`,
+    lastModified: latestProductUpdate,
     changeFrequency: "weekly",
-    priority: 0.75,
+    priority: 0.7,
   }));
 
-  const collectionSlugs = Array.from(
-    new Set(
-      products.flatMap((product) => collectSlugs(product?.collections))
-    )
-  );
-
-  const collectionRoutes = collectionSlugs.map((collection) => ({
-    url: `${SITE_URL}/collection/${collection}`,
-    lastModified: now,
-    changeFrequency: "weekly",
-    priority: 0.76,
-  }));
-
-  const tagSlugs = Array.from(
-    new Set(products.flatMap((product) => collectSlugs(product?.tags)))
-  );
-
-  const tagRoutes = tagSlugs.map((tag) => ({
-    url: `${SITE_URL}/tag/${tag}`,
-    lastModified: now,
-    changeFrequency: "weekly",
-    priority: 0.58,
-  }));
-
+  /*
+   * Product pages
+   */
   const productRoutes = products.map((product) => {
-    const id = String(product?._id || product?.id || "");
-    const category = pickCategorySlug(product);
+    const id = String(
+      product?._id ||
+      product?.id
+    );
+
+    const category =
+      pickCategorySlug(product);
 
     const slug = slugify(
       product?.slug ||
@@ -283,22 +322,22 @@ export default async function sitemap() {
 
     return {
       url: `${SITE_URL}/category/${category}/${slug}/${id}`,
+
       lastModified: getValidDate(
         product?.updatedAt ||
-          product?.createdAt ||
-          product?.publishAt,
-        now
+        product?.createdAt ||
+        product?.publishAt,
+        latestProductUpdate
       ),
+
       changeFrequency: "weekly",
-      priority: 0.9,
+      priority: 0.8,
     };
   });
 
   return [
     ...staticRoutes,
     ...categoryRoutes,
-    ...collectionRoutes,
-    ...tagRoutes,
     ...productRoutes,
   ];
 }
