@@ -683,173 +683,49 @@ export const useOrderStore = create((set, get) => ({
         .filter(Boolean);
 
       // ============================================
-      // META + SNAP PURCHASE
+      // SNAP PURCHASE
+      // Meta Purchase now fires ONLY on OrderSuccessClient
       // ============================================
 
-      let metaResult = null;
       try {
-        const payload = {
-          currency,
-          value: finalValue,
+        await trackSnap(
+          "PURCHASE",
+          {
+            currency,
 
-          content_type: "product",
+            price: finalValue,
 
-          content_ids:
-            metaContents.map((c) => c.id),
+            transaction_id:
+              safeTransactionId,
 
-          contents: metaContents,
+            item_ids:
+              metaContents.map((c) =>
+                String(c.id)
+              ),
 
-          num_items:
-            metaContents.reduce(
-              (sum, c) =>
-                sum + (c.quantity || 0),
-              0,
-            ),
+            payment_method:
+              paymentMethod,
 
-          order_id: safeTransactionId,
-
-          payment_method:
-            paymentMethod,
-
-          ...(couponCode
-            ? {
-              coupon: couponCode,
-            }
-            : {}),
-        };
-         metaResult =
-          await trackMeta(
-            "Purchase",
-            payload,
-            {
-              external_id:
-                customer?._id ||
-                safeOrderId,
-
-              email:
-                customer?.email ||
-                customer
-                  ?.shippingAddressSnapshot
-                  ?.email,
-
-              phone:
-                customer?.phone ||
-                customer?.mobile ||
-                customer
-                  ?.shippingAddressSnapshot
-                  ?.phone,
-
-              firstName:
-                customer?.firstName ||
-                customer?.shippingAddress
-                  ?.firstName ||
-                customer
-                  ?.shippingAddressSnapshot
-                  ?.fullName
-                  ?.split?.(" ")?.[0],
-
-              lastName:
-                customer?.lastName ||
-                customer?.shippingAddress
-                  ?.lastName ||
-                customer
-                  ?.shippingAddressSnapshot
-                  ?.fullName
-                  ?.split?.(" ")
-                  ?.slice?.(1)
-                  ?.join?.(" "),
-
-              city:
-                customer?.city ||
-                customer?.shippingAddress
-                  ?.city ||
-                customer
-                  ?.shippingAddressSnapshot
-                  ?.city,
-
-              state:
-                customer?.state ||
-                customer?.shippingAddress
-                  ?.state ||
-                customer
-                  ?.shippingAddressSnapshot
-                  ?.state,
-
-              country:
-                customer?.country ||
-                customer?.shippingAddress
-                  ?.country ||
-                customer
-                  ?.shippingAddressSnapshot
-                  ?.country ||
-                "in",
-
-              zip:
-                customer?.pincode ||
-                customer?.zip ||
-                customer?.shippingAddress
-                  ?.pincode ||
-                customer
-                  ?.shippingAddressSnapshot
-                  ?.pincode,
-            },
-            {
-              event_id:
-                purchaseEventId,
-
-              ...(event_source_url
-                ? {
-                  event_source_url,
-                }
-                : {}),
-            },
-          );
-
-        try {
-          await trackSnap(
-            "PURCHASE",
-            {
-              currency,
-
-              price:
-                finalValue,
-
-              transaction_id:
-                safeTransactionId,
-
-              item_ids:
-                metaContents.map((c) =>
-                  String(c.id),
-                ),
-
-              payment_method:
-                paymentMethod,
-
-              ...(couponCode
-                ? {
-                  coupon:
-                    couponCode,
-                }
-                : {}),
-            },
-            {},
-            {
-              event_id:
-                metaResult?.eventId || purchaseEventId,
-            },
-          );
-        } catch (e) {
-          console.warn(
-            "👻 Snap PURCHASE failed",
-            e,
-          );
-        }
+            ...(couponCode
+              ? {
+                coupon: couponCode,
+              }
+              : {}),
+          },
+          {},
+          {
+            event_id:
+              purchaseEventId,
+          }
+        );
       } catch (e) {
         console.warn(
-          "🧾 Meta Purchase failed",
-          e,
+          "👻 Snap PURCHASE failed",
+          e
         );
       }
+
+
 
       // ============================================
       // GOOGLE ADS PURCHASE
@@ -897,17 +773,19 @@ export const useOrderStore = create((set, get) => ({
         );
       }
 
-      console.log("🟢 META PURCHASE", {
+      console.log("🟢 PURCHASE TRACKING", {
         orderId: safeOrderId,
-        transactionId: safeTransactionId,
+        transactionId:
+          safeTransactionId,
         paymentMethod,
         value: finalValue,
-        pixelSent: metaResult?.pixelSent,
-        capiSent: metaResult?.capiSent,
-        eventId: metaResult?.eventId,
       });
 
-      return metaResult;
+      return {
+        success: true,
+        eventId: purchaseEventId,
+      };
+
 
     } catch (e) {
       console.warn(

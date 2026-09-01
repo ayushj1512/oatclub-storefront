@@ -1,7 +1,7 @@
 // src/app/order-success/OrderSuccessClient.jsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -19,6 +19,12 @@ import {
   Truck,
   Wallet,
 } from "lucide-react";
+
+import {
+  getMetaCatalogId,
+  trackMeta,
+} from "@/lib/meta/track";
+
 
 const API =
   process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
@@ -102,6 +108,9 @@ export default function OrderSuccessClient() {
   const [order, setOrder] = useState(null);
   const [copied, setCopied] = useState(false);
   const [productMap, setProductMap] = useState({});
+  const purchaseTrackingRef = useRef(
+    new Set()
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -179,6 +188,359 @@ export default function OrderSuccessClient() {
       mounted = false;
     };
   }, [order]);
+
+  useEffect(() => {
+    if (!order?._id) return;
+
+    const fireMetaPurchase = async () => {
+      try {
+        const orderId = String(
+          order?._id || ""
+        ).trim();
+
+        if (!orderId) return;
+
+        /*
+         * Browser-level dedupe.
+         *
+         * Refreshing order success page should
+         * NOT fire Purchase again.
+         */
+        const dedupeKey =
+          `meta_purchase_${orderId}`;
+
+        if (
+          purchaseTrackingRef.current.has(
+            orderId
+          )
+        ) {
+          return;
+        }
+
+        if (
+          typeof window !== "undefined" &&
+          window.localStorage.getItem(
+            dedupeKey
+          )
+        ) {
+          console.log(
+            "⚪ Meta Purchase already fired:",
+            orderId
+          );
+
+          return;
+        }
+
+        purchaseTrackingRef.current.add(
+          orderId
+        );
+
+        const currency =
+          order?.currency || "INR";
+
+        const shipping =
+          order
+            ?.shippingAddressSnapshot ||
+          {};
+
+        const items = Array.isArray(
+          order?.items
+        )
+          ? order.items
+          : [];
+
+        const contents = items
+          .map((item) => {
+            const productId =
+              item?.productId?._id ||
+              item?.productId ||
+              "";
+
+            const productCode =
+              item?.productCode ||
+              item?.productSnapshot
+                ?.productCode ||
+              "";
+
+            const variantSku =
+              item?.variantSku ||
+              item?.variant?.sku ||
+              item?.sku ||
+              item?.productSnapshot?.sku ||
+              "";
+
+            const selectedSize =
+              item?.selectedSize ||
+              item?.size ||
+              item?.variant
+                ?.attributes
+                ?.find?.(
+                  (attr) =>
+                    String(
+                      attr?.key || ""
+                    )
+                      .trim()
+                      .toLowerCase() ===
+                    "size"
+                )?.value ||
+              "";
+
+            const catalogId =
+              item?.catalogId ||
+              getMetaCatalogId({
+                variantSku,
+                sku: variantSku,
+                productCode,
+                selectedSize,
+                productId,
+              });
+
+            if (!catalogId) {
+              return null;
+            }
+
+            const quantity =
+              Math.max(
+                1,
+                Number(
+                  item?.quantity ??
+                  item?.qty ??
+                  1
+                )
+              );
+
+            const itemPrice =
+              Number(
+                item?.price ??
+                item?.itemPrice ??
+                item?.item_price ??
+                item?.salePrice ??
+                item
+                  ?.productSnapshot
+                  ?.price ??
+                0
+              ) || 0;
+
+            return {
+              id: String(catalogId),
+
+              quantity,
+
+              ...(itemPrice > 0
+                ? {
+                  item_price:
+                    itemPrice,
+                }
+                : {}),
+            };
+          })
+          .filter(Boolean);
+
+        const contentIds =
+          contents.map(
+            (item) => item.id
+          );
+
+        const numItems =
+          contents.reduce(
+            (sum, item) =>
+              sum +
+              Number(
+                item?.quantity || 0
+              ),
+            0
+          );
+
+        const value =
+          Number(
+            order?.finalPayable ??
+            order?.finalTotal ??
+            order?.grandTotal ??
+            order?.total ??
+            order?.payableAmount ??
+            order?.amount ??
+            order?.totalAmount ??
+            0
+          ) || 0;
+
+        const paymentMethod =
+          String(
+            order?.paymentMethod ||
+            "cod"
+          )
+            .trim()
+            .toLowerCase();
+
+        const couponCode =
+          order?.coupon &&
+            typeof order.coupon ===
+            "object"
+            ? String(
+              order?.coupon?.code ||
+              ""
+            ).trim()
+            : order?.coupon
+              ? String(
+                order.coupon
+              ).trim()
+              : "";
+
+        const eventId =
+          `purchase_${orderId}`;
+
+        const metaResult =
+          await trackMeta(
+            "Purchase",
+            {
+              currency,
+              value,
+
+              content_type:
+                "product",
+
+              content_ids:
+                contentIds,
+
+              contents,
+
+              num_items:
+                numItems,
+
+              order_id:
+                String(
+                  order?.orderNumber ||
+                  orderId
+                ),
+
+              payment_method:
+                paymentMethod,
+
+              ...(couponCode
+                ? {
+                  coupon:
+                    couponCode,
+                }
+                : {}),
+            },
+            {
+              external_id:
+                order?.customerId?._id ||
+                order?.customerId ||
+                orderId,
+
+              email:
+                order?.customerId
+                  ?.email ||
+                shipping?.email ||
+                "",
+
+              phone:
+                order?.customerId
+                  ?.phone ||
+                order?.customerId
+                  ?.mobile ||
+                shipping?.phone ||
+                "",
+
+              firstName:
+                order?.customerId
+                  ?.firstName ||
+                shipping?.fullName
+                  ?.split?.(" ")?.[0] ||
+                "",
+
+              lastName:
+                order?.customerId
+                  ?.lastName ||
+                shipping?.fullName
+                  ?.split?.(" ")
+                  ?.slice?.(1)
+                  ?.join?.(" ") ||
+                "",
+
+              city:
+                order?.customerId
+                  ?.city ||
+                shipping?.city ||
+                "",
+
+              state:
+                order?.customerId
+                  ?.state ||
+                shipping?.state ||
+                "",
+
+              country:
+                order?.customerId
+                  ?.country ||
+                shipping?.country ||
+                "in",
+
+              zip:
+                order?.customerId
+                  ?.pincode ||
+                shipping?.pincode ||
+                shipping?.postalCode ||
+                "",
+            },
+            {
+              event_id: eventId,
+
+              event_source_url:
+                typeof window !==
+                  "undefined"
+                  ? window.location.href
+                  : undefined,
+            }
+          );
+
+        /*
+         * Mark only after successful
+         * tracking call.
+         */
+        if (
+          typeof window !==
+          "undefined"
+        ) {
+          window.localStorage.setItem(
+            dedupeKey,
+            String(Date.now())
+          );
+        }
+
+        console.log(
+          "🟢 ORDER SUCCESS META PURCHASE",
+          {
+            orderId,
+            orderNumber:
+              order?.orderNumber,
+            paymentMethod,
+            value,
+            items:
+              contents.length,
+            eventId:
+              metaResult?.eventId ||
+              eventId,
+            pixelSent:
+              metaResult?.pixelSent,
+            capiSent:
+              metaResult?.capiSent,
+          }
+        );
+      } catch (error) {
+        purchaseTrackingRef.current.delete(
+          String(order?._id || "")
+        );
+
+        console.warn(
+          "❌ Order Success Meta Purchase failed",
+          error
+        );
+      }
+    };
+
+    fireMetaPurchase();
+  }, [order?._id]);
 
 
   const onCopy = async () => {

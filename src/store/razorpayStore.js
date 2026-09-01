@@ -212,7 +212,7 @@ export const useRazorpayStore = create((set, get) => ({
             const contents = buildContents(verifiedOrder);
 
             if (orderId) {
-              const metaResult =
+
                 await useOrderStore
                   .getState()
                   .trackPurchaseSuccess({
@@ -268,19 +268,19 @@ export const useRazorpayStore = create((set, get) => ({
                     },
                   });
 
-              console.log("🟢 META PURCHASE RESULT", {
-                orderId,
-                transactionId,
-                paymentMethod,
-                paymentStatus:
-                  verifyData?.paymentStatus ||
-                  verifiedOrder?.paymentStatus,
-                value: purchaseValue,
-                items: contents.length,
-                pixelSent: metaResult?.pixelSent,
-                capiSent: metaResult?.capiSent,
-                eventId: metaResult?.eventId,
-              });
+              console.log(
+                "✅ Razorpay purchase tracking complete",
+                {
+                  orderId,
+                  transactionId,
+                  paymentMethod,
+                  paymentStatus:
+                    verifyData?.paymentStatus ||
+                    verifiedOrder?.paymentStatus,
+                  value: purchaseValue,
+                  items: contents.length,
+                }
+              );
             }
 
             try {
