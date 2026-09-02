@@ -21,6 +21,7 @@ import OrderItemsList from "@/components/profile/order-details/OrderItemsList";
 import OrderRmaRequests from "@/components/profile/order-details/OrderRmaRequests";
 import OrderRemarkCard from "@/components/profile/order-details/OrderRemarkCard";
 import OrderSupportCard from "@/components/profile/order-details/OrderSupportCard";
+import ExchangeFileModal from "@/components/profile/ExchangeFileModal";
 
 import {
   CANCEL_ALLOWED,
@@ -84,8 +85,7 @@ export default function OrderDetailsPage() {
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(null);
-  const [selectedSize, setSelectedSize] = useState(null);
-  const [exchangeMedia, setExchangeMedia] = useState([]);
+
 
   const [submitting, setSubmitting] = useState(false);
   const [remarkDraft, setRemarkDraft] = useState("");
@@ -403,56 +403,86 @@ export default function OrderDetailsPage() {
     }
   };
 
-  const submitExchange = async (item) => {
+  const submitExchange = async ({
+    item,
+    selectedSize,
+    media,
+  }) => {
     let toastId = null;
 
     try {
-      if (!exchangeMedia.length) {
-        throw new Error("Please upload at least one image for QC");
-      }
-
       setSubmitting(true);
-      toastId = toast.loading("Submitting exchange request...");
+
+      toastId = toast.loading(
+        "Submitting exchange request..."
+      );
 
       await createRma(order._id, {
         type: "exchange",
         reason: "wrong_size",
-        customerNote: `Exchange size to ${selectedSize}`,
 
-        media: exchangeMedia.map((file) => ({
-          url: file.url,
-          publicId: file.publicId || "",
-          resourceType: file.resourceType || "image",
-        })),
+        customerNote:
+          `Exchange size to ${selectedSize}`,
+
+        media,
 
         items: [
           {
-            orderLineId: item.lineId,
+            orderLineId:
+              item.lineId,
             quantity: 1,
           },
         ],
 
         exchangeTo: {
-          productId: item.productId?._id || item.productId,
-          variantId: item.variant?.variantId,
-          variantSku: item.variant?.sku || "",
-          attributes: [{ key: "size", value: selectedSize }],
-          note: `Requested size: ${selectedSize}`,
+          productId:
+            item.productId?._id ||
+            item.productId,
+
+          variantId:
+            item.variant
+              ?.variantId ||
+            null,
+
+          variantSku:
+            item.variant?.sku ||
+            "",
+
+          attributes: [
+            {
+              key: "size",
+              value:
+                selectedSize,
+            },
+          ],
+
+          note:
+            `Requested size: ${selectedSize}`,
         },
       });
 
-      toast.success("Exchange request created!", { id: toastId });
+      toast.success(
+        "Exchange request created!",
+        { id: toastId }
+      );
 
-      setShowExchangeModal(null);
-      setSelectedSize(null);
-      setExchangeMedia([]);
+      setShowExchangeModal(
+        null
+      );
 
-      await fetchRmasByOrder(order._id);
-      await refetchOrder({ silent: true });
-    } catch (e) {
-      toast.error(e?.message || "Failed to create exchange request", {
-        id: toastId,
+      await fetchRmasByOrder(
+        order._id
+      );
+
+      await refetchOrder({
+        silent: true,
       });
+    } catch (e) {
+      toast.error(
+        e?.message ||
+        "Failed to create exchange request",
+        { id: toastId }
+      );
     } finally {
       setSubmitting(false);
     }
@@ -626,55 +656,27 @@ export default function OrderDetailsPage() {
         loading={submitting}
       />
 
-      {showExchangeModal ? (
-        <Modal
-          onClose={() => {
-            setShowExchangeModal(null);
-            setSelectedSize(null);
-          }}
-        >
-          <h2 className="mb-2 text-lg font-bold text-gray-900 sm:text-xl">
-            Exchange Size
-          </h2>
-
-          <p className="mb-4 text-sm text-gray-500">
-            Select new size for{" "}
-            <span className="font-semibold text-gray-900">
-              {showExchangeModal.name}
-            </span>
-          </p>
-
-          <div className="mb-5 flex flex-wrap gap-2">
-            {showExchangeModal.availableSizes.map((sz) => (
-              <button
-                type="button"
-                key={sz}
-                onClick={() => setSelectedSize(sz)}
-                className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
-                  selectedSize === sz
-                    ? "bg-black text-white"
-                    : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                }`}
-              >
-                {sz}
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            disabled={!selectedSize || submitting}
-            onClick={() => submitExchange(showExchangeModal.item)}
-            className={`w-full rounded-2xl py-3 text-sm font-semibold transition ${
-              selectedSize
-                ? "bg-black text-white hover:opacity-90"
-                : "cursor-not-allowed bg-black/10 text-black/40"
-            }`}
-          >
-            {submitting ? "Submitting..." : "Submit Exchange"}
-          </button>
-        </Modal>
-      ) : null}
+      <ExchangeFileModal
+        open={!!showExchangeModal}
+        onClose={() =>
+          setShowExchangeModal(null)
+        }
+        item={
+          showExchangeModal?.item
+        }
+        itemName={
+          showExchangeModal?.name ||
+          "Item"
+        }
+        availableSizes={
+          showExchangeModal
+            ?.availableSizes || []
+        }
+        loading={submitting}
+        onSubmitExchange={
+          submitExchange
+        }
+      />
 
       <ReturnFileModal
         open={!!returnModal}
