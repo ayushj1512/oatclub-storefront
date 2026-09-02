@@ -720,8 +720,8 @@ function CompletedOrderPage({
         <div className="p-4 text-center sm:p-5">
           <div
             className={`mx-auto grid h-11 w-11 place-items-center rounded-full ${confirmed
-                ? "bg-emerald-50 text-emerald-600"
-                : "bg-red-50 text-red-600"
+              ? "bg-emerald-50 text-emerald-600"
+              : "bg-red-50 text-red-600"
               }`}
           >
             {confirmed ? (
@@ -733,15 +733,15 @@ function CompletedOrderPage({
 
           <div
             className={`mx-auto mt-2.5 w-fit rounded-full px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.12em] ${confirmed
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-red-50 text-red-700"
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-red-50 text-red-700"
               }`}
           >
             {confirmed ? "Confirmed" : "Cancelled"}
           </div>
 
           <p className="mt-2 text-[9px] font-semibold text-neutral-400">
-            ORDER #{order?.orderNumber || "—"}
+            ORDER #{order?.orderNumber || "—"} · {(order?.items || []).reduce((sum, item) => sum + Number(item?.quantity || 1), 0)} ITEM{(order?.items || []).reduce((sum, item) => sum + Number(item?.quantity || 1), 0) === 1 ? "" : "S"}
           </p>
 
           <h1 className="mt-1 text-xl font-black tracking-tight text-neutral-950">
@@ -755,7 +755,7 @@ function CompletedOrderPage({
 
         <div className="border-t border-neutral-100 px-3 py-3 sm:px-5">
           <div className="space-y-1.5">
-            {(order?.items || []).slice(0, 3).map((item) => (
+            {(order?.items || []).map((item) => (
               <ProductCard
                 key={item?.lineId || item?._id}
                 item={item}
@@ -766,12 +766,46 @@ function CompletedOrderPage({
           <div className="mt-2 rounded-xl bg-neutral-50 p-3">
             <div className="flex items-center justify-between gap-4">
               <span className="text-[10px] text-neutral-500">
-                Payable amount
+                Subtotal
               </span>
 
-              <span className="text-sm font-black text-neutral-950">
-                {money(order?.finalPayable)}
+              <span className="text-[10px] font-bold text-neutral-800">
+                {money(order?.subtotal)}
               </span>
+            </div>
+
+            {Number(order?.discount || 0) > 0 ? (
+              <div className="mt-1.5 flex items-center justify-between gap-4">
+                <span className="text-[10px] text-neutral-500">
+                  Discount
+                </span>
+
+                <span className="text-[10px] font-bold text-neutral-800">
+                  -{money(order?.discount)}
+                </span>
+              </div>
+            ) : null}
+
+            <div className="mt-1.5 flex items-center justify-between gap-4">
+              <span className="text-[10px] text-neutral-500">
+                Shipping
+              </span>
+
+              <span className="text-[10px] font-bold text-neutral-800">
+                {Number(order?.shippingFee || 0) > 0 ? money(order?.shippingFee) : "FREE"}
+              </span>
+            </div>
+
+            <div className="mt-2 border-t border-neutral-200 pt-2">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[10px] font-semibold text-neutral-700">
+                  Payable amount
+                </span>
+
+                <span className="text-sm font-black text-neutral-950">
+                  {money(order?.finalPayable)}
+                </span>
+              </div>
             </div>
 
             <div className="mt-1.5 flex items-center justify-between gap-4">
@@ -783,6 +817,25 @@ function CompletedOrderPage({
                 {formatPaymentMethod(order?.paymentMethod)}
               </span>
             </div>
+          </div>
+
+          <div className="mt-2 rounded-xl border border-neutral-200 p-3">
+            <div className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-neutral-500" />
+              <p className="text-[10px] font-bold text-neutral-950">
+                Delivery details
+              </p>
+            </div>
+
+            <p className="mt-2 text-[10px] font-semibold text-neutral-800">
+              {order?.shippingAddressSnapshot?.fullName || "—"}
+            </p>
+            <p className="mt-0.5 text-[9px] text-neutral-500">
+              {order?.shippingAddressSnapshot?.phone || ""}
+            </p>
+            <p className="mt-1 text-[9px] leading-4 text-neutral-500">
+              {getAddress(order?.shippingAddressSnapshot || {}) || "—"}
+            </p>
           </div>
 
           <div className="mt-3 rounded-xl border border-neutral-200 p-3">
