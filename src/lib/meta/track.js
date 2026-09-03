@@ -200,14 +200,25 @@ export function normalizeMetaUserData(userData = {}) {
 export function setMetaUserData(userData = {}) {
   const normalized = normalizeMetaUserData(userData);
 
-  saveStoredIdentity(normalized);
+  // ✅ Persist only browser identifiers.
+  // Customer PII should come from the current user/order only.
+  saveStoredIdentity({
+    fbc: normalized?.fbc,
+    fbp: normalized?.fbp,
+  });
 
   return normalized;
 }
 
 export function getMetaUserData(userData = {}) {
+  const stored = getStoredIdentity();
+
   return normalizeMetaUserData({
-    ...getStoredIdentity(),
+    // ✅ Persist only browser identifiers.
+    // Never reuse stale customer PII across events.
+    fbc: stored?.fbc,
+    fbp: stored?.fbp,
+
     ...userData,
   });
 }
@@ -389,8 +400,11 @@ export async function trackMeta(
   ======================================================= */
 
   try {
-    if (typeof window !== "undefined" && typeof window.fbq === "function") {
-      const method = META_STANDARD_EVENTS.has(eventName)
+    if (
+      !options.skipPixel &&
+      typeof window !== "undefined" &&
+      typeof window.fbq === "function"
+    ) {      const method = META_STANDARD_EVENTS.has(eventName)
         ? "track"
         : "trackCustom";
 
@@ -433,8 +447,10 @@ export async function trackMeta(
       fbp: userData?.fbp || storedUserData?.fbp || immediateBrowserData?.fbp,
     });
 
-    saveStoredIdentity(safeUserData);
-
+    saveStoredIdentity({
+      fbc: safeUserData?.fbc,
+      fbp: safeUserData?.fbp,
+    });
     const payload = compactObject({
       event_name: eventName,
       event_id: eventId,

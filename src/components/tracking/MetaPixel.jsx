@@ -97,6 +97,12 @@ export default function MetaPixel({
     const sendPageView = async () => {
       processingUrlRef.current = url;
 
+      const eventId =
+        typeof crypto !== "undefined" &&
+          typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `pageview_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         if (cancelled) return;
 
@@ -109,6 +115,12 @@ export default function MetaPixel({
           },
           metaUserData,
           {
+            event_id: eventId,
+
+            // ✅ Pixel only on first attempt.
+            // Retry only failed CAPI request using same dedupe ID.
+            skipPixel: attempt > 1,
+
             throwOnCapiFailure: true,
           },
         ).catch((error) => ({

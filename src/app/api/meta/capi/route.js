@@ -89,15 +89,15 @@ const parseCookies = (cookieHeader = "") =>
         }
       })
   );
-
+  
 const getClientIp = (headers) => {
   const forwardedFor =
     headers.get("x-forwarded-for") || "";
 
   return (
+    headers.get("cf-connecting-ip") ||
     forwardedFor.split(",")[0]?.trim() ||
     headers.get("x-real-ip") ||
-    headers.get("cf-connecting-ip") ||
     undefined
   );
 };
@@ -471,10 +471,7 @@ const buildUserData = ({
     fbc,
     fbp,
 
-    client_ip_address:
-      clientIp ||
-      builder.getClientIpAddress?.() ||
-      undefined,
+    client_ip_address: clientIp || undefined,
 
     client_user_agent:
       userAgent || undefined,
