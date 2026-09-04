@@ -655,20 +655,134 @@ export const useProductStore = create(
         collectionSlugOrId,
         params = {},
       ) => {
-        const collection = String(
-          collectionSlugOrId || "",
-        ).trim();
+        if (!BACKEND) {
+          set({ error: "NEXT_PUBLIC_BACKEND_URL missing" });
+          return null;
+        }
 
+        const collection = String(collectionSlugOrId || "").trim();
         if (!collection) return null;
 
-        return get().fetchProducts({
+        const key = collection.toLowerCase();
+
+        const page = Math.max(1, Number(params.page) || 1);
+        const limit = Math.max(
+          1,
+          Number(params.limit || get().limit || 20),
+        );
+
+        const url = buildCollectionUrl(collection, {
           ...params,
-          collection,
-          page: Number(params.page || 1),
-          limit: Number(
-            params.limit || get().limit || 20,
-          ),
+          page,
+          limit,
         });
+
+        set((state) => ({
+          collectionLoadingBySlug: {
+            ...(state.collectionLoadingBySlug || {}),
+            [key]: true,
+          },
+
+          error: null,
+
+          ...(page === 1
+            ? {
+              productsByCollection: {
+                ...(state.productsByCollection || {}),
+                [key]: [],
+              },
+
+              collectionPageBySlug: {
+                ...(state.collectionPageBySlug || {}),
+                [key]: 1,
+              },
+
+              collectionHasMoreBySlug: {
+                ...(state.collectionHasMoreBySlug || {}),
+                [key]: true,
+              },
+            }
+            : {}),
+        }));
+
+        try {
+          const res = await fetch(url, {
+            cache: "no-store",
+          });
+
+          const data = await safeJson(res);
+
+          if (!res.ok) {
+            throw new Error(
+              data?.message || "Failed to load collection products",
+            );
+          }
+
+          const rawProducts = Array.isArray(data?.products)
+            ? data.products
+            : Array.isArray(data?.data)
+              ? data.data
+              : [];
+
+          const incoming = uniqBySlug(
+            rawProducts.map(normalize),
+          );
+
+          set((state) => {
+            const previous =
+              state.productsByCollection?.[key] || [];
+
+            return {
+              productsByCollection: {
+                ...(state.productsByCollection || {}),
+
+                [key]:
+                  page === 1
+                    ? incoming
+                    : uniqBySlug([
+                      ...previous,
+                      ...incoming,
+                    ]),
+              },
+
+              collectionPageBySlug: {
+                ...(state.collectionPageBySlug || {}),
+                [key]: Number(data?.page || page),
+              },
+
+              collectionHasMoreBySlug: {
+                ...(state.collectionHasMoreBySlug || {}),
+
+                [key]:
+                  typeof data?.hasNextPage === "boolean"
+                    ? data.hasNextPage
+                    : incoming.length >= limit,
+              },
+
+              collectionLoadingBySlug: {
+                ...(state.collectionLoadingBySlug || {}),
+                [key]: false,
+              },
+
+              error: null,
+            };
+          });
+
+          return data;
+        } catch (err) {
+          set((state) => ({
+            collectionLoadingBySlug: {
+              ...(state.collectionLoadingBySlug || {}),
+              [key]: false,
+            },
+
+            error:
+              err?.message ||
+              "Failed to load collection products",
+          }));
+
+          return null;
+        }
       },
 
       /* =====================================================
