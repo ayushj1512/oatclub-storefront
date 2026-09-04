@@ -405,315 +405,315 @@ export default function PaymentOptions({
 
     return "Select a payment method.";
   };
-    const paymentChip = getPaymentChip();
+  const paymentChip = getPaymentChip();
 
-    return (
-      <>
-        {/* =====================================================
+  return (
+    <>
+      {/* =====================================================
             PAYMENT METHOD
         ====================================================== */}
 
-        <GlassCard className="p-3.5 sm:p-4">
-          <button
-            type="button"
-            onClick={() =>
-              setShowPayment?.(
-                (current) => !current
-              )
-            }
-            className="flex w-full items-center justify-between"
-          >
-            <div className="min-w-0 text-left">
-              <div className="text-[9px] font-black uppercase tracking-[0.18em] text-black/36">
-                Step 3
-              </div>
-
-              <div className="text-sm font-black uppercase tracking-[0.08em] text-black">
-                Payment Method
-              </div>
+      <GlassCard className="p-3.5 sm:p-4">
+        <button
+          type="button"
+          onClick={() =>
+            setShowPayment?.(
+              (current) => !current
+            )
+          }
+          className="flex w-full items-center justify-between"
+        >
+          <div className="min-w-0 text-left">
+            <div className="text-[9px] font-black uppercase tracking-[0.18em] text-black/36">
+              Step 3
             </div>
 
-            {showPayment ? (
-              <ChevronUp className="h-5 w-5" />
-            ) : (
-              <ChevronDown className="h-5 w-5" />
-            )}
-          </button>
+            <div className="text-sm font-black uppercase tracking-[0.08em] text-black">
+              Payment Method
+            </div>
+          </div>
 
-          {showPayment && (
-            <div className="pt-3">
-              {/* Wallet Credits */}
+          {showPayment ? (
+            <ChevronUp className="h-5 w-5" />
+          ) : (
+            <ChevronDown className="h-5 w-5" />
+          )}
+        </button>
 
-              {hasWalletBalance && (
-                <div className="mb-3 border border-neutral-200 bg-[#fbfaf7] p-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-3">
-                      <span className="grid size-9 shrink-0 place-items-center border border-neutral-200 bg-white text-black">
-                        <Wallet className="h-5 w-5" />
-                      </span>
+        {showPayment && (
+          <div className="pt-3">
+            {/* Wallet Credits */}
 
-                      <div>
-                        <div className="text-xs font-black uppercase tracking-[0.08em] text-black">
-                          OATCLUB Credits
-                        </div>
+            {hasWalletBalance && (
+              <div className="mb-3 border border-neutral-200 bg-[#fbfaf7] p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-9 shrink-0 place-items-center border border-neutral-200 bg-white text-black">
+                      <Wallet className="h-5 w-5" />
+                    </span>
 
-                        <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/50">
-                          Available Balance:{" "}
-                          <b>
-                            ₹
-                            {money(
-                              safeWalletBalance
-                            )}
-                          </b>
-                        </div>
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-[0.08em] text-black">
+                        OATCLUB Credits
                       </div>
-                    </div>
 
-                    <label className="inline-flex cursor-pointer items-center gap-2 border border-neutral-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-black">
-                      <input
-                        type="checkbox"
-                        checked={useWallet}
-                        onChange={(event) =>
-                          updateWalletToggle(
-                            event.target.checked
-                          )
-                        }
-                        className="h-4 w-4 accent-black"
-                      />
-
-                      Use Credits
-                    </label>
-                  </div>
-
-                  {useWallet && (
-                    <div className="mt-3 border border-neutral-200 bg-white px-3 py-2">
-                      <div className="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
-                        <span>
-                          Credits Applied
-                        </span>
-
-                        <b className="text-black">
+                      <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/50">
+                        Available Balance:{" "}
+                        <b>
                           ₹
                           {money(
-                            appliedWalletAmount
+                            safeWalletBalance
                           )}
                         </b>
                       </div>
-
-                      <div className="mt-1 flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
-                        <span>
-                          Remaining Payable
-                        </span>
-
-                        <b className="text-black">
-                          ₹{money(displayPayable)}                      </b>
-                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  <label className="inline-flex cursor-pointer items-center gap-2 border border-neutral-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-black">
+                    <input
+                      type="checkbox"
+                      checked={useWallet}
+                      onChange={(event) =>
+                        updateWalletToggle(
+                          event.target.checked
+                        )
+                      }
+                      className="h-4 w-4 accent-black"
+                    />
+
+                    Use Credits
+                  </label>
                 </div>
-              )}
 
-              {!isFullyPaidByWallet && (
-                <>
-                  <div className="mb-2.5 flex items-center justify-between gap-3 border border-neutral-200 bg-[#fbfaf7] px-3 py-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.12em] text-black">
-                      Choose Payment
-                    </span>
+                {useWallet && (
+                  <div className="mt-3 border border-neutral-200 bg-white px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
+                      <span>
+                        Credits Applied
+                      </span>
 
-                    <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.1em] text-black/40">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Secure Checkout
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-
-                    {/* CASH ON DELIVERY */}
-                    <PayCard
-                      label="Cash on Delivery"
-                      value="cod"
-                      icon={<IndianRupee className="h-5 w-5" />}
-                      sub={`Pay ₹${money(finalPayable + COD_FEE)} on delivery`}
-                      selected={selectedPayment}
-                      setSelected={setSelectedPayment}
-                      disabled={prepaidOnly}
-                      disabledMessage="Prepaid only for this order"
-                      badge={
-                        <span className="inline-flex items-center border border-neutral-200 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-black/60">
-                          + ₹59 Fee
-                        </span>
-                      }
-                    />
-                    {/* PARTIAL COD */}
-                    <PayCard
-                      label="Partial COD"
-                      value="partial_cod"
-                      icon={<Wallet className="h-5 w-5" />}
-                      disabled={prepaidOnly}
-                      disabledMessage="Prepaid only for this order"
-                      sub={`Pay ₹${money(partialAmount)} now · ₹${money(
-                        remainingCOD,
-                      )} on delivery`}
-                      selected={selectedPayment}
-                      setSelected={setSelectedPayment}
-                      badge={
-                        <span className="inline-flex items-center border border-neutral-200 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-black/60">
-                          Pay 10% Now
-                        </span>
-                      }
-                    />
-
-                    {/* FULL PREPAID */}
-                    <PayCard
-                      label="Full Online Payment"
-                      value="razorpay"
-                      icon={<CreditCard className="h-5 w-5" />}
-                      sub="UPI / Cards / Netbanking"
-                      selected={selectedPayment}
-                      setSelected={setSelectedPayment}
-                      badge={
-                        <span className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">
-                          <Sparkles className="h-3 w-3" />
-                          Save 5%
-                        </span>
-                      }
-                    />
-                  </div>
-
-                  {/* COD UPSELL MESSAGE */}
-
-                  {isPartialCOD && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPayment?.("razorpay")}
-                      className="mt-2.5 flex w-full items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-left transition hover:bg-emerald-100"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Sparkles className="h-4 w-4 text-emerald-700" />
-
-                        <div>
-                          <p className="text-[11px] font-black uppercase text-emerald-900">
-                            Save 5% with full payment
-                          </p>
-
-                          <p className="text-[10px] font-semibold text-emerald-700">
-                            Switch to full prepaid payment
-                          </p>
-                        </div>
-                      </div>
-
-                      <ArrowRight className="h-4 w-4 text-emerald-700" />
-                    </button>
-                  )}
-
-                  {/* ONLINE SELECTED MESSAGE */}
-
-                  {isRazorpay && (
-                    <div className="mt-2.5 flex items-center gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2">
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" />
-
-                      <p className="text-[10px] font-bold text-emerald-800">
-                        Online payment selected —
-                        you save 5%.
-                      </p>
+                      <b className="text-black">
+                        ₹
+                        {money(
+                          appliedWalletAmount
+                        )}
+                      </b>
                     </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </GlassCard>
 
-        {/* =====================================================
+                    <div className="mt-1 flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.08em] text-black/55">
+                      <span>
+                        Remaining Payable
+                      </span>
+
+                      <b className="text-black">
+                        ₹{money(displayPayable)}                      </b>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!isFullyPaidByWallet && (
+              <>
+                <div className="mb-2.5 flex items-center justify-between gap-3 border border-neutral-200 bg-[#fbfaf7] px-3 py-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-black">
+                    Choose Payment
+                  </span>
+
+                  <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.1em] text-black/40">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Secure Checkout
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+
+                  {/* CASH ON DELIVERY */}
+                  <PayCard
+                    label="Cash on Delivery"
+                    value="cod"
+                    icon={<IndianRupee className="h-5 w-5" />}
+                    sub={`Pay ₹${money(finalPayable + COD_FEE)} on delivery`}
+                    selected={selectedPayment}
+                    setSelected={setSelectedPayment}
+                    disabled={prepaidOnly}
+                    disabledMessage="Prepaid only for this order"
+                    badge={
+                      <span className="inline-flex items-center border border-neutral-200 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-black/60">
+                        + ₹59 Fee
+                      </span>
+                    }
+                  />
+                  {/* PARTIAL COD */}
+                  <PayCard
+                    label="Partial COD"
+                    value="partial_cod"
+                    icon={<Wallet className="h-5 w-5" />}
+                    disabled={prepaidOnly}
+                    disabledMessage="Prepaid only for this order"
+                    sub={`Pay ₹${money(partialAmount)} now · ₹${money(
+                      remainingCOD,
+                    )} on delivery`}
+                    selected={selectedPayment}
+                    setSelected={setSelectedPayment}
+                    badge={
+                      <span className="inline-flex items-center border border-neutral-200 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-black/60">
+                        Pay 10% Now
+                      </span>
+                    }
+                  />
+
+                  {/* FULL PREPAID */}
+                  <PayCard
+                    label="Full Online Payment"
+                    value="razorpay"
+                    icon={<CreditCard className="h-5 w-5" />}
+                    sub="UPI / Cards / Netbanking"
+                    selected={selectedPayment}
+                    setSelected={setSelectedPayment}
+                    badge={
+                      <span className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">
+                        <Sparkles className="h-3 w-3" />
+                        Save 5%
+                      </span>
+                    }
+                  />
+                </div>
+
+                {/* COD UPSELL MESSAGE */}
+
+                {isPartialCOD && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPayment?.("razorpay")}
+                    className="mt-2.5 flex w-full items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-left transition hover:bg-emerald-100"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="h-4 w-4 text-emerald-700" />
+
+                      <div>
+                        <p className="text-[11px] font-black uppercase text-emerald-900">
+                          Save 5% with full payment
+                        </p>
+
+                        <p className="text-[10px] font-semibold text-emerald-700">
+                          Switch to full prepaid payment
+                        </p>
+                      </div>
+                    </div>
+
+                    <ArrowRight className="h-4 w-4 text-emerald-700" />
+                  </button>
+                )}
+
+                {/* ONLINE SELECTED MESSAGE */}
+
+                {isRazorpay && (
+                  <div className="mt-2.5 flex items-center gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" />
+
+                    <p className="text-[10px] font-bold text-emerald-800">
+                      Online payment selected —
+                      you save 5%.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </GlassCard>
+
+      {/* =====================================================
             PAYMENT SUMMARY
         ====================================================== */}
 
-        <GlassCard className="p-3.5 sm:p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              {coupon &&
-                Number(discount || 0) > 0 && (
-                  <div className="flex items-center justify-between gap-3 text-sm text-black">
-                    <span className="truncate">
-                      Coupon{" "}
-                      <b>{coupon.code}</b>
-                    </span>
-
-                    <span className="shrink-0 tabular-nums">
-                      − ₹{money(discount)}
-                    </span>
-                  </div>
-                )}
-
-              {appliedWalletAmount > 0 && (
-                <div className="mt-1 flex items-center justify-between gap-3 text-sm text-black">
+      <GlassCard className="p-3.5 sm:p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            {coupon &&
+              Number(discount || 0) > 0 && (
+                <div className="flex items-center justify-between gap-3 text-sm text-black">
                   <span className="truncate">
-                    Wallet Credits{" "}
-                    <b>Applied</b>
+                    Coupon{" "}
+                    <b>{coupon.code}</b>
                   </span>
 
                   <span className="shrink-0 tabular-nums">
-                    − ₹
-                    {money(
-                      appliedWalletAmount
-                    )}
+                    − ₹{money(discount)}
                   </span>
                 </div>
               )}
 
-              {isCOD && (
-                <div className="mt-1 flex items-center justify-between gap-3 text-sm text-black">
-                  <span>COD Fee</span>
+            {appliedWalletAmount > 0 && (
+              <div className="mt-1 flex items-center justify-between gap-3 text-sm text-black">
+                <span className="truncate">
+                  Wallet Credits{" "}
+                  <b>Applied</b>
+                </span>
 
-                  <span className="shrink-0 tabular-nums">
-                    + ₹{money(COD_FEE)}
-                  </span>
-                </div>
-              )}
-
-              <div className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-black/42">
-                Total Payment
-              </div>
-
-              <div className="text-xl font-black tabular-nums text-black">
-                ₹{money(displayPayable)}            </div>
-
-              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
-                Shipping:{" "}
-                <span className="font-black text-black">
-                  Free
+                <span className="shrink-0 tabular-nums">
+                  − ₹
+                  {money(
+                    appliedWalletAmount
+                  )}
                 </span>
               </div>
+            )}
+
+            {isCOD && (
+              <div className="mt-1 flex items-center justify-between gap-3 text-sm text-black">
+                <span>COD Fee</span>
+
+                <span className="shrink-0 tabular-nums">
+                  + ₹{money(COD_FEE)}
+                </span>
+              </div>
+            )}
+
+            <div className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-black/42">
+              Total Payment
             </div>
 
-            <Chip tone={paymentChip.tone}>
-              <IndianRupee className="h-3.5 w-3.5" />
-              {paymentChip.label}
-            </Chip>
+            <div className="text-xl font-black tabular-nums text-black">
+              ₹{money(displayPayable)}            </div>
+
+            <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-black/45">
+              Shipping:{" "}
+              <span className="font-black text-black">
+                Free
+              </span>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handlePlaceOrder}
-            disabled={disabledCTA}
-            className="mt-3 flex h-11 w-full items-center justify-center bg-black px-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/40"
-          >
-            {getButtonText()}
+          <Chip tone={paymentChip.tone}>
+            <IndianRupee className="h-3.5 w-3.5" />
+            {paymentChip.label}
+          </Chip>
+        </div>
 
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </button>
+        <button
+          type="button"
+          onClick={handlePlaceOrder}
+          disabled={disabledCTA}
+          className="mt-3 flex h-11 w-full items-center justify-center bg-black px-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/40"
+        >
+          {getButtonText()}
 
-          {validationError ? (
-            <p className="mt-2 text-center text-[11px] text-red-600">
-              {validationError}
-            </p>
-          ) : (
-            <p className="mt-2 text-center text-[11px] leading-relaxed text-gray-500">
-              {getPaymentMessage()}
-            </p>
-          )}
-        </GlassCard>
-      </>
-    );
-  }
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </button>
+
+        {validationError ? (
+          <p className="mt-2 text-center text-[11px] text-red-600">
+            {validationError}
+          </p>
+        ) : (
+          <p className="mt-2 text-center text-[11px] leading-relaxed text-gray-500">
+            {getPaymentMessage()}
+          </p>
+        )}
+      </GlassCard>
+    </>
+  );
+}
 
