@@ -396,7 +396,7 @@ export default function PaymentOptions({
     }
 
     if (isRazorpay) {
-      return "Pay online securely and save 10%.";
+      return "Pay online securely and save 5%.";
     }
 
     if (isCOD) {
@@ -574,7 +574,7 @@ export default function PaymentOptions({
                       badge={
                         <span className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">
                           <Sparkles className="h-3 w-3" />
-                          Save 10%
+                          Save 5%
                         </span>
                       }
                     />
@@ -593,7 +593,7 @@ export default function PaymentOptions({
 
                         <div>
                           <p className="text-[11px] font-black uppercase text-emerald-900">
-                            Save 10% with full payment
+                            Save 5% with full payment
                           </p>
 
                           <p className="text-[10px] font-semibold text-emerald-700">
@@ -614,7 +614,7 @@ export default function PaymentOptions({
 
                       <p className="text-[10px] font-bold text-emerald-800">
                         Online payment selected —
-                        you save 10%.
+                        you save 5%.
                       </p>
                     </div>
                   )}

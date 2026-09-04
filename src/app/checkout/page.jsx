@@ -232,7 +232,7 @@
       if (String(selectedPayment).toLowerCase() !== "razorpay") return 0;
 
       const base = payableAfterWallet;
-      const extra = Math.round(base * 0.10);
+      const extra = Math.round(base * 0.05); // ✅ 5% prepaid discount
 
       return Math.min(extra, base);
     }, [selectedPayment, payableAfterWallet]);
