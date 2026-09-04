@@ -279,8 +279,7 @@
     const isSevenSisters =
       SEVEN_SISTERS.includes(checkoutState);
 
-    const prepaidOnly =
-      isCustomerBlacklisted || isSevenSisters;
+    const prepaidOnly = isCustomerBlacklisted;
 
     useEffect(() => {
       if (
