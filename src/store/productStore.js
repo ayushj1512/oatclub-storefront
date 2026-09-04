@@ -238,7 +238,42 @@ const buildUrl = (p = {}) => {
     setIf("isDraft", p.isDraft);
   }
 
-  if (p.sku) setIf("sku", p.sku);
+  if (p.isFeatured != null) {
+    setIf("isFeatured", p.isFeatured);
+  }
+
+  if (p.isInStock != null) {
+    setIf("isInStock", p.isInStock);
+  }
+
+  if (p.productType) {
+    setIf("productType", p.productType);
+  }
+
+  if (p.color) {
+    setIf("color", p.color);
+  }
+
+  if (p.colors) {
+    setIf(
+      "colors",
+      Array.isArray(p.colors)
+        ? p.colors.join(",")
+        : p.colors,
+    );
+  }
+
+  if (p.sku) {
+    setIf("sku", p.sku);
+  }
+
+  if (p.productCode) {
+    setIf("productCode", p.productCode);
+  }
+
+  if (p.q) {
+    setIf("q", p.q);
+  }
 
   const q = qs.toString();
   return `${BACKEND}/api/products${q ? `?${q}` : ""}`;
@@ -464,9 +499,35 @@ export const useProductStore = create(
 
         // ✅ NEW: Reset when sort changes too
         const prevParams = get().lastParams || {};
-        const sortChanged =
-          String(cleaned.sort || "") !== String(prevParams.sort || "");
-        const shouldReset = categoryChanged || sortChanged;
+
+        const relevantKeys = [
+          "category",
+          "collection",
+          "tags",
+          "search",
+          "q",
+          "minPrice",
+          "maxPrice",
+          "sort",
+          "isBestSeller",
+          "isTrending",
+          "isFeatured",
+          "isDispatchReady",
+          "isPrimaryProduct",
+          "isInStock",
+          "productType",
+        ];
+
+        const filtersChanged = relevantKeys.some(
+          (key) =>
+            JSON.stringify(cleaned?.[key] ?? null) !==
+            JSON.stringify(prevParams?.[key] ?? null),
+        );
+
+        const shouldReset =
+          Number(page) === 1 ||
+          categoryChanged ||
+          filtersChanged;
 
         set(() => ({
           isLoading: true,
@@ -563,9 +624,20 @@ export const useProductStore = create(
 
           set((state) => ({
             allProducts:
-              page === 1 ? incoming : [...state.allProducts, ...incoming],
-            page,
-            hasMoreFlag: incoming.length === limit,
+              page === 1
+                ? incoming
+                : uniqBySlug([
+                  ...state.allProducts,
+                  ...incoming,
+                ]),
+
+            page: Number(data?.page || page),
+
+            hasMoreFlag:
+              typeof data?.hasNextPage === "boolean"
+                ? data.hasNextPage
+                : incoming.length >= limit,
+
             isLoading: false,
           }));
         } catch (e) {
@@ -579,95 +651,24 @@ export const useProductStore = create(
             ✅ NEW: FETCH BY Category ROUTE
           ===================================================== */
 
-      fetchProductsByCollection: async (collectionSlugOrId, params = {}) => {
-        if (!BACKEND) {
-          set({ error: "NEXT_PUBLIC_BACKEND_URL missing", isLoading: false });
-          return null;
-        }
+      fetchProductsByCollection: async (
+        collectionSlugOrId,
+        params = {},
+      ) => {
+        const collection = String(
+          collectionSlugOrId || "",
+        ).trim();
 
-        const collection = String(collectionSlugOrId || "").trim();
         if (!collection) return null;
 
-        const key = collection.toLowerCase();
-        const { page = 1, limit = 100 } = params;
-
-        const url = buildCollectionUrl(collection, {
+        return get().fetchProducts({
           ...params,
-          page,
-          limit,
-          isActive: params.isActive ?? true,
-          isDraft: params.isDraft ?? false,
+          collection,
+          page: Number(params.page || 1),
+          limit: Number(
+            params.limit || get().limit || 20,
+          ),
         });
-
-        set((state) => ({
-          isLoading: true,
-          error: null,
-          activeCollection: collection,
-          collectionLoadingBySlug: {
-            ...(state.collectionLoadingBySlug || {}),
-            [key]: true,
-          },
-        }));
-
-        try {
-          const res = await fetch(url, { cache: "no-store" });
-          const data = await safeJson(res);
-
-          if (!res.ok) {
-            throw new Error(
-              data?.message || "Failed to load collection products",
-            );
-          }
-
-          const incoming = uniqBySlug((data?.products || []).map(normalize));
-
-          set((state) => {
-            const prev = state.productsByCollection?.[key] || [];
-            const nextList =
-              Number(page) === 1 ? incoming : [...prev, ...incoming];
-
-            return {
-              productsByCollection: {
-                ...(state.productsByCollection || {}),
-                [key]: nextList,
-              },
-              collectionsBySlug: {
-                ...(state.collectionsBySlug || {}),
-                [key]: data?.collection || null,
-              },
-              collectionPageBySlug: {
-                ...(state.collectionPageBySlug || {}),
-                [key]: Number(page),
-              },
-              collectionHasMoreBySlug: {
-                ...(state.collectionHasMoreBySlug || {}),
-                [key]: Boolean(data?.hasMore),
-              },
-              collectionParamsBySlug: {
-                ...(state.collectionParamsBySlug || {}),
-                [key]: params,
-              },
-              collectionLoadingBySlug: {
-                ...(state.collectionLoadingBySlug || {}),
-                [key]: false,
-              },
-              isLoading: false,
-            };
-          });
-
-          return data;
-        } catch (e) {
-          set((state) => ({
-            error: e.message || "Failed to load collection products",
-            isLoading: false,
-            collectionLoadingBySlug: {
-              ...(state.collectionLoadingBySlug || {}),
-              [key]: false,
-            },
-          }));
-
-          return null;
-        }
       },
 
       /* =====================================================
@@ -686,107 +687,19 @@ export const useProductStore = create(
             GET /api/products/by-tag?tag=... OR tags=a,b
           ===================================================== */
       fetchProductsByTag: async (params = {}) => {
-        if (!BACKEND)
-          return set({
-            error: "NEXT_PUBLIC_BACKEND_URL missing",
-            isLoading: false,
-          });
+        const tags =
+          params.tags ||
+          params.tag ||
+          undefined;
 
-        const { page = 1, limit = get().limit } = params;
-
-        // ✅ use same cleaned params tracking like fetchProducts
-        const cleaned = { ...params };
-
-        const url = buildTagUrl({ ...cleaned, page, limit });
-
-        if (ctrl) ctrl.abort();
-        ctrl = new AbortController();
-        const myId = ++reqId;
-
-        // ✅ NEW: detect tag change + sort change
-        const prevParams = get().lastParams || {};
-
-        const tagKey = String(
-          cleaned?.tag ||
-            (Array.isArray(cleaned?.tags) ? cleaned.tags.join(",") : ""),
-        )
-          .trim()
-          .toLowerCase();
-
-        const prevTagKey = String(
-          prevParams?.tag ||
-            (Array.isArray(prevParams?.tags) ? prevParams.tags.join(",") : ""),
-        )
-          .trim()
-          .toLowerCase();
-
-        const tagChanged = tagKey !== prevTagKey;
-
-        const sortChanged =
-          String(cleaned.sort || "") !== String(prevParams.sort || "");
-
-        const shouldReset = page === 1 || tagChanged || sortChanged;
-
-        set(() => ({
-          isLoading: true,
-          error: null,
-          lastParams: cleaned,
-          ...(shouldReset
-            ? { allProducts: [], page: 1, hasMoreFlag: true }
-            : {}),
-        }));
-
-        try {
-          const res = await fetch(url, {
-            cache: "no-store",
-            signal: ctrl.signal,
-          });
-          const data = await safeJson(res);
-
-          if (!res.ok)
-            throw new Error(data?.message || "Failed to load products");
-          if (myId !== reqId) return;
-
-          const incoming = uniqBySlug((data?.products || []).map(normalize));
-
-          /* ✅ GA4: view_item_list for tag page (only page 1) */
-          try {
-            if (page === 1 && incoming.length) {
-              const tagName =
-                cleaned?.tag ||
-                (Array.isArray(cleaned?.tags) ? cleaned.tags.join(",") : "tag");
-
-              const listId = `tag_${String(tagName).trim().toLowerCase()}`;
-              const key = `vil_${listId}_${incoming
-                .slice(0, 15)
-                .map((p) => p.id)
-                .join("_")}`;
-
-              if (!shouldSkipGA4(get, set, key, 1500)) {
-                pushEcomEvent("view_item_list", {
-                  item_list_id: listId,
-                  item_list_name: String(tagName),
-                  items: incoming.slice(0, 50).map((p) => ga4Item(p, 1)),
-                });
-              }
-            }
-          } catch (e) {
-            console.warn("📈 GA4 tag view_item_list failed", e);
-          }
-
-          set((state) => ({
-            allProducts:
-              page === 1 ? incoming : [...state.allProducts, ...incoming],
-            page,
-            hasMoreFlag: incoming.length === limit,
-            isLoading: false,
-          }));
-        } catch (e) {
-          if (e?.name !== "AbortError")
-            set({ error: e.message || "Failed to load products" });
-
-          set({ isLoading: false });
-        }
+        return get().fetchProducts({
+          ...params,
+          tags,
+          page: Number(params.page || 1),
+          limit: Number(
+            params.limit || get().limit || 20,
+          ),
+        });
       },
 
       /* =====================================================
@@ -965,180 +878,24 @@ export const useProductStore = create(
       },
 
       // Add this inside your zustand create store:
-      fetchProductsByCategory: async (categorySlugOrId, params = {}) => {
-        if (!BACKEND) {
-          return set({
-            error: "NEXT_PUBLIC_BACKEND_URL missing",
-            isLoading: false,
-          });
-        }
+      fetchProductsByCategory: async (
+        categorySlugOrId,
+        params = {},
+      ) => {
+        const category = String(
+          categorySlugOrId || "",
+        ).trim();
 
-        const category = String(categorySlugOrId || "").trim();
-        if (!category) return;
+        if (!category) return null;
 
-        const page = Number(params.page || 1);
-        const limit = Number(params.limit || get().limit || 20);
-
-        const url = buildCategoryUrl(category, {
+        return get().fetchProducts({
           ...params,
-          page,
-          limit,
-          card: 1,
+          category,
+          page: Number(params.page || 1),
+          limit: Number(
+            params.limit || get().limit || 20,
+          ),
         });
-
-        if (ctrl) ctrl.abort();
-        ctrl = new AbortController();
-
-        const myId = ++reqId;
-
-        const state = get();
-        const prevParams = state.lastParams || {};
-
-        const categoryChanged = String(state.activeCategory || "") !== category;
-        const sortChanged =
-          String(params.sort || "") !== String(prevParams.sort || "");
-        const shouldReset = page === 1 || categoryChanged || sortChanged;
-
-        set({
-          isLoading: true,
-          error: null,
-          activeCategory: category,
-          lastParams: { ...params, page, limit, card: 1 },
-          ...(shouldReset
-            ? { allProducts: [], page: 1, hasMoreFlag: true }
-            : {}),
-        });
-
-        try {
-          const res = await fetch(url, {
-            cache: "no-store",
-            signal: ctrl.signal,
-          });
-
-          const data = await safeJson(res);
-
-          if (!res.ok) {
-            throw new Error(data?.message || "Failed to load products");
-          }
-
-          if (myId !== reqId) return;
-
-          const incoming = uniqBySlug(
-            (Array.isArray(data?.products) ? data.products : [])
-              .map((p) =>
-                normalize({
-                  ...p,
-
-                  id: p?.id || p?._id,
-                  _id: p?._id || p?.id,
-
-                  title: p?.title || p?.name || "Product",
-                  name: p?.name || p?.title || "Product",
-
-                  image: p?.image || p?.thumbnail || p?.images?.[0],
-                  thumbnail: p?.thumbnail || p?.image || p?.images?.[0],
-                  hoverImage: p?.hoverImage || p?.images?.[1],
-
-                  price: p?.price,
-                  compareAtPrice: p?.compareAtPrice,
-
-                  slug: p?.slug,
-                  categorySlug: p?.categorySlug,
-                  productLink: p?.productLink,
-                  productCode: p?.productCode,
-
-                  isBestSeller: Boolean(p?.isBestSeller),
-                  isTrending: Boolean(p?.isTrending),
-                  isPrimaryProduct: Boolean(p?.isPrimaryProduct),
-                }),
-              )
-              .filter((p) => p?.id || p?._id),
-          );
-
-          if (page === 1 && incoming.length) {
-            try {
-              const listId = `cat_${category}`;
-              const key = `vil_${listId}_${incoming
-                .slice(0, 15)
-                .map((p) => p.id || p._id)
-                .filter(Boolean)
-                .join("_")}`;
-
-              if (!shouldSkipGA4(get, set, key, 1500)) {
-                pushEcomEvent("view_item_list", {
-                  item_list_id: listId,
-                  item_list_name: category,
-                  items: incoming.slice(0, 50).map((p) => ga4Item(p, 1)),
-                });
-              }
-            } catch (e) {
-              console.warn("📈 GA4 category view_item_list failed", e);
-            }
-
-            try {
-              const now = Date.now();
-
-              const categoryName = String(category).trim();
-              const key = `view_category_${categoryName.toLowerCase()}`;
-
-              const { _lastMetaCategoryKey, _lastMetaCategoryAt } = get();
-
-              const tooSoon =
-                _lastMetaCategoryAt && now - _lastMetaCategoryAt < 1500;
-
-              const sameKey = _lastMetaCategoryKey === key;
-
-              if (categoryChanged && !(sameKey && tooSoon)) {
-                const productIds = incoming
-                  .slice(0, 10)
-                  .map((product) =>
-                    String(
-                      product?.productId || product?.id || product?._id || "",
-                    ).trim(),
-                  )
-                  .filter(Boolean);
-
-                await trackMeta("ViewCategory", {
-                  content_name: categoryName,
-                  content_category: categoryName,
-                  content_ids: productIds,
-                  contents: productIds.map((id) => ({
-                    id,
-                    quantity: 1,
-                  })),
-                  currency: "INR",
-                });
-
-                set({
-                  _lastMetaCategoryKey: key,
-                  _lastMetaCategoryAt: now,
-                });
-              }
-            } catch (error) {
-              console.warn("🧾 Meta Category View failed", error);
-            }
-          }
-
-          set((state) => ({
-            allProducts:
-              page === 1
-                ? incoming
-                : uniqBySlug([...state.allProducts, ...incoming]),
-            page,
-            hasMoreFlag: incoming.length >= limit,
-            isLoading: false,
-            error: null,
-          }));
-        } catch (e) {
-          if (e?.name === "AbortError") {
-            return set({ isLoading: false });
-          }
-
-          set({
-            error: e?.message || "Failed to load products",
-            isLoading: false,
-          });
-        }
       },
 
       // ✅ PATCH ONLY: add this inside your zustand store (same level as fetchProductDetails)
