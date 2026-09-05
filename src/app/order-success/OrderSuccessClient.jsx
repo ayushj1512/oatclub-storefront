@@ -25,6 +25,10 @@ import {
   trackMeta,
 } from "@/lib/meta/track";
 
+import {
+  trackGooglePurchase,
+  trackGoogleAdsPurchase,
+} from "@/lib/google/track";
 
 const API =
   process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
@@ -540,6 +544,42 @@ export default function OrderSuccessClient() {
     };
 
     fireMetaPurchase();
+  }, [order?._id]);
+
+  useEffect(() => {
+    if (!order?._id) return;
+
+    const transactionId = String(
+      order?.orderNumber || order?._id
+    );
+
+    const value = Number(
+      order?.finalPayable ??
+      order?.finalTotal ??
+      order?.grandTotal ??
+      order?.total ??
+      order?.payableAmount ??
+      order?.amount ??
+      order?.totalAmount ??
+      0
+    );
+
+    const items = Array.isArray(order?.items)
+      ? order.items
+      : [];
+
+    trackGooglePurchase({
+      transactionId,
+      value,
+      currency: order?.currency || "INR",
+      items,
+    });
+
+    trackGoogleAdsPurchase({
+      transactionId,
+      value,
+      currency: order?.currency || "INR",
+    });
   }, [order?._id]);
 
 

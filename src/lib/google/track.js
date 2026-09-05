@@ -485,7 +485,6 @@ export const trackGoogleAdsPurchase = ({
     console.warn(
       "Google Ads purchase skipped: transaction ID or value missing",
     );
-
     return;
   }
 
@@ -500,7 +499,7 @@ export const trackGoogleAdsPurchase = ({
   }
 
   const result = trackGoogle(
-    "conversion_event_purchase",
+    "conversion_event_purchase_2",
     {
       transaction_id: safeTransactionId,
       value: safeValue,
