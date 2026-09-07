@@ -7,38 +7,66 @@ import { useCategoryStore } from "@/store/categoryStore";
 
 const STATIC_LINKS = [
   {
-    label: "FESTIVE EDIT",
-    href: "/festive-edit",
-    slug: "festive-edit",
-    highlight: true,
+    label: "HOTSELLER",
+    href: "/hotseller",
+    slug: "hotseller",
+    isHot: true,
   },
-  { label: "ALL CLOTHING", href: "/all-clothing", slug: "all-clothing" },
-  { label: "NEW ARRIVALS", href: "/new-arrivals", slug: "new-arrivals" },
-  { label: "BESTSELLER", href: "/bestseller", slug: "bestseller" },
+  {
+    label: "ALL CLOTHING",
+    href: "/all-clothing",
+    slug: "all-clothing",
+  },
+  {
+    label: "NEW ARRIVALS",
+    href: "/new-arrivals",
+    slug: "new-arrivals",
+  },
+  {
+    label: "BESTSELLER",
+    href: "/bestseller",
+    slug: "bestseller",
+  },
 ];
 
-const slugOf = (v = "") =>
-  String(v)
+const slugOf = (value = "") =>
+  String(value)
     .trim()
     .toLowerCase()
     .replace(/['"]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-const titleOf = (v = "") =>
-  String(v).trim().replace(/[-_]+/g, " ").toUpperCase();
+const titleOf = (value = "") =>
+  String(value)
+    .trim()
+    .replace(/[-_]+/g, " ")
+    .toUpperCase();
 
-export default function HeaderNavStrip({ variant = "desktop" }) {
+export default function HeaderNavStrip({
+  variant = "desktop",
+}) {
   const pathname = usePathname();
-  const categories = useCategoryStore((s) => s.categories);
-  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
+
+  const categories = useCategoryStore(
+    (state) => state.categories,
+  );
+
+  const fetchCategories = useCategoryStore(
+    (state) => state.fetchCategories,
+  );
 
   useEffect(() => {
-    fetchCategories?.({ active: true, parent: "null" });
+    fetchCategories?.({
+      active: true,
+      parent: "null",
+    });
   }, [fetchCategories]);
 
   const links = useMemo(() => {
     const blocked = new Set([
+      "hotseller",
+      "hot-seller",
       "all-clothing",
       "new-arrivals",
       "bestseller",
@@ -50,58 +78,114 @@ export default function HeaderNavStrip({ variant = "desktop" }) {
     ]);
 
     const dynamic = (categories || [])
-      .filter((c) => !c?.parent)
-      .map((c) => {
-        const slug = slugOf(c?.slug || c?.name);
+      .filter((category) => !category?.parent)
+      .map((category) => {
+        const slug = slugOf(
+          category?.slug || category?.name,
+        );
+
         return {
-          label: titleOf(c?.name || slug),
+          label: titleOf(category?.name || slug),
           href: `/category/${slug}`,
           slug,
         };
       })
-      .filter((x) => x.slug && !blocked.has(x.slug));
+      .filter(
+        (item) =>
+          item.slug && !blocked.has(item.slug),
+      );
 
     return [...STATIC_LINKS, ...dynamic].filter(
-      (x, i, arr) => arr.findIndex((y) => y.href === x.href) === i
+      (item, index, items) =>
+        items.findIndex(
+          (other) => other.href === item.href,
+        ) === index,
     );
   }, [categories]);
 
   const mobile = variant === "mobile";
 
   return (
-    <nav
-      aria-label="Primary categories"
-      className={
-        mobile
-          ? "no-scrollbar flex gap-5 overflow-x-auto border-t border-black/10 px-4 py-2.5"
-          : "flex w-full items-center justify-center gap-7 border-t border-black/10 px-8 py-2.5 lg:gap-10"
-      }
-    >
-      {links.map((item) => {
-        const active =
-          pathname === item.href || pathname?.startsWith(`${item.href}/`);
+    <>
+      <nav
+        aria-label="Primary categories"
+        className={
+          mobile
+            ? "no-scrollbar flex gap-5 overflow-x-auto border-t border-black/10 px-4 py-2.5"
+            : "flex w-full items-center justify-center gap-7 border-t border-black/10 px-8 py-2.5 lg:gap-10"
+        }
+      >
+        {links.map((item) => {
+          const active =
+            pathname === item.href ||
+            pathname?.startsWith(`${item.href}/`);
 
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${item.highlight
-                ? ""
-                : active
-                  ? "text-black"
-                  : "text-black/58 hover:text-black"
-              }`}
-          >
-            {item.highlight ? (
-              <span className="bg-gradient-to-r from-[#ff4f9a] to-[#b51765] bg-clip-text text-transparent hover:opacity-75">
-                {item.label}
-              </span>
-            ) : (
-              item.label
-            )}
-          </Link>
-        );
-      })}
-    </nav>
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={
+                item.isHot
+                  ? "hotseller-button shrink-0"
+                  : `shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${active
+                    ? "text-black"
+                    : "text-black/58 hover:text-black"
+                  }`
+              }
+            >
+              {item.label}
+
+              {item.isHot && (
+                <span className="ml-1">🔥</span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <style jsx global>{`
+        .hotseller-button {
+          display: inline-flex;
+          height: 30px;
+          align-items: center;
+          justify-content: center;
+          white-space: nowrap;
+          border-radius: 3px;
+          padding: 0 12px;
+          color: white;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.16em;
+          background: linear-gradient(
+            90deg,
+            #991b1b,
+            #ef4444,
+            #f97316,
+            #facc15,
+            #ef4444,
+            #991b1b
+          );
+          background-size: 300% 100%;
+          box-shadow: 0 3px 12px
+            rgba(239, 68, 68, 0.3);
+          animation: fireMove 2.5s linear infinite;
+        }
+
+        .hotseller-button:hover {
+          box-shadow: 0 4px 16px
+            rgba(239, 68, 68, 0.5);
+        }
+
+        @keyframes fireMove {
+          from {
+            background-position: 0% 50%;
+          }
+
+          to {
+            background-position: 300% 50%;
+          }
+        }
+      `}</style>
+    </>
   );
 }
