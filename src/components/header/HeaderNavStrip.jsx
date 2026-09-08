@@ -9,23 +9,19 @@ const STATIC_LINKS = [
   {
     label: "HOTSELLER",
     href: "/hotseller",
-    slug: "hotseller",
     isHot: true,
   },
   {
     label: "ALL CLOTHING",
     href: "/all-clothing",
-    slug: "all-clothing",
   },
   {
     label: "NEW ARRIVALS",
     href: "/new-arrivals",
-    slug: "new-arrivals",
   },
   {
     label: "BESTSELLER",
     href: "/bestseller",
-    slug: "bestseller",
   },
 ];
 
@@ -111,14 +107,16 @@ export default function HeaderNavStrip({
         aria-label="Primary categories"
         className={
           mobile
-            ? "no-scrollbar flex gap-5 overflow-x-auto border-t border-black/10 px-4 py-2.5"
-            : "flex w-full items-center justify-center gap-7 border-t border-black/10 px-8 py-2.5 lg:gap-10"
+            ? "no-scrollbar flex w-full items-center gap-3 overflow-x-auto border-t border-black/10 px-2 py-1.5"
+            : "flex w-full items-center justify-center gap-7 border-t border-black/10 px-8 py-2 lg:gap-10"
         }
       >
         {links.map((item) => {
           const active =
             pathname === item.href ||
-            pathname?.startsWith(`${item.href}/`);
+            pathname?.startsWith(
+              `${item.href}/`,
+            );
 
           return (
             <Link
@@ -127,9 +125,9 @@ export default function HeaderNavStrip({
               className={
                 item.isHot
                   ? "hotseller-button shrink-0"
-                  : `shrink-0 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.16em] transition md:text-[11px] ${active
+                  : `shrink-0 whitespace-nowrap text-[8px] font-black uppercase tracking-[0.11em] transition md:text-[11px] md:tracking-[0.15em] ${active
                     ? "text-black"
-                    : "text-black/58 hover:text-black"
+                    : "text-black/55 hover:text-black"
                   }`
               }
             >
@@ -146,16 +144,16 @@ export default function HeaderNavStrip({
       <style jsx global>{`
         .hotseller-button {
           display: inline-flex;
-          height: 30px;
+          height: 24px;
           align-items: center;
           justify-content: center;
           white-space: nowrap;
           border-radius: 3px;
-          padding: 0 12px;
+          padding: 0 8px;
           color: white;
-          font-size: 10px;
+          font-size: 8px;
           font-weight: 900;
-          letter-spacing: 0.16em;
+          letter-spacing: 0.1em;
           background: linear-gradient(
             90deg,
             #991b1b,
@@ -166,14 +164,23 @@ export default function HeaderNavStrip({
             #991b1b
           );
           background-size: 300% 100%;
-          box-shadow: 0 3px 12px
+          box-shadow: 0 2px 8px
             rgba(239, 68, 68, 0.3);
           animation: fireMove 2.5s linear infinite;
         }
 
         .hotseller-button:hover {
-          box-shadow: 0 4px 16px
+          box-shadow: 0 3px 12px
             rgba(239, 68, 68, 0.5);
+        }
+
+        @media (min-width: 768px) {
+          .hotseller-button {
+            height: 30px;
+            padding: 0 12px;
+            font-size: 10px;
+            letter-spacing: 0.16em;
+          }
         }
 
         @keyframes fireMove {
@@ -183,6 +190,12 @@ export default function HeaderNavStrip({
 
           to {
             background-position: 300% 50%;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hotseller-button {
+            animation: none;
           }
         }
       `}</style>
