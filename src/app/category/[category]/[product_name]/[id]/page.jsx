@@ -251,6 +251,85 @@ const deriveSizesFromBackend = (normalized) => {
   return uniq;
 };
 
+const getSizeInventory = (
+  normalized,
+  selectedSize,
+) => {
+  const raw =
+    normalized?.raw || normalized || {};
+
+  const stockType =
+    raw.stockType === "limited"
+      ? "limited"
+      : "unlimited";
+
+  const wantedSize = str(selectedSize)
+    .trim()
+    .toUpperCase();
+
+  const variants = Array.isArray(
+    raw.variants,
+  )
+    ? raw.variants
+    : [];
+
+  const matchingVariants =
+    variants.filter((variant) => {
+      const variantSize =
+        str(
+          getAttrValue(
+            variant?.attributes,
+            "size",
+          ),
+        )
+          .trim()
+          .toUpperCase() ||
+        getSizeFromSku(variant?.sku);
+
+      return variantSize === wantedSize;
+    });
+
+  const availableStock =
+    matchingVariants.reduce(
+      (total, variant) => {
+        const stock = Math.max(
+          0,
+          Number(variant?.stock ?? 0),
+        );
+
+        const reservedStock = Math.max(
+          0,
+          Number(
+            variant?.reservedStock ?? 0,
+          ),
+        );
+
+        return (
+          total +
+          Math.max(
+            0,
+            stock - reservedStock,
+          )
+        );
+      },
+      0,
+    );
+
+  return {
+    stockType,
+    availableStock,
+
+    available:
+      stockType === "unlimited" ||
+      availableStock > 0,
+
+    showLowStock:
+      stockType === "limited" &&
+      availableStock > 0 &&
+      availableStock <= 5,
+  };
+};
+
 
 const deriveColorsFromBackend = (normalized) => {
   if (!normalized) return [];
@@ -496,6 +575,11 @@ export default function ProductPage({ params }) {
           shortDescription: p.raw?.shortDescription || "",
           sizes,
           colors,
+          stockType:
+            (p?.raw || p)?.stockType ===
+              "limited"
+              ? "limited"
+              : "unlimited",
           isInStock: Boolean(p.isInStock),
           stock: Number(p.stock ?? 0),
           reservedStock: Number(p.reservedStock ?? 0),
@@ -614,6 +698,34 @@ export default function ProductPage({ params }) {
 
   const requireSize = (product?.sizes?.length || 0) > 0;
 
+  const sizeInventoryMap = useMemo(
+    () =>
+      Object.fromEntries(
+        (product?.sizes || []).map(
+          (size) => [
+            str(size)
+              .trim()
+              .toUpperCase(),
+
+            getSizeInventory(
+              normalized,
+              size,
+            ),
+          ],
+        ),
+      ),
+    [normalized, product?.sizes],
+  );
+
+  const selectedSizeInventory =
+    selectedSize
+      ? sizeInventoryMap[
+      str(selectedSize)
+        .trim()
+        .toUpperCase()
+      ]
+      : null;
+
   const selectedVariant = useMemo(() => {
     if (!selectedVariantId) return null;
 
@@ -693,6 +805,13 @@ export default function ProductPage({ params }) {
     (size) => {
       const nextSize = str(size).trim().toUpperCase();
 
+      const sizeInventory =
+        sizeInventoryMap[nextSize];
+
+      if (!sizeInventory?.available) {
+        return;
+      }
+
       setSelectedSize(nextSize);
 
       const needsColor = normalized
@@ -733,12 +852,22 @@ export default function ProductPage({ params }) {
 
       setSelectedVariantId(variantId);
     },
-    [normalized, selectedColor]
+    [normalized, selectedColor, sizeInventoryMap,]
   );
 
   const handleAddToCart = useCallback(() => {
 
     if (!normalized || !product) return;
+
+    if (
+      requireSize &&
+      !selectedSizeInventory?.available
+    ) {
+      notify.error(
+        "THIS SIZE IS CURRENTLY UNAVAILABLE",
+      );
+      return;
+    }
 
     if (requireSize && !selectedSize) {
       showSizeRequired();
@@ -777,6 +906,16 @@ export default function ProductPage({ params }) {
     // ✅ If already in cart -> go cart
     if (selectionInCart) {
       router.push("/cart");
+      return;
+    }
+
+    if (
+      requireSize &&
+      !selectedSizeInventory?.available
+    ) {
+      notify.error(
+        "THIS SIZE IS CURRENTLY UNAVAILABLE",
+      );
       return;
     }
 
@@ -1070,24 +1209,53 @@ export default function ProductPage({ params }) {
                           return a.localeCompare(b);
                         });
 
-                      return sortedSizes.map((s) => {
-                        const active = selectedSize === s;
+                      return sortedSizes.map((size) => {
+                        const active =
+                          selectedSize === size;
+
+                        const sizeInventory =
+                          sizeInventoryMap[size];
+
+                        const available =
+                          sizeInventory?.available !== false;
 
                         return (
                           <button
-                            key={s}
-                            onClick={() => handleSizeSelect(s)}
-                            className={`h-10 min-w-11 border border-black px-3.5 text-xs font-semibold transition active:scale-95 ${active
-                              ? "bg-black text-white"
-                              : "bg-white text-black hover:bg-black hover:text-white"
+                            key={size}
+                            type="button"
+                            disabled={!available}
+                            onClick={() =>
+                              handleSizeSelect(size)
+                            }
+                            className={`h-10 min-w-11 border px-3.5 text-xs font-semibold transition ${!available
+                                ? "cursor-not-allowed border-neutral-200 bg-neutral-100 text-neutral-300 line-through"
+                                : active
+                                  ? "border-black bg-black text-white active:scale-95"
+                                  : "border-black bg-white text-black hover:bg-black hover:text-white active:scale-95"
                               }`}
                           >
-                            {s}
+                            {size}
                           </button>
                         );
                       });
                     })()}
                   </div>
+
+                  {selectedSizeInventory?.showLowStock && (
+                    <div className="mt-3 inline-flex border border-amber-200 bg-amber-50 px-3 py-2">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-amber-700">
+                        Only{" "}
+                        {
+                          selectedSizeInventory.availableStock
+                        }{" "}
+                        {selectedSizeInventory.availableStock ===
+                          1
+                          ? "piece"
+                          : "pieces"}{" "}
+                        left — almost gone
+                      </p>
+                    </div>
+                  )}
 
                   <DispatchTimeline
                     availableStock={dispatchAvailableStock}

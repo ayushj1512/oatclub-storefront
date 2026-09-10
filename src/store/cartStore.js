@@ -59,7 +59,7 @@ const getProductCategories = (product = {}) =>
     product.raw?.categoryId,
   );
 
-  
+
 
 const getProductCollections = (product = {}) =>
   normalizeIds(
@@ -107,9 +107,9 @@ const cartKey = (item) => {
 
   const vid = str(
     item?.variantId ||
-      item?.variant?.variantId || // ✅ ADD THIS
-      item?.variant?._id ||
-      "",
+    item?.variant?.variantId || // ✅ ADD THIS
+    item?.variant?._id ||
+    "",
   );
 
   return `${pid}__${vid}`;
@@ -168,6 +168,30 @@ const buildCartItem = ({
     rawColor && /^[0-9]+$/.test(rawColor) ? "" : rawColor;
 
   const safeSelectedSize = rawSize;
+
+  const productHasSizes =
+    variants.some((variant) =>
+      Boolean(
+        extractSize(variant).trim(),
+      ),
+    ) ||
+    (Array.isArray(product?.sizes) &&
+      product.sizes.length > 0);
+
+  /*
+   * Variable product with sizes must not
+   * enter the cart without a selected size.
+   */
+  if (
+    productType === "variable" &&
+    productHasSizes &&
+    !safeSelectedSize &&
+    !variantId
+  ) {
+    return {
+      __error: "size_required",
+    };
+  }
 
   if (variantId) {
     variant = variants.find((v) => str(v?._id) === str(variantId)) || null;
@@ -266,23 +290,23 @@ const buildCartItem = ({
 
   const variantSnapshot = variantId
     ? {
-        variantId: str(variantId),
-        sku: str(variant?.sku || ""),
-        attributes: Array.isArray(variant?.attributes)
-          ? variant.attributes
-              .filter((a) => a?.key != null && a?.value != null)
-              .map((a) => ({ key: str(a.key), value: str(a.value) }))
-          : [],
-        image: str(variant?.image || snapshot.thumbnail || ""),
-        weight: toNum(variant?.weight),
-        price: variant?.price != null ? toNum(variant.price) : null,
-        compareAtPrice:
-          variant?.compareAtPrice != null
-            ? toNum(variant.compareAtPrice)
-            : variant?.mrp != null
-              ? toNum(variant.mrp)
-              : null,
-      }
+      variantId: str(variantId),
+      sku: str(variant?.sku || ""),
+      attributes: Array.isArray(variant?.attributes)
+        ? variant.attributes
+          .filter((a) => a?.key != null && a?.value != null)
+          .map((a) => ({ key: str(a.key), value: str(a.value) }))
+        : [],
+      image: str(variant?.image || snapshot.thumbnail || ""),
+      weight: toNum(variant?.weight),
+      price: variant?.price != null ? toNum(variant.price) : null,
+      compareAtPrice:
+        variant?.compareAtPrice != null
+          ? toNum(variant.compareAtPrice)
+          : variant?.mrp != null
+            ? toNum(variant.mrp)
+            : null,
+    }
     : null;
 
   const item = {
@@ -394,12 +418,12 @@ const metaCartItemData = (item, product = null, qtyOverride = null) => {
 
     contents: catalogId
       ? [
-          {
-            id: catalogId,
-            quantity,
-            item_price: price,
-          },
-        ]
+        {
+          id: catalogId,
+          quantity,
+          item_price: price,
+        },
+      ]
       : [],
 
     value: price * quantity,
@@ -453,10 +477,10 @@ export const useCartStore = create((set, get) => ({
               // ✅ normalize prices (fallbacks)
               const price = toNum(
                 it.price ??
-                  it?.productSnapshot?.price ??
-                  it?.variant?.price ??
-                  it?.product?.price ??
-                  0,
+                it?.productSnapshot?.price ??
+                it?.variant?.price ??
+                it?.product?.price ??
+                0,
               );
 
               const compareAtPrice =
@@ -538,9 +562,9 @@ export const useCartStore = create((set, get) => ({
 
           const price = toNum(
             buyNowItem.price ??
-              buyNowItem?.productSnapshot?.price ??
-              buyNowItem?.variant?.price ??
-              0,
+            buyNowItem?.productSnapshot?.price ??
+            buyNowItem?.variant?.price ??
+            0,
           );
 
           const compareAtPrice =
@@ -601,8 +625,8 @@ export const useCartStore = create((set, get) => ({
       try {
         const code = str(
           builtItem?.productSnapshot?.productCode ||
-            originalProduct?.productCode ||
-            "",
+          originalProduct?.productCode ||
+          "",
         ).trim();
 
         if (code) {
@@ -611,9 +635,9 @@ export const useCartStore = create((set, get) => ({
             variantId:
               str(
                 builtItem?.variantId ||
-                  builtItem?.variant?.variantId ||
-                  builtItem?.variant?._id ||
-                  "",
+                builtItem?.variant?.variantId ||
+                builtItem?.variant?._id ||
+                "",
               ).trim() || null,
             size: str(builtItem?.selectedSize || "").trim(),
           });
@@ -677,9 +701,9 @@ export const useCartStore = create((set, get) => ({
         const price =
           Number(
             builtItem?.price ??
-              originalProduct?.price ??
-              originalProduct?.salePrice ??
-              0,
+            originalProduct?.price ??
+            originalProduct?.salePrice ??
+            0,
           ) || 0;
 
         const currency = getCartCurrency(
@@ -798,6 +822,15 @@ export const useCartStore = create((set, get) => ({
 
     if (!built) return;
 
+    if (
+      built.__error === "size_required"
+    ) {
+      notify?.error?.(
+        "Please select a size",
+      );
+      return;
+    }
+
     if (built.__error === "variant_required") {
       notify?.error?.("Please select size & color");
       return;
@@ -842,6 +875,15 @@ export const useCartStore = create((set, get) => ({
 
     if (!built) return;
 
+    if (
+      built.__error === "size_required"
+    ) {
+      notify?.error?.(
+        "Please select a size",
+      );
+      return;
+    }
+
     if (built.__error === "variant_required") {
       notify?.error?.("Please select size & color");
       return;
@@ -859,26 +901,26 @@ export const useCartStore = create((set, get) => ({
 
     const updated = exists
       ? curr.map((p) => {
-          const pk = p.__key || cartKey(p);
-          if (pk !== key) return p;
+        const pk = p.__key || cartKey(p);
+        if (pk !== key) return p;
 
-          const nextQty = Math.max(
-            1,
-            toNum(p.quantity || 1) + toNum(built.quantity || 1),
-          );
+        const nextQty = Math.max(
+          1,
+          toNum(p.quantity || 1) + toNum(built.quantity || 1),
+        );
 
-          return {
-            ...p,
-            ...built,
-            compareAtPrice:
-              built.compareAtPrice != null
-                ? built.compareAtPrice
-                : p.compareAtPrice,
-            price: built.price != null ? built.price : p.price,
-            quantity: nextQty,
-            __key: pk,
-          };
-        })
+        return {
+          ...p,
+          ...built,
+          compareAtPrice:
+            built.compareAtPrice != null
+              ? built.compareAtPrice
+              : p.compareAtPrice,
+          price: built.price != null ? built.price : p.price,
+          quantity: nextQty,
+          __key: pk,
+        };
+      })
       : [{ ...built }, ...curr];
 
     /* ---------------- SAVE CART ---------------- */
@@ -896,9 +938,9 @@ export const useCartStore = create((set, get) => ({
           variantId:
             str(
               built?.variantId ||
-                built?.variant?.variantId ||
-                built?.variant?._id ||
-                "",
+              built?.variant?.variantId ||
+              built?.variant?._id ||
+              "",
             ).trim() || null,
           size: str(built?.selectedSize || "").trim(),
         });
@@ -1089,9 +1131,9 @@ export const useCartStore = create((set, get) => ({
           variantId:
             str(
               removed?.variantId ||
-                removed?.variant?.variantId ||
-                removed?.variant?._id ||
-                "",
+              removed?.variant?.variantId ||
+              removed?.variant?._id ||
+              "",
             ).trim() || null,
           size: str(removed?.selectedSize || "").trim(),
         });

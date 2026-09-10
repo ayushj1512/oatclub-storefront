@@ -77,17 +77,17 @@ const bestPrice = (product) => {
 const comparePrice = (product) => {
   const base = toNum(
     product?.compareAtPrice ??
-      product?.compare_at_price ??
-      product?.mrp ??
-      product?.regular_price ??
-      product?.originalPrice ??
-      product?.compare_price
+    product?.compare_at_price ??
+    product?.mrp ??
+    product?.regular_price ??
+    product?.originalPrice ??
+    product?.compare_price
   );
 
   const variants = Array.isArray(product?.variants)
     ? product.variants
-        .map((v) => toNum(v?.compareAtPrice ?? v?.compare_at_price ?? v?.mrp))
-        .filter(Boolean)
+      .map((v) => toNum(v?.compareAtPrice ?? v?.compare_at_price ?? v?.mrp))
+      .filter(Boolean)
     : [];
 
   return base || (variants.length ? Math.max(...variants) : 0);
@@ -113,6 +113,65 @@ const getSizes = (product) => {
     : [];
 
   return [...new Set([...fromAttributes, ...fromVariants].filter(Boolean))];
+};
+
+const getSizeOptions = (product) => {
+  const stockType =
+    product?.stockType === "limited"
+      ? "limited"
+      : "unlimited";
+
+  const variants = Array.isArray(
+    product?.variants,
+  )
+    ? product.variants
+    : [];
+
+  return getSizes(product).map((size) => {
+    const variant = variants.find(
+      (item) =>
+        getVariantSize(item)
+          .trim()
+          .toUpperCase() ===
+        String(size)
+          .trim()
+          .toUpperCase(),
+    );
+
+    const stock = Math.max(
+      0,
+      Number(variant?.stock ?? 0),
+    );
+
+    const reservedStock = Math.max(
+      0,
+      Number(
+        variant?.reservedStock ?? 0,
+      ),
+    );
+
+    const availableStock = Math.max(
+      0,
+      stock - reservedStock,
+    );
+
+    const available =
+      stockType === "unlimited" ||
+      availableStock > 0;
+
+    return {
+      size,
+      variantId: variant?._id || null,
+      stock,
+      reservedStock,
+      availableStock,
+      available,
+
+      showLowStock:
+        availableStock > 0 &&
+        availableStock <= 5,
+    };
+  });
 };
 
 function ProductCardSkeleton() {
@@ -171,8 +230,10 @@ export default function ProductCard({
     const hover = hoverImage(product);
     const price = bestPrice(product);
     const compareAt = comparePrice(product);
-    const sizes = getSizes(product);
-
+    const sizes = getSizes(
+      product?.raw || product,
+    );    const sizeOptions =
+      getSizeOptions(product);
     const link = `/category/${categorySlug(product)}/${slugify(
       product.slug || productName
     )}/${encodeURIComponent(productCode)}`;
@@ -187,6 +248,8 @@ export default function ProductCard({
       compareAt,
       sizes,
       link,
+      sizes,
+      sizeOptions,
     };
   }, [product]);
 
@@ -204,9 +267,21 @@ export default function ProductCard({
   const isTrending =
     !isBestSeller && !!(product?.isTrending ?? product?.raw?.isTrending);
 
-  const selectedVariant = Array.isArray(product?.variants)
-    ? product.variants.find((v) => getVariantSize(v) === selectedSize)
-    : null;
+  const productVariants =
+    product?.raw?.variants ||
+    product?.variants ||
+    [];
+
+  const selectedVariant =
+    productVariants.find(
+      (variant) =>
+        getVariantSize(variant)
+          .trim()
+          .toUpperCase() ===
+        String(selectedSize)
+          .trim()
+          .toUpperCase(),
+    ) || null;
 
   const toggleWishlist = (event) => {
     event.preventDefault();
@@ -215,14 +290,29 @@ export default function ProductCard({
   };
 
   const addSelectedToCart = async () => {
+    const selectedSizeOption =
+      model.sizeOptions.find(
+        (option) =>
+          option.size === selectedSize,
+      );
+
+    if (
+      selectedSize &&
+      !selectedSizeOption?.available
+    ) {
+      return;
+    }
+
     setAdding(true);
 
     try {
       await addToCart({
         product,
         qty: 1,
-        variantId: selectedVariant?._id || null,
-        selectedSize: selectedSize || null,
+        variantId:
+          selectedVariant?._id || null,
+        selectedSize:
+          selectedSize || null,
       });
 
       setSizeSheetOpen(false);
@@ -289,9 +379,8 @@ export default function ProductCard({
           >
             <Heart
               strokeWidth={2.15}
-              className={`h-[18px] w-[18px] drop-shadow-[0_1px_8px_rgba(255,255,255,0.9)] ${
-                wishlisted ? "fill-black text-black" : "fill-white/70 text-black/75"
-              }`}
+              className={`h-[18px] w-[18px] drop-shadow-[0_1px_8px_rgba(255,255,255,0.9)] ${wishlisted ? "fill-black text-black" : "fill-white/70 text-black/75"
+                }`}
             />
           </button>
         )}
@@ -337,8 +426,11 @@ export default function ProductCard({
 
       <SizeSelectSheet
         open={sizeSheetOpen}
-        onClose={() => setSizeSheetOpen(false)}
+        onClose={() =>
+          setSizeSheetOpen(false)
+        }
         sizes={model.sizes}
+        sizeOptions={model.sizeOptions}
         selectedSize={selectedSize}
         onSelect={setSelectedSize}
         onConfirm={addSelectedToCart}

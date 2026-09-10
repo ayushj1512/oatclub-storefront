@@ -7,37 +7,113 @@ import { useSearchStore } from "@/store/searchStore";
 import ProductGrid from "@/components/common/ProductGrid";
 import UniversalLuxuryLoader from "@/components/common/UniversalLuxuryLoader";
 
-const normalizeProductForGrid = (product) => {
+const normalizeProductForGrid = (
+  product,
+) => {
   if (!product?._id) return null;
-  const imageList =
-    Array.isArray(product.images) && product.images.length
+
+  const images =
+    Array.isArray(product.images) &&
+      product.images.length
       ? product.images
       : product.thumbnail
         ? [product.thumbnail]
         : [];
 
+  const variants = Array.isArray(
+    product.variants,
+  )
+    ? product.variants
+    : [];
+
+  const attributes = Array.isArray(
+    product.attributes,
+  )
+    ? product.attributes
+    : [];
+
+  const stockType =
+    product.stockType === "limited"
+      ? "limited"
+      : "unlimited";
+
   return {
     id: product._id,
     _id: product._id,
+
     title: product.title || "",
     name: product.title || "",
     slug: product.slug || "",
-    productCode: product.productCode || "",
-    price: String(product.price ?? ""),
+    productCode:
+      product.productCode || "",
+
+    price: String(
+      product.price ?? "",
+    ),
+
     sale_price:
-      product.compareAtPrice && product.compareAtPrice > product.price
+      Number(product.compareAtPrice) >
+        Number(product.price)
         ? String(product.price)
         : null,
-    regular_price: product.compareAtPrice
-      ? String(product.compareAtPrice)
-      : String(product.price ?? ""),
-    images: imageList.map((src) => ({ src })),
-    thumbnail: product.thumbnail || "",
-    image: product.thumbnail || product.images?.[0] || "",
-    categories: Array.isArray(product.categories) ? product.categories : [],
-    isBestSeller: !!product.isBestSeller,
-    isTrending: !!product.isTrending,
-    raw: product,
+
+    regular_price:
+      product.compareAtPrice != null
+        ? String(product.compareAtPrice)
+        : String(product.price ?? ""),
+
+    images: images.map((image) =>
+      typeof image === "string"
+        ? { src: image }
+        : image,
+    ),
+
+    thumbnail:
+      product.thumbnail || "",
+
+    image:
+      product.thumbnail ||
+      images[0]?.src ||
+      images[0] ||
+      "",
+
+    categories: Array.isArray(
+      product.categories,
+    )
+      ? product.categories
+      : [],
+
+    stockType,
+    stock: Number(product.stock ?? 0),
+    reservedStock: Number(
+      product.reservedStock ?? 0,
+    ),
+
+    isInStock:
+      stockType === "unlimited" ||
+      !!product.isInStock,
+
+    productType:
+      product.productType ||
+      (variants.length
+        ? "variable"
+        : "simple"),
+
+    attributes,
+    variants,
+
+    isBestSeller:
+      !!product.isBestSeller,
+
+    isTrending:
+      !!product.isTrending,
+
+    raw: {
+      ...product,
+      stockType,
+      attributes,
+      variants,
+    },
   };
 };
 
