@@ -11,11 +11,14 @@ import {
   Package,
   RotateCcw,
   Truck,
+  Undo2,
 } from "lucide-react";
-
 import useNdrStore from "@/store/ndrStore";
 
-const ACTIONS = [
+const money = (value) =>
+  `₹${Number(value || 0).toLocaleString("en-IN")}`;
+
+const BASE_ACTIONS = [
   {
     value: "RE-ATTEMPT",
     label: "Reattempt",
@@ -30,16 +33,15 @@ const ACTIONS = [
   },
 ];
 
-const money = (value) =>
-  `₹${Number(value || 0).toLocaleString("en-IN")}`;
-
 export default function NdrOrderPage() {
   const params = useParams();
   const token = params?.["order-number"];
 
   const {
     order,
+    provider,
     result,
+    loading,
     submitting,
     error,
     fetchNdrOrder,
@@ -59,28 +61,53 @@ export default function NdrOrderPage() {
     }
 
     return reset;
-  }, [token, fetchNdrOrder, reset]);
+  }, [token]);
+
+  const actions =
+    provider === "shiprocket"
+      ? [
+        ...BASE_ACTIONS,
+        {
+          value: "RETURN",
+          label: "Return",
+          text: "Return the order to OATCLUB",
+          icon: Undo2,
+        },
+      ]
+      : BASE_ACTIONS;
 
   const submit = async () => {
-    const payload = { token, action };
-
-    if (action === "DEFER_DLV") {
-      if (!deferredDate) {
-        alert("Please select a delivery date.");
-        return;
-      }
-
-      payload.deferredDate = deferredDate;
+    if (
+      action === "DEFER_DLV" &&
+      !deferredDate
+    ) {
+      alert(
+        "Please select a preferred delivery date.",
+      );
+      return;
     }
 
-    await submitNdrAction(payload).catch(() => { });
+    if (
+      action === "RETURN" &&
+      !window.confirm(
+        "Are you sure you want to return this order?",
+      )
+    ) {
+      return;
+    }
+
+    await submitNdrAction({
+      token,
+      action,
+      deferredDate,
+    }).catch(() => { });
   };
 
-  if (!order && !error) {
+  if (loading || (!order && !error)) {
     return <State loading />;
   }
 
-  if (error && !order) {
+  if (!order) {
     return (
       <State
         title="Order unavailable"
@@ -90,47 +117,58 @@ export default function NdrOrderPage() {
   }
 
   if (result) {
+    const text =
+      action === "RETURN"
+        ? "Your return request has been submitted."
+        : action === "DEFER_DLV"
+          ? "Your preferred delivery date has been submitted."
+          : "Your delivery reattempt request has been submitted.";
+
     return (
       <State
         success
         title="Request received"
-        text={
-          action === "RE-ATTEMPT"
-            ? "Your delivery reattempt request has been submitted."
-            : "Your preferred delivery date has been submitted."
-        }
+        text={text}
       />
     );
   }
 
   const address =
-    order?.shippingAddress ||
-    order?.shippingAddressSnapshot ||
+    order.shippingAddress ||
+    order.shippingAddressSnapshot ||
     {};
 
   const customer = {
     name:
-      order?.customer?.name ||
+      order.customer?.name ||
       address.name ||
       address.fullName ||
       "Customer",
     phone:
-      order?.customer?.phone ||
+      order.customer?.phone ||
       address.phone ||
       "",
   };
 
-  const items = order?.products || order?.items || [];
+  const items =
+    order.products || order.items || [];
 
   const total =
-    order?.pricing?.finalPayable ??
-    order?.finalPayable ??
-    order?.totalAmount ??
+    order.pricing?.finalPayable ??
+    order.finalPayable ??
+    order.totalAmount ??
     0;
+
+  const awb =
+    order.ndr?.awb ||
+    order.ndr?.waybill ||
+    order.shipment?.awb ||
+    "";
 
   const fullAddress = [
     address.line1,
     address.line2,
+    address.landmark,
     address.city,
     address.state,
     address.pincode,
@@ -139,42 +177,44 @@ export default function NdrOrderPage() {
     .join(", ");
 
   return (
-    <main className="min-h-[100dvh] bg-[#f5f5f3] p-2.5 sm:p-6">
-      <section className="mx-auto max-w-xl overflow-hidden rounded-[24px] bg-white shadow-sm">
-        <header className="bg-neutral-950 p-5 text-white">
-          <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400">
+    <main className="min-h-dvh bg-zinc-100 p-3 sm:p-6">
+      <section className="mx-auto max-w-xl overflow-hidden rounded-3xl bg-white shadow-sm">
+        <header className="bg-zinc-950 p-5 text-white">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">
             Delivery Action Required
-          </span>
+          </p>
 
-          <h1 className="mt-3 text-2xl font-black">
+          <h1 className="mt-2 text-2xl font-black">
             Update your delivery
           </h1>
 
           <p className="mt-1 text-xs text-white/60">
-            Order #{order?.orderNumber || token}
+            Order #{order.orderNumber || token}
           </p>
 
-          <p className="mt-3 flex items-center gap-2 text-[11px] text-white/50">
+          <p className="mt-3 flex items-center gap-2 text-xs text-white/50">
             <Truck size={14} />
-            AWB:{" "}
-            {order?.ndr?.waybill ||
-              order?.shipment?.awb ||
-              "—"}
+            {provider === "shiprocket"
+              ? "Shiprocket"
+              : "Delhivery"}{" "}
+            · AWB {awb || "Unavailable"}
           </p>
         </header>
 
-        <div className="space-y-4 p-3 sm:p-5">
+        <div className="space-y-4 p-4 sm:p-5">
           <div className="flex gap-2 rounded-xl bg-amber-50 p-3">
-            <AlertCircle className="h-4 w-4 shrink-0 text-amber-700" />
+            <AlertCircle
+              size={17}
+              className="shrink-0 text-amber-700"
+            />
 
             <div>
               <p className="text-xs font-bold">
                 Delivery attempt unsuccessful
               </p>
-
-              <p className="mt-0.5 text-[11px] text-neutral-600">
-                {order?.ndr?.reason ||
-                  order?.ndr?.rawStatus ||
+              <p className="mt-1 text-xs text-zinc-600">
+                {order.ndr?.reason ||
+                  order.ndr?.rawStatus ||
                   "Your confirmation is required."}
               </p>
             </div>
@@ -182,7 +222,7 @@ export default function NdrOrderPage() {
 
           <div>
             <p className="mb-2 flex items-center gap-2 text-xs font-bold">
-              <Package size={14} />
+              <Package size={15} />
               Your order
             </p>
 
@@ -198,7 +238,7 @@ export default function NdrOrderPage() {
                       item._id ||
                       index
                     }
-                    className="flex gap-3 rounded-xl bg-neutral-50 p-2.5"
+                    className="flex gap-3 rounded-xl bg-zinc-50 p-3"
                   >
                     <img
                       src={
@@ -206,7 +246,11 @@ export default function NdrOrderPage() {
                         product.thumbnail ||
                         "/placeholder.png"
                       }
-                      alt=""
+                      alt={
+                        item.title ||
+                        product.title ||
+                        "Product"
+                      }
                       className="h-16 w-14 rounded-lg object-cover"
                     />
 
@@ -217,7 +261,7 @@ export default function NdrOrderPage() {
                           "Product"}
                       </p>
 
-                      <p className="mt-1 text-[10px] text-neutral-500">
+                      <p className="mt-1 text-[11px] text-zinc-500">
                         Qty {item.quantity || 1}
                         {item.selectedSize
                           ? ` · Size ${item.selectedSize}`
@@ -237,29 +281,28 @@ export default function NdrOrderPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-neutral-200 p-3">
+          <div className="rounded-xl border border-zinc-200 p-3">
             <p className="flex items-center gap-2 text-xs font-bold">
-              <MapPin size={14} />
-              Current delivery details
+              <MapPin size={15} />
+              Delivery details
             </p>
 
             <p className="mt-3 text-xs font-semibold">
               {customer.name}
             </p>
 
-            <p className="mt-1 text-[11px] text-neutral-600">
-              {customer.phone || "—"}
+            <p className="mt-1 text-xs text-zinc-600">
+              {customer.phone || "Unavailable"}
             </p>
 
-            <p className="mt-2 text-[10px] leading-4 text-neutral-500">
-              {fullAddress || "—"}
+            <p className="mt-2 text-xs leading-5 text-zinc-500">
+              {fullAddress || "Unavailable"}
             </p>
 
-            <div className="mt-3 flex justify-between border-t pt-3">
-              <span className="text-xs text-neutral-500">
+            <div className="mt-3 flex justify-between border-t border-zinc-100 pt-3">
+              <span className="text-xs text-zinc-500">
                 Amount payable
               </span>
-
               <strong>{money(total)}</strong>
             </div>
           </div>
@@ -269,42 +312,50 @@ export default function NdrOrderPage() {
               Select an option
             </p>
 
-            <div className="grid grid-cols-2 gap-2">
-              {ACTIONS.map(
+            <div
+              className={`grid gap-2 ${actions.length === 3
+                  ? "grid-cols-3"
+                  : "grid-cols-2"
+                }`}
+            >
+              {actions.map(
                 ({
                   value,
                   label,
                   text,
                   icon: Icon,
-                }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      clearError();
-                      setAction(value);
-                    }}
-                    className={`rounded-xl border p-3 text-left ${action === value
-                        ? "border-neutral-950 bg-neutral-950 text-white"
-                        : "border-neutral-200"
-                      }`}
-                  >
-                    <Icon size={16} />
+                }) => {
+                  const active =
+                    action === value;
 
-                    <p className="mt-2 text-xs font-bold">
-                      {label}
-                    </p>
-
-                    <p
-                      className={`mt-1 text-[9px] ${action === value
-                          ? "text-white/60"
-                          : "text-neutral-400"
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        clearError();
+                        setAction(value);
+                      }}
+                      className={`rounded-xl border p-3 text-left ${active
+                          ? "border-zinc-950 bg-zinc-950 text-white"
+                          : "border-zinc-200"
                         }`}
                     >
-                      {text}
-                    </p>
-                  </button>
-                ),
+                      <Icon size={16} />
+                      <p className="mt-2 text-xs font-bold">
+                        {label}
+                      </p>
+                      <p
+                        className={`mt-1 text-[9px] ${active
+                            ? "text-white/60"
+                            : "text-zinc-400"
+                          }`}
+                      >
+                        {text}
+                      </p>
+                    </button>
+                  );
+                },
               )}
             </div>
           </div>
@@ -329,7 +380,7 @@ export default function NdrOrderPage() {
                     event.target.value,
                   );
                 }}
-                className="w-full rounded-xl border border-neutral-200 px-3 py-3 text-sm outline-none focus:border-neutral-950"
+                className="w-full rounded-xl border border-zinc-200 px-3 py-3 text-sm outline-none focus:border-zinc-950"
               />
             </label>
           )}
@@ -344,29 +395,36 @@ export default function NdrOrderPage() {
             type="button"
             onClick={submit}
             disabled={submitting}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-neutral-950 text-sm font-bold text-white disabled:opacity-50"
+            className={`flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold text-white disabled:opacity-50 ${action === "RETURN"
+                ? "bg-red-600"
+                : "bg-zinc-950"
+              }`}
           >
             {submitting ? (
               <Loader2
                 size={17}
                 className="animate-spin"
               />
-            ) : action === "RE-ATTEMPT" ? (
-              <RotateCcw size={17} />
-            ) : (
+            ) : action === "RETURN" ? (
+              <Undo2 size={17} />
+            ) : action === "DEFER_DLV" ? (
               <CalendarDays size={17} />
+            ) : (
+              <RotateCcw size={17} />
             )}
 
             {submitting
               ? "Submitting..."
-              : action === "RE-ATTEMPT"
-                ? "Reattempt My Delivery"
-                : "Submit Preferred Date"}
+              : action === "RETURN"
+                ? "Return My Order"
+                : action === "DEFER_DLV"
+                  ? "Submit Preferred Date"
+                  : "Reattempt My Delivery"}
           </button>
 
-          <p className="text-center text-[10px] text-neutral-400">
-            Please confirm your choice before
-            submitting.
+          <p className="text-center text-[10px] text-zinc-400">
+            Submit only after confirming your
+            selection.
           </p>
         </div>
       </section>
@@ -381,7 +439,7 @@ function State({
   text,
 }) {
   return (
-    <main className="grid min-h-[100dvh] place-items-center bg-[#f5f5f3] p-4">
+    <main className="grid min-h-dvh place-items-center bg-zinc-100 p-4">
       <div className="max-w-sm text-center">
         {loading ? (
           <Loader2 className="mx-auto animate-spin" />
@@ -392,11 +450,13 @@ function State({
         )}
 
         <h1 className="mt-3 text-xl font-black">
-          {loading ? "Loading order..." : title}
+          {loading
+            ? "Loading order..."
+            : title}
         </h1>
 
         {text && (
-          <p className="mt-2 text-xs leading-5 text-neutral-500">
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
             {text}
           </p>
         )}
