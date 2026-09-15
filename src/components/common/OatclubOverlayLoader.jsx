@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const BRAND_IMAGE =
-  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1780338447/qavpt44lsxsy3wrvuwi8.png";
+  "https://res.cloudinary.com/znyqjoop/image/upload/v1789491896/oatclub/media/urpi4v6d53jyn2e5hlfi.png";
 
 export default function OatclubOverlayLoader({
   show = false,

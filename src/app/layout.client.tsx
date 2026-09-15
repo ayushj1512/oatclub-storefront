@@ -9,7 +9,6 @@ import GTMPageView from "@/components/tracking/GTMPageView";
 import MetaPixel from "@/components/tracking/MetaPixel";
 import SnapPixel from "@/components/tracking/SnapPixel";
 import ClarityProvider from "@/components/clarity/ClarityProvider";
-
 import MetaParameterInitializer from "@/components/analytics/MetaParameterInitializer";
 
 import DesktopHeader from "@/components/layout/DesktopHeader";
@@ -20,23 +19,18 @@ import DynamicTabTitle from "@/components/layout/DynamicTabTitle";
 import ClientProviders from "@/components/layout/ClientProviders";
 
 import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
+import BdayWishModal from "@/components/layout/BdayWishModal";
 
 import { useAuthStore } from "@/store/authStore";
 import { useCustomerCartStore } from "@/store/customerCartStore";
 import { useMarketingCampaignStore } from "@/store/marketing-campaignStore";
 
-/* =========================================================
-   AUTH INITIALIZATION
-========================================================= */
-
 function AuthInit() {
   const initializeAuth = useAuthStore((s) => s.initialize);
   const customerId = useAuthStore((s) => s.customer?._id);
-
   const initializeCustomerCart = useCustomerCartStore(
     (s) => s.initialize
   );
-
   const mergeGuestCartAdds = useCustomerCartStore(
     (s) => s.mergeGuestCartAdds
   );
@@ -57,10 +51,6 @@ function AuthInit() {
   return null;
 }
 
-/* =========================================================
-   MARKETING CAMPAIGN INITIALIZATION
-========================================================= */
-
 function MarketingCampaignInit() {
   const captureFromUrl = useMarketingCampaignStore(
     (s) => s.captureFromUrl
@@ -72,10 +62,6 @@ function MarketingCampaignInit() {
 
   return null;
 }
-
-/* =========================================================
-   ROOT CLIENT LAYOUT
-========================================================= */
 
 export default function LayoutClient({
   children,
@@ -90,12 +76,7 @@ export default function LayoutClient({
 
   return (
     <>
-      {/* =====================================================
-          Meta Parameter Builder
-          Runs first to capture fbclid → _fbc
-      ====================================================== */}
       <MetaParameterInitializer />
-
       <AuthInit />
       <MarketingCampaignInit />
       <DynamicTabTitle />
@@ -114,7 +95,6 @@ export default function LayoutClient({
         />
 
         <GTMPageView />
-
         <ClarityProvider />
       </Suspense>
 
@@ -132,10 +112,9 @@ export default function LayoutClient({
         </main>
 
         <Footer />
-
         <ScrollToTop />
-
         <LogoutConfirmModal />
+        <BdayWishModal />
 
         <Toaster
           position="top-right"
@@ -147,12 +126,9 @@ export default function LayoutClient({
             classNames: {
               toast:
                 "text-[12px] leading-4 px-3 py-2 min-h-[36px] rounded-lg shadow-sm",
-
               description:
                 "text-[11px] leading-4 opacity-80",
-
               actionButton: "h-7 px-2 text-[11px]",
-
               cancelButton: "h-7 px-2 text-[11px]",
             },
           }}

@@ -5,14 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 export default function TopbarHeadline({ interval = 3200 }) {
   const items = useMemo(
-    () => [
-      "CURATED DROPS. LIMITED RUNS. EVERYDAY LUXE.",
-      "FIRST ORDER PRIVILEGE: 10% OFF WITH FIRST10",
-      "BUY 2 & GET RS. 300 OFF — USE BUY2GET300",
-      "BUY 3 & GET RS. 500 OFF — USE BUY3GET500",
-      "QUALITY CHECKED PIECES, PACKED WITH CARE",
-      "MADE WITH CARE — KINDLY ALLOW UP TO 14 DAYS FOR DISPATCH",
-    ],
+    () => ["FOUNDER’S BIRTHDAY SALE FOR ONE DAY"],
     []
   );
 
