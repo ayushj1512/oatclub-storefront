@@ -57,7 +57,7 @@ export default function NdrOrderPage() {
 
   useEffect(() => {
     if (token) {
-      fetchNdrOrder(token).catch(() => { });
+      fetchNdrOrder(token).catch(() => {});
     }
 
     return reset;
@@ -66,14 +66,14 @@ export default function NdrOrderPage() {
   const actions =
     provider === "shiprocket"
       ? [
-        ...BASE_ACTIONS,
-        {
-          value: "RETURN",
-          label: "Return",
-          text: "Return the order to OATCLUB",
-          icon: Undo2,
-        },
-      ]
+          ...BASE_ACTIONS,
+          {
+            value: "RETURN",
+            label: "Return",
+            text: "Return the order to OATCLUB",
+            icon: Undo2,
+          },
+        ]
       : BASE_ACTIONS;
 
   const submit = async () => {
@@ -100,7 +100,7 @@ export default function NdrOrderPage() {
       token,
       action,
       deferredDate,
-    }).catch(() => { });
+    }).catch(() => {});
   };
 
   if (loading || (!order && !error)) {
@@ -271,7 +271,7 @@ export default function NdrOrderPage() {
                       <p className="mt-1 text-xs font-bold">
                         {money(
                           item.subtotal ||
-                          item.price,
+                            item.price,
                         )}
                       </p>
                     </div>
@@ -313,10 +313,11 @@ export default function NdrOrderPage() {
             </p>
 
             <div
-              className={`grid gap-2 ${actions.length === 3
+              className={`grid gap-2 ${
+                actions.length === 3
                   ? "grid-cols-3"
                   : "grid-cols-2"
-                }`}
+              }`}
             >
               {actions.map(
                 ({
@@ -336,20 +337,22 @@ export default function NdrOrderPage() {
                         clearError();
                         setAction(value);
                       }}
-                      className={`rounded-xl border p-3 text-left ${active
+                      className={`rounded-xl border p-3 text-left ${
+                        active
                           ? "border-zinc-950 bg-zinc-950 text-white"
                           : "border-zinc-200"
-                        }`}
+                      }`}
                     >
                       <Icon size={16} />
                       <p className="mt-2 text-xs font-bold">
                         {label}
                       </p>
                       <p
-                        className={`mt-1 text-[9px] ${active
+                        className={`mt-1 text-[9px] ${
+                          active
                             ? "text-white/60"
                             : "text-zinc-400"
-                          }`}
+                        }`}
                       >
                         {text}
                       </p>
@@ -395,10 +398,11 @@ export default function NdrOrderPage() {
             type="button"
             onClick={submit}
             disabled={submitting}
-            className={`flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold text-white disabled:opacity-50 ${action === "RETURN"
+            className={`flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold text-white disabled:opacity-50 ${
+              action === "RETURN"
                 ? "bg-red-600"
                 : "bg-zinc-950"
-              }`}
+            }`}
           >
             {submitting ? (
               <Loader2
