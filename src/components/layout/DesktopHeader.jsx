@@ -15,7 +15,7 @@ import TopbarHeadline from "@/components/layout/TopbarHeadline";
 import HeaderNavStrip from "@/components/header/HeaderNavStrip";
 
 const LOGO_URL =
-  "https://res.cloudinary.com/znyqjoop/image/upload/v1789491896/oatclub/media/urpi4v6d53jyn2e5hlfi.png";
+  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1781123545/bd7ip3bphemzjoul4ixp.webp";
 
 export default function DesktopHeader() {
   const pathname = usePathname();

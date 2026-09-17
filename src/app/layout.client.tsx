@@ -19,7 +19,7 @@ import DynamicTabTitle from "@/components/layout/DynamicTabTitle";
 import ClientProviders from "@/components/layout/ClientProviders";
 
 import LogoutConfirmModal from "@/components/auth/LogoutConfirmModal";
-import BdayWishModal from "@/components/layout/BdayWishModal";
+// import BdayWishModal from "@/components/layout/BdayWishModal";
 
 import { useAuthStore } from "@/store/authStore";
 import { useCustomerCartStore } from "@/store/customerCartStore";
@@ -114,7 +114,7 @@ export default function LayoutClient({
         <Footer />
         <ScrollToTop />
         <LogoutConfirmModal />
-        <BdayWishModal />
+        {/* <BdayWishModal /> */}
 
         <Toaster
           position="top-right"
