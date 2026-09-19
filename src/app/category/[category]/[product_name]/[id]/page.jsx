@@ -2,8 +2,16 @@
 "use client";
 
 import { use, useEffect, useMemo, useState, useCallback, useRef, } from "react";
-import { Heart, RotateCcw, Share2, ShieldCheck, ShoppingCart, Truck, Zap } from "lucide-react";
-import { useRouter } from "next/navigation";
+import {
+  Heart,
+  RotateCcw,
+  Share2,
+  ShieldCheck,
+  ShoppingCart,
+  TrendingDown,
+  Truck,
+  Zap,
+} from "lucide-react"; import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { useCartStore } from "@/store/cartStore";
@@ -565,6 +573,32 @@ export default function ProductPage({ params }) {
           regularPrice: Number(p.compareAtPrice ?? p.price ?? 0),
           onSale:
             Number(p.compareAtPrice ?? 0) > Number(p.price ?? 0),
+          priceDroppedBy: Number(
+            p?.priceDroppedBy ??
+            p?.raw?.priceDroppedBy ??
+            0,
+          ),
+
+          priceDropPercentage: Number(
+            p?.priceDropPercentage ??
+            p?.raw?.priceDropPercentage ??
+            0,
+          ),
+
+          previousPrice: Number(
+            p?.previousPrice ??
+            p?.latestPriceLog?.oldPrice ??
+            p?.raw?.latestPriceLog
+              ?.oldPrice ??
+            0,
+          ),
+
+          hasPriceDrop:
+            Number(
+              p?.priceDroppedBy ??
+              p?.raw?.priceDroppedBy ??
+              0,
+            ) > 0,
           images,
           productSpotlight: Array.isArray(p?.raw?.productSpotlight)
             ? p.raw.productSpotlight
@@ -1120,24 +1154,32 @@ export default function ProductPage({ params }) {
               />
 
               {/* Price */}
-              <div className="border-b border-black/10 pb-3">
+              {/* Price */}
+              <div className="border-b border-black/10 pb-4">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                   <div className="flex flex-wrap items-end gap-3">
                     <span className="text-[22px] font-extrabold leading-none text-black md:text-[27px]">
                       RS. {money(product.price)}
                     </span>
 
-                    {product.regularPrice > product.price ? (
+                    {product.regularPrice >
+                      product.price ? (
                       <>
                         <span className="pb-1 text-base font-medium text-black/35 line-through">
-                          RS. {money(product.regularPrice)}
+                          RS.{" "}
+                          {money(
+                            product.regularPrice,
+                          )}
                         </span>
 
                         <span className="mb-1 bg-black px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-white">
                           {Math.round(
-                            ((product.regularPrice - product.price) /
-                              product.regularPrice) *
-                            100
+                            (
+                              (product.regularPrice -
+                                product.price) /
+                              product.regularPrice
+                            ) *
+                            100,
                           )}
                           % OFF
                         </span>
@@ -1149,6 +1191,47 @@ export default function ProductPage({ params }) {
                     INCLUSIVE OF ALL TAXES
                   </p>
                 </div>
+
+                {product.hasPriceDrop && (
+                  <div className="mt-3 flex items-center justify-between gap-3 bg-emerald-100/70 px-3 py-2.5 backdrop-blur-md md:max-w-md">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className="grid h-8 w-8 shrink-0 place-items-center bg-emerald-600/80 text-white">
+                        <TrendingDown
+                          size={17}
+                          strokeWidth={2.7}
+                        />
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-emerald-900">
+                          Price dropped
+                        </p>
+
+                        <p className="mt-0.5 text-[11px] font-medium text-emerald-800/75">
+                          {product.previousPrice >
+                            product.price
+                            ? `Previously RS. ${money(
+                              product.previousPrice,
+                            )}`
+                            : "Limited-time lower price"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-emerald-800/60">
+                        You save
+                      </p>
+
+                      <p className="text-sm font-extrabold text-emerald-800">
+                        RS.{" "}
+                        {money(
+                          product.priceDroppedBy,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <CouponPriceSlideshow product={product} />

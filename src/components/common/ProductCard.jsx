@@ -2,7 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart } from "lucide-react";
+import {
+  Heart,
+  TrendingDown,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useAnalyticsStore } from "@/store/analyticsStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
@@ -229,6 +232,18 @@ export default function ProductCard({
     const image = firstImage(product);
     const hover = hoverImage(product);
     const price = bestPrice(product);
+    const priceDroppedBy = toNum(
+      product?.priceDroppedBy ??
+      product?.raw?.priceDroppedBy,
+    );
+
+    const priceDropPercentage = toNum(
+      product?.priceDropPercentage ??
+      product?.raw?.priceDropPercentage,
+    );
+
+    const hasPriceDrop =
+      priceDroppedBy > 0;
     const compareAt = comparePrice(product);
     const sizes = getSizes(
       product?.raw || product,
@@ -243,13 +258,18 @@ export default function ProductCard({
       productName,
       productCode,
       image,
-      hover: hover && hover !== image ? hover : "",
+      hover:
+        hover && hover !== image
+          ? hover
+          : "",
       price,
       compareAt,
-      sizes,
-      link,
+      priceDroppedBy,
+      priceDropPercentage,
+      hasPriceDrop,
       sizes,
       sizeOptions,
+      link,
     };
   }, [product]);
 
@@ -339,12 +359,38 @@ export default function ProductCard({
           className="group block"
         >
           <div className="relative isolate aspect-[4/5] overflow-hidden bg-white">
-            {(isBestSeller || isTrending) && (
-              <div className="absolute left-2 top-2 z-20">
-                {isBestSeller && <Badge label="Bestseller" />}
-                {isTrending && <Badge label="Trending" />}
-              </div>
-            )}
+            {(
+              isBestSeller ||
+              isTrending ||
+              model.hasPriceDrop
+            ) && (
+                <div className="absolute left-2 top-2 z-20 flex max-w-[calc(100%-3.5rem)] flex-col items-start gap-1.5 md:left-3 md:top-3">
+                  {isBestSeller && (
+                    <Badge label="Bestseller" />
+                  )}
+
+                  {isTrending && (
+                    <Badge label="Trending" />
+                  )}
+
+                {model.hasPriceDrop && (
+                  <div className="flex items-center gap-1.5 bg-emerald-600/65 px-2 py-1 text-[7.5px] font-black uppercase tracking-[0.07em] text-white shadow-sm backdrop-blur-md sm:text-[8px] md:px-2.5 md:text-[8.5px]">
+                    <TrendingDown
+                      size={13}
+                      strokeWidth={3}
+                      className="shrink-0 text-white"
+                    />
+
+                    <span className="whitespace-nowrap">
+                      Dropped RS.{" "}
+                      {money(
+                        model.priceDroppedBy,
+                      )}
+                    </span>
+                  </div>
+                )}
+                </div>
+              )}
 
             <Image
               src={model.image}
@@ -395,22 +441,25 @@ export default function ProductCard({
             </h3>
           </Link>
 
-          <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0.5">
-            <span className="text-[10.5px] font-black uppercase tracking-[0.05em] text-black sm:text-[11.5px] md:text-xs">
-              RS. {money(model.price)}
-            </span>
-
-            {showCompare && (
-              <span className="text-[8.5px] font-bold uppercase tracking-[0.04em] text-black/35 line-through sm:text-[9.5px] md:text-[10px]">
-                RS. {money(model.compareAt)}
+          <div className="mt-1 space-y-1">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0.5">
+              <span className="text-[10.5px] font-black uppercase tracking-[0.05em] text-black sm:text-[11.5px] md:text-xs">
+                RS. {money(model.price)}
               </span>
-            )}
 
-            {discount > 0 && (
-              <span className="text-[8px] font-black uppercase tracking-[0.05em] text-black/45 sm:text-[9px]">
-                {discount}% OFF
-              </span>
-            )}
+              {showCompare && (
+                <span className="text-[8.5px] font-bold uppercase tracking-[0.04em] text-black/35 line-through sm:text-[9.5px] md:text-[10px]">
+                  RS. {money(model.compareAt)}
+                </span>
+              )}
+
+              {discount > 0 && (
+                <span className="text-[8px] font-black uppercase tracking-[0.05em] text-black/45 sm:text-[9px]">
+                  {discount}% OFF
+                </span>
+              )}
+            </div>
+
           </div>
 
           <button
@@ -443,7 +492,7 @@ export default function ProductCard({
 
 function Badge({ label }) {
   return (
-    <span className="inline-flex bg-white/85 px-2 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-black backdrop-blur">
+    <span className="inline-flex bg-white/80 px-2 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-sm backdrop-blur-sm">
       {label.toUpperCase()}
     </span>
   );

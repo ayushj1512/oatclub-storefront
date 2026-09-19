@@ -14,70 +14,252 @@ let reqId = 0;
 
 /* ---------------- helpers ---------------- */
 const normalize = (p) => {
-  const id = p?._id ? String(p._id) : "";
-  const images = Array.isArray(p?.images) ? p.images : [];
-  const thumb = p?.thumbnail || images[0] || "/placeholder.png";
+  const id = p?._id
+    ? String(p._id)
+    : p?.id
+      ? String(p.id)
+      : "";
+
+  const images = Array.isArray(
+    p?.images,
+  )
+    ? p.images
+    : [];
+
+  const thumbnail =
+    p?.thumbnail ||
+    p?.image ||
+    images[0] ||
+    "/placeholder.png";
+
+  const price = Number(
+    p?.price || 0,
+  );
+
+  /* ---------------- price history ---------------- */
+
+  const priceLogs = Array.isArray(
+    p?.priceLogs,
+  )
+    ? p.priceLogs
+    : [];
+
+  const latestPriceLog =
+    p?.latestPriceLog ||
+    (
+      priceLogs.length > 0
+        ? priceLogs[
+        priceLogs.length - 1
+        ]
+        : null
+    );
+
+  const previousPrice = Number(
+    latestPriceLog?.oldPrice,
+  );
+
+  const latestNewPrice = Number(
+    latestPriceLog?.newPrice,
+  );
+
+  const calculatedPriceDrop =
+    Number.isFinite(
+      previousPrice,
+    ) &&
+      Number.isFinite(
+        latestNewPrice,
+      ) &&
+      previousPrice >
+      latestNewPrice &&
+      latestNewPrice === price
+      ? previousPrice -
+      latestNewPrice
+      : 0;
+
+  const priceDroppedBy = Number(
+    p?.priceDroppedBy ??
+    calculatedPriceDrop,
+  );
+
+  const priceDropPercentage =
+    Number(
+      p?.priceDropPercentage,
+    ) > 0
+      ? Number(
+        p.priceDropPercentage,
+      )
+      : priceDroppedBy > 0 &&
+        previousPrice > 0
+        ? Math.round(
+          (
+            priceDroppedBy /
+            previousPrice
+          ) *
+          100,
+        )
+        : 0;
 
   return {
     id,
     productId: id,
-    productCode: p?.productCode || "",
+    productCode:
+      p?.productCode || "",
 
     productType:
       p?.productType ||
-      (Array.isArray(p?.variants) && p.variants.length
-        ? "variable"
-        : "simple"),
+      (
+        Array.isArray(
+          p?.variants,
+        ) &&
+          p.variants.length
+          ? "variable"
+          : "simple"
+      ),
 
-    name: p?.name || p?.title || "",
+    name:
+      p?.name ||
+      p?.title ||
+      "",
+
+    title:
+      p?.title ||
+      p?.name ||
+      "",
+
     slug: p?.slug || "",
 
-    price: Number(p?.price || 0),
-    compareAtPrice: p?.compareAtPrice ?? null,
-    currency: p?.currency || "INR",
-    description: p?.shortDescription || p?.description || "",
+    price,
 
-    category: p?.category?.slug || "uncategorized",
-    categoryId: p?.category?._id
-      ? String(p.category._id)
-      : null,
+    compareAtPrice:
+      p?.compareAtPrice ?? null,
 
-    subcategoryId: p?.subcategory?._id
-      ? String(p.subcategory._id)
-      : null,
+    currency:
+      p?.currency || "INR",
 
-    image: thumb,
-    thumbnail: thumb,
+    /* Price-drop data for ProductCard */
+    priceLogs,
+    latestPriceLog,
+    previousPrice:
+      priceDroppedBy > 0
+        ? previousPrice
+        : null,
+    priceDroppedBy,
+    priceDropPercentage,
+    hasPriceDrop:
+      priceDroppedBy > 0,
+
+    description:
+      p?.shortDescription ||
+      p?.description ||
+      "",
+
+    category:
+      p?.category?.slug ||
+      p?.categorySlug ||
+      "uncategorized",
+
+    categoryId:
+      p?.category?._id
+        ? String(
+          p.category._id,
+        )
+        : null,
+
+    subcategoryId:
+      p?.subcategory?._id
+        ? String(
+          p.subcategory._id,
+        )
+        : null,
+
+    categories: Array.isArray(
+      p?.categories,
+    )
+      ? p.categories
+      : [],
+
+    image: thumbnail,
+    thumbnail,
+    hoverImage:
+      p?.hoverImage ||
+      images[1] ||
+      null,
     images,
 
-    variants: Array.isArray(p?.variants) ? p.variants : [],
+    variants: Array.isArray(
+      p?.variants,
+    )
+      ? p.variants
+      : [],
 
-    // ✅ inventory passthrough
-    stock: Number(p?.stock ?? 0),
-    reservedStock: Number(p?.reservedStock ?? 0),
+    attributes: Array.isArray(
+      p?.attributes,
+    )
+      ? p.attributes
+      : [],
+
+    stock: Number(
+      p?.stock ?? 0,
+    ),
+
+    reservedStock: Number(
+      p?.reservedStock ?? 0,
+    ),
 
     availableStock: Number(
       p?.availableStock ??
       Math.max(
         0,
-        Number(p?.stock ?? 0) -
-        Number(p?.reservedStock ?? 0),
+        Number(
+          p?.stock ?? 0,
+        ) -
+        Number(
+          p?.reservedStock ??
+          0,
+        ),
       ),
     ),
 
-    isInStock: Boolean(p?.isInStock),
+    isInStock: Boolean(
+      p?.isInStock,
+    ),
 
-    // ✅ storefront product flags
-    isBestSeller: Boolean(p?.isBestSeller),
-    isTrending: Boolean(p?.isTrending),
-    isFeatured: Boolean(p?.isFeatured),
-    isDispatchReady: Boolean(p?.isDispatchReady),
-    isPrimaryProduct: Boolean(p?.isPrimaryProduct),
-    availableForCollab: Boolean(p?.availableForCollab),
+    isBestSeller: Boolean(
+      p?.isBestSeller,
+    ),
 
-    tags: Array.isArray(p?.tags) ? p.tags : [],
-    dateCreated: p?.createdAt || null,
-    dateUpdated: p?.updatedAt || null,
+    isTrending: Boolean(
+      p?.isTrending,
+    ),
+
+    isFeatured: Boolean(
+      p?.isFeatured,
+    ),
+
+    isDispatchReady: Boolean(
+      p?.isDispatchReady,
+    ),
+
+    isPrimaryProduct: Boolean(
+      p?.isPrimaryProduct,
+    ),
+
+    availableForCollab: Boolean(
+      p?.availableForCollab,
+    ),
+
+    tags: Array.isArray(p?.tags)
+      ? p.tags
+      : [],
+
+    dateCreated:
+      p?.createdAt || null,
+
+    dateUpdated:
+      p?.updatedAt || null,
+
+    productLink:
+      p?.productLink || "",
 
     source: "backend",
     raw: p,
