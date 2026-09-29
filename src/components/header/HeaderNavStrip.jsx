@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { Gift } from "lucide-react";
 import { useCategoryStore } from "@/store/categoryStore";
 
 const STATIC_LINKS = [
@@ -69,15 +70,39 @@ export default function HeaderNavStrip({ variant = "desktop" }) {
 
   const mobile = variant === "mobile";
 
+  const openBirthdayModal = () => {
+    window.dispatchEvent(new Event("open-bday-wish-modal"));
+  };
+
   return (
     <nav
       aria-label="Primary categories"
       className={
         mobile
-          ? "no-scrollbar flex w-full items-center gap-3 overflow-x-auto border-t border-black/10 px-2 py-1.5"
+          ? "no-scrollbar flex w-full items-center gap-3 overflow-x-auto border-t border-black/10 px-2 py-2"
           : "flex w-full items-center justify-center gap-7 border-t border-black/10 px-8 py-2 lg:gap-10"
       }
     >
+      <button
+        type="button"
+        onClick={openBirthdayModal}
+        aria-label="Wish our boss a happy birthday"
+        className="group relative flex shrink-0 items-center gap-1 overflow-hidden rounded-full border border-pink-300 bg-gradient-to-r from-[#ffe8f2] via-[#ffd1e5] to-[#ffe8f2] px-2.5 py-[5px] text-[8px] font-black uppercase tracking-[0.03em] text-[#a91f5e] shadow-[0_2px_8px_rgba(225,76,139,0.18)] transition hover:shadow-[0_4px_14px_rgba(225,76,139,0.3)] active:scale-95 md:gap-1.5 md:px-3 md:py-1.5 md:text-[10px]"
+      >
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 animate-pulse bg-white/20 motion-reduce:animate-none"
+        />
+
+        <Gift
+          size={12}
+          strokeWidth={2.5}
+          className="relative shrink-0 text-[#d6337b] transition group-hover:rotate-12 md:h-[14px] md:w-[14px]"
+        />
+
+        <span className="relative whitespace-nowrap">WISH OUR BOSS</span>
+      </button>
+
       {links.map((item) => {
         const active =
           pathname === item.href ||

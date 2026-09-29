@@ -17,7 +17,7 @@ import { pushEcomEvent } from "@/components/tracking/gtm";
 import { mapItem } from "@/components/tracking/ga4Mapper";
 
 const LOGO_URL =
-  "https://res.cloudinary.com/dpsvrt4sd/image/upload/v1781123545/bd7ip3bphemzjoul4ixp.webp";
+  "https://res.cloudinary.com/znyqjoop/image/upload/v1789491896/oatclub/media/urpi4v6d53jyn2e5hlfi.png";
 
 const ga4CartItem = (it) =>
   mapItem(
