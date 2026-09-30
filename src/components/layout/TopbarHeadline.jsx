@@ -1,69 +1,69 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Heart, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+
+const items = [
+  "IT'S OUR FOUNDER'S BIRTHDAY SALE! 🎀",
+  "WISH OUR FOUNDER & GET 20% OFF 💌",
+  "BIRTHDAY TREATS ARE LIVE TILL 4 OCTOBER ✨",
+];
 
 export default function TopbarHeadline({ interval = 3200 }) {
-  const items = useMemo(
-    () => [
-      "CURATED DROPS. LIMITED RUNS. EVERYDAY LUXE.",
-      "FIRST ORDER PRIVILEGE: 10% OFF WITH FIRST10",
-      "BUY 2 & GET RS. 300 OFF — USE BUY2GET300",
-      "BUY 3 & GET RS. 500 OFF — USE BUY3GET500",
-      "QUALITY CHECKED PIECES, PACKED WITH CARE",
-      "MADE WITH CARE — KINDLY ALLOW UP TO 14 DAYS FOR DISPATCH",
-    ],
-    []
-  );
-
   const [active, setActive] = useState(0);
 
   useEffect(() => {
-    if (items.length < 2) return;
     const timer = setInterval(
       () => setActive((current) => (current + 1) % items.length),
       interval
     );
+
     return () => clearInterval(timer);
-  }, [items.length, interval]);
+  }, [interval]);
 
   return (
-    <div className="relative w-full overflow-hidden border-b border-white/10 bg-black text-white">
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-black to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-black to-transparent" />
+    <div className="relative w-full overflow-hidden border-b border-white/10 bg-black text-pink-300">
+      <div className="pointer-events-none absolute -left-8 top-0 h-16 w-16 rounded-full bg-pink-500/10 blur-xl" />
+      <div className="pointer-events-none absolute -right-8 top-0 h-16 w-16 rounded-full bg-pink-500/10 blur-xl" />
 
-      <div className="relative flex h-8 items-center justify-center gap-3 px-3 md:h-9">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="h-px w-4 bg-white/30 md:w-6" />
-          <span
-            key={active}
-            className="topbar-copy max-w-[76vw] truncate text-center text-[9px] font-black uppercase tracking-[0.18em] md:max-w-none md:text-[10px] md:tracking-[0.24em]"
-          >
-            {items[active]}
-          </span>
-          <ArrowRight className="h-3 w-3 shrink-0 text-white/60" />
-        </div>
+      <div className="relative flex h-9 items-center justify-center gap-2 px-3 md:h-10">
+        <Heart className="h-3 w-3 shrink-0 fill-pink-400 text-pink-400" />
+
+        <span
+          key={active}
+          className="topbar-copy max-w-[78vw] truncate text-center text-[10px] font-bold uppercase tracking-[0.09em] sm:text-[11px] md:max-w-none md:tracking-[0.16em]"
+        >
+          {items[active]}
+        </span>
+
+        <Sparkles className="h-3 w-3 shrink-0 text-pink-400" />
       </div>
 
-      <span key={`bar-${active}`} className="topbar-progress absolute bottom-0 left-0 h-px bg-white" />
+      <span
+        key={`bar-${active}`}
+        className="topbar-progress absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-pink-300 via-fuchsia-500 to-rose-400"
+        style={{ animationDuration: `${interval}ms` }}
+      />
 
       <style jsx>{`
         .topbar-copy {
-          animation: topbar-copy 360ms ease both;
+          animation: topbar-copy 400ms ease both;
         }
 
         .topbar-progress {
-          animation: topbar-progress ${interval}ms linear both;
+          animation-name: topbar-progress;
+          animation-timing-function: linear;
+          animation-fill-mode: both;
         }
 
         @keyframes topbar-copy {
           from {
             opacity: 0;
-            transform: translateY(6px);
+            transform: translateY(6px) scale(0.97);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
           }
         }
 
@@ -73,6 +73,13 @@ export default function TopbarHeadline({ interval = 3200 }) {
           }
           to {
             width: 100%;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .topbar-copy,
+          .topbar-progress {
+            animation: none;
           }
         }
       `}</style>
