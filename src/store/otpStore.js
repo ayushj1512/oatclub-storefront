@@ -14,6 +14,43 @@ const API_URL =
 const normalizeEmail = (email = "") =>
   String(email).trim().toLowerCase();
 
+const normalizePhone = (value = "") => {
+  let phone = String(value || "").replace(
+    /\D/g,
+    "",
+  );
+
+  if (
+    phone.startsWith("91") &&
+    phone.length === 12
+  ) {
+    phone = phone.slice(2);
+  }
+
+  if (
+    phone.startsWith("0") &&
+    phone.length === 11
+  ) {
+    phone = phone.slice(1);
+  }
+
+  if (!/^[6-9]\d{9}$/.test(phone)) {
+    throw new Error(
+      "Enter a valid 10-digit Indian phone number",
+    );
+  }
+
+  return phone;
+};
+
+const getOtpEndpoint = (
+  action,
+  channel = "email",
+) =>
+  channel === "whatsapp"
+    ? `/api/otp/whatsapp/${action}`
+    : `/api/otp/${action}`;
+
 const parseResponse = async (response) => {
   const raw = await response.text();
 
@@ -58,6 +95,8 @@ const request = async (endpoint, options = {}) => {
 
 const initialState = {
   email: "",
+  phone: "",
+  channel: "email",
   purpose: "",
   customerExists: null,
 
@@ -138,6 +177,65 @@ export const useOtpStore = create((set, get) => ({
   },
 
   /* =======================================================
+   LOOKUP CUSTOMER BY PHONE
+======================================================= */
+
+  lookupPhone: async (phone) => {
+    const normalizedPhone =
+      normalizePhone(phone);
+
+    set({
+      lookingUp: true,
+      phone: normalizedPhone,
+      channel: "whatsapp",
+      error: "",
+    });
+
+    try {
+      const response = await request(
+        "/api/customers/auth/phone-lookup",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            phone: normalizedPhone,
+          }),
+        },
+      );
+
+      const exists = Boolean(
+        response?.exists,
+      );
+
+      const purpose = exists
+        ? "login"
+        : "signup";
+
+      set({
+        phone: normalizedPhone,
+        customerExists: exists,
+        purpose,
+      });
+
+      return {
+        exists,
+        purpose,
+      };
+    } catch (error) {
+      set({
+        customerExists: null,
+        purpose: "",
+        error: error.message,
+      });
+
+      throw error;
+    } finally {
+      set({
+        lookingUp: false,
+      });
+    }
+  },
+
+  /* =======================================================
      LOOKUP EMAIL + SEND OTP
   ======================================================= */
   startEmailOtp: async ({
@@ -145,7 +243,8 @@ export const useOtpStore = create((set, get) => ({
     name = "",
     metadata = {},
   }) => {
-    const normalizedEmail = normalizeEmail(email);
+    const normalizedEmail =
+      normalizeEmail(email);
 
     if (!normalizedEmail) {
       throw new Error("Email is required");
@@ -154,40 +253,145 @@ export const useOtpStore = create((set, get) => ({
     set({
       sending: true,
       verified: false,
+      channel: "email",
+      email: normalizedEmail,
       error: "",
     });
 
     try {
       const { exists, purpose } =
-        await get().lookupEmail(normalizedEmail);
+        await get().lookupEmail(
+          normalizedEmail,
+        );
 
-      const response = await request("/api/otp/send", {
-        method: "POST",
-        body: JSON.stringify({
-          identifier: normalizedEmail,
-          channel: "email",
-          purpose,
-          name: String(name || "").trim(),
-          metadata: {
-            ...metadata,
-            customerExists: exists,
-          },
-        }),
-      });
+      const response = await request(
+        getOtpEndpoint("send", "email"),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            identifier: normalizedEmail,
+            channel: "email",
+            purpose,
+            name: String(
+              name || "",
+            ).trim(),
+            metadata: {
+              ...metadata,
+              source: "storefront",
+              customerExists: exists,
+            },
+          }),
+        },
+      );
 
       const responseData =
         response?.data || response || {};
 
       set({
         email: normalizedEmail,
+        phone: "",
+        channel: "email",
         purpose,
         customerExists: exists,
 
         otpSession: {
           ...responseData,
           identifier: normalizedEmail,
+          channel: "email",
           purpose,
-          name: String(name || "").trim(),
+          name: String(
+            name || "",
+          ).trim(),
+        },
+      });
+
+      return {
+        ...response,
+        exists,
+        purpose,
+      };
+    } catch (error) {
+      set({
+        error: error.message,
+      });
+
+      throw error;
+    } finally {
+      set({
+        sending: false,
+        lookingUp: false,
+      });
+    }
+  },
+
+  /* =======================================================
+   LOOKUP PHONE + SEND WHATSAPP OTP
+======================================================= */
+
+  startWhatsappOtp: async ({
+    phone,
+    name = "",
+    metadata = {},
+  }) => {
+    const normalizedPhone =
+      normalizePhone(phone);
+
+    set({
+      sending: true,
+      verified: false,
+      channel: "whatsapp",
+      phone: normalizedPhone,
+      error: "",
+    });
+
+    try {
+      const { exists, purpose } =
+        await get().lookupPhone(
+          normalizedPhone,
+        );
+
+      const response = await request(
+        getOtpEndpoint(
+          "send",
+          "whatsapp",
+        ),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            identifier: normalizedPhone,
+            channel: "whatsapp",
+            purpose,
+            name: String(
+              name || "",
+            ).trim(),
+            metadata: {
+              ...metadata,
+              source: "storefront",
+              customerExists: exists,
+            },
+          }),
+        },
+      );
+
+      const responseData =
+        response?.data ||
+        response ||
+        {};
+
+      set({
+        phone: normalizedPhone,
+        channel: "whatsapp",
+        purpose,
+        customerExists: exists,
+
+        otpSession: {
+          ...responseData,
+          identifier: normalizedPhone,
+          channel: "whatsapp",
+          purpose,
+          name: String(
+            name || "",
+          ).trim(),
         },
       });
 
@@ -277,9 +481,17 @@ export const useOtpStore = create((set, get) => ({
   resendOtp: async (metadata = {}) => {
     const session = get().otpSession;
 
-    if (!session?.identifier || !session?.purpose) {
-      throw new Error("OTP session not found");
+    if (
+      !session?.identifier ||
+      !session?.purpose
+    ) {
+      throw new Error(
+        "OTP session not found",
+      );
     }
+
+    const channel =
+      session.channel || "email";
 
     set({
       sending: true,
@@ -288,24 +500,39 @@ export const useOtpStore = create((set, get) => ({
     });
 
     try {
-      const response = await request("/api/otp/resend", {
-        method: "POST",
-        body: JSON.stringify({
-          identifier: session.identifier,
-          channel: "email",
-          purpose: session.purpose,
-          name: session.name || "",
-          referenceId: session.referenceId || undefined,
-          metadata,
-        }),
-      });
+      const response = await request(
+        getOtpEndpoint("resend", channel),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            identifier:
+              session.identifier,
+            channel,
+            purpose: session.purpose,
+            name: session.name || "",
+            metadata: {
+              ...metadata,
+              source: "storefront",
+              action: "resend",
+            },
+          }),
+        },
+      );
+
+      const responseData =
+        response?.data || response || {};
 
       set({
+        channel,
+
         otpSession: {
           ...session,
-          ...(response?.data || response || {}),
-          identifier: session.identifier,
+          ...responseData,
+          identifier:
+            session.identifier,
+          channel,
           purpose: session.purpose,
+          name: session.name || "",
         },
       });
 
@@ -329,17 +556,29 @@ export const useOtpStore = create((set, get) => ({
   verifyOtp: async (otp) => {
     const session = get().otpSession;
 
-    if (!session?.identifier || !session?.purpose) {
-      throw new Error("OTP session not found");
+    if (
+      !session?.identifier ||
+      !session?.purpose
+    ) {
+      throw new Error(
+        "OTP session not found",
+      );
     }
 
-    const normalizedOtp = String(otp || "")
+    const normalizedOtp = String(
+      otp || "",
+    )
       .replace(/\D/g, "")
       .slice(0, 6);
 
     if (normalizedOtp.length !== 6) {
-      throw new Error("Enter a valid 6-digit OTP");
+      throw new Error(
+        "Enter a valid 6-digit OTP",
+      );
     }
+
+    const channel =
+      session.channel || "email";
 
     set({
       verifying: true,
@@ -348,17 +587,22 @@ export const useOtpStore = create((set, get) => ({
     });
 
     try {
-      const response = await request("/api/otp/verify", {
-        method: "POST",
-        body: JSON.stringify({
-          identifier: session.identifier,
-          channel: "email",
-          purpose: session.purpose,
-          otp: normalizedOtp,
-          referenceId:
-            session.referenceId || undefined,
-        }),
-      });
+      const response = await request(
+        getOtpEndpoint("verify", channel),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            identifier:
+              session.identifier,
+            channel,
+            purpose: session.purpose,
+            otp: normalizedOtp,
+            referenceId:
+              session.referenceId ||
+              undefined,
+          }),
+        },
+      );
 
       const responseData =
         response?.data || response || {};
@@ -387,12 +631,16 @@ export const useOtpStore = create((set, get) => ({
             token,
             customer,
             purpose: session.purpose,
+            channel,
           });
 
       set({
         verified: true,
+        channel,
+
         otpSession: {
           ...session,
+          channel,
           verifiedAt:
             responseData?.verifiedAt ||
             new Date().toISOString(),
