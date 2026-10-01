@@ -1,32 +1,74 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Gift, Heart, Sparkles, X } from "lucide-react";
 import useBdayStore from "@/store/bdaystore";
 
 const COUPON_CODE = "BOSSBDAY20";
 
+const normalizePhone = (value) => {
+  const digits = String(value ?? "").replace(/[\s()+-]/g, "");
+
+  if (/^91[6-9]\d{9}$/.test(digits)) return digits.slice(2);
+  if (/^0[6-9]\d{9}$/.test(digits)) return digits.slice(1);
+
+  return digits;
+};
+
+const inputClassName =
+  "h-12 w-full rounded-2xl border border-pink-100 bg-[#fff0f6] px-4 text-base text-[#571b38] outline-none transition placeholder:text-[#b9859f] focus:border-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-200 sm:text-sm";
+
+const labelClassName =
+  "mb-2 block text-[11px] font-bold uppercase tracking-[0.14em] text-[#8b3a61]";
+
 export default function BdayWishModal() {
-  const { createWish, loading } = useBdayStore();
+  const createWish = useBdayStore((state) => state.createWish);
+  const loading = useBdayStore((state) => state.loading);
 
   const [open, setOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ name: "", message: "" });
+  const [couponCode, setCouponCode] = useState(COUPON_CODE);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    message: "",
+  });
+
+  const copyTimerRef = useRef(null);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
+    let timer;
+
     const handleOpenBdayModal = () => {
+      if (timer) window.clearTimeout(timer);
+      if (copyTimerRef.current) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+
       setSubmitted(false);
       setCopied(false);
       setError("");
       setOpen(true);
     };
 
-    window.addEventListener("open-bday-wish-modal", handleOpenBdayModal);
+    window.addEventListener(
+      "open-bday-wish-modal",
+      handleOpenBdayModal
+    );
 
-    const dismissed = sessionStorage.getItem("bday-wish-dismissed");
-    let timer;
+    let dismissed = false;
+
+    try {
+      dismissed = Boolean(
+        sessionStorage.getItem("bday-wish-dismissed")
+      );
+    } catch {
+      // The modal still works when session storage is unavailable.
+    }
 
     if (!dismissed) {
       timer = window.setTimeout(() => setOpen(true), 1200);
@@ -34,7 +76,14 @@ export default function BdayWishModal() {
 
     return () => {
       if (timer) window.clearTimeout(timer);
-      window.removeEventListener("open-bday-wish-modal", handleOpenBdayModal);
+      if (copyTimerRef.current) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+
+      window.removeEventListener(
+        "open-bday-wish-modal",
+        handleOpenBdayModal
+      );
     };
   }, []);
 
@@ -50,35 +99,89 @@ export default function BdayWishModal() {
   }, [open]);
 
   const closeModal = () => {
-    sessionStorage.setItem("bday-wish-dismissed", "true");
+    try {
+      sessionStorage.setItem("bday-wish-dismissed", "true");
+    } catch {
+      // Closing does not depend on session storage.
+    }
+
     setOpen(false);
+  };
+
+  const updateField = (event) => {
+    const { name, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+
+    setError("");
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (loading || submittingRef.current) return;
+
     setError("");
 
     const name = form.name.trim();
+    const email = form.email.trim().toLowerCase();
+    const phone = normalizePhone(form.phone);
     const message = form.message.trim();
 
-    if (!name || !message) {
-      setError("Please enter your name and a birthday wish.");
+    if (!name || !email || !phone || !message) {
+      setError(
+        "Please enter your name, email, phone number and birthday wish."
+      );
       return;
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      setError("Please enter a valid 10-digit Indian phone number.");
+      return;
+    }
+
+    submittingRef.current = true;
+
     try {
-      await createWish({ name, message });
+      const data = await createWish({
+        name,
+        email,
+        phone,
+        message,
+      });
+
+      setCouponCode(data?.couponCode || COUPON_CODE);
       setSubmitted(true);
     } catch (err) {
       setError(err?.message || "Unable to submit your wish.");
+    } finally {
+      submittingRef.current = false;
     }
   };
 
   const copyCoupon = async () => {
+    setError("");
+
     try {
-      await navigator.clipboard.writeText(COUPON_CODE);
+      await navigator.clipboard.writeText(couponCode);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+
+      if (copyTimerRef.current) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+
+      copyTimerRef.current = window.setTimeout(
+        () => setCopied(false),
+        2000
+      );
     } catch {
       setError("Please copy the coupon code manually.");
     }
@@ -113,11 +216,13 @@ export default function BdayWishModal() {
                 size={22}
                 className="absolute left-7 top-8 text-white"
               />
+
               <Heart
                 size={18}
                 fill="currentColor"
                 className="absolute bottom-8 right-8 rotate-12 text-[#ffe3ee]"
               />
+
               <Sparkles
                 size={14}
                 className="absolute right-14 top-24 text-[#fff2f8]"
@@ -136,59 +241,116 @@ export default function BdayWishModal() {
               </h2>
 
               <p className="relative mx-auto mt-3 max-w-xs text-sm leading-6 text-[#702047]">
-                Send a sweet birthday wish and unlock a little gift from us:
-                20% off your order!
+                Send a sweet birthday wish and unlock a little gift
+                from us: 20% off your order!
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 px-5 py-6 sm:px-7">
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-4 px-5 py-6 sm:px-7"
+            >
               <div>
-                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.14em] text-[#8b3a61]">
+                <label
+                  htmlFor="bday-name"
+                  className={labelClassName}
+                >
                   Your name
                 </label>
+
                 <input
+                  id="bday-name"
+                  name="name"
                   type="text"
+                  required
                   maxLength={80}
                   autoComplete="name"
                   value={form.name}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      name: event.target.value,
-                    }))
-                  }
+                  onChange={updateField}
                   placeholder="What should we call you?"
-                  className="h-12 w-full rounded-2xl border border-pink-100 bg-[#fff0f6] px-4 text-sm text-[#571b38] outline-none transition placeholder:text-[#b9859f] focus:border-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-200"
+                  className={inputClassName}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="bday-email"
+                  className={labelClassName}
+                >
+                  Email address
+                </label>
+
+                <input
+                  id="bday-email"
+                  name="email"
+                  type="email"
+                  required
+                  maxLength={254}
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  value={form.email}
+                  onChange={updateField}
+                  placeholder="you@example.com"
+                  className={inputClassName}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="bday-phone"
+                  className={labelClassName}
+                >
+                  Phone number
+                </label>
+
+                <input
+                  id="bday-phone"
+                  name="phone"
+                  type="tel"
+                  inputMode="tel"
+                  required
+                  maxLength={20}
+                  autoComplete="tel"
+                  value={form.phone}
+                  onChange={updateField}
+                  placeholder="Your 10-digit mobile number"
+                  className={inputClassName}
                 />
               </div>
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#8b3a61]">
+                  <label
+                    htmlFor="bday-message"
+                    className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#8b3a61]"
+                  >
                     Birthday message
                   </label>
+
                   <span className="text-[10px] text-[#b9859f]">
                     {form.message.length}/500
                   </span>
                 </div>
 
                 <textarea
+                  id="bday-message"
+                  name="message"
                   rows={4}
+                  required
                   maxLength={500}
                   value={form.message}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      message: event.target.value,
-                    }))
-                  }
+                  onChange={updateField}
                   placeholder="Write a sweet birthday wish..."
-                  className="w-full resize-none rounded-2xl border border-pink-100 bg-[#fff0f6] px-4 py-3 text-sm leading-6 text-[#571b38] outline-none transition placeholder:text-[#b9859f] focus:border-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-200"
+                  className="w-full resize-none rounded-2xl border border-pink-100 bg-[#fff0f6] px-4 py-3 text-base leading-6 text-[#571b38] outline-none transition placeholder:text-[#b9859f] focus:border-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-200 sm:text-sm"
                 />
               </div>
 
               {error && (
-                <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">
+                <p
+                  role="alert"
+                  className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600"
+                >
                   {error}
                 </p>
               )}
@@ -212,7 +374,8 @@ export default function BdayWishModal() {
               </button>
 
               <p className="text-center text-[11px] leading-5 text-[#aa7892]">
-                Your special 20% off coupon unlocks after you send your wish.
+                Your special 20% off coupon unlocks after you send
+                your wish.
               </p>
             </form>
           </>
@@ -224,11 +387,13 @@ export default function BdayWishModal() {
               size={22}
               className="absolute left-7 top-8 text-[#e45a96]"
             />
+
             <Heart
               size={18}
               fill="currentColor"
               className="absolute right-8 top-12 rotate-12 text-[#f498bc]"
             />
+
             <Sparkles
               size={16}
               className="absolute right-14 top-28 text-[#c875ab]"
@@ -248,7 +413,7 @@ export default function BdayWishModal() {
 
             <p className="relative mx-auto mt-3 max-w-xs text-sm leading-6 text-[#94627c]">
               Thank you,{" "}
-              <span className="font-bold text-[#75264d]">
+              <span className="break-words font-bold text-[#75264d]">
                 {form.name.trim()}
               </span>
               ! Your lovely birthday wish has been sent.
@@ -261,7 +426,7 @@ export default function BdayWishModal() {
                 </p>
 
                 <p className="mt-2 break-all text-2xl font-black tracking-[0.1em] text-[#c63573] sm:text-[28px]">
-                  {COUPON_CODE}
+                  {couponCode}
                 </p>
 
                 <button
@@ -292,7 +457,9 @@ export default function BdayWishModal() {
             </p>
 
             {error && (
-              <p className="mt-3 text-xs text-red-600">{error}</p>
+              <p role="alert" className="mt-3 text-xs text-red-600">
+                {error}
+              </p>
             )}
 
             <button
