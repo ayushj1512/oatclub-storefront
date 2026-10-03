@@ -168,7 +168,7 @@ export default function PaymentOptions({
   setWalletAmount,
 
   walletBalance = 0,
-
+  walletBaseAmount = 0,
   coupon,
   discount,
 
@@ -182,52 +182,36 @@ export default function PaymentOptions({
   prepaidOnly = false,
 
 }) {
-  const validationError = validate?.() || null;
 
 
-  const safeWalletBalance = Math.max(
-    0,
-    toNumber(
-      walletBalance ||
-      customer?.credits?.balance ||
-      0
-    )
-  );
-
-  const safePayable = Math.max(
-    0,
-    toNumber(payable)
-  );
-
-  const appliedWalletAmount = Math.max(
-    0,
-    toNumber(walletAmount)
-  );
+  const safeWalletBalance = Math.max(0, toNumber(walletBalance));
+  const safePayable = Math.max(0, toNumber(payable));
+  const appliedWalletAmount = Math.max(0, toNumber(walletAmount));
 
   const finalPayable = safePayable;
   const hasWalletBalance = safeWalletBalance > 0;
-
-
   const COD_FEE = 59;
 
-  const isRazorpay = selectedPayment === "razorpay";
-  const isPartialCOD = selectedPayment === "partial_cod";
-  const isCOD = selectedPayment === "cod";
   const isFullyPaidByWallet = finalPayable <= 0;
 
+  const effectivePaymentMethod = isFullyPaidByWallet
+    ? "wallet"
+    : selectedPayment;
+  const isRazorpay = effectivePaymentMethod === "razorpay";
+  const isPartialCOD = effectivePaymentMethod === "partial_cod";
+  const isCOD = effectivePaymentMethod === "cod";
+
+  const validationError =
+    validate?.(effectivePaymentMethod) || null;
+
   const partialAmount = Math.round(finalPayable * 0.1);
-  const remainingCOD = Math.max(
-    0,
-    finalPayable - partialAmount
-  );
+  const remainingCOD = Math.max(0, finalPayable - partialAmount);
 
-  const displayPayable =
-    isCOD
-      ? finalPayable + COD_FEE
-      : finalPayable;
+  const displayPayable = isCOD
+    ? finalPayable + COD_FEE
+    : finalPayable;
 
-  const paymentLoading =
-    placing || razorpayLoading;
+  const paymentLoading = placing || razorpayLoading;
 
   const disabledCTA =
     paymentLoading ||
@@ -239,21 +223,13 @@ export default function PaymentOptions({
   ========================================================= */
 
   const updateWalletToggle = (checked) => {
-    if (
-      typeof setUseWallet !== "function" ||
-      typeof setWalletAmount !== "function"
-    ) {
-      return;
-    }
+    setUseWallet?.(checked);
 
-    setUseWallet(checked);
-
-    setWalletAmount(
+    setWalletAmount?.(
       checked
         ? Math.min(
           safeWalletBalance,
-          safePayable +
-          appliedWalletAmount
+          Math.max(0, toNumber(walletBaseAmount))
         )
         : 0
     );
@@ -264,8 +240,7 @@ export default function PaymentOptions({
   ========================================================= */
 
   const handlePlaceOrder = async () => {
-    const error = validate?.();
-
+    const error = validate?.(effectivePaymentMethod);
     if (error) {
       toast.error(error);
       return;

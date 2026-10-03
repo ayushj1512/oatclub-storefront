@@ -314,7 +314,7 @@ export default function OrderSummary({
                   <Line
                     label={
                       <span>
-                        Razorpay Offer <b>(10% extra)</b>
+                        Razorpay Offer <b>(5% extra)</b>
                       </span>
                     }
                     value={`− ₹${money(safeRazorpayExtra)}`}

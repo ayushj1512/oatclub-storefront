@@ -112,8 +112,8 @@ export default function CheckoutPage() {
     activeCustomer?.isBlacklisted === true;
 
   const walletBalance = Number(
-    creditSummary?.balance ||
-    activeCustomer?.credits?.balance ||
+    creditSummary?.balance ??
+    activeCustomer?.credits?.balance ??
     0
   );
   const [useWallet, setUseWallet] = useState(false);
@@ -218,11 +218,15 @@ export default function CheckoutPage() {
     if (!useWallet && selectedPayment !== "wallet") return 0;
 
     return Math.min(
-      Math.max(0, Number(walletAmount || 0)),
       Math.max(0, Number(walletBalance || 0)),
       Math.max(0, Number(payableAfterCoupon || 0))
     );
-  }, [useWallet, selectedPayment, walletAmount, walletBalance, payableAfterCoupon]);
+  }, [
+    useWallet,
+    selectedPayment,
+    walletBalance,
+    payableAfterCoupon,
+  ]);
 
   const payableAfterWallet = useMemo(() => {
     return Math.max(0, payableAfterCoupon - appliedWalletAmount);
@@ -1386,7 +1390,7 @@ export default function CheckoutPage() {
             razorpayExtraDiscount={razorpayExtraDiscount}
             useWallet={useWallet}
             setUseWallet={setUseWallet}
-            walletAmount={walletAmount}
+            walletAmount={appliedWalletAmount}
             setWalletAmount={setWalletAmount}
             walletBalance={walletBalance}
             payable={payable} showSummary={showSummary}
@@ -1411,7 +1415,9 @@ export default function CheckoutPage() {
             discount={discount}
             useWallet={useWallet}
             setUseWallet={setUseWallet}
-            walletAmount={walletAmount}
+            walletAmount={appliedWalletAmount}
+            walletBaseAmount={payableAfterCoupon}
+            prepaidOnly={prepaidOnly}
             setWalletAmount={setWalletAmount}
             walletBalance={walletBalance}
             placing={placing}
