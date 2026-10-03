@@ -236,26 +236,26 @@ export default function OrderActionPage() {
                 type="button"
                 onClick={handleConfirm}
                 disabled={actionLoading || submitting}
-                className="group mt-3 flex h-12 w-full items-center justify-between rounded-xl bg-green-600 px-3.5 text-left text-white transition hover:bg-green-700 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
+                className="group relative mt-3 flex h-12 w-full items-center justify-center rounded-xl bg-green-600 px-12 text-center text-white transition hover:bg-green-700 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="grid h-8 w-8 place-items-center rounded-full bg-white/10">
-                    {actionLoading || submitting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Check className="h-3.5 w-3.5" />
-                    )}
+                <span className="absolute left-3.5 grid h-8 w-8 place-items-center rounded-full bg-white/10">
+                  {actionLoading || submitting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                </span>
+
+                <span>
+                  <span className="block text-[13px] font-bold">
+                    Confirm my order
                   </span>
-                  <div>
-                    <p className="text-[13px] font-bold">
-                      Confirm my order
-                    </p>
-                    <p className="text-[9px] text-white/80 sm:text-[10px]">
-                      Yes, proceed with my order
-                    </p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                  <span className="block text-[9px] text-white/80 sm:text-[10px]">
+                    Yes, proceed with my order
+                  </span>
+                </span>
+
+                <ArrowRight className="absolute right-3.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
             </div>
             {/* PRODUCTS */}
@@ -305,6 +305,32 @@ export default function OrderActionPage() {
               <p className="mb-2 text-center text-[10px] text-neutral-400">
                 Need to cancel your order?
               </p>
+
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={actionLoading || submitting}
+                className="group relative mt-3 flex h-12 w-full items-center justify-center rounded-xl bg-green-600 px-12 text-center text-white transition hover:bg-green-700 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
+              >
+                <span className="absolute left-3.5 grid h-8 w-8 place-items-center rounded-full bg-white/10">
+                  {actionLoading || submitting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                </span>
+
+                <span>
+                  <span className="block text-[13px] font-bold">
+                    Confirm my order
+                  </span>
+                  <span className="block text-[9px] text-white/80 sm:text-[10px]">
+                    Yes, proceed with my order
+                  </span>
+                </span>
+
+                <ArrowRight className="absolute right-3.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </button>
 
               <button
                 type="button"
